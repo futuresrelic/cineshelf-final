@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Editor - CineShelf Admin</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #333;
+            --text-primary: #fff;
+            --text-secondary: #999;
+            --accent: #4a9eff;
+            --accent-hover: #6bb0ff;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --border: #444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid var(--accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+        }
+
+        .back-btn {
+            padding: 0.6rem 1.2rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .warning-box {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .warning-box strong {
+            color: var(--warning);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .config-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .config-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+            color: var(--accent);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        .form-group .help-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .form-group .danger-text {
+            color: var(--danger);
+        }
+
+        .tag-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            min-height: 45px;
+        }
+
+        .tag {
+            background: var(--accent);
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .tag button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tag button:hover {
+            opacity: 0.8;
+        }
+
+        .tag-input {
+            flex: 1;
+            min-width: 120px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            padding: 0.3rem;
+        }
+
+        .tag-input:focus {
+            outline: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background: var(--success);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        .readonly-note {
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚙️ Configuration Editor</h1>
+        <a href="index.html" class="back-btn">← Back to Admin</a>
+    </div>
+
+    <div class="container">
+        <div class="warning-box">
+            <strong>⚠️ Important:</strong>
+            This interface allows you to view current configuration. To change API keys or admin users,
+            you'll need to create a separate config.json file or use environment variables for security.
+            Currently displaying values from <code>config/config.php</code>.
+        </div>
+
+        <!-- App Configuration -->
+        <div class="config-section">
+            <h2>🎬 App Configuration</h2>
+
+            <div class="form-group">
+                <label>Default User</label>
+                <input type="text" id="defaultUser" value="default" readonly>
+                <div class="help-text">Default username for new sessions</div>
+            </div>
+
+            <div class="form-group">
+                <label>Timezone</label>
+                <input type="text" id="timezone" value="America/New_York" readonly>
+                <div class="help-text">Server timezone setting</div>
+            </div>
+        </div>
+
+        <!-- TMDB API Configuration -->
+        <div class="config-section">
+            <h2>🎥 TMDB API Configuration</h2>
+
+            <div class="form-group">
+                <label>TMDB API Key</label>
+                <input type="password" id="tmdbKey" value="••••••••••••••••" readonly>
+                <div class="help-text danger-text">
+                    For security, API keys should be stored in environment variables or a .env file
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>TMDB Base URL</label>
+                <input type="text" id="tmdbBaseUrl" value="https://api.themoviedb.org/3" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>TMDB Image Base URL</label>
+                <input type="text" id="tmdbImageBase" value="https://image.tmdb.org/t/p/w500" readonly>
+            </div>
+        </div>
+
+        <!-- Admin Users -->
+        <div class="config-section">
+            <h2>👥 Admin Users</h2>
+
+            <div class="form-group">
+                <label>Admin Usernames</label>
+                <div class="tag-input-container" id="adminTags">
+                    <span class="tag">admin <button onclick="alert('Use config.php to modify')">×</button></span>
+                    <span class="tag">klindakoil <button onclick="alert('Use config.php to modify')">×</button></span>
+                    <span class="tag">default <button onclick="alert('Use config.php to modify')">×</button></span>
+                </div>
+                <div class="help-text">
+                    Users with admin privileges. Modify in config/config.php
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Configuration -->
+        <div class="config-section">
+            <h2>🗄️ Database Configuration</h2>
+
+            <div class="form-group">
+                <label>Database Path</label>
+                <input type="text" id="dbPath" value="../data/cineshelf.sqlite" readonly>
+                <div class="help-text">SQLite database file location</div>
+            </div>
+
+            <div class="form-group">
+                <label>Data Directory</label>
+                <input type="text" id="dataDir" value="../data" readonly>
+                <div class="help-text">Directory for data storage</div>
+            </div>
+        </div>
+
+        <!-- Runtime Configuration -->
+        <div class="config-section">
+            <h2>🔧 Runtime Configuration</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                These settings control app behavior and can be made configurable in future updates.
+            </p>
+
+            <div class="form-group">
+                <label>PWA Update Check Interval</label>
+                <input type="text" value="On page load (2 seconds after)" readonly>
+                <div class="help-text">Currently hardcoded in pwa-register.js</div>
+            </div>
+
+            <div class="form-group">
+                <label>Toast Notification Duration</label>
+                <input type="text" value="3000ms" readonly>
+                <div class="help-text">Currently hardcoded in index.html</div>
+            </div>
+
+            <div class="form-group">
+                <label>Service Worker Version Strategy</label>
+                <input type="text" value="Dynamic (get-version.php → version.json → v2.1.0)" readonly>
+                <div class="help-text">
+                    ✓ Uses version.json dynamically with multi-level fallback
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Database Operation Delays</label>
+                <input type="text" value="250-300ms" readonly>
+                <div class="help-text">Rate limiting for external API calls</div>
+            </div>
+        </div>
+
+        <div class="readonly-note">
+            📝 <strong>Note:</strong> This is currently a read-only view. To implement editable configuration:
+            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                <li>Create a <code>config.json</code> file for user-editable settings</li>
+                <li>Move sensitive values (API keys) to environment variables</li>
+                <li>Add a backend endpoint to save configuration changes</li>
+                <li>Implement proper validation and error handling</li>
+            </ul>
+        </div>
+
+        <div class="btn-group">
+            <a href="index.html" class="btn btn-secondary">Back to Dashboard</a>
+            <button class="btn btn-secondary" onclick="location.reload()">Refresh View</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
+        // Load actual config values
+        async function loadConfig() {
+            try {
+                // In a future implementation, this would load from an API endpoint
+                // that reads the current config.php values
+                console.log('Config editor loaded');
+            } catch (error) {
+                showToast('Error loading configuration', 'error');
+            }
+        }
+
+        loadConfig();
+    </script>
+</body>
+</html>
