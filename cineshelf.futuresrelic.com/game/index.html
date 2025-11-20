@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pop the Movie Magic! 🎬</title>
+  <style>
+    * { margin:0; padding:0; box‐sizing: border-box; }
+    body, html { width:100%; height:100%; overflow:hidden; background:#0a0a0a; color:#fff; font-family:Arial, sans-serif; }
+    #gameContainer { position: relative; width:100%; height:100%; }
+    .bubble {
+      position:absolute;
+      border-radius:50%;
+      cursor:pointer;
+      transition:transform 0.2s ease-out;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:0.7em;
+      color:#fff;
+      text-shadow:0 0 2px #000;
+      overflow:hidden;
+    }
+    .bubble:active { transform: scale(1.4); }
+    #hud {
+      position:absolute; top:10px; left:10px; right:10px;
+      display:flex; justify-content: space-between; align-items:center;
+    }
+    #scoreBoard, #starsBoard, #timer {
+      font-size:24px;
+    }
+    #endScreen, #upgradeScreen, #leaderboardScreen, #enterNameScreen {
+      position:absolute; width:100%; height:100%; top:0; left:0;
+      display:none; background:rgba(0,0,0,0.9);
+      align-items:center; justify-content:center; flex-direction:column;
+      text-align:center; padding:20px;
+    }
+    #endScreen h1, #upgradeScreen h1, #leaderboardScreen h1, #enterNameScreen h1 {
+      font-size:48px; margin-bottom:20px;
+    }
+    #endScreen button, #upgradeScreen button, #leaderboardScreen button, #enterNameScreen button {
+      font-size:20px; padding:10px 20px; margin-top:20px; cursor:pointer;
+    }
+    #upgradeButtons {
+      display:flex; flex-wrap:wrap; justify-content:center; gap:20px; margin-top:20px;
+    }
+    .upgradeBtn {
+      background:#222; border:1px solid #555; color:#fff; padding:15px; width:200px; cursor:pointer;
+      transition: background 0.2s;
+    }
+    .upgradeBtn:hover { background:#333; }
+    .upgradeBtn.disabled { opacity:0.5; cursor:default; }
+    /* Movie‑theme visuals */
+    .disc { background: radial-gradient(circle at center, #ccc 0%, #999 60%, #666 100%); }
+    .popcorn { background: radial-gradient(circle at center, #ffecb3 0%, #f5d28b 60%, #e0b963 100%); }
+    .film { background: linear-gradient(#444 0%, #222 100%); border:2px solid #555; }
+    /* Leaderboard table */
+    #leaderboardTable { width:80%; max-width:400px; margin:auto; border-collapse: collapse; }
+    #leaderboardTable th, #leaderboardTable td { padding:10px; border:1px solid #555; }
+    #leaderboardTable th { background:#222; }
+    #leaderboardTable tr:nth-child(even) { background:#1a1a1a; }
+  </style>
+</head>
+<body>
+  <audio id="bgMusic" loop>
+    <source src="cinema_loop.mp3" type="audio/mpeg">
+    <!-- fallback -->
+  </audio>
+  <div id="gameContainer"></div>
+  <div id="hud">
+    <div id="scoreBoard">Score: 0</div>
+    <div id="starsBoard">Stars: 0</div>
+    <div id="timer">Time: 60</div>
+  </div>
+
+  <div id="enterNameScreen">
+    <h1>Enter Your Name</h1>
+    <input type="text" id="playerNameInput" placeholder="Your Name" style="font-size:20px; padding:10px;">
+    <button id="submitNameBtn">Submit</button>
+  </div>
+
+  <div id="leaderboardScreen">
+    <h1>Leaderboard</h1>
+    <table id="leaderboardTable">
+      <thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Date</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button id="leaderboardContinueBtn">Continue → Upgrades</button>
+  </div>
+
+  <div id="upgradeScreen">
+    <h1>Upgrade Time!</h1>
+    <div>Spend your stars to buy upgrades:</div>
+    <div id="upgradeButtons">
+      <div class="upgradeBtn" data-upgrade="fasterSpawn" data-cost="5">Faster Spawn (‑20%)<br>Cost: 5 stars</div>
+      <div class="upgradeBtn" data-upgrade="biggerBubbles" data-cost="5">Bigger Bubbles<br>Cost: 5 stars</div>
+      <div class="upgradeBtn" data-upgrade="comboMode" data-cost="10">Combo Mode (3 fast pops = 2× points)<br>Cost: 10 stars</div>
+    </div>
+    <button id="startLevelBtn">Start Level</button>
+  </div>
+
+  <div id="endScreen">
+    <h1>Your Show is Over!</h1>
+    <div id="finalScore">You popped: 0 bubbles</div>
+    <div id="rating">Rating: </div>
+    <button id="enterNameBtn">Submit Score</button>
+  </div>
+
+  <script>
+    (function(){
+      // --- Variables and DOM refs
+      const gameContainer = document.getElementById('gameContainer');
+      const scoreBoard = document.getElementById('scoreBoard');
+      const starsBoard = document.getElementById('starsBoard');
+      const timerDisplay = document.getElementById('timer');
+      const upgradeScreen = document.getElementById('upgradeScreen');
+      const endScreen = document.getElementById('endScreen');
+      const enterNameScreen = document.getElementById('enterNameScreen');
+      const leaderboardScreen = document.getElementById('leaderboardScreen');
+      const finalScoreDisplay = document.getElementById('finalScore');
+      const ratingDisplay = document.getElementById('rating');
+      const restartBtn = document.getElementById('restartBtn');
+      const enterNameBtn = document.getElementById('enterNameBtn');
+      const submitNameBtn = document.getElementById('submitNameBtn');
+      const playerNameInput = document.getElementById('playerNameInput');
+      const leaderboardContinueBtn = document.getElementById('leaderboardContinueBtn');
+      const upgradeButtons = document.querySelectorAll('.upgradeBtn');
+      const startLevelBtn = document.getElementById('startLevelBtn');
+      const bgMusic = document.getElementById('bgMusic');
+
+      let score = 0, stars = 0, timeLeft = 60, level = 1;
+      let gameInterval, bubbleInterval;
+      let spawnInterval = 800;         // ms
+      let bubbleMinSize = 30, bubbleMaxSize = 80;
+      let comboMode = false;
+      let lastPops = [];
+
+      const bubbleColors = ['#FF6B6B','#6BCB77','#4D96FF','#FFD93D','#FF9F1C'];
+
+      const LEADERBOARD_KEY = 'moviePop_leaderboard';
+
+      // Load stored leaderboard
+      function loadLeaderboard(){
+        const raw = localStorage.getItem(LEADERBOARD_KEY);
+        if(raw) {
+          return JSON.parse(raw);
+        }
+        return [];
+      }
+
+      // Save leaderboard
+      function saveLeaderboard(arr){
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(arr));
+      }
+
+      // Add score entry
+      function addLeaderboardEntry(name, score){
+        const arr = loadLeaderboard();
+        const entry = { name: name, score: score, date: (new Date()).toLocaleDateString() };
+        arr.push(entry);
+        // sort descending
+        arr.sort((a,b) => b.score - a.score);
+        // keep top 10
+        const trimmed = arr.slice(0,10);
+        saveLeaderboard(trimmed);
+      }
+
+      function showLeaderboard(){
+        const arr = loadLeaderboard();
+        const tbody = document.querySelector('#leaderboardTable tbody');
+        tbody.innerHTML = '';
+        arr.forEach((e,i) => {
+          const tr = document.createElement('tr');
+          const rankTd = document.createElement('td'); rankTd.textContent = (i+1);
+          const nameTd = document.createElement('td'); nameTd.textContent = e.name;
+          const scoreTd = document.createElement('td'); scoreTd.textContent = e.score;
+          const dateTd = document.createElement('td'); dateTd.textContent = e.date;
+          tr.append(rankTd, nameTd, scoreTd, dateTd);
+          tbody.append(tr);
+        });
+        leaderboardScreen.style.display = 'flex';
+      }
+
+      function showUpgrades(){
+        upgradeScreen.style.display = 'flex';
+        updateUpgradeButtons();
+      }
+
+      function updateUpgradeButtons(){
+        upgradeButtons.forEach(btn=>{
+          const cost = parseInt(btn.getAttribute('data-cost'));
+          if(stars >= cost){
+            btn.classList.remove('disabled');
+          } else {
+            btn.classList.add('disabled');
+          }
+        });
+      }
+
+      upgradeButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.classList.contains('disabled')) return;
+          const upgrade = btn.getAttribute('data-upgrade');
+          const cost = parseInt(btn.getAttribute('data-cost'));
+          if(stars < cost) return;
+          stars -= cost;
+          starsBoard.textContent = 'Stars: ' + stars;
+          btn.classList.add('disabled');
+          btn.style.visibility = 'hidden'; // one-time only
+
+          if(upgrade === 'fasterSpawn'){
+            spawnInterval = Math.max(300, spawnInterval * 0.8);
+          } else if(upgrade === 'biggerBubbles'){
+            bubbleMinSize += 10;
+            bubbleMaxSize += 20;
+          } else if(upgrade === 'comboMode'){
+            comboMode = true;
+          }
+        });
+      });
+
+      startLevelBtn.addEventListener('click', ()=> {
+        upgradeScreen.style.display = 'none';
+        startGame();
+      });
+
+      function startGame(){
+        score = 0;
+        timeLeft = 60;
+        scoreBoard.textContent = 'Score: 0';
+        starsBoard.textContent = 'Stars: ' + stars;
+        timerDisplay.textContent = 'Time: ' + timeLeft;
+        level++;
+        gameContainer.innerHTML = '';
+        lastPops = [];
+
+        // Start background music
+        bgMusic.currentTime = 0;
+        bgMusic.play().catch(() => { /* ignore autoplay issues */ });
+
+        gameInterval = setInterval(()=>{
+          timeLeft--;
+          timerDisplay.textContent = 'Time: ' + timeLeft;
+          if(timeLeft <= 0) {
+            endGame();
+          }
+        }, 1000);
+
+        bubbleInterval = setInterval(spawnBubble, spawnInterval);
+      }
+
+      function endGame(){
+        clearInterval(gameInterval);
+        clearInterval(bubbleInterval);
+        const bubbles = document.querySelectorAll('.bubble');
+        bubbles.forEach(b=>b.remove());
+        bgMusic.pause();
+
+        const gainedStars = Math.floor(score / 10);
+        stars += gainedStars;
+
+        finalScoreDisplay.textContent = 'You popped: ' + score + ' bubbles';
+        ratingDisplay.textContent = 'Rating: ' + computeRating(score);
+        starsBoard.textContent = 'Stars: ' + stars;
+
+        endScreen.style.display = 'flex';
+      }
+
+      function computeRating(sc){
+        if(sc >= 200) return 'Blockbuster ⭐⭐⭐';
+        if(sc >= 100) return 'Hit ⭐⭐';
+        if(sc >= 50) return 'Indie ⭐';
+        return 'Short Film';
+      }
+
+      function spawnBubble(){
+        const bubble = document.createElement('div');
+        bubble.classList.add('bubble');
+
+        const theme = ['disc','popcorn','film'][Math.floor(Math.random()*3)];
+        bubble.classList.add(theme);
+
+        const size = Math.floor(Math.random() * (bubbleMaxSize - bubbleMinSize + 1)) + bubbleMinSize;
+        bubble.style.width = size + 'px';
+        bubble.style.height = size + 'px';
+        bubble.style.left = Math.random() * (gameContainer.clientWidth - size) + 'px';
+        bubble.style.top = gameContainer.clientHeight + 'px';
+
+        const color = bubbleColors[Math.floor(Math.random() * bubbleColors.length)];
+        bubble.style.backgroundColor = color;
+
+        bubble.textContent = theme === 'disc' ? 'DVD' : (theme === 'popcorn' ? '🍿' : '🎞');
+
+        gameContainer.appendChild(bubble);
+
+        const endY = Math.random() * (gameContainer.clientHeight * 0.3);
+        const duration = Math.random() * 3000 + 2000;
+
+        bubble.animate([
+          { transform: 'translateY(0px)', opacity:1 },
+          { transform: `translateY(-${gameContainer.clientHeight - endY}px)`, opacity:0 }
+        ], {
+          duration: duration,
+          easing: 'ease-out'
+        });
+
+        setTimeout(()=>{ if(bubble.parentElement) bubble.remove(); }, duration);
+
+        bubble.addEventListener('click', ()=>{
+          popBubble(bubble);
+        });
+      }
+
+      function popBubble(bubble){
+        if(!bubble.parentElement) return;
+        bubble.remove();
+        score++;
+
+        if(comboMode){
+          const now = Date.now();
+          lastPops.push(now);
+          if(lastPops.length > 3) lastPops.shift();
+          if(lastPops.length === 3 && (lastPops[2] - lastPops[0]) < 1000){
+            score += 2; // bonus
+            lastPops = [];
+          }
+        }
+
+        scoreBoard.textContent = 'Score: ' + score;
+        const audio = new Audio('pop.mp3');
+        audio.play().catch(()=>{});
+      }
+
+      // Event handlers
+      enterNameBtn.addEventListener('click', () => {
+        endScreen.style.display = 'none';
+        enterNameScreen.style.display = 'flex';
+      });
+
+      submitNameBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim() || 'Anonymous';
+        addLeaderboardEntry(name, score);
+        playerNameInput.value = '';
+        enterNameScreen.style.display = 'none';
+        showLeaderboard();
+      });
+
+      leaderboardContinueBtn.addEventListener('click', () => {
+        leaderboardScreen.style.display = 'none';
+        showUpgrades();
+      });
+
+      // Initial launch
+      showUpgrades();
+
+    })();
+  </script>
+</body>
+</html>
