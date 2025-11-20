@@ -2733,6 +2733,166 @@ body {
     color: rgba(255, 255, 255, 0.5);
 }
 
+/* Trivia Leaderboards */
+.trivia-leaderboards {
+    padding: 2rem;
+}
+
+.leaderboard-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-tab {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+}
+
+.leaderboard-tab:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.leaderboard-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.leaderboard-content {
+    display: none;
+}
+
+.leaderboard-content.active {
+    display: block;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.leaderboard-table {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.leaderboard-header,
+.leaderboard-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 100px 100px;
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+    align-items: center;
+}
+
+.leaderboard-header {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.leaderboard-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.leaderboard-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.leaderboard-row:last-child {
+    border-bottom: none;
+}
+
+.leaderboard-row.current-user {
+    background: rgba(102, 126, 234, 0.15);
+    border-left: 4px solid var(--primary);
+}
+
+.rank-col {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.player-col {
+    font-weight: 600;
+}
+
+.score-col {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.games-col,
+.accuracy-col {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.leaderboard-group-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.leaderboard-group-selector label {
+    font-weight: 600;
+}
+
+.leaderboard-group-selector select {
+    flex: 1;
+    max-width: 300px;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {

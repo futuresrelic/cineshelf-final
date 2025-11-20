@@ -665,6 +665,50 @@
                 </div>
                 <div id="triviaHistoryContainer"></div>
             </div>
+
+            <!-- Trivia Leaderboards -->
+            <div id="triviaLeaderboards" class="trivia-leaderboards" style="display: none;">
+                <div class="section-header">
+                    <h2>🏆 Trivia Leaderboards</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Compare your scores with others
+                    </p>
+                    <button class="btn-ghost" onclick="App.showTriviaSettings()" style="margin-top: 1rem;">← Back to Trivia</button>
+                </div>
+
+                <div class="leaderboard-tabs">
+                    <button class="leaderboard-tab active" data-tab="personal" onclick="App.switchLeaderboardTab('personal')">
+                        📊 Personal Stats
+                    </button>
+                    <button class="leaderboard-tab" data-tab="group" onclick="App.switchLeaderboardTab('group')">
+                        👥 Group Rankings
+                    </button>
+                    <button class="leaderboard-tab" data-tab="global" onclick="App.switchLeaderboardTab('global')">
+                        🌍 Global Rankings
+                    </button>
+                </div>
+
+                <!-- Personal Stats -->
+                <div id="personalStats" class="leaderboard-content active">
+                    <div id="personalStatsContainer"></div>
+                </div>
+
+                <!-- Group Rankings -->
+                <div id="groupRankings" class="leaderboard-content">
+                    <div class="leaderboard-group-selector" style="margin-bottom: 1.5rem;">
+                        <label>Select Group:</label>
+                        <select id="leaderboardGroupSelect" onchange="App.loadGroupLeaderboard(this.value)">
+                            <option value="">Select a group...</option>
+                        </select>
+                    </div>
+                    <div id="groupRankingsContainer"></div>
+                </div>
+
+                <!-- Global Rankings -->
+                <div id="globalRankings" class="leaderboard-content">
+                    <div id="globalRankingsContainer"></div>
+                </div>
+            </div>
         </section>
 
     </main>

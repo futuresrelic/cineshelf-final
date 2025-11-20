@@ -3762,13 +3762,174 @@ async function getCurrentUserId() {
     }
 
     async function viewTriviaStats() {
+        // Hide other trivia views
+        document.getElementById('triviaSettings').style.display = 'none';
+        document.getElementById('triviaGame').style.display = 'none';
+        document.getElementById('triviaGameOver').style.display = 'none';
+        document.getElementById('triviaHistory').style.display = 'none';
+        document.getElementById('triviaLeaderboards').style.display = 'block';
+
+        // Populate group selector
+        const groupSelect = document.getElementById('leaderboardGroupSelect');
+        groupSelect.innerHTML = '<option value="">Select a group...</option>';
+        if (userGroups && userGroups.length > 0) {
+            userGroups.forEach(group => {
+                groupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+            });
+        }
+
+        // Load personal stats by default
+        switchLeaderboardTab('personal');
+    }
+
+    function switchLeaderboardTab(tab) {
+        // Update tab buttons
+        document.querySelectorAll('.leaderboard-tab').forEach(btn => {
+            if (btn.dataset.tab === tab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Update content visibility
+        document.querySelectorAll('.leaderboard-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        if (tab === 'personal') {
+            document.getElementById('personalStats').classList.add('active');
+            loadPersonalStats();
+        } else if (tab === 'group') {
+            document.getElementById('groupRankings').classList.add('active');
+        } else if (tab === 'global') {
+            document.getElementById('globalRankings').classList.add('active');
+            loadGlobalLeaderboard();
+        }
+    }
+
+    async function loadPersonalStats() {
         try {
             const stats = await apiCall('trivia_get_stats');
+            const container = document.getElementById('personalStatsContainer');
 
-            showToast(`Total Games: ${stats.total_games} | Best Score: ${stats.best_score} | Accuracy: ${stats.accuracy}%`, 'success');
+            container.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🎮</div>
+                        <div class="stat-value">${stats.total_games || 0}</div>
+                        <div class="stat-label">Total Games</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-value">${stats.best_score || 0}</div>
+                        <div class="stat-label">Best Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-value">${stats.accuracy || 0}%</div>
+                        <div class="stat-label">Accuracy</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-value">${stats.average_score || 0}</div>
+                        <div class="stat-label">Avg Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-value">${stats.best_streak || 0}</div>
+                        <div class="stat-label">Best Streak</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-value">${stats.avg_time ? Math.round(stats.avg_time) + 's' : 'N/A'}</div>
+                        <div class="stat-label">Avg Time/Question</div>
+                    </div>
+                </div>
+            `;
         } catch (error) {
-            console.error('Failed to load stats:', error);
+            console.error('Failed to load personal stats:', error);
+            document.getElementById('personalStatsContainer').innerHTML = `
+                <div class="empty-state">
+                    <p>Failed to load personal stats</p>
+                </div>
+            `;
         }
+    }
+
+    async function loadGroupLeaderboard(groupId) {
+        if (!groupId) {
+            document.getElementById('groupRankingsContainer').innerHTML = '';
+            return;
+        }
+
+        try {
+            const rankings = await apiCall('trivia_group_leaderboard', { group_id: groupId });
+            renderLeaderboard(rankings, 'groupRankingsContainer');
+        } catch (error) {
+            console.error('Failed to load group leaderboard:', error);
+            document.getElementById('groupRankingsContainer').innerHTML = `
+                <div class="empty-state">
+                    <p>Failed to load group rankings</p>
+                </div>
+            `;
+        }
+    }
+
+    async function loadGlobalLeaderboard() {
+        try {
+            const rankings = await apiCall('trivia_global_leaderboard', { limit: 100 });
+            renderLeaderboard(rankings, 'globalRankingsContainer');
+        } catch (error) {
+            console.error('Failed to load global leaderboard:', error);
+            document.getElementById('globalRankingsContainer').innerHTML = `
+                <div class="empty-state">
+                    <p>Failed to load global rankings</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderLeaderboard(rankings, containerId) {
+        const container = document.getElementById(containerId);
+
+        if (!rankings || rankings.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🏆</div>
+                    <h3>No Rankings Yet</h3>
+                    <p>Be the first to play and set a score!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="leaderboard-table">
+                <div class="leaderboard-header">
+                    <div class="rank-col">Rank</div>
+                    <div class="player-col">Player</div>
+                    <div class="score-col">Best Score</div>
+                    <div class="games-col">Games</div>
+                    <div class="accuracy-col">Accuracy</div>
+                </div>
+                ${rankings.map((player, index) => {
+                    const rank = index + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                    const isCurrentUser = player.user_id === window.currentUserId;
+
+                    return `
+                        <div class="leaderboard-row ${isCurrentUser ? 'current-user' : ''}">
+                            <div class="rank-col">${medal}</div>
+                            <div class="player-col">${player.username || 'Anonymous'}${isCurrentUser ? ' (You)' : ''}</div>
+                            <div class="score-col">${player.best_score || 0}</div>
+                            <div class="games-col">${player.total_games || 0}</div>
+                            <div class="accuracy-col">${player.accuracy || 0}%</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
     }
 
     // ========================================
@@ -3864,7 +4025,9 @@ return {
     answerTriviaQuestion,
     quitTrivia,
     viewTriviaHistory,
-    viewTriviaStats
+    viewTriviaStats,
+    switchLeaderboardTab,
+    loadGroupLeaderboard
 };
 
 })();
