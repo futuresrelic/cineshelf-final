@@ -14,7 +14,7 @@ define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
 // App Configuration
-define('APP_VERSION', '2.0.0');
+define('APP_VERSION', '2.2.1');
 define('DEFAULT_USER', 'default');
 
 // Admin users list (usernames)

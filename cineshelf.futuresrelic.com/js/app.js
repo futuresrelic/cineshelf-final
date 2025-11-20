@@ -1965,21 +1965,22 @@ function getCertColor(cert) {
                 let skipped = 0;
                 let failed = 0;
 
-                for (const movie of movies) {
+                for (let i = 0; i < movies.length; i++) {
+                    const movie = movies[i];
                     try {
                         // Search TMDB via backend API
                         const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
                         const response = await apiCall('search_movie', { query: query });
 
-                        if (response.data && response.data.length > 0) {
+                        if (response && response.length > 0) {
                             // Try to find exact match
-                            let match = response.data.find(r =>
+                            let match = response.find(r =>
                                 r.title.toLowerCase() === movie.title.toLowerCase() &&
                                 (!movie.year || r.release_date?.startsWith(movie.year))
                             );
 
                             // Fall back to first result
-                            if (!match) match = response.data[0];
+                            if (!match) match = response[0];
 
                             // Check if already in wishlist
                             const alreadyExists = wishlist.some(w => w.tmdb_id === match.id);
@@ -1992,6 +1993,11 @@ function getCertColor(cert) {
                             }
                         } else {
                             failed++;
+                        }
+
+                        // Show progress every 25 movies
+                        if ((i + 1) % 25 === 0 || i === movies.length - 1) {
+                            showToast(`Progress: ${i + 1}/${movies.length} movies processed...`, 'info');
                         }
 
                         // Delay to avoid rate limiting

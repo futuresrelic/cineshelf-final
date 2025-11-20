@@ -8,6 +8,9 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/auth-middleware.php';
 
+// Set execution time limit for long-running operations (e.g., large CSV imports)
+set_time_limit(300); // 5 minutes
+
 // Start session for OAuth authentication
 session_start();
 
