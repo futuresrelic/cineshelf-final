@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Manager - CineShelf Admin</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #333;
+            --text-primary: #fff;
+            --text-secondary: #999;
+            --accent: #4a9eff;
+            --accent-hover: #6bb0ff;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --border: #444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid var(--accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+        }
+
+        .back-btn {
+            padding: 0.6rem 1.2rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
+
+        .groups-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .group-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .group-card:hover {
+            border-color: var(--accent);
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .group-title {
+            font-size: 1.3rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .group-meta {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .group-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .icon-btn.danger:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .group-description {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .group-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .members-list {
+            margin-top: 1rem;
+        }
+
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .member-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .member-name {
+            font-weight: 500;
+        }
+
+        .member-role {
+            padding: 0.2rem 0.6rem;
+            background: var(--accent);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .member-role.admin {
+            background: var(--warning);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background: var(--success);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .invite-link-box {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+        }
+
+        .invite-link-box:hover {
+            border-color: var(--accent);
+        }
+
+        .invites-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .invite-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .invite-email {
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .invite-status {
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .invite-status.pending {
+            background: var(--warning);
+            color: white;
+        }
+
+        .invite-status.accepted {
+            background: var(--success);
+            color: white;
+        }
+
+        .invite-status.expired {
+            background: var(--danger);
+            color: white;
+        }
+
+        .copy-btn {
+            padding: 0.4rem 0.8rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>👥 Group Manager</h1>
+        <a href="index.html" class="back-btn">← Back to Admin</a>
+    </div>
+
+    <div class="container">
+        <div class="toolbar">
+            <input type="text" id="searchBox" class="search-box" placeholder="Search groups...">
+            <button class="btn btn-primary" onclick="refresh()">🔄 Refresh</button>
+        </div>
+
+        <div id="groupsContainer">
+            <div class="loading">Loading groups...</div>
+        </div>
+    </div>
+
+    <!-- Edit Group Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Group</h2>
+                <button class="close-btn" onclick="closeEditModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Group Name</label>
+                <input type="text" id="editName" maxlength="100">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="editDescription" rows="4" maxlength="500"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveGroup()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete Group</h2>
+                <button class="close-btn" onclick="closeDeleteModal()">×</button>
+            </div>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Are you sure you want to delete <strong id="deleteGroupName"></strong>?
+                This will remove all members but will NOT delete any movies.
+            </p>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">Delete Group</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Member Modal -->
+    <div id="inviteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📬 Invite Member to <span id="inviteGroupName"></span></h2>
+                <button class="close-btn" onclick="closeInviteModal()">×</button>
+            </div>
+
+            <div id="inviteFormSection">
+                <div class="form-group">
+                    <label>Email Address (Google Account)</label>
+                    <input type="email" id="inviteEmail" placeholder="friend@gmail.com">
+                    <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+                        Enter the email address they use to sign in with Google
+                    </small>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeInviteModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="createInvite()">Generate Invite Link</button>
+                </div>
+            </div>
+
+            <div id="inviteLinkSection" style="display: none;">
+                <p style="color: var(--success); margin-bottom: 1rem;">✅ Invite created successfully!</p>
+                <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Share this link with the person you invited:</p>
+                <div class="invite-link-box" id="inviteLinkDisplay" onclick="copyInviteLink()">
+                    Click to copy link...
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="copyInviteLink()">📋 Copy Link</button>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;">
+                    💡 Send this link via email, text, Slack, or any messaging app.<br>
+                    ⏱️ Link expires in 7 days.
+                </p>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeInviteModal()">Done</button>
+                    <button class="btn btn-primary" onclick="showInviteForm()">Create Another</button>
+                </div>
+            </div>
+
+            <div id="pendingInvitesSection" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                <h3 style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 1.1rem;">Pending Invites</h3>
+                <div id="pendingInvitesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const API_URL = '../api/api.php';
+        let groups = [];
+        let currentEditGroup = null;
+        let currentDeleteGroup = null;
+
+        // Check authentication before doing anything
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth.php?action=verify', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    // Not logged in - redirect to login
+                    const returnUrl = encodeURIComponent(window.location.href);
+                    window.location.href = '/login.html?return=' + returnUrl;
+                    return false;
+                }
+
+                // Check if user is admin
+                if (!data.data.is_admin) {
+                    document.getElementById('groupsContainer').innerHTML = `
+                        <div style="text-align: center; padding: 4rem 2rem;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">🔒</div>
+                            <h2>Admin Access Required</h2>
+                            <p style="color: var(--text-secondary); margin: 1rem 0;">
+                                You need admin privileges to access the Group Manager.
+                            </p>
+                            <p style="color: var(--text-secondary); margin: 1rem 0;">
+                                Logged in as: <strong>${data.data.email || data.data.username}</strong>
+                            </p>
+                            <p style="color: var(--text-secondary); margin: 1rem 0;">
+                                Contact an administrator to grant you admin access.
+                            </p>
+                            <a href="/index.html" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent); color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem;">
+                                Return to CineShelf
+                            </a>
+                        </div>
+                    `;
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                const returnUrl = encodeURIComponent(window.location.href);
+                window.location.href = '/login.html?return=' + returnUrl;
+                return false;
+            }
+        }
+
+        // Initialize page
+        (async function() {
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                // User is authenticated and is admin - load groups
+                loadGroups();
+            }
+        })();
+
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            renderGroups(groups.filter(g =>
+                g.name.toLowerCase().includes(query) ||
+                (g.description && g.description.toLowerCase().includes(query))
+            ));
+        });
+
+        async function loadGroups() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'admin_list_all_groups'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.ok) {
+                    groups = result.data;
+
+                    // Load members for each group
+                    for (let group of groups) {
+                        await loadGroupMembers(group);
+                    }
+
+                    renderGroups(groups);
+                } else {
+                    showToast('Error loading groups: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to load groups', 'error');
+            }
+        }
+
+        async function loadGroupMembers(group) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'list_group_members',
+                        group_id: group.id
+                    })
+                });
+
+                const result = await response.json();
+                if (result.ok) {
+                    group.members = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        }
+
+        function renderGroups(groupsToRender) {
+            const container = document.getElementById('groupsContainer');
+
+            if (groupsToRender.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <h2>No Groups Found</h2>
+                        <p>Create groups from the main app</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '<div class="groups-grid">' + groupsToRender.map(group => `
+                <div class="group-card">
+                    <div class="group-header">
+                        <div>
+                            <div class="group-title">${escapeHtml(group.name)}</div>
+                            <div class="group-meta">
+                                Created by ${escapeHtml(group.creator_name)} •
+                                ${new Date(group.created_at).toLocaleDateString()}
+                            </div>
+                        </div>
+                        <div class="group-actions">
+                            <button class="icon-btn" onclick="openInviteModal(${group.id})" title="Invite Member">📬</button>
+                            <button class="icon-btn" onclick="editGroup(${group.id})" title="Edit">✏️</button>
+                            <button class="icon-btn danger" onclick="deleteGroup(${group.id})" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+
+                    ${group.description ? `
+                        <div class="group-description">${escapeHtml(group.description)}</div>
+                    ` : ''}
+
+                    <div class="group-stats">
+                        <div class="stat">
+                            <div class="stat-value">${group.member_count || 0}</div>
+                            <div class="stat-label">Members</div>
+                        </div>
+                    </div>
+
+                    ${group.members && group.members.length > 0 ? `
+                        <div class="members-list">
+                            <strong style="color: var(--text-secondary); font-size: 0.9rem;">Members:</strong>
+                            ${group.members.map(member => `
+                                <div class="member-item">
+                                    <div class="member-info">
+                                        <span class="member-name">${escapeHtml(member.username)}</span>
+                                        <span class="member-role ${member.role}">${member.role}</span>
+                                    </div>
+                                    ${member.role !== 'admin' ? `
+                                        <button class="icon-btn danger" onclick="removeMember(${group.id}, ${member.user_id}, '${escapeHtml(member.username)}')" title="Remove">✕</button>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('') + '</div>';
+        }
+
+        function editGroup(groupId) {
+            currentEditGroup = groups.find(g => g.id === groupId);
+            if (!currentEditGroup) return;
+
+            document.getElementById('editName').value = currentEditGroup.name;
+            document.getElementById('editDescription').value = currentEditGroup.description || '';
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            currentEditGroup = null;
+        }
+
+        async function saveGroup() {
+            if (!currentEditGroup) return;
+
+            const name = document.getElementById('editName').value.trim();
+            const description = document.getElementById('editDescription').value.trim();
+
+            if (!name) {
+                showToast('Group name is required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'update_group',
+                        group_id: currentEditGroup.id,
+                        name: name,
+                        description: description
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('Group updated successfully', 'success');
+                    closeEditModal();
+                    loadGroups();
+                } else {
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to update group', 'error');
+            }
+        }
+
+        function deleteGroup(groupId) {
+            console.log('[DELETE] deleteGroup called with ID:', groupId);
+            console.log('[DELETE] Current groups:', groups);
+            currentDeleteGroup = groups.find(g => g.id === groupId);
+            console.log('[DELETE] Found group:', currentDeleteGroup);
+
+            if (!currentDeleteGroup) {
+                console.error('[DELETE] Group not found with ID:', groupId);
+                return;
+            }
+
+            document.getElementById('deleteGroupName').textContent = currentDeleteGroup.name;
+            document.getElementById('deleteModal').classList.add('active');
+            console.log('[DELETE] Modal opened for group:', currentDeleteGroup.name);
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            currentDeleteGroup = null;
+        }
+
+        async function confirmDelete() {
+            console.log('[DELETE] confirmDelete called');
+            console.log('[DELETE] currentDeleteGroup:', currentDeleteGroup);
+
+            if (!currentDeleteGroup) {
+                console.error('[DELETE] No group selected for deletion');
+                return;
+            }
+
+            const requestData = {
+                action: 'delete_group',
+                group_id: currentDeleteGroup.id
+            };
+
+            console.log('[DELETE] Sending request to API:', requestData);
+            console.log('[DELETE] API URL:', API_URL);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify(requestData)
+                });
+
+                console.log('[DELETE] Response status:', response.status);
+                console.log('[DELETE] Response headers:', Object.fromEntries(response.headers.entries()));
+
+                const result = await response.json();
+                console.log('[DELETE] API response:', result);
+
+                if (result.ok) {
+                    console.log('[DELETE] ✓ Group deleted successfully');
+                    showToast('Group deleted successfully', 'success');
+                    closeDeleteModal();
+                    loadGroups();
+                } else {
+                    console.error('[DELETE] ✗ API returned error:', result.error);
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('[DELETE] ✗ Exception occurred:', error);
+                console.error('[DELETE] Error stack:', error.stack);
+                showToast('Failed to delete group: ' + error.message, 'error');
+            }
+        }
+
+        async function removeMember(groupId, userId, username) {
+            console.log('[REMOVE MEMBER] removeMember called');
+            console.log('[REMOVE MEMBER] groupId:', groupId, 'userId:', userId, 'username:', username);
+
+            if (!confirm(`Remove ${username} from this group?`)) {
+                console.log('[REMOVE MEMBER] User cancelled removal');
+                return;
+            }
+
+            const requestData = {
+                action: 'remove_group_member',
+                group_id: groupId,
+                user_id: userId  // Changed from member_user_id to user_id to match API
+            };
+
+            console.log('[REMOVE MEMBER] Sending request:', requestData);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify(requestData)
+                });
+
+                console.log('[REMOVE MEMBER] Response status:', response.status);
+
+                const result = await response.json();
+                console.log('[REMOVE MEMBER] API response:', result);
+
+                if (result.ok) {
+                    console.log('[REMOVE MEMBER] ✓ Member removed successfully');
+                    showToast('Member removed successfully', 'success');
+                    loadGroups();
+                } else {
+                    console.error('[REMOVE MEMBER] ✗ API returned error:', result.error);
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('[REMOVE MEMBER] ✗ Exception occurred:', error);
+                console.error('[REMOVE MEMBER] Error stack:', error.stack);
+                showToast('Failed to remove member: ' + error.message, 'error');
+            }
+        }
+
+        function refresh() {
+            loadGroups();
+            showToast('Refreshed', 'success');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ========================================
+        // INVITE FUNCTIONALITY
+        // ========================================
+
+        let currentInviteGroup = null;
+        let currentInviteLink = null;
+
+        async function openInviteModal(groupId) {
+            currentInviteGroup = groups.find(g => g.id === groupId);
+            if (!currentInviteGroup) return;
+
+            document.getElementById('inviteGroupName').textContent = currentInviteGroup.name;
+            document.getElementById('inviteEmail').value = '';
+            document.getElementById('inviteModal').classList.add('active');
+
+            // Show form, hide link
+            showInviteForm();
+
+            // Load pending invites
+            await loadPendingInvites();
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').classList.remove('active');
+            currentInviteGroup = null;
+            currentInviteLink = null;
+        }
+
+        function showInviteForm() {
+            document.getElementById('inviteFormSection').style.display = 'block';
+            document.getElementById('inviteLinkSection').style.display = 'none';
+            document.getElementById('inviteEmail').value = '';
+        }
+
+        function showInviteLink() {
+            document.getElementById('inviteFormSection').style.display = 'none';
+            document.getElementById('inviteLinkSection').style.display = 'block';
+        }
+
+        async function createInvite() {
+            if (!currentInviteGroup) return;
+
+            const email = document.getElementById('inviteEmail').value.trim();
+
+            if (!email) {
+                showToast('Please enter an email address', 'error');
+                return;
+            }
+
+            // Basic email validation
+            if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                showToast('Please enter a valid email address', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'create_group_invite',
+                        group_id: currentInviteGroup.id,
+                        email: email
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.ok) {
+                    const token = result.data.invite_token;
+                    currentInviteLink = `${window.location.protocol}//${window.location.host}/join-group.html?token=${token}`;
+
+                    // Show the link
+                    document.getElementById('inviteLinkDisplay').textContent = currentInviteLink;
+                    showInviteLink();
+
+                    // Auto-copy to clipboard
+                    await copyInviteLink();
+
+                    // Reload pending invites
+                    await loadPendingInvites();
+
+                    showToast(result.data.existing ? 'Invite already exists (copied)' : 'Invite created and copied!', 'success');
+                } else {
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to create invite', 'error');
+            }
+        }
+
+        async function copyInviteLink() {
+            if (!currentInviteLink) return;
+
+            try {
+                await navigator.clipboard.writeText(currentInviteLink);
+                showToast('📋 Invite link copied to clipboard!', 'success');
+            } catch (error) {
+                console.error('Failed to copy:', error);
+                showToast('Failed to copy link', 'error');
+            }
+        }
+
+        async function loadPendingInvites() {
+            if (!currentInviteGroup) return;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'list_group_invites',
+                        group_id: currentInviteGroup.id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.ok) {
+                    renderPendingInvites(result.data);
+                } else {
+                    console.error('Error loading invites:', result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function renderPendingInvites(invites) {
+            const container = document.getElementById('pendingInvitesList');
+
+            if (!invites || invites.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No pending invites</p>';
+                return;
+            }
+
+            container.innerHTML = invites.map(invite => {
+                const now = new Date();
+                const expiresAt = new Date(invite.expires_at);
+                const isExpired = expiresAt < now;
+                const isAccepted = invite.accepted_at !== null;
+
+                let status = 'pending';
+                let statusText = 'Pending';
+
+                if (isAccepted) {
+                    status = 'accepted';
+                    statusText = 'Accepted';
+                } else if (isExpired) {
+                    status = 'expired';
+                    statusText = 'Expired';
+                }
+
+                const inviteLink = `${window.location.protocol}//${window.location.host}/join-group.html?token=${invite.invite_token}`;
+
+                return `
+                    <div class="invite-item">
+                        <div>
+                            <div class="invite-email">${escapeHtml(invite.invited_email)}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                Created ${new Date(invite.created_at).toLocaleDateString()}
+                                ${isAccepted ? ` • Accepted ${new Date(invite.accepted_at).toLocaleDateString()}` : ''}
+                                ${!isAccepted && !isExpired ? ` • Expires ${expiresAt.toLocaleDateString()}` : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="invite-status ${status}">${statusText}</span>
+                            ${!isAccepted && !isExpired ? `
+                                <button class="copy-btn" onclick="copyInviteLinkById('${escapeHtml(inviteLink)}')">Copy</button>
+                                <button class="icon-btn danger" onclick="cancelInvite(${invite.id})" title="Cancel">✕</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function copyInviteLinkById(link) {
+            try {
+                await navigator.clipboard.writeText(link);
+                showToast('📋 Invite link copied!', 'success');
+            } catch (error) {
+                showToast('Failed to copy link', 'error');
+            }
+        }
+
+        async function cancelInvite(inviteId) {
+            if (!confirm('Cancel this invite?')) return;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'cancel_group_invite',
+                        invite_id: inviteId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.ok) {
+                    showToast('Invite cancelled', 'success');
+                    await loadPendingInvites();
+                } else {
+                    showToast('Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to cancel invite', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

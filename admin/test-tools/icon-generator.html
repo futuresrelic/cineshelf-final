@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineShelf Icon Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f0f0f;
+            color: white;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+        }
+        .controls {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .control-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #0f0f0f;
+            color: white;
+            font-size: 16px;
+        }
+        input[type="file"] {
+            padding: 5px;
+        }
+        input[type="range"] {
+            width: calc(100% - 60px);
+        }
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .mode-btn {
+            opacity: 0.5;
+        }
+        .mode-btn.active {
+            opacity: 1;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        #preview {
+            text-align: center;
+            margin: 30px 0;
+        }
+        canvas {
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .info {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        #scaleValue {
+            display: inline-block;
+            width: 50px;
+            text-align: right;
+        }
+        .back-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #4a9eff; color: white; text-decoration: none; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000; }
+        .back-btn:hover { background: #6bb0ff; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← Admin Panel</a>
+    <h1>🎬 CineShelf Icon Generator</h1>
+    
+    <div class="info">
+        <strong>Quick Icon Generator</strong><br>
+        Create a 512x512 PNG app icon and 32x32 favicon for your CineShelf PWA.
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Mode:</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button onclick="switchMode('text')" id="textModeBtn" class="mode-btn active" style="flex: 1; padding: 10px; margin: 0;">📝 Text/Emoji</button>
+                <button onclick="switchMode('image')" id="imageModeBtn" class="mode-btn" style="flex: 1; padding: 10px; margin: 0;">🖼️ Image</button>
+            </div>
+        </div>
+        
+        <!-- Text Mode -->
+        <div id="textMode">
+            <div class="control-group">
+                <label for="iconText">Icon Content (emoji or text):</label>
+                <input type="text" id="iconText" value="🎬" placeholder="🎬 or CS" oninput="generateIcon()">
+            </div>
+            
+            <div class="control-group">
+                <label for="textColor">Text Color:</label>
+                <input type="color" id="textColor" value="#ffffff" onchange="generateIcon()">
+            </div>
+        </div>
+        
+        <!-- Image Mode -->
+        <div id="imageMode" style="display: none;">
+            <div class="control-group">
+                <label for="imageUpload">Upload Image:</label>
+                <input type="file" id="imageUpload" accept="image/*" onchange="handleImageUpload(event)">
+            </div>
+            
+            <div class="control-group">
+                <label for="imageScale">Image Scale:</label>
+                <input type="range" id="imageScale" min="50" max="150" value="100" oninput="updateScale()">
+                <span id="scaleValue">100%</span>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="imageRounded" onchange="generateIcon()"> Rounded corners
+                </label>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label for="bgColor">Background Color:</label>
+            <input type="color" id="bgColor" value="#667eea" onchange="generateIcon()">
+        </div>
+        
+        <button onclick="generateIcon()">🎨 Generate Icon</button>
+    </div>
+    
+    <div id="preview">
+        <div style="display: flex; gap: 20px; justify-content: center; align-items: center; flex-wrap: wrap;">
+            <div>
+                <div style="font-size: 0.85rem; margin-bottom: 10px; text-align: center;">512x512 App Icon</div>
+                <canvas id="iconCanvas" width="512" height="512"></canvas>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; margin-bottom: 10px; text-align: center;">32x32 Favicon</div>
+                <canvas id="faviconCanvas" width="32" height="32" style="width: 128px; height: 128px; image-rendering: pixelated;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+        <button onclick="downloadIcon()" style="flex: 1;">⬇️ Download app-icon.png</button>
+        <button onclick="downloadFavicon()" style="flex: 1;">⬇️ Download favicon.ico</button>
+    </div>
+    
+    <div class="info">
+        <strong>Instructions:</strong><br>
+        1. Choose text/emoji or image mode<br>
+        2. Customize the icon<br>
+        3. Click "Generate Icon" (creates both sizes)<br>
+        4. Download both files:<br>
+        &nbsp;&nbsp;&nbsp;• <code>app-icon.png</code> - 512x512 for PWA<br>
+        &nbsp;&nbsp;&nbsp;• <code>favicon.ico</code> - 32x32 for browser tab<br>
+        5. Upload both to your server root
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('iconCanvas');
+        const ctx = canvas.getContext('2d');
+        const faviconCanvas = document.getElementById('faviconCanvas');
+        const faviconCtx = faviconCanvas.getContext('2d');
+        let currentMode = 'text';
+        let uploadedImage = null;
+        
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
+            document.getElementById('imageModeBtn').classList.toggle('active', mode === 'image');
+            
+            // Show/hide sections
+            document.getElementById('textMode').style.display = mode === 'text' ? 'block' : 'none';
+            document.getElementById('imageMode').style.display = mode === 'image' ? 'block' : 'none';
+            
+            generateIcon();
+        }
+        
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    uploadedImage = img;
+                    generateIcon();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function updateScale() {
+            const value = document.getElementById('imageScale').value;
+            document.getElementById('scaleValue').textContent = value + '%';
+            generateIcon();
+        }
+        
+        function generateIcon() {
+            // Generate main 512x512 icon
+            generateCanvas(ctx, 512);
+            
+            // Generate 32x32 favicon
+            generateCanvas(faviconCtx, 32);
+        }
+        
+        function generateCanvas(context, size) {
+            const bgColor = document.getElementById('bgColor').value;
+            
+            // Clear canvas
+            context.clearRect(0, 0, size, size);
+            
+            // Draw background
+            context.fillStyle = bgColor;
+            context.fillRect(0, 0, size, size);
+            
+            if (currentMode === 'text') {
+                generateTextIcon(context, size);
+            } else if (currentMode === 'image' && uploadedImage) {
+                generateImageIcon(context, size);
+            } else if (currentMode === 'image') {
+                // Show placeholder (only on main canvas)
+                if (size === 512) {
+                    context.fillStyle = 'rgba(255,255,255,0.3)';
+                    context.textAlign = 'center';
+                    context.textBaseline = 'middle';
+                    context.font = 'bold 24px Arial';
+                    context.fillText('Upload an image', size/2, size/2);
+                }
+            }
+        }
+        
+        function generateTextIcon(context, size) {
+            const text = document.getElementById('iconText').value || '🎬';
+            const textColor = document.getElementById('textColor').value;
+            
+            // Draw text/emoji
+            context.fillStyle = textColor;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            // Detect if it's an emoji
+            const isEmoji = text.length <= 2 && /[\u{1F000}-\u{1F9FF}]/u.test(text);
+            const fontSize = isEmoji ? (size * 0.625) : (size * 0.35);
+            context.font = `bold ${fontSize}px Arial`;
+            
+            context.fillText(text, size/2, size/2);
+            
+            // Add subtle gradient overlay
+            addGradientOverlay(context, size);
+        }
+        
+        function generateImageIcon(context, size) {
+            const scale = document.getElementById('imageScale').value / 100;
+            const rounded = document.getElementById('imageRounded').checked;
+            
+            // Calculate dimensions to fit image
+            const maxSize = size * scale;
+            let width = uploadedImage.width;
+            let height = uploadedImage.height;
+            
+            // Scale to fit
+            const ratio = Math.min(maxSize / width, maxSize / height);
+            width *= ratio;
+            height *= ratio;
+            
+            // Center position
+            const x = (size - width) / 2;
+            const y = (size - height) / 2;
+            
+            // Draw image
+            if (rounded && size === 512) { // Only round main icon
+                // Draw with rounded corners
+                const radius = 40;
+                context.save();
+                context.beginPath();
+                context.moveTo(x + radius, y);
+                context.lineTo(x + width - radius, y);
+                context.quadraticCurveTo(x + width, y, x + width, y + radius);
+                context.lineTo(x + width, y + height - radius);
+                context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                context.lineTo(x + radius, y + height);
+                context.quadraticCurveTo(x, y + height, x, y + height - radius);
+                context.lineTo(x, y + radius);
+                context.quadraticCurveTo(x, y, x + radius, y);
+                context.closePath();
+                context.clip();
+            }
+            
+            context.drawImage(uploadedImage, x, y, width, height);
+            
+            if (rounded && size === 512) {
+                context.restore();
+            }
+            
+            // Add subtle gradient overlay
+            addGradientOverlay(context, size);
+        }
+        
+        function addGradientOverlay(context, size) {
+            const gradient = context.createRadialGradient(size/2, size/2, 0, size/2, size/2, size * 0.78);
+            gradient.addColorStop(0, 'rgba(255,255,255,0.1)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, size, size);
+        }
+        
+        function downloadIcon() {
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'app-icon.png';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        function downloadFavicon() {
+            // Convert canvas to ICO format (or just download as PNG)
+            faviconCanvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'favicon.ico';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        // Generate default icon on load
+        window.onload = () => generateIcon();
+    </script>
+</body>
+</html>

@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 CineShelf Cache Diagnostic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 2rem;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        
+        .section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+        
+        .version-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .version-box {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .version-box.match {
+            border-color: #4caf50;
+            background: #f1f8f4;
+        }
+        
+        .version-box.mismatch {
+            border-color: #f44336;
+            background: #fef1f0;
+        }
+        
+        .version-label {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+        
+        .version-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .cache-list {
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        
+        .cache-item {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .cache-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cache-item .url {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .cache-item .meta {
+            color: #666;
+            font-size: 0.85rem;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem;
+        }
+        
+        .cache-item .meta .label {
+            font-weight: 600;
+        }
+        
+        .empty {
+            padding: 2rem;
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        
+        .btn-success {
+            background: #4caf50;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            display: none;
+        }
+        
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+        
+        .status.success {
+            background: #f1f8f4;
+            color: #2e7d32;
+            border: 1px solid #81c784;
+        }
+        
+        .status.error {
+            background: #fef1f0;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #667eea;
+        }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link:hover {
+            opacity: 0.7;
+        }
+        
+        .comparison {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+        
+        .comparison-row .key {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .comparison-row .value {
+            font-family: 'Monaco', 'Courier New', monospace;
+            color: #666;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .badge.good {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .badge.bad {
+            background: #f44336;
+            color: white;
+        }
+        
+        .badge.warning {
+            background: #ff9800;
+            color: white;
+        }
+        .back-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #4a9eff; color: white; text-decoration: none; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000; }
+        .back-btn:hover { background: #6bb0ff; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← Admin Panel</a>
+    <div class="container">
+        <h1>🔍 CineShelf Cache Diagnostic</h1>
+        <p class="subtitle">View all cached files, versions, and timestamps</p>
+        
+        <div id="status" class="status"></div>
+        
+        <!-- Version Comparison Section -->
+        <div class="section">
+            <h2>📊 Version Comparison</h2>
+            <div class="version-grid" id="versionGrid">
+                <div class="loading">Loading versions</div>
+            </div>
+            <div id="versionComparison"></div>
+        </div>
+        
+        <!-- Service Worker Info -->
+        <div class="section">
+            <h2>⚙️ Service Worker Status</h2>
+            <div id="swStatus">
+                <div class="loading">Checking service worker</div>
+            </div>
+        </div>
+        
+        <!-- Cache Storage Details -->
+        <div class="section">
+            <h2>💾 Cache Storage Contents</h2>
+            <div id="cacheDetails">
+                <div class="loading">Loading cache contents</div>
+            </div>
+        </div>
+        
+        <!-- LocalStorage Details -->
+        <div class="section">
+            <h2>🗄️ LocalStorage Contents</h2>
+            <div id="localStorageDetails">
+                <div class="loading">Loading localStorage</div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="section">
+            <h2>🛠️ Actions</h2>
+            <button class="btn" onclick="refreshData()">🔄 Refresh Data</button>
+            <button class="btn btn-danger" onclick="clearCaches()">🗑️ Clear All Caches</button>
+            <button class="btn btn-danger" onclick="clearServiceWorker()">⚠️ Unregister Service Worker</button>
+            <button class="btn btn-danger" onclick="nuclearClear()">☢️ Nuclear Clear (Everything)</button>
+        </div>
+        
+        <a href="/" class="back-link">← Back to CineShelf</a>
+    </div>
+    
+    <script>
+        // Load all data on page load
+        window.addEventListener('load', () => {
+            loadAllData();
+        });
+        
+        async function loadAllData() {
+            await Promise.all([
+                loadVersionComparison(),
+                loadServiceWorkerStatus(),
+                loadCacheDetails(),
+                loadLocalStorageDetails()
+            ]);
+        }
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Version Comparison
+        async function loadVersionComparison() {
+            const grid = document.getElementById('versionGrid');
+            const comparison = document.getElementById('versionComparison');
+            
+            try {
+                // Fetch server version
+                const serverResponse = await fetch('/get-version.php?t=' + Date.now());
+                const serverData = await serverResponse.json();
+                const serverVersion = serverData.version;
+                
+                // Get localStorage version
+                const localVersion = localStorage.getItem('cineshelf-version') || 'Not set';
+                
+                // Get service worker version from cache names
+                const cacheNames = await caches.keys();
+                const swCache = cacheNames.find(name => name.startsWith('cineshelf-v'));
+                const swVersion = swCache ? swCache.replace('cineshelf-v', '') : 'No cache';
+                
+                // Check if they match
+                const allMatch = serverVersion === localVersion && serverVersion === swVersion;
+                
+                // Display versions
+                grid.innerHTML = `
+                    <div class="version-box ${allMatch ? 'match' : 'mismatch'}">
+                        <div class="version-label">Server Version (version.json)</div>
+                        <div class="version-value">${serverVersion}</div>
+                    </div>
+                    <div class="version-box ${localVersion === serverVersion ? 'match' : 'mismatch'}">
+                        <div class="version-label">LocalStorage Cached</div>
+                        <div class="version-value">${localVersion}</div>
+                    </div>
+                    <div class="version-box ${swVersion === serverVersion ? 'match' : 'mismatch'}">
+                        <div class="version-label">Service Worker Cache</div>
+                        <div class="version-value">${swVersion}</div>
+                    </div>
+                `;
+                
+                // Show detailed comparison
+                comparison.innerHTML = `
+                    <div class="comparison">
+                        <div class="comparison-row">
+                            <div class="key">Status:</div>
+                            <div class="value">
+                                ${allMatch ? 
+                                    '<span class="badge good">ALL MATCH ✓</span>' : 
+                                    '<span class="badge bad">MISMATCH ✗</span>'}
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Server Version:</div>
+                            <div class="value">${serverVersion} ${allMatch ? '<span class="badge good">✓</span>' : ''}</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Local Cache:</div>
+                            <div class="value">
+                                ${localVersion}
+                                ${localVersion === serverVersion ? 
+                                    '<span class="badge good">✓</span>' : 
+                                    '<span class="badge bad">OUT OF SYNC</span>'}
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">SW Cache:</div>
+                            <div class="value">
+                                ${swVersion}
+                                ${swVersion === serverVersion ? 
+                                    '<span class="badge good">✓</span>' : 
+                                    '<span class="badge bad">OUT OF SYNC</span>'}
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Last Updated:</div>
+                            <div class="value">${serverData.updated || 'Unknown'}</div>
+                        </div>
+                    </div>
+                `;
+                
+                if (!allMatch) {
+                    showStatus('⚠️ Version mismatch detected! This is why you see old files.', 'error');
+                }
+                
+            } catch (error) {
+                grid.innerHTML = `<div class="empty">Error loading versions: ${error.message}</div>`;
+            }
+        }
+        
+        // Service Worker Status
+        async function loadServiceWorkerStatus() {
+            const container = document.getElementById('swStatus');
+            
+            if (!('serviceWorker' in navigator)) {
+                container.innerHTML = '<div class="empty">Service Worker not supported</div>';
+                return;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const hasController = !!navigator.serviceWorker.controller;
+                
+                container.innerHTML = `
+                    <div class="comparison">
+                        <div class="comparison-row">
+                            <div class="key">Status:</div>
+                            <div class="value">
+                                ${hasController ? 
+                                    '<span class="badge good">ACTIVE</span>' : 
+                                    '<span class="badge warning">NO CONTROLLER</span>'}
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Scope:</div>
+                            <div class="value">${registration.scope}</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Active Worker:</div>
+                            <div class="value">${registration.active ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Installing:</div>
+                            <div class="value">${registration.installing ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="key">Waiting:</div>
+                            <div class="value">${registration.waiting ? 'Yes (Update available!)' : 'No'}</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="empty">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Cache Storage Details
+        async function loadCacheDetails() {
+            const container = document.getElementById('cacheDetails');
+            
+            if (!('caches' in window)) {
+                container.innerHTML = '<div class="empty">Cache Storage not supported</div>';
+                return;
+            }
+            
+            try {
+                const cacheNames = await caches.keys();
+                
+                if (cacheNames.length === 0) {
+                    container.innerHTML = '<div class="empty">No caches found</div>';
+                    return;
+                }
+                
+                let html = '';
+                
+                for (const cacheName of cacheNames) {
+                    const cache = await caches.open(cacheName);
+                    const requests = await cache.keys();
+                    
+                    html += `<h3 style="margin: 1rem 0 0.5rem 0; color: #667eea;">${cacheName} (${requests.length} items)</h3>`;
+                    html += '<div class="cache-list">';
+                    
+                    if (requests.length === 0) {
+                        html += '<div class="empty">Empty cache</div>';
+                    } else {
+                        for (const request of requests) {
+                            const response = await cache.match(request);
+                            const url = new URL(request.url);
+                            const pathname = url.pathname;
+                            
+                            // Get response headers
+                            const date = response.headers.get('date');
+                            const lastModified = response.headers.get('last-modified');
+                            const cacheControl = response.headers.get('cache-control');
+                            const contentType = response.headers.get('content-type');
+                            
+                            html += `
+                                <div class="cache-item">
+                                    <div class="url">${pathname}</div>
+                                    <div class="meta">
+                                        ${date ? `<span class="label">Date:</span><span>${new Date(date).toLocaleString()}</span>` : ''}
+                                        ${lastModified ? `<span class="label">Modified:</span><span>${new Date(lastModified).toLocaleString()}</span>` : ''}
+                                        ${cacheControl ? `<span class="label">Cache-Control:</span><span>${cacheControl}</span>` : ''}
+                                        ${contentType ? `<span class="label">Type:</span><span>${contentType}</span>` : ''}
+                                        <span class="label">Status:</span><span>${response.status} ${response.statusText}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                container.innerHTML = `<div class="empty">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // LocalStorage Details
+        function loadLocalStorageDetails() {
+            const container = document.getElementById('localStorageDetails');
+            
+            const relevantKeys = [
+                'cineshelf-version',
+                'cineshelf-admin-users',
+                'cineshelf_settings'
+            ];
+            
+            let html = '<div class="comparison">';
+            
+            for (const key of relevantKeys) {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    html += `
+                        <div class="comparison-row">
+                            <div class="key">${key}:</div>
+                            <div class="value">${value.substring(0, 100)}${value.length > 100 ? '...' : ''}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Count all cineshelf items
+            let totalItems = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('cineshelf')) {
+                    totalItems++;
+                }
+            }
+            
+            html += `
+                <div class="comparison-row">
+                    <div class="key">Total CineShelf Items:</div>
+                    <div class="value">${totalItems}</div>
+                </div>
+            `;
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Actions
+        function refreshData() {
+            showStatus('🔄 Refreshing data...', 'info');
+            loadAllData();
+        }
+        
+        async function clearCaches() {
+            if (!confirm('Clear all caches? This will force fresh files on next load.')) return;
+            
+            try {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                showStatus('✓ All caches cleared!', 'success');
+                setTimeout(() => loadAllData(), 1000);
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function clearServiceWorker() {
+            if (!confirm('Unregister service worker? You\'ll need to reload the page.')) return;
+            
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+                showStatus('✓ Service worker unregistered! Reload the page.', 'success');
+                setTimeout(() => loadAllData(), 1000);
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function nuclearClear() {
+            if (!confirm('☢️ NUCLEAR CLEAR: Delete EVERYTHING and reload?')) return;
+            
+            try {
+                // Unregister service workers
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+                
+                // Clear caches
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                
+                // Clear storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                showStatus('✓ Everything cleared! Reloading...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/?nocache=' + Date.now();
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

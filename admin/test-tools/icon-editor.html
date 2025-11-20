@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineShelf Icon Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+        }
+        
+        .layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        .controls {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            height: fit-content;
+        }
+        
+        .preview-area {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .control-group {
+            margin: 20px 0;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        
+        .control-group h3 {
+            color: #667eea;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin: 12px 0 5px 0;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 2px dashed #667eea;
+            background: #0f0f0f;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            cursor: pointer;
+            border: none;
+        }
+        
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #0f0f0f;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        button.secondary {
+            background: #333;
+        }
+        
+        button.secondary:hover {
+            background: #444;
+        }
+        
+        .canvas-container {
+            position: relative;
+            background: #0f0f0f;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+        }
+        
+        canvas {
+            display: block;
+            border-radius: 8px;
+        }
+        
+        .preview-sizes {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .preview-item {
+            text-align: center;
+        }
+        
+        .preview-label {
+            font-size: 0.75rem;
+            color: #999;
+            margin-bottom: 8px;
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .preset-btn {
+            padding: 8px;
+            font-size: 0.8rem;
+            margin: 0;
+        }
+        
+        .info {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        .back-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #4a9eff; color: white; text-decoration: none; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000; }
+        .back-btn:hover { background: #6bb0ff; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← Admin Panel</a>
+    <div class="container">
+        <h1>🎨 CineShelf Icon Editor</h1>
+        <p class="subtitle">Upload your icon and apply filters, effects, and overlays</p>
+        
+        <div class="layout">
+            <!-- Controls Sidebar -->
+            <div class="controls">
+                <div class="control-group">
+                    <h3>📁 Upload Icon</h3>
+                    <input type="file" id="iconUpload" accept="image/*" onchange="loadIcon(event)">
+                    <button class="secondary" onclick="useCurrentIcon()" style="margin-top: 10px;">
+                        Use Current app-icon.png
+                    </button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎨 Color Adjustments</h3>
+                    
+                    <label>
+                        Brightness <span class="value-display" id="brightnessValue">100%</span>
+                    </label>
+                    <input type="range" id="brightness" min="0" max="200" value="100" oninput="updateFilters()">
+                    
+                    <label>
+                        Contrast <span class="value-display" id="contrastValue">100%</span>
+                    </label>
+                    <input type="range" id="contrast" min="0" max="200" value="100" oninput="updateFilters()">
+                    
+                    <label>
+                        Saturation <span class="value-display" id="saturationValue">100%</span>
+                    </label>
+                    <input type="range" id="saturation" min="0" max="200" value="100" oninput="updateFilters()">
+                    
+                    <label>
+                        Hue Rotate <span class="value-display" id="hueValue">0°</span>
+                    </label>
+                    <input type="range" id="hue" min="0" max="360" value="0" oninput="updateFilters()">
+                </div>
+                
+                <div class="control-group">
+                    <h3>✨ Effects</h3>
+                    
+                    <label>
+                        Grayscale <span class="value-display" id="grayscaleValue">0%</span>
+                    </label>
+                    <input type="range" id="grayscale" min="0" max="100" value="0" oninput="updateFilters()">
+                    
+                    <label>
+                        Invert <span class="value-display" id="invertValue">0%</span>
+                    </label>
+                    <input type="range" id="invert" min="0" max="100" value="0" oninput="updateFilters()">
+                    
+                    <label>
+                        Sepia <span class="value-display" id="sepiaValue">0%</span>
+                    </label>
+                    <input type="range" id="sepia" min="0" max="100" value="0" oninput="updateFilters()">
+                    
+                    <label>
+                        Blur <span class="value-display" id="blurValue">0px</span>
+                    </label>
+                    <input type="range" id="blur" min="0" max="10" value="0" oninput="updateFilters()">
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎭 Overlay</h3>
+                    
+                    <label>Overlay Color</label>
+                    <input type="color" id="overlayColor" value="#667eea" onchange="updateFilters()">
+                    
+                    <label>
+                        Overlay Opacity <span class="value-display" id="overlayOpacityValue">0%</span>
+                    </label>
+                    <input type="range" id="overlayOpacity" min="0" max="100" value="0" oninput="updateFilters()">
+                    
+                    <label>Background Color</label>
+                    <input type="color" id="bgColor" value="#667eea" onchange="updateFilters()">
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎯 Quick Presets</h3>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="applyPreset('original')">Original</button>
+                        <button class="preset-btn" onclick="applyPreset('bw')">B&W</button>
+                        <button class="preset-btn" onclick="applyPreset('invert')">Invert</button>
+                        <button class="preset-btn" onclick="applyPreset('vintage')">Vintage</button>
+                        <button class="preset-btn" onclick="applyPreset('dark')">Dark</button>
+                        <button class="preset-btn" onclick="applyPreset('bright')">Bright</button>
+                        <button class="preset-btn" onclick="applyPreset('colorful')">Colorful</button>
+                        <button class="preset-btn" onclick="applyPreset('cold')">Cold</button>
+                    </div>
+                </div>
+                
+                <button onclick="resetAll()">🔄 Reset All</button>
+                <button onclick="downloadIcon()">⬇️ Download Modified Icon</button>
+            </div>
+            
+            <!-- Preview Area -->
+            <div class="preview-area">
+                <div class="info">
+                    <strong>💡 Quick Start:</strong><br>
+                    1. Upload your current icon or click "Use Current app-icon.png"<br>
+                    2. Adjust sliders to modify the icon<br>
+                    3. Try quick presets for instant effects<br>
+                    4. Download when satisfied
+                </div>
+                
+                <div class="canvas-container">
+                    <canvas id="canvas" width="512" height="512"></canvas>
+                </div>
+                
+                <div class="preview-sizes">
+                    <div class="preview-item">
+                        <div class="preview-label">Preview 192x192</div>
+                        <canvas id="preview192" width="192" height="192"></canvas>
+                    </div>
+                    <div class="preview-item">
+                        <div class="preview-label">Preview 96x96</div>
+                        <canvas id="preview96" width="96" height="96"></canvas>
+                    </div>
+                    <div class="preview-item">
+                        <div class="preview-label">Preview 32x32 (Favicon)</div>
+                        <canvas id="preview32" width="32" height="32" style="width: 96px; height: 96px; image-rendering: pixelated;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const preview192 = document.getElementById('preview192');
+        const preview96 = document.getElementById('preview96');
+        const preview32 = document.getElementById('preview32');
+        let originalImage = null;
+        
+        // Load icon from file
+        function loadIcon(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    originalImage = img;
+                    updateFilters();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Load current app-icon.png from server
+        function useCurrentIcon() {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                originalImage = img;
+                updateFilters();
+            };
+            img.onerror = function() {
+                alert('Could not load app-icon.png. Make sure it exists on your server.');
+            };
+            img.src = '/app-icon.png?' + Date.now();
+        }
+        
+        // Update all filters and render
+        function updateFilters() {
+            if (!originalImage) {
+                // Show placeholder
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, 512, 512);
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('Upload an icon to begin', 256, 256);
+                return;
+            }
+            
+            // Update value displays
+            document.getElementById('brightnessValue').textContent = document.getElementById('brightness').value + '%';
+            document.getElementById('contrastValue').textContent = document.getElementById('contrast').value + '%';
+            document.getElementById('saturationValue').textContent = document.getElementById('saturation').value + '%';
+            document.getElementById('hueValue').textContent = document.getElementById('hue').value + '°';
+            document.getElementById('grayscaleValue').textContent = document.getElementById('grayscale').value + '%';
+            document.getElementById('invertValue').textContent = document.getElementById('invert').value + '%';
+            document.getElementById('sepiaValue').textContent = document.getElementById('sepia').value + '%';
+            document.getElementById('blurValue').textContent = document.getElementById('blur').value + 'px';
+            document.getElementById('overlayOpacityValue').textContent = document.getElementById('overlayOpacity').value + '%';
+            
+            // Render main canvas
+            renderCanvas(ctx, 512);
+            
+            // Render previews
+            renderCanvas(preview192.getContext('2d'), 192);
+            renderCanvas(preview96.getContext('2d'), 96);
+            renderCanvas(preview32.getContext('2d'), 32);
+        }
+        
+        function renderCanvas(context, size) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Draw background
+            const bgColor = document.getElementById('bgColor').value;
+            tempCtx.fillStyle = bgColor;
+            tempCtx.fillRect(0, 0, size, size);
+            
+            // Apply CSS filters to draw image with effects
+            const brightness = document.getElementById('brightness').value;
+            const contrast = document.getElementById('contrast').value;
+            const saturation = document.getElementById('saturation').value;
+            const hue = document.getElementById('hue').value;
+            const grayscale = document.getElementById('grayscale').value;
+            const invert = document.getElementById('invert').value;
+            const sepia = document.getElementById('sepia').value;
+            const blur = document.getElementById('blur').value;
+            
+            tempCtx.filter = `
+                brightness(${brightness}%)
+                contrast(${contrast}%)
+                saturate(${saturation}%)
+                hue-rotate(${hue}deg)
+                grayscale(${grayscale}%)
+                invert(${invert}%)
+                sepia(${sepia}%)
+                blur(${blur}px)
+            `;
+            
+            // Draw scaled image
+            tempCtx.drawImage(originalImage, 0, 0, size, size);
+            
+            // Reset filter for overlay
+            tempCtx.filter = 'none';
+            
+            // Apply color overlay
+            const overlayOpacity = document.getElementById('overlayOpacity').value / 100;
+            if (overlayOpacity > 0) {
+                const overlayColor = document.getElementById('overlayColor').value;
+                tempCtx.fillStyle = overlayColor;
+                tempCtx.globalAlpha = overlayOpacity;
+                tempCtx.fillRect(0, 0, size, size);
+                tempCtx.globalAlpha = 1;
+            }
+            
+            // Copy to target canvas
+            context.clearRect(0, 0, size, size);
+            context.drawImage(tempCanvas, 0, 0);
+        }
+        
+        // Preset filters
+        function applyPreset(preset) {
+            const presets = {
+                original: {
+                    brightness: 100, contrast: 100, saturation: 100, hue: 0,
+                    grayscale: 0, invert: 0, sepia: 0, blur: 0, overlayOpacity: 0
+                },
+                bw: {
+                    brightness: 100, contrast: 120, saturation: 0, hue: 0,
+                    grayscale: 100, invert: 0, sepia: 0, blur: 0, overlayOpacity: 0
+                },
+                invert: {
+                    brightness: 100, contrast: 100, saturation: 100, hue: 0,
+                    grayscale: 0, invert: 100, sepia: 0, blur: 0, overlayOpacity: 0
+                },
+                vintage: {
+                    brightness: 110, contrast: 90, saturation: 80, hue: 20,
+                    grayscale: 0, invert: 0, sepia: 60, blur: 0, overlayOpacity: 0
+                },
+                dark: {
+                    brightness: 70, contrast: 130, saturation: 90, hue: 0,
+                    grayscale: 0, invert: 0, sepia: 0, blur: 0, overlayOpacity: 30
+                },
+                bright: {
+                    brightness: 130, contrast: 110, saturation: 120, hue: 0,
+                    grayscale: 0, invert: 0, sepia: 0, blur: 0, overlayOpacity: 0
+                },
+                colorful: {
+                    brightness: 105, contrast: 110, saturation: 150, hue: 0,
+                    grayscale: 0, invert: 0, sepia: 0, blur: 0, overlayOpacity: 0
+                },
+                cold: {
+                    brightness: 100, contrast: 100, saturation: 110, hue: 180,
+                    grayscale: 0, invert: 0, sepia: 0, blur: 0, overlayOpacity: 0
+                }
+            };
+            
+            const p = presets[preset];
+            if (!p) return;
+            
+            document.getElementById('brightness').value = p.brightness;
+            document.getElementById('contrast').value = p.contrast;
+            document.getElementById('saturation').value = p.saturation;
+            document.getElementById('hue').value = p.hue;
+            document.getElementById('grayscale').value = p.grayscale;
+            document.getElementById('invert').value = p.invert;
+            document.getElementById('sepia').value = p.sepia;
+            document.getElementById('blur').value = p.blur;
+            document.getElementById('overlayOpacity').value = p.overlayOpacity;
+            
+            updateFilters();
+        }
+        
+        // Reset all to original
+        function resetAll() {
+            applyPreset('original');
+        }
+        
+        // Download modified icon
+        function downloadIcon() {
+            if (!originalImage) {
+                alert('Please upload an icon first');
+                return;
+            }
+            
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'app-icon-modified.png';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        // Initialize with placeholder
+        updateFilters();
+    </script>
+</body>
+</html>
