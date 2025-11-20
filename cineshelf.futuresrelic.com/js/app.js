@@ -1988,7 +1988,7 @@ function getCertColor(cert) {
                                 skipped++;
                             } else {
                                 // Add to wishlist
-                                await apiCall('add_to_wishlist', { tmdb_id: match.id });
+                                await apiCall('add_wishlist', { tmdb_id: match.id });
                                 added++;
                             }
                         } else {
