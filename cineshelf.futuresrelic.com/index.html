@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineShelf - Your Movie Collection</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.php">
+    <link rel="apple-touch-icon" href="/app-icon.png?v=AUTO">
+    <link rel="icon" href="/favicon.ico?v=AUTO">
+    <meta name="theme-color" content="#667eea">    
+
+    
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CineShelf">
+    
+    <!-- CSS -->
+<script>
+   (function() {
+       fetch('/get-version.php')
+           .then(r => r.json())
+           .then(data => {
+               const link = document.createElement('link');
+               link.rel = 'stylesheet';
+               link.href = '/css/styles.css?v=' + data.version;
+               document.head.appendChild(link);
+           })
+           .catch(() => {
+               const link = document.createElement('link');
+               link.rel = 'stylesheet';
+               link.href = '/css/styles.css';
+               document.head.appendChild(link);
+           });
+   })();
+   </script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+<div class="header-content">
+    <h1 class="logo" onclick="location.reload(true)" style="cursor: pointer;" title="Click to refresh">🎬 CineShelf</h1>
+    
+    <!-- GROUP SELECTOR -->
+    <div id="groupSelector" style="display:none; margin-left:auto; margin-right:1rem;">
+        <select id="currentGroup" onchange="App.switchGroup(this.value)" style="padding:0.5rem;border-radius:4px;background:#2a2a2a;color:#fff;border:1px solid #444;">
+            <option value="">My Collection</option>
+        </select>
+    </div>
+    
+    <div class="header-right">
+        <span class="user-badge" id="currentUser">default</span>
+        <button class="icon-btn" id="logoutBtn" title="Sign Out">🚪</button>
+    </div>
+</div>
+
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="collection" onclick="App.switchTab('collection')">
+                <span class="tab-icon">📚</span>
+                <span class="tab-label">Collection</span>
+                <span class="badge" id="collectionCount"></span>
+            </button>
+            <button class="tab" data-tab="wishlist" onclick="App.switchTab('wishlist')">
+                <span class="tab-icon">❤️️</span>
+                <span class="tab-label">Wishlist</span>
+                <span class="badge" id="wishlistCount">0</span>
+            </button>
+            <button class="tab" data-tab="groups" onclick="App.switchTab('groups')">
+                <span class="tab-icon">👨‍👩‍👧‍👦</span>
+                <span class="tab-label">Groups</span>
+            </button>
+            <button class="tab" data-tab="add" onclick="App.switchTab('add')">
+                <span class="tab-icon">➕</span>
+                <span class="tab-label">Add Movie</span>
+            </button>
+            <button class="tab" data-tab="trivia" onclick="App.switchTab('trivia')">
+                <span class="tab-icon">🎮</span>
+                <span class="tab-label">Trivia</span>
+            </button>
+            <button class="tab admin-only" data-tab="resolve" onclick="App.switchTab('resolve')">
+                <span class="tab-icon">🔍</span>
+                <span class="tab-label">Resolve</span>
+                <span class="badge" id="resolveCount">0</span>
+            </button>
+            <button class="tab" data-tab="settings" onclick="App.switchTab('settings')">
+                <span class="tab-icon">⚙️</span>
+                <span class="tab-label">Settings</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Collection Tab -->
+        <section id="collection" class="tab-content active">
+            <div class="section-header">
+                <h2 id="collectionHeader">Your Collection</h2>
+                <div class="view-controls">
+                    <select id="sortBy" onchange="App.sortCollection()">
+                        <option value="title">Sort by Title</option>
+                        <option value="year">Sort by Year</option>
+                        <option value="rating">Sort by Rating</option>
+                        <option value="runtime">Sort by Runtime</option>
+                        <option value="certification">Sort by Classification</option>
+                        <option value="created_at">Sort by Added</option>
+                    </select>
+
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
+                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Netflix Filter Bar - Collection Only -->
+            <div class="filter-bar" id="filterBar">
+                <button class="btn-ghost" onclick="App.toggleFilters()" id="filterToggleBtn">
+                    🔍 Filters & Sort
+                </button>
+                
+                <div class="filter-controls" id="filterControls" style="display: none;">
+                    <div class="filter-group" style="grid-column: 1 / -1;">
+                        <label>Search by Name</label>
+                        <input type="text" id="filterSearch" placeholder="Search movies by title..."
+                               oninput="App.onFilterChange('search', this.value)"
+                               style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Sort By</label>
+                        <select id="sortBySelect" onchange="App.sortMoviesEnhanced(this.value)">
+                            <option value="title">Title (A-Z)</option>
+                            <option value="title-desc">Title (Z-A)</option>
+                            <option value="year-desc">Year (Newest)</option>
+                            <option value="year">Year (Oldest)</option>
+                            <option value="rating-desc">Rating (High)</option>
+                            <option value="rating">Rating (Low)</option>
+                            <option value="director">Director (A-Z)</option>
+                            <option value="director-desc">Director (Z-A)</option>
+                            <option value="runtime-desc">Runtime (Long)</option>
+                            <option value="runtime">Runtime (Short)</option>
+                            <option value="certification">Rating (G-R)</option>
+                            <option value="added-desc">Recently Added</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Director</label>
+                        <select id="filterDirector" onchange="App.onFilterChange('director', this.value)">
+                            <option value="all">All Directors</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Genre</label>
+                        <select id="filterGenre" onchange="App.onFilterChange('genre', this.value)">
+                            <option value="all">All Genres</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Rating</label>
+                        <select id="filterCertification" onchange="App.onFilterChange('certification', this.value)">
+                            <option value="all">All Ratings</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Year Range</label>
+                        <div class="year-range">
+                            <input type="number" id="filterYearMin" placeholder="From" min="1900" max="2025" 
+                                   onchange="App.onFilterChange('yearMin', this.value)">
+                            <span>to</span>
+                            <input type="number" id="filterYearMax" placeholder="To" min="1900" max="2025" 
+                                   onchange="App.onFilterChange('yearMax', this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <button class="btn-secondary" onclick="App.resetFilters()">🔄 Reset</button>
+                    </div>
+                    
+                    <div class="filter-group" id="activeFilters" style="display: none;">
+                        <div class="active-filter-tags"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="collectionGrid" class="movie-grid grid-view"></div>
+            
+            <div id="emptyCollection" class="empty-state" style="display: none;">
+                <div class="empty-icon">🎬</div>
+                <h3>Your collection is empty</h3>
+                <p>Add your first movie to get started!</p>
+                <button class="btn" onclick="App.switchTab('add')">Add Movie</button>
+            </div>
+        </section>
+
+        <!-- Wishlist Tab -->
+        <section id="wishlist" class="tab-content">
+            <div class="section-header">
+                <h2 id="wishlistHeader">Your Wishlist</h2>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn-ghost" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
+                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wishlistGrid" class="movie-grid grid-view"></div>
+            
+            <div id="emptyWishlist" class="empty-state" style="display: none;">
+                <div class="empty-icon">❤️</div>
+                <h3>Your wishlist is empty</h3>
+                <p>Add movies you want to collect!</p>
+            </div>
+        </section>
+
+        <!-- GROUPS TAB -->
+<section id="groups" class="tab-content">
+    <div class="groups-container">
+
+        <!-- Groups Subtabs -->
+        <div class="groups-tabs">
+            <button class="groups-tab active" data-groups-tab="manage" onclick="App.switchGroupsTab('manage')">👥 Manage Groups</button>
+            <button class="groups-tab" data-groups-tab="family" onclick="App.switchGroupsTab('family')">🏠 Family Collection</button>
+            <button class="groups-tab" data-groups-tab="borrowed" onclick="App.switchGroupsTab('borrowed')">📥 Borrowed</button>
+            <button class="groups-tab" data-groups-tab="lent" onclick="App.switchGroupsTab('lent')">📤 Lent</button>
+        </div>
+
+        <!-- Manage Groups -->
+        <div id="manageGroups" class="groups-subtab active">
+            <h2>Your Groups</h2>
+            <button class="btn" onclick="App.showCreateGroupModal()" style="margin-bottom:1.5rem;">➕ Create New Group</button>
+            <div id="groupsList" class="groups-list"></div>
+            <div id="emptyGroups" class="empty-state" style="display:none;">
+                <div class="empty-icon">👨‍👩‍👧‍👦</div>
+                <h3>No groups yet</h3>
+                <p>Create a family group to share collections and borrow movies!</p>
+                <button class="btn" onclick="App.showCreateGroupModal()">Create Group</button>
+            </div>
+        </div>
+
+        <!-- Family Collection -->
+        <div id="familyCollection" class="groups-subtab">
+            <div class="section-header">
+                <h2>Family Collection</h2>
+                <div class="view-controls">
+                    <select id="familyGroupSelect" onchange="App.loadFamilyCollection(this.value)">
+                        <option value="">Select a group...</option>
+                    </select>
+                    <select id="familyMemberFilter" onchange="App.filterFamilyByMember(this.value)" style="display:none;">
+                        <option value="all">All Members</option>
+                    </select>
+                </div>
+            </div>
+            <div id="familyCollectionGrid" class="movie-grid grid-view"></div>
+            <div id="emptyFamilyCollection" class="empty-state">
+                <div class="empty-icon">🏠</div>
+                <h3>Select a group to view family collection</h3>
+            </div>
+        </div>
+
+        <!-- Borrowed -->
+        <div id="borrowedItems" class="groups-subtab">
+            <h2>Movies You Borrowed</h2>
+            <div id="borrowedList" class="borrowed-list"></div>
+            <div id="emptyBorrowed" class="empty-state">
+                <div class="empty-icon">📥</div>
+                <h3>No borrowed items</h3>
+                <p>Borrow movies from your group members!</p>
+            </div>
+        </div>
+
+        <!-- Lent -->
+        <div id="lentItems" class="groups-subtab">
+            <h2>Movies You Lent Out</h2>
+            <div id="lentList" class="lent-list"></div>
+            <div id="emptyLent" class="empty-state">
+                <div class="empty-icon">📤</div>
+                <h3>No lent items</h3>
+                <p>Your movies haven't been borrowed yet.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+        <!-- Resolve Tab -->
+        <section id="resolve" class="tab-content admin-only">
+            <div class="section-header">
+                <h2 id="resolveHeader">🔍 Resolve Unmatched Movies</h2>
+                <p id="resolveDescription" style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">
+                    Loading unresolved movies...
+                </p>
+            </div>
+
+            <div id="unresolvedGrid" class="movie-grid" style="display: none;"></div>
+            
+            <div id="emptyUnresolved" style="display: none; text-align: center; padding: 3rem; color: rgba(255,255,255,0.6);">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+                <h3>All Movies Resolved!</h3>
+                <p>You have no unmatched movies in your collection.</p>
+            </div>
+        </section>
+
+        <!-- Add Movie Tab -->
+        <section id="add" class="tab-content">
+            <div class="add-movie-container">
+                <h2>Add Movie to Collection</h2>
+                
+                <!-- Search by Title -->
+                <div class="search-box">
+                    <input type="text" id="movieSearch" placeholder="Search for a movie..." onkeypress="if(event.key==='Enter') App.searchMovies()">
+                    <button class="btn" onclick="App.searchMovies()">🔍 Search</button>
+                </div>
+                
+                <!-- OR Divider -->
+                <div style="text-align: center; margin: 1.5rem 0; color: rgba(255,255,255,0.5); font-weight: 600;">
+                    — OR —
+                </div>
+                
+<!-- Search by IMDb ID (clean style) -->
+<div style="margin-bottom: 2rem;">
+    <label for="imdbId" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: white;">
+        📋 Lookup by IMDb ID
+    </label>
+
+    <div class="search-box">
+    <input type="text" 
+           id="imdbId" 
+           placeholder="Enter IMDb ID (e.g., tt0287457)" 
+           onkeypress="if(event.key==='Enter') App.lookupByImdbId()">
+    <button id="imdbBtn" class="btn" onclick="App.lookupByImdbId()">🔍 Lookup</button>
+</div>
+
+    <small style="display: block; margin-top: 0.5rem; color: rgba(255,255,255,0.6);">
+        💡 Use this for movies not found on TMDB. Find IMDb IDs at 
+        <a href="https://www.imdb.com" target="_blank" style="color: #ffc107;">imdb.com</a>
+    </small>
+</div>
+
+                
+                <div id="searchResults" class="search-results"></div>
+                
+                <div id="addMovieForm" class="add-form" style="display: none;">
+                    <h3 id="selectedMovieTitle"></h3>
+                    <img id="selectedMoviePoster" class="form-poster" alt="">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Format *</label>
+                            <select id="copyFormat">
+                                <option value="DVD">DVD</option>
+                                <option value="Blu-ray">Blu-ray</option>
+                                <option value="4K UHD">4K UHD</option>
+                                <option value="VHS">VHS</option>
+                                <option value="Digital">Digital</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Edition</label>
+                            <select id="copyEdition">
+                                <option value="">Standard</option>
+                                <option value="Collector's Edition">Collector's Edition</option>
+                                <option value="Steelbook">Steelbook</option>
+                                <option value="Limited Edition">Limited Edition</option>
+                                <option value="Director's Cut">Director's Cut</option>
+                                <option value="Extended Edition">Extended Edition</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Region</label>
+                            <select id="copyRegion">
+                                <option value="Region 1">Region 1 (US/Canada)</option>
+                                <option value="Region 2">Region 2 (Europe)</option>
+                                <option value="Region 4">Region 4 (Australia)</option>
+                                <option value="Region A">Region A (Blu-ray Americas)</option>
+                                <option value="Region B">Region B (Blu-ray Europe)</option>
+                                <option value="Region Free">Region Free</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Condition</label>
+                            <select id="copyCondition">
+                                <option value="Mint">Mint</option>
+                                <option value="Excellent">Excellent</option>
+                                <option value="Good">Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Poor">Poor</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="copyNotes" placeholder="Any additional notes..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn" onclick="App.addToCollection()">📚 Add to Collection</button>
+                        <button class="btn btn-secondary" onclick="App.addToWishlist()">❤️ Add to Wishlist</button>
+                        <button class="btn btn-ghost" onclick="App.cancelAdd()">Cancel</button>
+                    </div>
+                </div>
+                <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(102, 126, 234, 0.1); border: 1px solid #667eea; border-radius: 8px;">
+                    <h3 style="margin-bottom: 0.5rem;">📸 Quick Scan Mode</h3>
+                    <p style="color: #a0a0a0; margin-bottom: 1rem; font-size: 0.9rem;">
+                        Scan multiple DVD/Blu-ray covers at once using your camera + AI
+                    </p>
+                    <button class="btn" onclick="CoverScanner.open()">
+                        <span>📸</span>
+                        <span>Open Cover Scanner</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Tab -->
+        <section id="settings" class="tab-content">
+            <div class="settings-container">
+                <h2>Settings</h2>
+                
+                <div class="settings-group">
+                    <h3>Display Settings</h3>
+                    
+                    <div class="setting-item">
+                        <label>Default View</label>
+                        <select id="settingDefaultView" onchange="App.saveSetting('defaultView', this.value)">
+                            <option value="grid">Grid View</option>
+                            <option value="compact">Compact Grid</option>
+                            <option value="list">List View</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>Default Sort</label>
+                        <select id="settingDefaultSort" onchange="App.saveSetting('defaultSort', this.value)">
+                            <option value="title">Title</option>
+                            <option value="year">Year</option>
+                            <option value="rating">Rating</option>
+                            <option value="created_at">Recently Added</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-group">
+                    <h3>Account</h3>
+
+                    <div class="setting-item">
+                        <label>Display Name</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" style="flex: 1;">
+                            <button class="btn" onclick="App.updateDisplayName()" style="padding: 0.5rem 1rem;">Save</button>
+                        </div>
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.25rem;">
+                            This is how your name appears to other users in groups
+                        </small>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>Email</label>
+                        <input type="text" id="settingUsername" readonly style="background: rgba(255,255,255,0.05);">
+                    </div>
+
+                    <div class="setting-item" id="oauthProviderRow" style="display: none;">
+                        <label>Login Provider</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span id="oauthProviderDisplay" style="padding: 0.5rem 1rem; background: rgba(102,126,234,0.2); border-radius: 4px; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <span id="oauthProviderIcon"></span>
+                                <span id="oauthProviderName"></span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <button class="btn btn-secondary" onclick="Auth.logout()" style="background: #ef4444;">
+                            🚪 Sign Out
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="settings-group">
+                    <h3>Data Management</h3>
+                    
+                    <div class="setting-item">
+                        <button class="btn" onclick="App.showStats()">📊 View Statistics</button>
+                        <button class="btn btn-secondary" onclick="App.exportData()">💾 Export Data</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+    <h3>External Services</h3>
+    
+    <div class="setting-item">
+        <label for="settingOpenAIKey">OpenAI API Key (for Cover Scanner)</label>
+        <input type="password" 
+               id="settingOpenAIKey" 
+               placeholder="sk-..." 
+               style="min-width: 300px;"
+               onchange="App.saveSetting('openaiKey', this.value)">
+    </div>
+    
+    <p style="font-size: 0.85rem; color: #a0a0a0; margin-top: 0.5rem;">
+        Get your API key at <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #667eea;">platform.openai.com/api-keys</a>
+        <br>💾 Settings save automatically
+    </p>
+</div>
+    
+    <p style="font-size: 0.85rem; color: #a0a0a0; margin-top: 0.5rem;">
+        Get your API key at <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #667eea;">platform.openai.com/api-keys</a>
+    </p>
+</div>
+            </div>
+        </section>
+
+        <!-- Trivia Tab -->
+        <section id="trivia" class="tab-content">
+            <!-- Trivia Settings (Choose Game Mode) -->
+            <div id="triviaSettings" class="trivia-settings">
+                <div class="trivia-header-section">
+                    <h2>🎬 Movie Trivia Game</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Test your knowledge about movies in your collection!
+                    </p>
+                </div>
+
+                <div class="trivia-mode-cards">
+                    <div class="trivia-mode-card">
+                        <div class="trivia-mode-icon">⚡</div>
+                        <h3>Sprint Mode</h3>
+                        <p>Answer a fixed number of questions as quickly as possible. Race against time!</p>
+                        <div class="trivia-mode-options">
+                            <label>Questions:</label>
+                            <select id="sprintQuestions">
+                                <option value="10">10 Questions</option>
+                                <option value="20">20 Questions</option>
+                                <option value="30">30 Questions</option>
+                            </select>
+                        </div>
+                        <div class="trivia-mode-options">
+                            <label>Scope:</label>
+                            <select id="sprintScope">
+                                <option value="collection">Collection Only</option>
+                                <option value="wishlist">Wishlist Only</option>
+                                <option value="all">Both</option>
+                            </select>
+                        </div>
+                        <button class="btn" onclick="App.startTriviaGame('sprint', document.getElementById('sprintScope').value, parseInt(document.getElementById('sprintQuestions').value))">
+                            Start Sprint
+                        </button>
+                    </div>
+
+                    <div class="trivia-mode-card">
+                        <div class="trivia-mode-icon">∞</div>
+                        <h3>Endless Mode</h3>
+                        <p>Keep playing until you quit. How high can you score?</p>
+                        <div class="trivia-mode-options">
+                            <label>Scope:</label>
+                            <select id="endlessScope">
+                                <option value="collection">Collection Only</option>
+                                <option value="wishlist">Wishlist Only</option>
+                                <option value="all">Both</option>
+                            </select>
+                        </div>
+                        <button class="btn" onclick="App.startTriviaGame('endless', document.getElementById('endlessScope').value)">
+                            Start Endless
+                        </button>
+                    </div>
+
+                    <div class="trivia-mode-card">
+                        <div class="trivia-mode-icon">❤️</div>
+                        <h3>Survival Mode</h3>
+                        <p>You have 3 lives. One wrong answer and you lose a life. How far can you go?</p>
+                        <div class="trivia-mode-options">
+                            <label>Scope:</label>
+                            <select id="survivalScope">
+                                <option value="collection">Collection Only</option>
+                                <option value="wishlist">Wishlist Only</option>
+                                <option value="all">Both</option>
+                            </select>
+                        </div>
+                        <button class="btn" onclick="App.startTriviaGame('survival', document.getElementById('survivalScope').value)">
+                            Start Survival
+                        </button>
+                    </div>
+                </div>
+
+                <div class="trivia-footer-actions">
+                    <button class="btn-secondary" onclick="App.viewTriviaHistory()">📜 View History</button>
+                    <button class="btn-secondary" onclick="App.viewTriviaStats()">📊 View Stats</button>
+                </div>
+            </div>
+
+            <!-- Trivia Game (Active Game) -->
+            <div id="triviaGame" class="trivia-game" style="display: none;">
+                <div id="triviaQuestionContainer"></div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="triviaGameOver" class="trivia-game-over" style="display: none;">
+                <div id="gameOverContainer"></div>
+            </div>
+
+            <!-- Trivia History -->
+            <div id="triviaHistory" class="trivia-history" style="display: none;">
+                <div class="section-header">
+                    <h2>📜 Trivia History</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Review your past questions and answers
+                    </p>
+                </div>
+                <div id="triviaHistoryContainer"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Copy Manager Modal -->
+    <div id="copyManagerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Copies</h3>
+                <button class="modal-close" onclick="App.closeCopyManager()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="copyManagerContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Movie Detail Modal -->
+    <div id="movieDetailModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Movie Details</h3>
+                <button class="modal-close" onclick="App.closeMovieDetail()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="movieDetailContent"></div>
+            </div>
+        </div>
+    </div>
+
+<!-- Poster Selector Modal -->
+<div id="posterSelectorModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3 id="posterSelectorTitle">Select Poster</h3>
+            <button class="modal-close" onclick="App.closePosterSelector()">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">
+                Click on a poster to use it for this movie. Posters are sorted by rating.
+            </p>
+            <div id="posterSelectorGrid" class="poster-selector-grid"></div>
+        </div>
+    </div>
+</div>
+
+    <!-- Resolve Modal -->
+    <div id="resolveModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="resolveModalTitle">Match Movie</h3>
+                <button class="modal-close" onclick="App.closeResolveModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="resolve-search-box">
+                    <input type="text" 
+                           id="resolveSearchInput" 
+                           placeholder="Search TMDB for correct match..."
+                           style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 1rem;">
+                    <button onclick="App.searchForResolve()" 
+                            class="btn" 
+                            style="margin-top: 0.75rem; width: 100%;">
+                        🔍 Search TMDB
+                    </button>
+                </div>
+                <div id="resolveResults" style="margin-top: 1.5rem;"></div>
+            </div>
+        </div>
+    </div>
+            <!-- Cover Scanner Modal -->
+    <div id="coverScannerModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📸 Scan DVD/Blu-ray Covers</h3>
+                <button class="modal-close" onclick="CoverScanner.close()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="scanner-layout">
+                    <!-- Camera Preview -->
+                    <div class="scanner-preview" id="scannerPreview">
+                        <video id="scannerVideo" autoplay playsinline></video>
+                        <canvas id="scannerCanvas" style="display: none;"></canvas>
+                        
+                        <div class="scanner-overlay">
+                            <div class="scanner-frame"></div>
+                            <div class="scanner-hint">
+                                Position DVD cover within frame
+                            </div>
+                        </div>
+                        
+                        <div class="scanner-controls">
+                            <button id="captureCoverBtn" class="btn" onclick="CoverScanner.capture()">
+                                <span>📸</span>
+                                <span>Scan Cover</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Batch List -->
+                    <div class="scanner-batch">
+                        <div class="scanner-batch-header">
+                            <h4>Scanned Titles <span id="scanBatchCount" class="badge" style="display: none;">0</span></h4>
+                            <button onclick="CoverScanner.clearBatch()" 
+                                    style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+                                Clear All
+                            </button>
+                        </div>
+                        
+                        <div id="scanBatchList" class="scan-batch-list">
+                            <p style="text-align: center; color: #666; padding: 2rem;">
+                                No titles scanned yet. Scan a cover to begin!
+                            </p>
+                        </div>
+                        
+                        <div class="scanner-batch-actions">
+                            <button id="processBatchBtn" class="btn" onclick="CoverScanner.processBatch()">
+                                <span>✅</span>
+                                <span>Process Batch</span>
+                            </button>
+                            <p style="font-size: 0.85rem; color: #666; text-align: center; margin-top: 0.5rem;">
+                                Scanned titles will be added to the Resolve tab for TMDB matching
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Status Toast -->
+    <div id="statusToast" class="toast"></div>
+
+    <!-- Scripts - Loaded dynamically with cache busting -->
+    <script>
+        // Load scripts with version-based cache busting
+        (function() {
+            function loadScript(src) {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+            }
+
+            // Fetch version and load scripts
+            fetch('/get-version.php?t=' + Date.now())
+                .then(r => r.json())
+                .then(data => {
+                    const v = data.version;
+                    console.log('[ScriptLoader] Loading scripts with version:', v);
+                    // Load auth.js first, then trivia.js, then app.js (order matters)
+                    return loadScript('js/auth.js?v=' + v)
+                        .then(() => loadScript('js/trivia.js?v=' + v))
+                        .then(() => loadScript('js/app.js?v=' + v));
+                })
+                .then(() => {
+                    // Scripts loaded successfully, initialize app
+                    console.log('[ScriptLoader] Scripts loaded, initializing app...');
+                    if (typeof App !== 'undefined' && App.init) {
+                        App.init();
+                    } else {
+                        console.error('[ScriptLoader] App object not found!');
+                    }
+                })
+                .catch(err => {
+                    console.error('[ScriptLoader] Failed to load scripts:', err);
+                    // Fallback: load without version
+                    return loadScript('js/auth.js')
+                        .then(() => loadScript('js/trivia.js'))
+                        .then(() => loadScript('js/app.js'))
+                        .then(() => {
+                            if (typeof App !== 'undefined' && App.init) {
+                                App.init();
+                            }
+                        });
+                });
+        })();
+    </script>
+<!-- Create Group Modal -->
+<div id="createGroupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create New Group</h2>
+            <button class="close-btn" onclick="App.closeCreateGroupModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Group Name *</label>
+                <input type="text" id="groupName" placeholder="e.g., Smith Family" maxlength="100">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="groupDescription" placeholder="Optional description..." rows="3" maxlength="500"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="App.closeCreateGroupModal()">Cancel</button>
+            <button class="btn" onclick="App.createGroup()">Create Group</button>
+        </div>
+    </div>
+</div>
+
+<!-- Group Detail Modal -->
+<div id="groupDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="groupDetailName">Group Name</h2>
+            <button class="close-btn" onclick="App.closeGroupDetail()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="groupDetailContent"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Preset Lists Modal -->
+<div id="presetListsModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2>📚 Browse Curated Lists</h2>
+            <button class="close-btn" onclick="App.closePresetLists()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                Quickly add classic and acclaimed movies to your wishlist from these curated collections.
+            </p>
+
+            <div id="presetListsContainer" style="display: grid; gap: 1rem;">
+                <!-- Preset list cards will be inserted here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/cover-scanner.js"></script>
+<script src="/pwa-register.js"></script>
+<!-- Force Update Button - Add before closing </body> tag -->
+<button id="forceUpdateBtn" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 9999;
+    display: none;
+" title="Force Update">🔄</button>
+
+<script>
+// Show force update button if version mismatch detected
+(async function() {
+    try {
+        // Wait a bit for page to load
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check versions
+        const response = await fetch('/get-version.php?t=' + Date.now());
+        const data = await response.json();
+        const serverVersion = data.version;
+        const cachedVersion = localStorage.getItem('cineshelf-version');
+        
+        // Show button if mismatch or not set
+        if (!cachedVersion || cachedVersion !== serverVersion) {
+            document.getElementById('forceUpdateBtn').style.display = 'block';
+        }
+    } catch (e) {
+        console.error('Version check failed:', e);
+    }
+})();
+
+// Force update on click
+document.getElementById('forceUpdateBtn').addEventListener('click', async function() {
+    if (!confirm('Force update? This will reload the app with fresh files.')) return;
+    
+    this.innerHTML = '⏳';
+    this.disabled = true;
+    
+    try {
+        // 1. Unregister service workers
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(reg => reg.unregister()));
+        }
+        
+        // 2. Clear all caches
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map(name => caches.delete(name)));
+        }
+        
+        // 3. Clear version from localStorage
+        localStorage.removeItem('cineshelf-version');
+        
+        // 4. Hard reload
+        window.location.reload(true);
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+        this.innerHTML = '🔄';
+        this.disabled = false;
+    }
+});
+</script>
+</body>
+</html>
