@@ -235,6 +235,7 @@
         <div class="groups-tabs">
             <button class="groups-tab active" data-groups-tab="manage" onclick="App.switchGroupsTab('manage')">👥 Manage Groups</button>
             <button class="groups-tab" data-groups-tab="family" onclick="App.switchGroupsTab('family')">🏠 Family Collection</button>
+            <button class="groups-tab" data-groups-tab="wishlist" onclick="App.switchGroupsTab('wishlist')">❤️ Group Wishlist</button>
             <button class="groups-tab" data-groups-tab="borrowed" onclick="App.switchGroupsTab('borrowed')">📥 Borrowed</button>
             <button class="groups-tab" data-groups-tab="lent" onclick="App.switchGroupsTab('lent')">📤 Lent</button>
         </div>
@@ -269,6 +270,27 @@
             <div id="emptyFamilyCollection" class="empty-state">
                 <div class="empty-icon">🏠</div>
                 <h3>Select a group to view family collection</h3>
+            </div>
+        </div>
+
+        <!-- Group Wishlist -->
+        <div id="groupWishlist" class="groups-subtab">
+            <div class="section-header">
+                <h2>Group Wishlist</h2>
+                <div class="view-controls">
+                    <select id="groupWishlistSelect" onchange="App.loadGroupWishlist(this.value)">
+                        <option value="">Select a group...</option>
+                    </select>
+                    <select id="wishlistMemberFilter" onchange="App.filterWishlistByMember(this.value)" style="display:none;">
+                        <option value="all">All Members</option>
+                    </select>
+                </div>
+            </div>
+            <div id="groupWishlistGrid" class="movie-grid grid-view"></div>
+            <div id="emptyGroupWishlist" class="empty-state">
+                <div class="empty-icon">❤️</div>
+                <h3>Select a group to view wishlists</h3>
+                <p>See what movies your group members want!</p>
             </div>
         </div>
 
@@ -502,6 +524,8 @@
                     <div class="setting-item">
                         <button class="btn" onclick="App.showStats()">📊 View Statistics</button>
                         <button class="btn btn-secondary" onclick="App.exportData()">💾 Export Data</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">📥 Import CSV</button>
+                        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="App.importCSV(event)">
                     </div>
                 </div>
                 <div class="settings-group">

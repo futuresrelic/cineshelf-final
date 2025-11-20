@@ -1804,7 +1804,123 @@ function getCertColor(cert) {
         
         showToast('Data exported!', 'success');
     }
-    
+
+    async function importCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Reset file input
+        event.target.value = '';
+
+        if (!file.name.endsWith('.csv')) {
+            showToast('Please upload a CSV file', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(line => line.trim());
+
+                if (lines.length < 2) {
+                    showToast('CSV file is empty or invalid', 'error');
+                    return;
+                }
+
+                // Parse header
+                const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+                const titleIndex = header.findIndex(h => h === 'title' || h === 'name' || h === 'movie');
+                const yearIndex = header.findIndex(h => h === 'year' || h === 'release_year');
+
+                if (titleIndex === -1) {
+                    showToast('CSV must have a "title" or "name" column', 'error');
+                    return;
+                }
+
+                const movies = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',').map(v => v.trim());
+                    if (values[titleIndex]) {
+                        movies.push({
+                            title: values[titleIndex].replace(/^["']|["']$/g, ''),
+                            year: yearIndex !== -1 ? values[yearIndex].replace(/^["']|["']$/g, '') : null
+                        });
+                    }
+                }
+
+                if (movies.length === 0) {
+                    showToast('No valid movies found in CSV', 'error');
+                    return;
+                }
+
+                // Confirm import
+                if (!confirm(`Import ${movies.length} movies from CSV?\n\nThis will search TMDB and add them to your wishlist.\n\nNote: This may take a few minutes.`)) {
+                    return;
+                }
+
+                showToast(`Importing ${movies.length} movies...`, 'info');
+                let added = 0;
+                let skipped = 0;
+                let failed = 0;
+
+                for (const movie of movies) {
+                    try {
+                        // Search TMDB
+                        const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
+                        const results = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+                        const data = await results.json();
+
+                        if (data.results && data.results.length > 0) {
+                            // Try to find exact match
+                            let match = data.results.find(r =>
+                                r.title.toLowerCase() === movie.title.toLowerCase() &&
+                                (!movie.year || r.release_date?.startsWith(movie.year))
+                            );
+
+                            // Fall back to first result
+                            if (!match) match = data.results[0];
+
+                            // Check if already in wishlist
+                            const alreadyExists = wishlist.some(w => w.tmdb_id === match.id);
+                            if (alreadyExists) {
+                                skipped++;
+                            } else {
+                                // Add to wishlist
+                                await apiCall('add_to_wishlist', { tmdb_id: match.id });
+                                added++;
+                            }
+                        } else {
+                            failed++;
+                        }
+
+                        // Delay to avoid rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    } catch (error) {
+                        console.error(`Failed to import ${movie.title}:`, error);
+                        failed++;
+                    }
+                }
+
+                // Reload wishlist
+                await loadWishlist();
+
+                // Show summary
+                showToast(`Import complete! Added: ${added}, Skipped: ${skipped}, Failed: ${failed}`, 'success');
+
+            } catch (error) {
+                console.error('CSV import error:', error);
+                showToast('Failed to parse CSV file', 'error');
+            }
+        };
+
+        reader.onerror = function() {
+            showToast('Failed to read file', 'error');
+        };
+
+        reader.readAsText(file);
+    }
+
     // ========================================
     // RESOLVE FUNCTIONS
     // ========================================
@@ -2249,18 +2365,22 @@ function switchGroupsTab(tabName) {
     const subtabMap = {
         'manage': 'manageGroups',
         'family': 'familyCollection',
+        'wishlist': 'groupWishlist',
         'borrowed': 'borrowedItems',
         'lent': 'lentItems'
     };
-    
+
     document.getElementById(subtabMap[tabName]).classList.add('active');
-    
+
     // Load data for this tab
     switch(tabName) {
         case 'manage':
             loadGroups();
             break;
         case 'family':
+            // Loads when group selected
+            break;
+        case 'wishlist':
             // Loads when group selected
             break;
         case 'borrowed':
@@ -2280,8 +2400,9 @@ async function loadGroups() {
     try {
         const groupSelector = document.getElementById('currentGroup');
         const familyGroupSelect = document.getElementById('familyGroupSelect');
-        
-        if (!groupSelector || !familyGroupSelect) {
+        const wishlistGroupSelect = document.getElementById('groupWishlistSelect');
+
+        if (!groupSelector || !familyGroupSelect || !wishlistGroupSelect) {
             return; // UI not ready
         }
         
@@ -2294,10 +2415,12 @@ async function loadGroups() {
             
             groupSelector.innerHTML = '<option value="">My Collection</option>';
             familyGroupSelect.innerHTML = '<option value="">Select a group...</option>';
-            
+            wishlistGroupSelect.innerHTML = '<option value="">Select a group...</option>';
+
             userGroups.forEach(group => {
                 groupSelector.innerHTML += `<option value="${group.id}">${group.name}</option>`;
                 familyGroupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+                wishlistGroupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
             });
         } else {
             const groupSelectorDiv = document.getElementById('groupSelector');
@@ -2789,7 +2912,7 @@ async function borrowMovie(copyId, title) {
 
 async function returnMovie(borrowId, title) {
     if (!confirm(`Mark "${title}" as returned?`)) return;
-    
+
     try {
         await apiCall('return_copy', { borrow_id: borrowId });
         showToast('Movie returned!', 'success');
@@ -2798,6 +2921,136 @@ async function returnMovie(borrowId, title) {
     } catch (error) {
         showToast('Failed to return movie', 'error');
     }
+}
+
+async function loadGroupWishlist(groupId) {
+    if (!groupId) {
+        document.getElementById('groupWishlistGrid').innerHTML = '';
+        document.getElementById('emptyGroupWishlist').style.display = 'flex';
+        document.getElementById('wishlistMemberFilter').style.display = 'none';
+        return;
+    }
+
+    try {
+        // Get group members
+        const groupData = await apiCall('get_group', { group_id: groupId });
+        const members = groupData.members || [];
+
+        if (members.length === 0) {
+            document.getElementById('groupWishlistGrid').innerHTML = '';
+            document.getElementById('emptyGroupWishlist').style.display = 'flex';
+            return;
+        }
+
+        // Load wishlist for each member
+        showToast('Loading group wishlists...', 'info');
+        const allWishlists = [];
+
+        for (const member of members) {
+            try {
+                const wishlistData = await apiCall('get_user_wishlist', { user_id: member.user_id });
+                if (wishlistData && wishlistData.length > 0) {
+                    wishlistData.forEach(item => {
+                        allWishlists.push({
+                            ...item,
+                            member_name: member.username,
+                            member_id: member.user_id
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error(`Failed to load wishlist for ${member.username}:`, error);
+            }
+        }
+
+        // Update member filter dropdown
+        const memberFilter = document.getElementById('wishlistMemberFilter');
+        memberFilter.innerHTML = '<option value="all">All Members</option>';
+        members.forEach(member => {
+            memberFilter.innerHTML += `<option value="${member.user_id}">${member.username}</option>`;
+        });
+        memberFilter.style.display = 'inline-block';
+
+        // Store and render
+        window.currentGroupWishlist = allWishlists;
+        renderGroupWishlist(allWishlists);
+
+    } catch (error) {
+        console.error('Error loading group wishlist:', error);
+        showToast('Failed to load group wishlist', 'error');
+    }
+}
+
+function renderGroupWishlist(wishlists) {
+    const grid = document.getElementById('groupWishlistGrid');
+    const emptyState = document.getElementById('emptyGroupWishlist');
+
+    if (!wishlists || wishlists.length === 0) {
+        grid.innerHTML = '';
+        emptyState.style.display = 'flex';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    // Group by TMDB ID
+    const movieMap = new Map();
+    wishlists.forEach(item => {
+        const key = item.tmdb_id;
+        if (!movieMap.has(key)) {
+            movieMap.set(key, {
+                ...item,
+                members: [{ name: item.member_name, id: item.member_id }]
+            });
+        } else {
+            const existing = movieMap.get(key);
+            if (!existing.members.find(m => m.id === item.member_id)) {
+                existing.members.push({ name: item.member_name, id: item.member_id });
+            }
+        }
+    });
+
+    // Convert to array and sort by most wanted
+    const movies = Array.from(movieMap.values()).sort((a, b) => b.members.length - a.members.length);
+
+    grid.innerHTML = movies.map(movie => {
+        const posterUrl = movie.poster_path
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+            : 'https://via.placeholder.com/500x750/333/666?text=No+Poster';
+
+        const membersList = movie.members.map(m => m.name).join(', ');
+        const memberCount = movie.members.length;
+        const memberLabel = memberCount === 1 ? '1 member' : `${memberCount} members`;
+
+        return `
+            <div class="movie-card" data-member-ids="${movie.members.map(m => m.id).join(',')}">
+                <img src="${posterUrl}" alt="${movie.title}">
+                <div class="movie-info">
+                    <h3>${movie.title}</h3>
+                    <p class="year">${movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'}</p>
+                    <div class="wishlist-badge">
+                        <span>❤️ ${memberLabel}</span>
+                    </div>
+                    <p class="wishlist-members">${membersList}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterWishlistByMember(memberId) {
+    if (!window.currentGroupWishlist) return;
+
+    if (memberId === 'all') {
+        renderGroupWishlist(window.currentGroupWishlist);
+        return;
+    }
+
+    const filtered = window.currentGroupWishlist.filter(item =>
+        String(item.member_id) === String(memberId)
+    );
+
+    renderGroupWishlist(filtered);
 }
 
 async function loadBorrowedItems() {
@@ -3455,6 +3708,7 @@ return {
     updateDisplayName,
     showStats,
     exportData,
+    importCSV,
     loadUnresolved,
     renderUnresolved,
     openResolveModal,
@@ -3491,6 +3745,9 @@ return {
        loadBorrowedItems: loadBorrowedItems,
        loadLentItems: loadLentItems,
        switchGroup: switchGroup,
+       loadGroupWishlist: loadGroupWishlist,
+       renderGroupWishlist: renderGroupWishlist,
+       filterWishlistByMember: filterWishlistByMember,
 
     // === ADD THESE FOR DEBUGGING ===
     get collection() { return collection; },
