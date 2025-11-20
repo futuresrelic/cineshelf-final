@@ -1964,69 +1964,53 @@ if (descEl) {
     }
     
 function renderUnresolved() {
-    const grid = document.getElementById('unresolvedGrid');
+    const list = document.getElementById('unresolvedList');
     const empty = document.getElementById('emptyUnresolved');
-    
-    if (!grid || !empty) return;
-    
+
+    if (!list || !empty) return;
+
     if (unresolvedMovies.length === 0) {
-        grid.style.display = 'none';
+        list.style.display = 'none';
         empty.style.display = 'flex';
         return;
     }
-    
-    grid.style.display = 'grid';
+
+    list.style.display = 'block';
     empty.style.display = 'none';
-    
+
     // Clear and rebuild
-    grid.innerHTML = '';
-    
+    list.innerHTML = '';
+
     unresolvedMovies.forEach(movie => {
-        // Create card element
-        const card = document.createElement('div');
-        card.className = 'movie-card unresolved-card';
-        card.style.position = 'relative';
-        card.dataset.movieId = movie.movie_id;
-        card.dataset.movieTitle = movie.title || 'Unknown';
-        
         const safeTitle = (movie.title || 'Unknown').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        
-        // Use compact placeholder for unresolved
-        const posterUrl = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23444\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'45%25\' text-anchor=\'middle\' fill=\'%23ffc107\' font-size=\'60\' font-weight=\'bold\'%3E%3F%3C/text%3E%3Ctext x=\'50%25\' y=\'65%25\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'14\'%3ENo Match%3C/text%3E%3C/svg%3E';
-        
-        card.innerHTML = `
-            <div style="position: absolute; top: 8px; right: 8px; background: rgba(255,193,7,0.95); color: black; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                ❓ UNMATCHED
-            </div>
-            <div class="movie-poster-container">
-                <img src="${posterUrl}" 
-                     alt="${safeTitle}" 
-                     class="movie-poster">
-            </div>
-            <div class="movie-info">
-                <h3 class="movie-title">${safeTitle}</h3>
-                <div class="movie-meta">
-                    <span style="color: rgba(255,193,7,1); font-size: 0.85rem;">⚠️ No data</span>
+
+        const item = document.createElement('div');
+        item.className = 'unresolved-item';
+        item.dataset.movieId = movie.movie_id;
+        item.dataset.movieTitle = movie.title || 'Unknown';
+
+        item.innerHTML = `
+            <div class="unresolved-icon">❓</div>
+            <div class="unresolved-details">
+                <div class="unresolved-title">${safeTitle}</div>
+                <div class="unresolved-meta">
+                    <span class="unresolved-status">⚠️ Unmatched</span>
+                    ${movie.copy_count > 1 ? `<span class="unresolved-copies">${movie.copy_count} copies</span>` : ''}
                 </div>
-                ${movie.copy_count > 1 ? `<div class="movie-format" style="font-size: 0.85rem;">${movie.copy_count} copies</div>` : ''}
             </div>
-            <div class="movie-actions">
-                <button class="btn resolve-match-btn" 
-                        style="width: 100%; background: linear-gradient(135deg, #ffc107, #ff9800); color: black; font-weight: 700; font-size: 0.9rem; padding: 0.6rem;">
-                    🔍 Match
-                </button>
-            </div>
+            <button class="btn-resolve" data-movie-id="${movie.movie_id}" data-title="${safeTitle}">
+                🔍 Match
+            </button>
         `;
-        
-        grid.appendChild(card);
+
+        list.appendChild(item);
     });
-    
+
     // Add event listeners to all resolve buttons
-    grid.querySelectorAll('.resolve-match-btn').forEach(btn => {
+    list.querySelectorAll('.btn-resolve').forEach(btn => {
         btn.addEventListener('click', function(e) {
-            const card = e.target.closest('.unresolved-card');
-            const movieId = parseInt(card.dataset.movieId);
-            const title = card.dataset.movieTitle;
+            const movieId = parseInt(e.target.dataset.movieId);
+            const title = e.target.dataset.title;
             openResolveModal(movieId, title);
         });
     });

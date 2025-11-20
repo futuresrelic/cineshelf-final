@@ -1180,52 +1180,88 @@ body {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.unresolved-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+}
+
+.unresolved-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    border-left: 4px solid #ffc107;
+    transition: all 0.2s;
+}
+
+.unresolved-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(4px);
+}
+
+.unresolved-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 193, 7, 0.15);
+    border-radius: 8px;
+}
+
+.unresolved-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.unresolved-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.unresolved-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.unresolved-status {
+    color: #ffc107;
+    font-weight: 500;
+}
+
+.unresolved-copies {
+    color: var(--primary);
+}
+
 .btn-resolve {
     background: linear-gradient(135deg, #ffc107, #ff9800);
     color: black;
     font-weight: 700;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.6rem 1.25rem;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-resolve:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
-}
-
-#unresolvedGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem;
-}
-
-#unresolvedGrid .movie-card {
-    height: auto;
-}
-
-#unresolvedGrid .movie-poster-container {
-    aspect-ratio: 2/3;
-    height: auto;
-}
-
-#unresolvedGrid .movie-poster {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-#unresolvedGrid .movie-title {
-    font-size: 0.9rem;
-    line-height: 1.3;
-    height: 2.6em;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
 }
 
 #unresolvedGrid .movie-info {
