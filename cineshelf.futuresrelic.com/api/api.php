@@ -810,6 +810,104 @@ case 'resolve_movie':
             jsonResponse(true, $stmt->fetchAll());
             break;
 
+        case 'get_group':
+            $groupId = $data['group_id'] ?? null;
+
+            if (!$groupId) {
+                jsonResponse(false, null, 'Group ID required');
+            }
+
+            // Check if user is a member of this group
+            $stmt = $db->prepare("
+                SELECT COUNT(*)
+                FROM group_members
+                WHERE group_id = ? AND user_id = ?
+            ");
+            $stmt->execute([$groupId, $userId]);
+
+            if ($stmt->fetchColumn() == 0) {
+                jsonResponse(false, null, 'Not a member of this group');
+            }
+
+            // Get group details with members
+            $stmt = $db->prepare("
+                SELECT
+                    g.id,
+                    g.name,
+                    g.description,
+                    g.created_at,
+                    g.created_by,
+                    u.username as creator_name
+                FROM groups g
+                JOIN users u ON g.created_by = u.id
+                WHERE g.id = ?
+            ");
+            $stmt->execute([$groupId]);
+            $group = $stmt->fetch();
+
+            if (!$group) {
+                jsonResponse(false, null, 'Group not found');
+            }
+
+            // Get all members
+            $stmt = $db->prepare("
+                SELECT
+                    gm.user_id,
+                    u.username,
+                    u.display_name,
+                    u.email,
+                    gm.role,
+                    gm.joined_at
+                FROM group_members gm
+                JOIN users u ON gm.user_id = u.id
+                WHERE gm.group_id = ?
+                ORDER BY gm.role DESC, u.username ASC
+            ");
+            $stmt->execute([$groupId]);
+            $group['members'] = $stmt->fetchAll();
+
+            jsonResponse(true, $group);
+            break;
+
+        case 'get_user_wishlist':
+            $targetUserId = $data['user_id'] ?? null;
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Check if requester shares a group with target user
+            $stmt = $db->prepare("
+                SELECT COUNT(*)
+                FROM group_members gm1
+                JOIN group_members gm2 ON gm1.group_id = gm2.group_id
+                WHERE gm1.user_id = ? AND gm2.user_id = ?
+            ");
+            $stmt->execute([$userId, $targetUserId]);
+
+            if ($stmt->fetchColumn() == 0) {
+                jsonResponse(false, null, 'You must share a group with this user to view their wishlist');
+            }
+
+            // Get user's wishlist
+            $stmt = $db->prepare("
+                SELECT
+                    w.id,
+                    w.tmdb_id,
+                    w.title,
+                    w.year,
+                    w.poster_path,
+                    w.release_date,
+                    w.added_at
+                FROM wishlist w
+                WHERE w.user_id = ?
+                ORDER BY w.added_at DESC
+            ");
+            $stmt->execute([$targetUserId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
         case 'admin_list_all_groups':
             // Admin-only: List ALL groups regardless of membership
             if (!$currentUser['is_admin']) {
@@ -1676,6 +1774,76 @@ case 'resolve_movie':
             }
 
             jsonResponse(true, $questions);
+            break;
+
+        case 'trivia_group_leaderboard':
+            $groupId = $data['group_id'] ?? null;
+
+            if (!$groupId) {
+                jsonResponse(false, null, 'Group ID required');
+            }
+
+            // Check if user is a member
+            $stmt = $db->prepare("
+                SELECT COUNT(*)
+                FROM group_members
+                WHERE group_id = ? AND user_id = ?
+            ");
+            $stmt->execute([$groupId, $userId]);
+
+            if ($stmt->fetchColumn() == 0) {
+                jsonResponse(false, null, 'Not a member of this group');
+            }
+
+            // Get leaderboard for group members
+            $stmt = $db->prepare("
+                SELECT
+                    u.id as user_id,
+                    u.username,
+                    u.display_name,
+                    COUNT(DISTINCT tg.id) as total_games,
+                    MAX(tg.score) as best_score,
+                    ROUND(AVG(CASE WHEN tq.correct = 1 THEN 100 ELSE 0 END), 1) as accuracy,
+                    ROUND(AVG(tg.score), 1) as average_score
+                FROM users u
+                JOIN group_members gm ON u.id = gm.user_id
+                LEFT JOIN trivia_games tg ON u.id = tg.user_id AND tg.completed = 1
+                LEFT JOIN trivia_questions tq ON tg.id = tq.game_id
+                WHERE gm.group_id = ?
+                GROUP BY u.id
+                HAVING total_games > 0
+                ORDER BY best_score DESC, accuracy DESC
+                LIMIT 100
+            ");
+            $stmt->execute([$groupId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'trivia_global_leaderboard':
+            $limit = intval($data['limit'] ?? 100);
+
+            // Get global leaderboard
+            $stmt = $db->prepare("
+                SELECT
+                    u.id as user_id,
+                    u.username,
+                    u.display_name,
+                    COUNT(DISTINCT tg.id) as total_games,
+                    MAX(tg.score) as best_score,
+                    ROUND(AVG(CASE WHEN tq.correct = 1 THEN 100 ELSE 0 END), 1) as accuracy,
+                    ROUND(AVG(tg.score), 1) as average_score
+                FROM users u
+                LEFT JOIN trivia_games tg ON u.id = tg.user_id AND tg.completed = 1
+                LEFT JOIN trivia_questions tq ON tg.id = tq.game_id
+                GROUP BY u.id
+                HAVING total_games > 0
+                ORDER BY best_score DESC, accuracy DESC
+                LIMIT ?
+            ");
+            $stmt->execute([$limit]);
+
+            jsonResponse(true, $stmt->fetchAll());
             break;
 
         case 'trivia_get_recent_games':
