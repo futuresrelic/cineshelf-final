@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Group - CineShelf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 3rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .message {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        .group-name {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .loading {
+            color: #999;
+            font-style: italic;
+        }
+
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .email-note {
+            background: #f5f7fa;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon" id="icon">📬</div>
+        <h1 id="title">Group Invite</h1>
+        <div class="message loading" id="message">Checking your invite...</div>
+        <div id="content"></div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get('token');
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth.php?action=verify', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success ? data.data : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function acceptInvite() {
+            if (!inviteToken) {
+                showError('No invite token provided');
+                return;
+            }
+
+            // Check if user is logged in
+            const user = await checkAuth();
+
+            if (!user) {
+                // Not logged in - redirect to login with return URL
+                const returnUrl = encodeURIComponent(window.location.href);
+                window.location.href = `/login.html?return=${returnUrl}`;
+                return;
+            }
+
+            // User is logged in - try to accept invite
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'accept_group_invite',
+                        invite_token: inviteToken
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.ok) {
+                    showSuccess(data.data.group_name, user.email);
+                } else {
+                    showError(data.error || 'Failed to accept invite');
+                }
+            } catch (e) {
+                showError('Network error: ' + e.message);
+            }
+        }
+
+        function showSuccess(groupName, userEmail) {
+            document.getElementById('icon').textContent = '✅';
+            document.getElementById('title').textContent = 'Welcome!';
+            document.getElementById('message').className = 'message success';
+            document.getElementById('message').textContent = `You've successfully joined ${groupName}!`;
+            document.getElementById('content').innerHTML = `
+                <p style="margin-bottom: 2rem;">Logged in as: <strong>${userEmail}</strong></p>
+                <a href="/index.html" class="btn">Go to CineShelf</a>
+            `;
+        }
+
+        function showError(errorMsg) {
+            document.getElementById('icon').textContent = '❌';
+            document.getElementById('title').textContent = 'Invite Error';
+            document.getElementById('message').className = 'message error';
+            document.getElementById('message').textContent = errorMsg;
+            document.getElementById('content').innerHTML = `
+                <a href="/index.html" class="btn">Go to CineShelf</a>
+            `;
+        }
+
+        // Run on page load
+        acceptInvite();
+    </script>
+</body>
+</html>

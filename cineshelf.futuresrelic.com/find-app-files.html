@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Find Duplicate app.js Files</title>
+
+    <style>
+
+        body {
+
+            font-family: Arial, sans-serif;
+
+            max-width: 800px;
+
+            margin: 20px auto;
+
+            padding: 20px;
+
+            background: #1a1a1a;
+
+            color: #fff;
+
+        }
+
+        h1 { color: #667eea; }
+
+        .result {
+
+            background: #2a2a2a;
+
+            padding: 15px;
+
+            border-radius: 8px;
+
+            margin: 10px 0;
+
+            font-family: monospace;
+
+            font-size: 14px;
+
+        }
+
+        .error { color: #f44336; }
+
+        .success { color: #4caf50; }
+
+        .warning { color: #ff9800; }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>🔍 Find app.js Files</h1>
+
+    <p>Testing different paths to find which app.js files exist...</p>
+
+ 
+
+    <div id="results"></div>
+
+ 
+
+    <script>
+
+        const paths = [
+
+            '/js/app.js',
+
+            '/app.js',
+
+            'js/app.js',
+
+            'app.js',
+
+            './js/app.js',
+
+            './app.js',
+
+            '../js/app.js',
+
+            '../app.js'
+
+        ];
+
+ 
+
+        async function testPath(path) {
+
+            const resultsDiv = document.getElementById('results');
+
+            const result = document.createElement('div');
+
+            result.className = 'result';
+
+ 
+
+            try {
+
+                const response = await fetch(path + '?test=' + Date.now());
+
+                const text = await response.text();
+
+                const lines = text.split('\n').length;
+
+ 
+
+                // Check for TRIVIA location
+
+                const triviaMatch = text.match(/\/\/ TRIVIA GAME FUNCTIONS/);
+
+                const triviaLine = triviaMatch ? text.substring(0, text.indexOf(triviaMatch[0])).split('\n').length : -1;
+
+ 
+
+                // Check line 2600
+
+                const line2600 = text.split('\n')[2599] || '';
+
+ 
+
+                result.innerHTML = `
+
+                    <div class="${response.ok ? 'success' : 'error'}">
+
+                        <strong>${path}</strong> - ${response.status}<br>
+
+                        Lines: ${lines}<br>
+
+                        File size: ${text.length} bytes<br>
+
+                        TRIVIA at line: ${triviaLine}<br>
+
+                        Line 2600: ${line2600.substring(0, 80)}...
+
+                    </div>
+
+                `;
+
+            } catch (error) {
+
+                result.innerHTML = `
+
+                    <div class="error">
+
+                        <strong>${path}</strong> - NOT FOUND<br>
+
+                        Error: ${error.message}
+
+                    </div>
+
+                `;
+
+            }
+
+ 
+
+            resultsDiv.appendChild(result);
+
+        }
+
+ 
+
+        // Test all paths
+
+        (async () => {
+
+            for (const path of paths) {
+
+                await testPath(path);
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+            }
+
+ 
+
+            const result = document.createElement('div');
+
+            result.className = 'result warning';
+
+            result.innerHTML = '<strong>✅ Scan complete!</strong><br>Look for files with 3124 lines (bad) vs 3120 lines (good)';
+
+            document.getElementById('results').appendChild(result);
+
+        })();
+
+    </script>
+
+</body>
+
+</html>

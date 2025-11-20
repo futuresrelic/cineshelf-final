@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check app.js Line 2600</title>
+</head>
+<body>
+    <h1>Checking app.js around line 2600</h1>
+    <pre id="output">Loading...</pre>
+    <script>
+        fetch('/js/app.js')
+            .then(r => r.text())
+            .then(text => {
+                const lines = text.split('\n');
+                const output = [];
+                output.push(`Total lines: ${lines.length}`);
+                output.push(`\nLines 2595-2615:\n`);
+                for (let i = 2594; i < 2615 && i < lines.length; i++) {
+                    output.push(`${i + 1}: ${lines[i]}`);
+                }
+                document.getElementById('output').textContent = output.join('\n');
+            })
+            .catch(err => {
+                document.getElementById('output').textContent = 'Error: ' + err;
+            });
+    </script>
+</body>
+</html>

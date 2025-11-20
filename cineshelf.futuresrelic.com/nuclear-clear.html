@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineShelf - Nuclear Cache Clear</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 { color: #667eea; }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+            width: 100%;
+            font-weight: bold;
+        }
+        .btn:active {
+            background: #5568d3;
+        }
+        .status {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <h1>🧹 Nuclear Cache Clear</h1>
+    <p>This will completely nuke all caches and force fresh downloads.</p>
+
+    <button class="btn" onclick="nuclearClear()">☢️ NUCLEAR CLEAR ALL CACHES</button>
+    <button class="btn" onclick="testAppJS()">🔍 Test What app.js Mobile Is Getting</button>
+    <button class="btn" onclick="goToCineShelf()">🎬 Go to CineShelf</button>
+
+    <div class="status" id="status">Ready...</div>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            const status = document.getElementById('status');
+            const colors = {
+                success: '#4caf50',
+                error: '#f44336',
+                warning: '#ff9800',
+                info: '#2196f3'
+            };
+            const line = `<span style="color: ${colors[type]}">[${new Date().toLocaleTimeString()}] ${msg}</span>\n`;
+            status.innerHTML += line;
+            status.scrollTop = status.scrollHeight;
+        };
+
+        async function nuclearClear() {
+            document.getElementById('status').innerHTML = '';
+            log('🚀 Starting NUCLEAR CLEAR...', 'warning');
+
+            try {
+                // 1. Unregister ALL service workers
+                log('Step 1: Unregistering service workers...', 'info');
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    log(`Found ${registrations.length} service workers`, 'info');
+                    for (let reg of registrations) {
+                        await reg.unregister();
+                        log(`✓ Unregistered: ${reg.scope}`, 'success');
+                    }
+                } else {
+                    log('No service worker support', 'warning');
+                }
+
+                // 2. Delete ALL caches
+                log('\nStep 2: Deleting ALL caches...', 'info');
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    log(`Found ${cacheNames.length} caches`, 'info');
+                    for (let name of cacheNames) {
+                        await caches.delete(name);
+                        log(`✓ Deleted: ${name}`, 'success');
+                    }
+                } else {
+                    log('No cache API support', 'warning');
+                }
+
+                // 3. Clear localStorage
+                log('\nStep 3: Clearing localStorage...', 'info');
+                const lsCount = localStorage.length;
+                localStorage.clear();
+                log(`✓ Cleared ${lsCount} localStorage items`, 'success');
+
+                // 4. Clear sessionStorage
+                log('\nStep 4: Clearing sessionStorage...', 'info');
+                const ssCount = sessionStorage.length;
+                sessionStorage.clear();
+                log(`✓ Cleared ${ssCount} sessionStorage items`, 'success');
+
+                // 5. Clear IndexedDB
+                log('\nStep 5: Clearing IndexedDB...', 'info');
+                if ('indexedDB' in window) {
+                    const dbs = await indexedDB.databases();
+                    for (let db of dbs) {
+                        indexedDB.deleteDatabase(db.name);
+                        log(`✓ Deleted: ${db.name}`, 'success');
+                    }
+                } else {
+                    log('No IndexedDB support', 'warning');
+                }
+
+                log('\n✅ NUCLEAR CLEAR COMPLETE!', 'success');
+                log('\n⚡ Reloading in 2 seconds with cache-busting...', 'warning');
+
+                setTimeout(() => {
+                    window.location.href = `/?nocache=${Date.now()}&nuclear=true`;
+                }, 2000);
+
+            } catch (error) {
+                log(`\n❌ ERROR: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        async function testAppJS() {
+            document.getElementById('status').innerHTML = '';
+            log('🔍 Testing what app.js file mobile is receiving...', 'info');
+
+            try {
+                const response = await fetch(`/js/app.js?test=${Date.now()}`);
+                const text = await response.text();
+                const lines = text.split('\n');
+
+                log(`\n📊 File Stats:`, 'info');
+                log(`Total lines: ${lines.length}`, 'info');
+                log(`File size: ${text.length} bytes`, 'info');
+                log(`Response status: ${response.status}`, 'info');
+                log(`Content-Type: ${response.headers.get('content-type')}`, 'info');
+
+                log(`\n📍 Line 2600:`, 'warning');
+                if (lines.length >= 2600) {
+                    log(`2598: ${lines[2597]}`, 'info');
+                    log(`2599: ${lines[2598]}`, 'info');
+                    log(`2600: ${lines[2599]}`, 'warning');
+                    log(`2601: ${lines[2600]}`, 'info');
+                    log(`2602: ${lines[2601]}`, 'info');
+                } else {
+                    log(`❌ File only has ${lines.length} lines!`, 'error');
+                }
+
+                // Check for trivia section
+                let triviaLine = -1;
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].includes('TRIVIA GAME FUNCTIONS')) {
+                        triviaLine = i + 1;
+                        break;
+                    }
+                }
+
+                if (triviaLine > 0) {
+                    log(`\n🎮 Found TRIVIA section at line ${triviaLine}`, 'success');
+                } else {
+                    log(`\n❌ Could not find TRIVIA section!`, 'error');
+                }
+
+                // Try to parse as JavaScript
+                log(`\n🔧 Syntax check:`, 'info');
+                try {
+                    new Function(text);
+                    log(`✅ JavaScript syntax is VALID`, 'success');
+                } catch (syntaxError) {
+                    log(`❌ SYNTAX ERROR: ${syntaxError.message}`, 'error');
+                    log(`Error at line: ${syntaxError.lineNumber || 'unknown'}`, 'error');
+                }
+
+            } catch (error) {
+                log(`\n❌ ERROR: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        function goToCineShelf() {
+            window.location.href = `/?nocache=${Date.now()}`;
+        }
+
+        // Auto-test on load if nuclear=true
+        if (window.location.search.includes('nuclear=true')) {
+            log('🔄 Post-nuclear test...', 'info');
+            setTimeout(() => testAppJS(), 1000);
+        }
+    </script>
+</body>
+</html>
