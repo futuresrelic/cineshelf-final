@@ -1795,23 +1795,28 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Not a member of this group');
             }
 
-            // Get leaderboard for group members
+            // Get leaderboard for group members using trivia_stats table
             $stmt = $db->prepare("
                 SELECT
                     u.id as user_id,
                     u.username,
                     u.display_name,
-                    COUNT(DISTINCT tg.id) as total_games,
-                    MAX(tg.score) as best_score,
-                    ROUND(AVG(CASE WHEN tq.correct = 1 THEN 100 ELSE 0 END), 1) as accuracy,
-                    ROUND(AVG(tg.score), 1) as average_score
+                    COALESCE(ts.total_games, 0) as total_games,
+                    COALESCE(ts.best_score, 0) as best_score,
+                    ROUND(
+                        CASE
+                            WHEN ts.total_questions > 0
+                            THEN (ts.correct_answers * 100.0 / ts.total_questions)
+                            ELSE 0
+                        END,
+                        1
+                    ) as accuracy,
+                    COALESCE(ts.average_score, 0) as average_score
                 FROM users u
                 JOIN group_members gm ON u.id = gm.user_id
-                LEFT JOIN trivia_games tg ON u.id = tg.user_id AND tg.completed = 1
-                LEFT JOIN trivia_questions tq ON tg.id = tq.game_id
+                LEFT JOIN trivia_stats ts ON u.id = ts.user_id
                 WHERE gm.group_id = ?
-                GROUP BY u.id
-                HAVING total_games > 0
+                AND ts.total_games > 0
                 ORDER BY best_score DESC, accuracy DESC
                 LIMIT 100
             ");
@@ -1823,21 +1828,26 @@ case 'resolve_movie':
         case 'trivia_global_leaderboard':
             $limit = intval($data['limit'] ?? 100);
 
-            // Get global leaderboard
+            // Get global leaderboard using trivia_stats table
             $stmt = $db->prepare("
                 SELECT
                     u.id as user_id,
                     u.username,
                     u.display_name,
-                    COUNT(DISTINCT tg.id) as total_games,
-                    MAX(tg.score) as best_score,
-                    ROUND(AVG(CASE WHEN tq.correct = 1 THEN 100 ELSE 0 END), 1) as accuracy,
-                    ROUND(AVG(tg.score), 1) as average_score
+                    COALESCE(ts.total_games, 0) as total_games,
+                    COALESCE(ts.best_score, 0) as best_score,
+                    ROUND(
+                        CASE
+                            WHEN ts.total_questions > 0
+                            THEN (ts.correct_answers * 100.0 / ts.total_questions)
+                            ELSE 0
+                        END,
+                        1
+                    ) as accuracy,
+                    COALESCE(ts.average_score, 0) as average_score
                 FROM users u
-                LEFT JOIN trivia_games tg ON u.id = tg.user_id AND tg.completed = 1
-                LEFT JOIN trivia_questions tq ON tg.id = tq.game_id
-                GROUP BY u.id
-                HAVING total_games > 0
+                LEFT JOIN trivia_stats ts ON u.id = ts.user_id
+                WHERE ts.total_games > 0
                 ORDER BY best_score DESC, accuracy DESC
                 LIMIT ?
             ");

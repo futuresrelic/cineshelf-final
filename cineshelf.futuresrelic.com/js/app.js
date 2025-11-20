@@ -3866,8 +3866,17 @@ async function getCurrentUserId() {
     }
 
     async function loadGroupLeaderboard(groupId) {
-        if (!groupId) {
-            document.getElementById('groupRankingsContainer').innerHTML = '';
+        const container = document.getElementById('groupRankingsContainer');
+
+        // Clear and exit if no group selected
+        if (!groupId || groupId === '' || groupId === 'undefined') {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">👥</div>
+                    <h3>Select a Group</h3>
+                    <p>Choose a group to view trivia rankings</p>
+                </div>
+            `;
             return;
         }
 
@@ -3876,7 +3885,7 @@ async function getCurrentUserId() {
             renderLeaderboard(rankings, 'groupRankingsContainer');
         } catch (error) {
             console.error('Failed to load group leaderboard:', error);
-            document.getElementById('groupRankingsContainer').innerHTML = `
+            container.innerHTML = `
                 <div class="empty-state">
                     <p>Failed to load group rankings</p>
                 </div>
