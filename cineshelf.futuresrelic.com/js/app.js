@@ -260,10 +260,59 @@ function getUniqueCertifications() {
     return Array.from(certs).sort();
 }
 
+// Get unique actors from collection
+function getUniqueActors() {
+    const actors = new Set();
+    collection.forEach(group => {
+        if (group.movie.actors) {
+            // Actors may be comma-separated string
+            if (typeof group.movie.actors === 'string') {
+                group.movie.actors.split(',').forEach(a => {
+                    const actor = a.trim();
+                    if (actor) actors.add(actor);
+                });
+            }
+        }
+        // Also check cast array if it exists
+        if (group.movie.cast && Array.isArray(group.movie.cast)) {
+            group.movie.cast.forEach(actor => {
+                if (actor.name) actors.add(actor.name);
+            });
+        }
+    });
+    return Array.from(actors).sort();
+}
+
+// Get unique studios from collection
+function getUniqueStudios() {
+    const studios = new Set();
+    collection.forEach(group => {
+        if (group.movie.studio) {
+            studios.add(group.movie.studio);
+        }
+        // Also check production_companies if it exists
+        if (group.movie.production_companies) {
+            if (typeof group.movie.production_companies === 'string') {
+                group.movie.production_companies.split(',').forEach(s => {
+                    const studio = s.trim();
+                    if (studio) studios.add(studio);
+                });
+            } else if (Array.isArray(group.movie.production_companies)) {
+                group.movie.production_companies.forEach(company => {
+                    if (company.name) studios.add(company.name);
+                });
+            }
+        }
+    });
+    return Array.from(studios).sort();
+}
+
 // Current filter state
 let currentFilters = {
     search: '',
     director: 'all',
+    actor: 'all',
+    studio: 'all',
     genre: 'all',
     certification: 'all',
     yearMin: null,
@@ -289,6 +338,40 @@ function applyFilters() {
         filtered = filtered.filter(group =>
             group.movie.director === currentFilters.director
         );
+    }
+
+    // Filter by actor
+    if (currentFilters.actor !== 'all') {
+        filtered = filtered.filter(group => {
+            const movie = group.movie;
+            // Check actors string
+            if (movie.actors && typeof movie.actors === 'string') {
+                if (movie.actors.includes(currentFilters.actor)) return true;
+            }
+            // Check cast array
+            if (movie.cast && Array.isArray(movie.cast)) {
+                if (movie.cast.some(actor => actor.name === currentFilters.actor)) return true;
+            }
+            return false;
+        });
+    }
+
+    // Filter by studio
+    if (currentFilters.studio !== 'all') {
+        filtered = filtered.filter(group => {
+            const movie = group.movie;
+            // Check studio field
+            if (movie.studio === currentFilters.studio) return true;
+            // Check production_companies string
+            if (movie.production_companies && typeof movie.production_companies === 'string') {
+                if (movie.production_companies.includes(currentFilters.studio)) return true;
+            }
+            // Check production_companies array
+            if (movie.production_companies && Array.isArray(movie.production_companies)) {
+                if (movie.production_companies.some(company => company.name === currentFilters.studio)) return true;
+            }
+            return false;
+        });
     }
 
     // Filter by genre
@@ -371,21 +454,35 @@ function sortMoviesEnhanced(sortBy) {
 // Update filter UI
 function updateFilterUI() {
     const directorSelect = document.getElementById('filterDirector');
+    const actorSelect = document.getElementById('filterActor');
+    const studioSelect = document.getElementById('filterStudio');
     const genreSelect = document.getElementById('filterGenre');
     const certSelect = document.getElementById('filterCertification');
-    
+
     if (directorSelect) {
         const directors = getUniqueDirectors();
         directorSelect.innerHTML = '<option value="all">All Directors</option>' +
             directors.map(d => `<option value="${d}">${d}</option>`).join('');
     }
-    
+
+    if (actorSelect) {
+        const actors = getUniqueActors();
+        actorSelect.innerHTML = '<option value="all">All Actors</option>' +
+            actors.map(a => `<option value="${a}">${a}</option>`).join('');
+    }
+
+    if (studioSelect) {
+        const studios = getUniqueStudios();
+        studioSelect.innerHTML = '<option value="all">All Studios</option>' +
+            studios.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
     if (genreSelect) {
         const genres = getUniqueGenres();
         genreSelect.innerHTML = '<option value="all">All Genres</option>' +
             genres.map(g => `<option value="${g}">${g}</option>`).join('');
     }
-    
+
     if (certSelect) {
         const certs = getUniqueCertifications();
         certSelect.innerHTML = '<option value="all">All Ratings</option>' +
@@ -398,6 +495,8 @@ function resetFilters() {
     currentFilters = {
         search: '',
         director: 'all',
+        actor: 'all',
+        studio: 'all',
         genre: 'all',
         certification: 'all',
         yearMin: null,
@@ -408,6 +507,8 @@ function resetFilters() {
     if (searchInput) searchInput.value = '';
 
     document.getElementById('filterDirector').value = 'all';
+    document.getElementById('filterActor').value = 'all';
+    document.getElementById('filterStudio').value = 'all';
     document.getElementById('filterGenre').value = 'all';
     document.getElementById('filterCertification').value = 'all';
     document.getElementById('filterYearMin').value = '';
@@ -2065,6 +2166,22 @@ function updateActiveFilters() {
             type: 'director',
             label: `Director: ${currentFilters.director}`,
             value: currentFilters.director
+        });
+    }
+
+    if (currentFilters.actor !== 'all') {
+        activeTags.push({
+            type: 'actor',
+            label: `Actor: ${currentFilters.actor}`,
+            value: currentFilters.actor
+        });
+    }
+
+    if (currentFilters.studio !== 'all') {
+        activeTags.push({
+            type: 'studio',
+            label: `Studio: ${currentFilters.studio}`,
+            value: currentFilters.studio
         });
     }
 

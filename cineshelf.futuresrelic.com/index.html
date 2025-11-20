@@ -158,7 +158,21 @@
                             <option value="all">All Directors</option>
                         </select>
                     </div>
-                    
+
+                    <div class="filter-group">
+                        <label>Actor</label>
+                        <select id="filterActor" onchange="App.onFilterChange('actor', this.value)">
+                            <option value="all">All Actors</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Studio</label>
+                        <select id="filterStudio" onchange="App.onFilterChange('studio', this.value)">
+                            <option value="all">All Studios</option>
+                        </select>
+                    </div>
+
                     <div class="filter-group">
                         <label>Genre</label>
                         <select id="filterGenre" onchange="App.onFilterChange('genre', this.value)">
