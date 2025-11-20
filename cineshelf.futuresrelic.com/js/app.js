@@ -1967,20 +1967,19 @@ function getCertColor(cert) {
 
                 for (const movie of movies) {
                     try {
-                        // Search TMDB
+                        // Search TMDB via backend API
                         const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
-                        const results = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
-                        const data = await results.json();
+                        const response = await apiCall('search_movie', { query: query });
 
-                        if (data.results && data.results.length > 0) {
+                        if (response.data && response.data.length > 0) {
                             // Try to find exact match
-                            let match = data.results.find(r =>
+                            let match = response.data.find(r =>
                                 r.title.toLowerCase() === movie.title.toLowerCase() &&
                                 (!movie.year || r.release_date?.startsWith(movie.year))
                             );
 
                             // Fall back to first result
-                            if (!match) match = data.results[0];
+                            if (!match) match = response.data[0];
 
                             // Check if already in wishlist
                             const alreadyExists = wishlist.some(w => w.tmdb_id === match.id);
