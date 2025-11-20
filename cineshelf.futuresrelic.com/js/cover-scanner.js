@@ -17,43 +17,116 @@ const CoverScanner = (function() {
         ctx = canvas ? canvas.getContext('2d') : null;
     }
     
+    // Detect iOS devices
+    function isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
     // Open scanner modal
 async function openScanner() {
     init();
-    
+
     const settings = JSON.parse(localStorage.getItem('cineshelf_settings') || '{}');
     if (!settings.openaiKey) {
         alert('⚠️ OpenAI API key required!\n\nGo to Settings tab and add your OpenAI API key first.');
         return;
     }
-    
+
     document.getElementById('coverScannerModal').classList.add('active');
-    
+
     try {
-        // Try mobile first (rear camera)
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: { ideal: 'environment' } }
-        }).catch(() => {
-            // Fallback: any camera (PC/laptop)
-            return navigator.mediaDevices.getUserMedia({ video: true });
-        });
-        
+        const iOS = isIOS();
+
+        // iOS-specific constraints
+        if (iOS) {
+            console.log('iOS detected - using optimized camera constraints');
+
+            // Strategy 1: Try exact rear camera for iOS
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: 'environment' },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                console.log('iOS: Rear camera acquired');
+            } catch (err) {
+                console.log('iOS: Rear camera failed, trying fallback:', err.message);
+
+                // Strategy 2: Try ideal rear camera (less strict)
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    console.log('iOS: Rear camera (ideal) acquired');
+                } catch (err2) {
+                    console.log('iOS: Ideal rear camera failed, trying any camera:', err2.message);
+
+                    // Strategy 3: Any camera on iOS
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    console.log('iOS: Front camera acquired');
+                }
+            }
+        } else {
+            // Non-iOS devices (Android, Desktop)
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                console.log('Desktop/Android: Camera acquired');
+            } catch (err) {
+                // Fallback: any camera
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                console.log('Fallback: Any camera acquired');
+            }
+        }
+
         if (!stream) throw new Error('No camera available');
-        
+
         video.srcObject = stream;
+
+        // iOS needs special handling for video play
+        if (iOS) {
+            video.setAttribute('playsinline', 'true');
+            video.setAttribute('webkit-playsinline', 'true');
+        }
+
         await video.play();
         updateBatchCount();
-        
+
+        console.log('Camera started successfully');
+
     } catch (error) {
         console.error('Camera error:', error);
         closeScanner();
-        
+
         if (error.name === 'NotFoundError') {
             alert('❌ No camera found on this device');
         } else if (error.name === 'NotAllowedError') {
-            alert('❌ Camera permission denied\n\nPlease allow camera access in your browser settings');
+            if (isIOS()) {
+                alert('❌ Camera permission denied\n\niPhone/iPad users:\n1. Go to Settings > Safari > Camera\n2. Set to "Ask" or "Allow"\n3. Reload this page and try again');
+            } else {
+                alert('❌ Camera permission denied\n\nPlease allow camera access in your browser settings and reload the page');
+            }
+        } else if (error.name === 'OverconstrainedError') {
+            alert('❌ Camera constraints not supported\n\nYour device camera doesn\'t support the requested resolution. Try using a different camera or device.');
         } else {
-            alert('❌ Camera error: ' + error.message);
+            alert('❌ Camera error: ' + error.message + '\n\nTry:\n1. Reload the page\n2. Check camera permissions\n3. Use a different browser');
         }
     }
 }    
