@@ -2448,7 +2448,7 @@ let familyMembers = [];
 
 function switchGroupsTab(tabName) {
     currentGroupsTab = tabName;
-    
+
     // Update tab buttons
     document.querySelectorAll('.groups-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -2456,12 +2456,12 @@ function switchGroupsTab(tabName) {
             tab.classList.add('active');
         }
     });
-    
+
     // Hide all subtabs
     document.querySelectorAll('.groups-subtab').forEach(subtab => {
         subtab.classList.remove('active');
     });
-    
+
     // Show selected subtab
     const subtabMap = {
         'manage': 'manageGroups',
@@ -2471,7 +2471,15 @@ function switchGroupsTab(tabName) {
         'lent': 'lentItems'
     };
 
-    document.getElementById(subtabMap[tabName]).classList.add('active');
+    const subtabId = subtabMap[tabName];
+    const subtabElement = document.getElementById(subtabId);
+
+    if (subtabElement) {
+        subtabElement.classList.add('active');
+    } else {
+        console.error(`Subtab element not found: ${subtabId}`);
+        return;
+    }
 
     // Load data for this tab
     switch(tabName) {
