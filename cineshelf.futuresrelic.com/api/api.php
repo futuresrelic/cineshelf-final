@@ -896,13 +896,24 @@ case 'resolve_movie':
             $stmt = $db->prepare("
                 SELECT
                     w.id,
-                    w.tmdb_id,
-                    w.title,
-                    w.year,
-                    w.poster_path,
-                    w.release_date,
-                    w.added_at
+                    w.movie_id,
+                    w.priority,
+                    w.target_format,
+                    w.notes,
+                    w.added_at,
+                    m.tmdb_id,
+                    m.title,
+                    m.year,
+                    m.poster_url,
+                    m.release_date,
+                    m.overview,
+                    m.rating,
+                    m.runtime,
+                    m.genre,
+                    m.director,
+                    m.certification
                 FROM wishlist w
+                JOIN movies m ON w.movie_id = m.id
                 WHERE w.user_id = ?
                 ORDER BY w.added_at DESC
             ");
