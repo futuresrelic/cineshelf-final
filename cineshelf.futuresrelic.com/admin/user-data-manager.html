@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Data Manager - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            color: #92400e;
+        }
+
+        .warning-box strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .users-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .user-item:hover {
+            background: #f9fafb;
+        }
+
+        .user-item.selected {
+            background: #eff6ff;
+            border-color: #667eea;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .user-email {
+            color: #6b7280;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .stat {
+            background: #f3f4f6;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            color: #374151;
+        }
+
+        .stat.admin {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .user-detail {
+            display: none;
+        }
+
+        .user-detail.active {
+            display: block;
+        }
+
+        .detail-header {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-email {
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .actions {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #d97706;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 0.8;
+        }
+
+        .groups-list {
+            margin-top: 1rem;
+        }
+
+        .group-tag {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 User Data Manager</h1>
+            <p class="subtitle">Manage user collections and wishlists - clear data, help users start fresh</p>
+
+            <div class="warning-box">
+                <strong>⚠️ Warning: Destructive Actions</strong>
+                Clearing collections or wishlists is permanent and cannot be undone. Always confirm with the user before clearing their data.
+            </div>
+
+            <a href="/admin/" class="back-link">← Back to Admin Panel</a>
+        </div>
+
+        <div class="content">
+            <!-- Users List -->
+            <div class="card">
+                <h2 class="card-title">All Users</h2>
+                <div id="loading" class="loading">Loading users...</div>
+                <div id="usersList" class="users-list" style="display: none;"></div>
+            </div>
+
+            <!-- User Details -->
+            <div class="card">
+                <h2 class="card-title">User Details</h2>
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-state-icon">👈</div>
+                    <p>Select a user from the list to view and manage their data</p>
+                </div>
+                <div id="userDetail" class="user-detail">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+        let selectedUser = null;
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'admin_list_users' })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to load users');
+                }
+
+                users = result.data;
+                renderUsers();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('usersList').style.display = 'block';
+            } catch (error) {
+                document.getElementById('loading').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        function renderUsers() {
+            const container = document.getElementById('usersList');
+
+            if (users.length === 0) {
+                container.innerHTML = '<div class="empty-state">No users found</div>';
+                return;
+            }
+
+            container.innerHTML = users.map(user => `
+                <div class="user-item ${selectedUser && selectedUser.id === user.id ? 'selected' : ''}"
+                     onclick="selectUser(${user.id})">
+                    <div class="user-name">${user.display_name || user.username}</div>
+                    <div class="user-email">${user.email || user.username}</div>
+                    <div class="user-stats">
+                        ${user.is_admin ? '<span class="stat admin">Admin</span>' : ''}
+                        <span class="stat">📚 ${user.collection_count} movies</span>
+                        <span class="stat">⭐ ${user.wishlist_count} wishlist</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function selectUser(userId) {
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'admin_get_user_data',
+                        user_id: userId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to load user data');
+                }
+
+                selectedUser = result.data;
+                renderUserDetail();
+                renderUsers(); // Re-render to update selection
+
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('userDetail').classList.add('active');
+            } catch (error) {
+                showStatus('Error loading user data: ' + error.message, 'error');
+            }
+        }
+
+        function renderUserDetail() {
+            const container = document.getElementById('userDetail');
+            const user = selectedUser.user;
+            const collectionCount = selectedUser.collection_count;
+            const wishlistCount = selectedUser.wishlist_count;
+            const groups = selectedUser.groups;
+
+            container.innerHTML = `
+                <div class="detail-header">
+                    <div class="detail-name">${user.display_name || user.username}</div>
+                    <div class="detail-email">${user.email || user.username}</div>
+                    ${user.is_admin ? '<span class="stat admin">Administrator</span>' : ''}
+                    ${groups.length > 0 ? `
+                        <div class="groups-list">
+                            <strong>Groups:</strong><br>
+                            ${groups.map(g => `<span class="group-tag">${g.name}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${collectionCount}</div>
+                        <div class="stat-label">Collection Items</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${wishlistCount}</div>
+                        <div class="stat-label">Wishlist Items</div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button
+                        class="btn btn-warning"
+                        onclick="clearWishlist(${user.id})"
+                        ${wishlistCount === 0 ? 'disabled' : ''}>
+                        🗑️ Clear Wishlist (${wishlistCount} items)
+                    </button>
+                    <button
+                        class="btn btn-danger"
+                        onclick="clearCollection(${user.id})"
+                        ${collectionCount === 0 ? 'disabled' : ''}>
+                        🗑️ Clear Collection (${collectionCount} items)
+                    </button>
+                </div>
+
+                <div class="status" id="status"></div>
+            `;
+        }
+
+        async function clearWishlist(userId) {
+            const user = selectedUser.user;
+            const count = selectedUser.wishlist_count;
+
+            const confirmMsg = `⚠️ CLEAR WISHLIST\n\nUser: ${user.display_name || user.username}\nItems to delete: ${count}\n\nThis will permanently delete all wishlist items for this user.\n\nAre you absolutely sure?`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            // Second confirmation
+            if (!confirm('Final confirmation: This action cannot be undone. Proceed?')) {
+                return;
+            }
+
+            try {
+                showStatus('Clearing wishlist...', 'info');
+
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'admin_clear_wishlist',
+                        user_id: userId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to clear wishlist');
+                }
+
+                showStatus(`✅ Successfully cleared wishlist! Deleted ${result.data.items_deleted} items.`, 'success');
+
+                // Reload user data
+                setTimeout(() => {
+                    selectUser(userId);
+                    loadUsers(); // Refresh counts in list
+                }, 2000);
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function clearCollection(userId) {
+            const user = selectedUser.user;
+            const count = selectedUser.collection_count;
+
+            const confirmMsg = `⚠️ CLEAR COLLECTION\n\nUser: ${user.display_name || user.username}\nItems to delete: ${count}\n\n🚨 WARNING: This will permanently delete their entire movie collection!\n\nAre you absolutely sure?`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            // Second confirmation
+            if (!confirm('FINAL WARNING: This will delete their entire collection. Type OK in your mind and click OK to proceed.')) {
+                return;
+            }
+
+            try {
+                showStatus('Clearing collection...', 'info');
+
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'admin_clear_collection',
+                        user_id: userId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to clear collection');
+                }
+
+                showStatus(`✅ Successfully cleared collection! Deleted ${result.data.items_deleted} items.`, 'success');
+
+                // Reload user data
+                setTimeout(() => {
+                    selectUser(userId);
+                    loadUsers(); // Refresh counts in list
+                }, 2000);
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Load users on page load
+        loadUsers();
+    </script>
+</body>
+</html>

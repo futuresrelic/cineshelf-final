@@ -1986,6 +1986,148 @@ case 'resolve_movie':
             break;
 
         // ========================================
+        // ADMIN USER DATA MANAGEMENT
+        // ========================================
+
+        case 'admin_list_users':
+            // List all users with their collection/wishlist counts (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $stmt = $db->prepare("
+                SELECT
+                    u.id,
+                    u.username,
+                    u.email,
+                    u.display_name,
+                    u.is_admin,
+                    u.created_at,
+                    COUNT(DISTINCT c.id) as collection_count,
+                    COUNT(DISTINCT w.id) as wishlist_count
+                FROM users u
+                LEFT JOIN copies c ON u.id = c.user_id
+                LEFT JOIN wishlist w ON u.id = w.user_id
+                GROUP BY u.id
+                ORDER BY u.username ASC
+            ");
+            $stmt->execute();
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'admin_get_user_data':
+            // Get detailed user data (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get user info
+            $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+            $stmt->execute([$targetUserId]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                jsonResponse(false, null, 'User not found');
+            }
+
+            // Get collection count
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $collectionCount = $stmt->fetch()['count'];
+
+            // Get wishlist count
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $wishlistCount = $stmt->fetch()['count'];
+
+            // Get group memberships
+            $stmt = $db->prepare("
+                SELECT g.id, g.name
+                FROM groups g
+                JOIN group_members gm ON g.id = gm.group_id
+                WHERE gm.user_id = ?
+            ");
+            $stmt->execute([$targetUserId]);
+            $groups = $stmt->fetchAll();
+
+            jsonResponse(true, [
+                'user' => $user,
+                'collection_count' => $collectionCount,
+                'wishlist_count' => $wishlistCount,
+                'groups' => $groups
+            ]);
+            break;
+
+        case 'admin_clear_wishlist':
+            // Clear a user's wishlist (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get count before deleting
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $count = $stmt->fetch()['count'];
+
+            // Delete all wishlist items for this user
+            $stmt = $db->prepare("DELETE FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+
+            logAction($db, $userId, 'admin_cleared_wishlist', 'user', $targetUserId, [
+                'items_deleted' => $count
+            ]);
+
+            jsonResponse(true, [
+                'message' => 'Wishlist cleared successfully',
+                'items_deleted' => $count
+            ]);
+            break;
+
+        case 'admin_clear_collection':
+            // Clear a user's collection (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get count before deleting
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $count = $stmt->fetch()['count'];
+
+            // Delete all copies for this user
+            $stmt = $db->prepare("DELETE FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+
+            logAction($db, $userId, 'admin_cleared_collection', 'user', $targetUserId, [
+                'items_deleted' => $count
+            ]);
+
+            jsonResponse(true, [
+                'message' => 'Collection cleared successfully',
+                'items_deleted' => $count
+            ]);
+            break;
+
+        // ========================================
         // DEFAULT
         // ========================================
 
