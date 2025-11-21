@@ -905,7 +905,6 @@ case 'resolve_movie':
                     m.title,
                     m.year,
                     m.poster_url,
-                    m.release_date,
                     m.overview,
                     m.rating,
                     m.runtime,
