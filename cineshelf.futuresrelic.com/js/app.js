@@ -3294,7 +3294,7 @@ function renderGroupWishlist(wishlists) {
     grid.innerHTML = movies.map(movie => {
         const posterUrl = movie.poster_path
             ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-            : 'https://via.placeholder.com/500x750/333/666?text=No+Poster';
+            : 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
 
         const membersList = movie.members.map(m => m.name).join(', ');
         const memberCount = movie.members.length;
