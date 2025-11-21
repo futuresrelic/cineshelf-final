@@ -1,8 +1,9 @@
 <?php
 /**
- * CineShelf v2.2.1 - Main API Endpoint
+ * CineShelf - Main API Endpoint
  * Features: Groups/Family Collections, Borrowing System, Trivia Game
  * OAuth-Enabled: Session-based authentication with legacy fallback
+ * Version: Managed by version-manager.html (see version.json)
  */
 
 require_once __DIR__ . '/../config/config.php';

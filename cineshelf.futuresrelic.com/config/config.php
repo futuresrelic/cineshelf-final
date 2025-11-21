@@ -1,7 +1,8 @@
 <?php
 /**
- * CineShelf v2.0 - Database Configuration
+ * CineShelf - Database Configuration
  * Clean architecture inspired by ChoreQuest
+ * Version: Managed by version-manager.html (see version.json)
  */
 
 // Database file location
@@ -14,7 +15,14 @@ define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
 // App Configuration
-define('APP_VERSION', '2.2.1');
+// Read version dynamically from version.json (managed by version-manager.html)
+$versionFile = __DIR__ . '/../version.json';
+$appVersion = '2.0.0'; // Fallback version
+if (file_exists($versionFile)) {
+    $versionData = json_decode(file_get_contents($versionFile), true);
+    $appVersion = $versionData['version'] ?? '2.0.0';
+}
+define('APP_VERSION', $appVersion);
 define('DEFAULT_USER', 'default');
 
 // Admin users list (usernames)

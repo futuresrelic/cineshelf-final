@@ -1,5 +1,6 @@
-// CineShelf v2.0 - Frontend Application
+// CineShelf - Frontend Application
 // Clean architecture inspired by ChoreQuest
+// Version: Managed by version-manager.html (see version.json)
 
 // Genre Emoji Mapping
 const GENRE_EMOJIS = {
