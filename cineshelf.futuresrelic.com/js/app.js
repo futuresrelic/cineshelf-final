@@ -865,25 +865,48 @@ function renderCollection() {
 
         for (const movie of list.movies) {
             try {
-                // Search for the movie using TMDB
-                const results = await apiCall('search_movie', { query: movie.title });
+                let tmdbId = movie.tmdb_id; // Use stored TMDB ID if available
+                let movieData = null;
 
-                // Find best match by year
-                const match = results.find(r =>
-                    r.title.toLowerCase() === movie.title.toLowerCase() &&
-                    r.release_date && r.release_date.startsWith(movie.year.toString())
-                ) || results[0];
+                // If we have a stored TMDB ID, fetch movie data directly
+                if (tmdbId) {
+                    try {
+                        movieData = await apiCall('get_movie', {
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
+                        });
+                    } catch (error) {
+                        console.warn(`Stored TMDB ID ${tmdbId} failed, falling back to search`);
+                        tmdbId = null; // Fall back to search
+                    }
+                }
 
-                if (match) {
+                // If no stored ID or fetch failed, search for the movie
+                if (!tmdbId) {
+                    const results = await apiCall('search_movie', { query: movie.title });
+
+                    // Find best match by year
+                    const match = results.find(r =>
+                        r.title.toLowerCase() === movie.title.toLowerCase() &&
+                        r.release_date && r.release_date.startsWith(movie.year.toString())
+                    ) || results[0];
+
+                    if (match) {
+                        tmdbId = match.id;
+                        movieData = await apiCall('get_movie', {
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
+                        });
+                    }
+                }
+
+                if (movieData && tmdbId) {
                     // Check if already in wishlist
-                    const exists = wishlist.find(w => w.tmdb_id === match.id);
+                    const exists = wishlist.find(w => w.tmdb_id === tmdbId.toString());
                     if (!exists) {
                         await apiCall('add_wishlist', {
-                            tmdb_id: match.id,
-                            title: match.title,
-                            year: match.release_date ? new Date(match.release_date).getFullYear() : null,
-                            poster_url: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
-                            rating: match.vote_average
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
                         });
                         added++;
                     } else {
