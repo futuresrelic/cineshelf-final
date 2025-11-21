@@ -1,7 +1,7 @@
 <?php
 /**
- * CineShelf v3.0 - Main API Endpoint
- * NEW: Groups/Family Collections & Borrowing System
+ * CineShelf v2.2.1 - Main API Endpoint
+ * Features: Groups/Family Collections, Borrowing System, Trivia Game
  * OAuth-Enabled: Session-based authentication with legacy fallback
  */
 
@@ -142,8 +142,8 @@ try {
                     'id' => $data['id'],
                     'title' => $data['name'],
                     'year' => isset($data['first_air_date']) ? intval(substr($data['first_air_date'], 0, 4)) : null,
-                    'poster_path' => $data['poster_path'] ?? null,
-                    'backdrop_path' => $data['backdrop_path'] ?? null,
+                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => isset($data['episode_run_time'][0]) ? $data['episode_run_time'][0] : null,
@@ -163,13 +163,13 @@ try {
                         }
                     }
                 }
-                
+
                 jsonResponse(true, [
                     'id' => $data['id'],
                     'title' => $data['title'],
                     'year' => isset($data['release_date']) ? intval(substr($data['release_date'], 0, 4)) : null,
-                    'poster_path' => $data['poster_path'] ?? null,
-                    'backdrop_path' => $data['backdrop_path'] ?? null,
+                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => $data['runtime'] ?? null,

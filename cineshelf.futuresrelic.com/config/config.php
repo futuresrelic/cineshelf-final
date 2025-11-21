@@ -20,6 +20,23 @@ define('DEFAULT_USER', 'default');
 // Admin users list (usernames)
 define('ADMIN_USERS', ['admin', 'klindakoil', 'default']);
 
+// Error Reporting Configuration
+// Set to true for development (shows detailed errors), false for production (logs errors silently)
+define('DEBUG_MODE', false);
+
+if (DEBUG_MODE) {
+    // Development: Show all errors
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+} else {
+    // Production: Log errors, don't display them
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    ini_set('error_log', __DIR__ . '/../data/php-errors.log');
+}
+
 // Security settings
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
