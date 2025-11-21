@@ -1906,6 +1906,38 @@ function getCertColor(cert) {
         showToast('Data exported!', 'success');
     }
 
+    // Helper function to parse CSV line respecting quoted fields
+    function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"') {
+                // Handle escaped quotes ("")
+                if (inQuotes && nextChar === '"') {
+                    current += '"';
+                    i++; // Skip next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+
+        // Push last field
+        result.push(current.trim());
+
+        return result;
+    }
+
     async function importCSV(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -1929,8 +1961,8 @@ function getCertColor(cert) {
                     return;
                 }
 
-                // Parse header
-                const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+                // Parse header using proper CSV parser
+                const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
                 const titleIndex = header.findIndex(h => h === 'title' || h === 'name' || h === 'movie');
                 const yearIndex = header.findIndex(h => h === 'year' || h === 'release_year');
 
@@ -1941,11 +1973,11 @@ function getCertColor(cert) {
 
                 const movies = [];
                 for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',').map(v => v.trim());
-                    if (values[titleIndex]) {
+                    const values = parseCSVLine(lines[i]);
+                    if (values[titleIndex] && values[titleIndex].trim()) {
                         movies.push({
                             title: values[titleIndex].replace(/^["']|["']$/g, ''),
-                            year: yearIndex !== -1 ? values[yearIndex].replace(/^["']|["']$/g, '') : null
+                            year: yearIndex !== -1 && values[yearIndex] ? values[yearIndex].replace(/^["']|["']$/g, '') : null
                         });
                     }
                 }
@@ -1985,13 +2017,16 @@ function getCertColor(cert) {
                             // Check if already in wishlist
                             const alreadyExists = wishlist.some(w => w.tmdb_id === match.id);
                             if (alreadyExists) {
+                                console.log(`Skipped "${movie.title}" (${movie.year}) - already in wishlist`);
                                 skipped++;
                             } else {
                                 // Add to wishlist
                                 await apiCall('add_wishlist', { tmdb_id: match.id });
+                                console.log(`Added "${movie.title}" (${movie.year}) as "${match.title}"`);
                                 added++;
                             }
                         } else {
+                            console.warn(`No TMDB results found for "${movie.title}" (${movie.year})`);
                             failed++;
                         }
 
@@ -2003,7 +2038,7 @@ function getCertColor(cert) {
                         // Delay to avoid rate limiting
                         await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
-                        console.error(`Failed to import ${movie.title}:`, error);
+                        console.error(`Failed to import "${movie.title}" (${movie.year}):`, error);
                         failed++;
                     }
                 }
