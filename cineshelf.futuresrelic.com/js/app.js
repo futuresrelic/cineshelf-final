@@ -811,9 +811,15 @@ function renderCollection() {
     // Load presets when app initializes
     loadPresets();
 
-    function openPresetLists() {
+    async function openPresetLists() {
         const modal = document.getElementById('presetListsModal');
         const container = document.getElementById('presetListsContainer');
+
+        // Reload presets from server to get latest changes
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Loading presets...</div>';
+        modal.style.display = 'flex';
+
+        await loadPresets();
 
         // Build preset list cards
         container.innerHTML = Object.entries(PRESET_LISTS).map(([key, list]) => `
@@ -831,8 +837,6 @@ function renderCollection() {
                 </div>
             </div>
         `).join('');
-
-        modal.style.display = 'flex';
     }
 
     function closePresetLists() {
