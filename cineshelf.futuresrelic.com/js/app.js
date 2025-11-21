@@ -792,133 +792,24 @@ function renderCollection() {
     // ========================================
     // PRESET WISHLIST COLLECTIONS
     // ========================================
+    // Loaded dynamically from /data/presets.json via API
+    // Managed through /admin/preset-manager.html
 
-    const PRESET_LISTS = {
-        imdb_top100: {
-            name: "IMDB Top 100",
-            description: "The highest rated movies on IMDB",
-            icon: "🏆",
-            movies: [
-                { title: "The Shawshank Redemption", year: 1994 },
-                { title: "The Godfather", year: 1972 },
-                { title: "The Dark Knight", year: 2008 },
-                { title: "The Godfather Part II", year: 1974 },
-                { title: "12 Angry Men", year: 1957 },
-                { title: "Schindler's List", year: 1993 },
-                { title: "The Lord of the Rings: The Return of the King", year: 2003 },
-                { title: "Pulp Fiction", year: 1994 },
-                { title: "The Lord of the Rings: The Fellowship of the Ring", year: 2001 },
-                { title: "The Good, the Bad and the Ugly", year: 1966 },
-                { title: "Forrest Gump", year: 1994 },
-                { title: "Fight Club", year: 1999 },
-                { title: "Inception", year: 2010 },
-                { title: "The Lord of the Rings: The Two Towers", year: 2002 },
-                { title: "Star Wars: Episode V - The Empire Strikes Back", year: 1980 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Goodfellas", year: 1990 },
-                { title: "One Flew Over the Cuckoo's Nest", year: 1975 },
-                { title: "Se7en", year: 1995 },
-                { title: "Seven Samurai", year: 1954 }
-            ]
-        },
-        best_picture: {
-            name: "Oscar Best Picture Winners",
-            description: "Academy Award winners for Best Picture (last 25 years)",
-            icon: "🎬",
-            movies: [
-                { title: "Oppenheimer", year: 2023 },
-                { title: "Everything Everywhere All at Once", year: 2022 },
-                { title: "CODA", year: 2021 },
-                { title: "Nomadland", year: 2020 },
-                { title: "Parasite", year: 2019 },
-                { title: "Green Book", year: 2018 },
-                { title: "The Shape of Water", year: 2017 },
-                { title: "Moonlight", year: 2016 },
-                { title: "Spotlight", year: 2015 },
-                { title: "Birdman", year: 2014 },
-                { title: "12 Years a Slave", year: 2013 },
-                { title: "Argo", year: 2012 },
-                { title: "The Artist", year: 2011 },
-                { title: "The King's Speech", year: 2010 },
-                { title: "The Hurt Locker", year: 2009 },
-                { title: "Slumdog Millionaire", year: 2008 },
-                { title: "No Country for Old Men", year: 2007 },
-                { title: "The Departed", year: 2006 },
-                { title: "Crash", year: 2005 },
-                { title: "Million Dollar Baby", year: 2004 },
-                { title: "The Lord of the Rings: The Return of the King", year: 2003 },
-                { title: "Chicago", year: 2002 },
-                { title: "A Beautiful Mind", year: 2001 },
-                { title: "Gladiator", year: 2000 }
-            ]
-        },
-        scifi_classics: {
-            name: "Sci-Fi Classics",
-            description: "Essential science fiction movies",
-            icon: "🚀",
-            movies: [
-                { title: "2001: A Space Odyssey", year: 1968 },
-                { title: "Blade Runner", year: 1982 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Star Wars", year: 1977 },
-                { title: "Alien", year: 1979 },
-                { title: "The Terminator", year: 1984 },
-                { title: "E.T. the Extra-Terrestrial", year: 1982 },
-                { title: "Back to the Future", year: 1985 },
-                { title: "Inception", year: 2010 },
-                { title: "Interstellar", year: 2014 },
-                { title: "The Fifth Element", year: 1997 },
-                { title: "Total Recall", year: 1990 },
-                { title: "Minority Report", year: 2002 },
-                { title: "District 9", year: 2009 },
-                { title: "Arrival", year: 2016 }
-            ]
-        },
-        horror_essentials: {
-            name: "Horror Essentials",
-            description: "Must-see horror films",
-            icon: "👻",
-            movies: [
-                { title: "The Exorcist", year: 1973 },
-                { title: "The Shining", year: 1980 },
-                { title: "Halloween", year: 1978 },
-                { title: "A Nightmare on Elm Street", year: 1984 },
-                { title: "The Texas Chain Saw Massacre", year: 1974 },
-                { title: "Psycho", year: 1960 },
-                { title: "Alien", year: 1979 },
-                { title: "Get Out", year: 2017 },
-                { title: "The Silence of the Lambs", year: 1991 },
-                { title: "Rosemary's Baby", year: 1968 },
-                { title: "The Thing", year: 1982 },
-                { title: "28 Days Later", year: 2002 },
-                { title: "Hereditary", year: 2018 },
-                { title: "The Conjuring", year: 2013 },
-                { title: "It Follows", year: 2014 }
-            ]
-        },
-        action_blockbusters: {
-            name: "Action Blockbusters",
-            description: "High-octane action movies",
-            icon: "💥",
-            movies: [
-                { title: "Die Hard", year: 1988 },
-                { title: "Mad Max: Fury Road", year: 2015 },
-                { title: "The Dark Knight", year: 2008 },
-                { title: "Terminator 2: Judgment Day", year: 1991 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Raiders of the Lost Ark", year: 1981 },
-                { title: "John Wick", year: 2014 },
-                { title: "Heat", year: 1995 },
-                { title: "Mission: Impossible - Fallout", year: 2018 },
-                { title: "Casino Royale", year: 2006 },
-                { title: "Gladiator", year: 2000 },
-                { title: "The Bourne Identity", year: 2002 },
-                { title: "Top Gun: Maverick", year: 2022 },
-                { title: "Speed", year: 1994 },
-                { title: "Face/Off", year: 1997 }
-            ]
+    let PRESET_LISTS = {}; // Will be populated from API
+
+    // Load presets from API
+    async function loadPresets() {
+        try {
+            const result = await apiCall('get_presets');
+            PRESET_LISTS = result || {};
+        } catch (error) {
+            console.error('Failed to load presets:', error);
+            PRESET_LISTS = {}; // Fallback to empty if load fails
         }
-    };
+    }
+
+    // Load presets when app initializes
+    loadPresets();
 
     function openPresetLists() {
         const modal = document.getElementById('presetListsModal');

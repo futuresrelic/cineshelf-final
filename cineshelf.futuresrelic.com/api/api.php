@@ -1933,6 +1933,59 @@ case 'resolve_movie':
             break;
 
         // ========================================
+        // PRESET LISTS MANAGEMENT
+        // ========================================
+
+        case 'get_presets':
+            // Get all wishlist preset lists
+            $presetsFile = __DIR__ . '/../data/presets.json';
+
+            if (!file_exists($presetsFile)) {
+                jsonResponse(false, null, 'Presets file not found');
+            }
+
+            $presets = json_decode(file_get_contents($presetsFile), true);
+
+            if ($presets === null) {
+                jsonResponse(false, null, 'Failed to parse presets file');
+            }
+
+            jsonResponse(true, $presets);
+            break;
+
+        case 'save_presets':
+            // Save preset lists (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $presets = $input['presets'] ?? null;
+
+            if (!$presets) {
+                jsonResponse(false, null, 'Presets data required');
+            }
+
+            $presetsFile = __DIR__ . '/../data/presets.json';
+
+            // Backup existing file
+            if (file_exists($presetsFile)) {
+                $backupFile = __DIR__ . '/../data/presets.backup.' . date('Y-m-d_H-i-s') . '.json';
+                copy($presetsFile, $backupFile);
+            }
+
+            // Save new presets
+            $result = file_put_contents($presetsFile, json_encode($presets, JSON_PRETTY_PRINT));
+
+            if ($result === false) {
+                jsonResponse(false, null, 'Failed to save presets file');
+            }
+
+            logAction($db, $userId, 'presets_updated', 'settings', null);
+
+            jsonResponse(true, ['message' => 'Presets saved successfully']);
+            break;
+
+        // ========================================
         // DEFAULT
         // ========================================
 
