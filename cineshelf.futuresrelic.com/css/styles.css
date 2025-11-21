@@ -420,6 +420,28 @@ body {
     font-weight: 500;
 }
 
+.wishlist-badge {
+    display: inline-block;
+    background: rgba(244, 67, 54, 0.15);
+    color: #ff5252;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.wishlist-members {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .movie-actions {
     padding: 0 1rem 1rem;
     display: flex;
@@ -1158,52 +1180,88 @@ body {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.unresolved-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+}
+
+.unresolved-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    border-left: 4px solid #ffc107;
+    transition: all 0.2s;
+}
+
+.unresolved-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(4px);
+}
+
+.unresolved-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 193, 7, 0.15);
+    border-radius: 8px;
+}
+
+.unresolved-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.unresolved-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.unresolved-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.unresolved-status {
+    color: #ffc107;
+    font-weight: 500;
+}
+
+.unresolved-copies {
+    color: var(--primary);
+}
+
 .btn-resolve {
     background: linear-gradient(135deg, #ffc107, #ff9800);
     color: black;
     font-weight: 700;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.6rem 1.25rem;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-resolve:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
-}
-
-#unresolvedGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem;
-}
-
-#unresolvedGrid .movie-card {
-    height: auto;
-}
-
-#unresolvedGrid .movie-poster-container {
-    aspect-ratio: 2/3;
-    height: auto;
-}
-
-#unresolvedGrid .movie-poster {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-#unresolvedGrid .movie-title {
-    font-size: 0.9rem;
-    line-height: 1.3;
-    height: 2.6em;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
 }
 
 #unresolvedGrid .movie-info {
@@ -2673,6 +2731,166 @@ body {
 .trivia-history-meta {
     font-size: 0.85rem;
     color: rgba(255, 255, 255, 0.5);
+}
+
+/* Trivia Leaderboards */
+.trivia-leaderboards {
+    padding: 2rem;
+}
+
+.leaderboard-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-tab {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+}
+
+.leaderboard-tab:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.leaderboard-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.leaderboard-content {
+    display: none;
+}
+
+.leaderboard-content.active {
+    display: block;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.leaderboard-table {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.leaderboard-header,
+.leaderboard-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 100px 100px;
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+    align-items: center;
+}
+
+.leaderboard-header {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.leaderboard-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.leaderboard-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.leaderboard-row:last-child {
+    border-bottom: none;
+}
+
+.leaderboard-row.current-user {
+    background: rgba(102, 126, 234, 0.15);
+    border-left: 4px solid var(--primary);
+}
+
+.rank-col {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.player-col {
+    font-weight: 600;
+}
+
+.score-col {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.games-col,
+.accuracy-col {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.leaderboard-group-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.leaderboard-group-selector label {
+    font-weight: 600;
+}
+
+.leaderboard-group-selector select {
+    flex: 1;
+    max-width: 300px;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
 }
 
 /* Animations */

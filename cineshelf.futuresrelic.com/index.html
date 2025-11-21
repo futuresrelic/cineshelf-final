@@ -158,7 +158,21 @@
                             <option value="all">All Directors</option>
                         </select>
                     </div>
-                    
+
+                    <div class="filter-group">
+                        <label>Actor</label>
+                        <select id="filterActor" onchange="App.onFilterChange('actor', this.value)">
+                            <option value="all">All Actors</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Studio</label>
+                        <select id="filterStudio" onchange="App.onFilterChange('studio', this.value)">
+                            <option value="all">All Studios</option>
+                        </select>
+                    </div>
+
                     <div class="filter-group">
                         <label>Genre</label>
                         <select id="filterGenre" onchange="App.onFilterChange('genre', this.value)">
@@ -235,6 +249,7 @@
         <div class="groups-tabs">
             <button class="groups-tab active" data-groups-tab="manage" onclick="App.switchGroupsTab('manage')">👥 Manage Groups</button>
             <button class="groups-tab" data-groups-tab="family" onclick="App.switchGroupsTab('family')">🏠 Family Collection</button>
+            <button class="groups-tab" data-groups-tab="wishlist" onclick="App.switchGroupsTab('wishlist')">❤️ Group Wishlist</button>
             <button class="groups-tab" data-groups-tab="borrowed" onclick="App.switchGroupsTab('borrowed')">📥 Borrowed</button>
             <button class="groups-tab" data-groups-tab="lent" onclick="App.switchGroupsTab('lent')">📤 Lent</button>
         </div>
@@ -272,6 +287,27 @@
             </div>
         </div>
 
+        <!-- Group Wishlist -->
+        <div id="groupWishlist" class="groups-subtab">
+            <div class="section-header">
+                <h2>Group Wishlist</h2>
+                <div class="view-controls">
+                    <select id="groupWishlistSelect" onchange="App.loadGroupWishlist(this.value)">
+                        <option value="">Select a group...</option>
+                    </select>
+                    <select id="wishlistMemberFilter" onchange="App.filterWishlistByMember(this.value)" style="display:none;">
+                        <option value="all">All Members</option>
+                    </select>
+                </div>
+            </div>
+            <div id="groupWishlistGrid" class="movie-grid grid-view"></div>
+            <div id="emptyGroupWishlist" class="empty-state">
+                <div class="empty-icon">❤️</div>
+                <h3>Select a group to view wishlists</h3>
+                <p>See what movies your group members want!</p>
+            </div>
+        </div>
+
         <!-- Borrowed -->
         <div id="borrowedItems" class="groups-subtab">
             <h2>Movies You Borrowed</h2>
@@ -306,8 +342,8 @@
                 </p>
             </div>
 
-            <div id="unresolvedGrid" class="movie-grid" style="display: none;"></div>
-            
+            <div id="unresolvedList" class="unresolved-list" style="display: none;"></div>
+
             <div id="emptyUnresolved" style="display: none; text-align: center; padding: 3rem; color: rgba(255,255,255,0.6);">
                 <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
                 <h3>All Movies Resolved!</h3>
@@ -502,6 +538,8 @@
                     <div class="setting-item">
                         <button class="btn" onclick="App.showStats()">📊 View Statistics</button>
                         <button class="btn btn-secondary" onclick="App.exportData()">💾 Export Data</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">📥 Import CSV</button>
+                        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="App.importCSV(event)">
                     </div>
                 </div>
                 <div class="settings-group">
@@ -626,6 +664,50 @@
                     </p>
                 </div>
                 <div id="triviaHistoryContainer"></div>
+            </div>
+
+            <!-- Trivia Leaderboards -->
+            <div id="triviaLeaderboards" class="trivia-leaderboards" style="display: none;">
+                <div class="section-header">
+                    <h2>🏆 Trivia Leaderboards</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Compare your scores with others
+                    </p>
+                    <button class="btn-ghost" onclick="App.showTriviaSettings()" style="margin-top: 1rem;">← Back to Trivia</button>
+                </div>
+
+                <div class="leaderboard-tabs">
+                    <button class="leaderboard-tab active" data-tab="personal" onclick="App.switchLeaderboardTab('personal')">
+                        📊 Personal Stats
+                    </button>
+                    <button class="leaderboard-tab" data-tab="group" onclick="App.switchLeaderboardTab('group')">
+                        👥 Group Rankings
+                    </button>
+                    <button class="leaderboard-tab" data-tab="global" onclick="App.switchLeaderboardTab('global')">
+                        🌍 Global Rankings
+                    </button>
+                </div>
+
+                <!-- Personal Stats -->
+                <div id="personalStats" class="leaderboard-content active">
+                    <div id="personalStatsContainer"></div>
+                </div>
+
+                <!-- Group Rankings -->
+                <div id="groupRankings" class="leaderboard-content">
+                    <div class="leaderboard-group-selector" style="margin-bottom: 1.5rem;">
+                        <label>Select Group:</label>
+                        <select id="leaderboardGroupSelect" onchange="App.loadGroupLeaderboard(this.value)">
+                            <option value="">Select a group...</option>
+                        </select>
+                    </div>
+                    <div id="groupRankingsContainer"></div>
+                </div>
+
+                <!-- Global Rankings -->
+                <div id="globalRankings" class="leaderboard-content">
+                    <div id="globalRankingsContainer"></div>
+                </div>
             </div>
         </section>
 
