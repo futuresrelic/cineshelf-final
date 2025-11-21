@@ -1963,8 +1963,18 @@ function getCertColor(cert) {
 
                 // Parse header using proper CSV parser
                 const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+
+                // Find column indices
                 const titleIndex = header.findIndex(h => h === 'title' || h === 'name' || h === 'movie');
                 const yearIndex = header.findIndex(h => h === 'year' || h === 'release_year');
+                const tmdbIdIndex = header.findIndex(h => h === 'tmdb_id' || h === 'id');
+                const statusIndex = header.findIndex(h => h === 'status' || h === 'type');
+                const formatIndex = header.findIndex(h => h === 'format');
+                const editionIndex = header.findIndex(h => h === 'edition');
+                const regionIndex = header.findIndex(h => h === 'region');
+                const conditionIndex = header.findIndex(h => h === 'condition');
+                const notesIndex = header.findIndex(h => h === 'notes');
+                const barcodeIndex = header.findIndex(h => h === 'barcode');
 
                 if (titleIndex === -1) {
                     showToast('CSV must have a "title" or "name" column', 'error');
@@ -1975,9 +1985,22 @@ function getCertColor(cert) {
                 for (let i = 1; i < lines.length; i++) {
                     const values = parseCSVLine(lines[i]);
                     if (values[titleIndex] && values[titleIndex].trim()) {
+                        const cleanValue = (index) => {
+                            if (index === -1 || !values[index]) return null;
+                            return values[index].replace(/^["']|["']$/g, '').trim() || null;
+                        };
+
                         movies.push({
-                            title: values[titleIndex].replace(/^["']|["']$/g, ''),
-                            year: yearIndex !== -1 && values[yearIndex] ? values[yearIndex].replace(/^["']|["']$/g, '') : null
+                            title: cleanValue(titleIndex),
+                            year: cleanValue(yearIndex),
+                            tmdb_id: cleanValue(tmdbIdIndex),
+                            status: cleanValue(statusIndex) || 'collection',
+                            format: cleanValue(formatIndex) || 'DVD',
+                            edition: cleanValue(editionIndex),
+                            region: cleanValue(regionIndex),
+                            condition: cleanValue(conditionIndex) || 'Good',
+                            notes: cleanValue(notesIndex),
+                            barcode: cleanValue(barcodeIndex)
                         });
                     }
                 }
@@ -1988,46 +2011,94 @@ function getCertColor(cert) {
                 }
 
                 // Confirm import
-                if (!confirm(`Import ${movies.length} movies from CSV?\n\nThis will search TMDB and add them to your wishlist.\n\nNote: This may take a few minutes.`)) {
+                const confirmMsg = `Import ${movies.length} movies from CSV?\n\n` +
+                    `Movies with TMDB IDs will be added to Collection.\n` +
+                    `Movies without TMDB IDs will be searched and added to Collection if found.\n` +
+                    `Unmatched movies will be added to Resolve.\n\n` +
+                    `This may take a few minutes.`;
+
+                if (!confirm(confirmMsg)) {
                     return;
                 }
 
                 showToast(`Importing ${movies.length} movies...`, 'info');
-                let added = 0;
+                let addedToCollection = 0;
+                let addedToWishlist = 0;
+                let addedToUnresolved = 0;
                 let skipped = 0;
                 let failed = 0;
 
                 for (let i = 0; i < movies.length; i++) {
                     const movie = movies[i];
                     try {
-                        // Search TMDB via backend API
-                        const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
-                        const response = await apiCall('search_movie', { query: query });
-
-                        if (response && response.length > 0) {
-                            // Try to find exact match
-                            let match = response.find(r =>
-                                r.title.toLowerCase() === movie.title.toLowerCase() &&
-                                (!movie.year || r.release_date?.startsWith(movie.year))
-                            );
-
-                            // Fall back to first result
-                            if (!match) match = response[0];
-
-                            // Check if already in wishlist
-                            const alreadyExists = wishlist.some(w => w.tmdb_id === match.id);
+                        // If TMDB ID is provided, add directly
+                        if (movie.tmdb_id && !movie.tmdb_id.startsWith('unresolved_')) {
+                            // Check if already in collection
+                            const alreadyExists = collection.some(g => g.movie.tmdb_id === movie.tmdb_id);
                             if (alreadyExists) {
-                                console.log(`Skipped "${movie.title}" (${movie.year}) - already in wishlist`);
+                                console.log(`Skipped "${movie.title}" - already in collection`);
                                 skipped++;
                             } else {
-                                // Add to wishlist
-                                await apiCall('add_wishlist', { tmdb_id: match.id });
-                                console.log(`Added "${movie.title}" (${movie.year}) as "${match.title}"`);
-                                added++;
+                                // Add to collection or wishlist based on status
+                                if (movie.status === 'wishlist') {
+                                    await apiCall('add_wishlist', {
+                                        tmdb_id: movie.tmdb_id
+                                    });
+                                    addedToWishlist++;
+                                } else {
+                                    await apiCall('add_copy', {
+                                        tmdb_id: movie.tmdb_id,
+                                        format: movie.format,
+                                        edition: movie.edition,
+                                        region: movie.region,
+                                        condition: movie.condition,
+                                        notes: movie.notes,
+                                        barcode: movie.barcode
+                                    });
+                                    addedToCollection++;
+                                }
+                                console.log(`Added "${movie.title}" with TMDB ID ${movie.tmdb_id}`);
                             }
                         } else {
-                            console.warn(`No TMDB results found for "${movie.title}" (${movie.year})`);
-                            failed++;
+                            // No TMDB ID - search for it
+                            const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
+                            const response = await apiCall('search_movie', { query: query });
+
+                            if (response && response.length > 0) {
+                                // Try to find exact match
+                                let match = response.find(r =>
+                                    r.title.toLowerCase() === movie.title.toLowerCase() &&
+                                    (!movie.year || r.release_date?.startsWith(movie.year))
+                                );
+
+                                // Fall back to first result
+                                if (!match) match = response[0];
+
+                                // Check if already in collection
+                                const alreadyExists = collection.some(g => g.movie.tmdb_id === match.id);
+                                if (alreadyExists) {
+                                    console.log(`Skipped "${movie.title}" - already in collection`);
+                                    skipped++;
+                                } else {
+                                    // Add to collection (matched films land in collection)
+                                    await apiCall('add_copy', {
+                                        tmdb_id: match.id,
+                                        format: movie.format,
+                                        edition: movie.edition,
+                                        region: movie.region,
+                                        condition: movie.condition,
+                                        notes: movie.notes,
+                                        barcode: movie.barcode
+                                    });
+                                    addedToCollection++;
+                                    console.log(`Added "${movie.title}" as "${match.title}" to collection`);
+                                }
+                            } else {
+                                // No TMDB match - add to unresolved
+                                await apiCall('add_unresolved', { title: movie.title });
+                                addedToUnresolved++;
+                                console.log(`Added "${movie.title}" to unresolved - no TMDB match`);
+                            }
                         }
 
                         // Show progress every 25 movies
@@ -2038,16 +2109,25 @@ function getCertColor(cert) {
                         // Delay to avoid rate limiting
                         await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
-                        console.error(`Failed to import "${movie.title}" (${movie.year}):`, error);
+                        console.error(`Failed to import "${movie.title}":`, error);
                         failed++;
                     }
                 }
 
-                // Reload wishlist
+                // Reload all data
+                await loadCollection();
                 await loadWishlist();
+                await loadUnresolved();
 
                 // Show summary
-                showToast(`Import complete! Added: ${added}, Skipped: ${skipped}, Failed: ${failed}`, 'success');
+                const summary = `Import complete!\n\n` +
+                    `✅ Added to Collection: ${addedToCollection}\n` +
+                    `📝 Added to Wishlist: ${addedToWishlist}\n` +
+                    `❓ Added to Unresolved: ${addedToUnresolved}\n` +
+                    `⏭️ Skipped (duplicates): ${skipped}\n` +
+                    `❌ Failed: ${failed}`;
+
+                showToast(summary, 'success');
 
             } catch (error) {
                 console.error('CSV import error:', error);
@@ -2527,10 +2607,18 @@ function switchGroupsTab(tabName) {
             loadGroups();
             break;
         case 'family':
-            // Loads when group selected
+            // Check if group is already selected
+            const familyGroupSelect = document.getElementById('familyGroupSelect');
+            if (familyGroupSelect && familyGroupSelect.value) {
+                loadFamilyCollection(familyGroupSelect.value);
+            }
             break;
         case 'wishlist':
-            // Loads when group selected
+            // Check if group is already selected
+            const wishlistGroupSelect = document.getElementById('groupWishlistSelect');
+            if (wishlistGroupSelect && wishlistGroupSelect.value) {
+                loadGroupWishlist(wishlistGroupSelect.value);
+            }
             break;
         case 'borrowed':
             loadBorrowedItems();
@@ -3073,21 +3161,35 @@ async function returnMovie(borrowId, title) {
 }
 
 async function loadGroupWishlist(groupId) {
+    console.log('loadGroupWishlist called with groupId:', groupId);
+
+    const grid = document.getElementById('groupWishlistGrid');
+    const emptyState = document.getElementById('emptyGroupWishlist');
+    const memberFilter = document.getElementById('wishlistMemberFilter');
+
+    if (!grid || !emptyState) {
+        console.error('Required DOM elements not found for group wishlist');
+        return;
+    }
+
     if (!groupId) {
-        document.getElementById('groupWishlistGrid').innerHTML = '';
-        document.getElementById('emptyGroupWishlist').style.display = 'flex';
-        document.getElementById('wishlistMemberFilter').style.display = 'none';
+        grid.innerHTML = '';
+        emptyState.style.display = 'flex';
+        if (memberFilter) memberFilter.style.display = 'none';
         return;
     }
 
     try {
         // Get group members
+        console.log('Fetching group data...');
         const groupData = await apiCall('get_group', { group_id: groupId });
         const members = groupData.members || [];
+        console.log('Group members:', members);
 
         if (members.length === 0) {
-            document.getElementById('groupWishlistGrid').innerHTML = '';
-            document.getElementById('emptyGroupWishlist').style.display = 'flex';
+            grid.innerHTML = '';
+            emptyState.style.display = 'flex';
+            showToast('This group has no members', 'info');
             return;
         }
 
@@ -3097,7 +3199,10 @@ async function loadGroupWishlist(groupId) {
 
         for (const member of members) {
             try {
+                console.log(`Loading wishlist for ${member.username} (ID: ${member.user_id})`);
                 const wishlistData = await apiCall('get_user_wishlist', { user_id: member.user_id });
+                console.log(`Wishlist data for ${member.username}:`, wishlistData);
+
                 if (wishlistData && wishlistData.length > 0) {
                     wishlistData.forEach(item => {
                         allWishlists.push({
@@ -3109,38 +3214,60 @@ async function loadGroupWishlist(groupId) {
                 }
             } catch (error) {
                 console.error(`Failed to load wishlist for ${member.username}:`, error);
+                showToast(`Failed to load wishlist for ${member.username}`, 'warning');
             }
         }
 
+        console.log('Total wishlist items loaded:', allWishlists.length);
+
         // Update member filter dropdown
-        const memberFilter = document.getElementById('wishlistMemberFilter');
-        memberFilter.innerHTML = '<option value="all">All Members</option>';
-        members.forEach(member => {
-            memberFilter.innerHTML += `<option value="${member.user_id}">${member.username}</option>`;
-        });
-        memberFilter.style.display = 'inline-block';
+        if (memberFilter) {
+            memberFilter.innerHTML = '<option value="all">All Members</option>';
+            members.forEach(member => {
+                memberFilter.innerHTML += `<option value="${member.user_id}">${member.username}</option>`;
+            });
+            memberFilter.style.display = 'inline-block';
+        }
 
         // Store and render
         window.currentGroupWishlist = allWishlists;
         renderGroupWishlist(allWishlists);
 
+        if (allWishlists.length > 0) {
+            showToast(`Loaded ${allWishlists.length} wishlist items`, 'success');
+        } else {
+            showToast('No wishlist items found for this group', 'info');
+        }
+
     } catch (error) {
         console.error('Error loading group wishlist:', error);
-        showToast('Failed to load group wishlist', 'error');
+        showToast(`Failed to load group wishlist: ${error.message}`, 'error');
+        grid.innerHTML = '';
+        emptyState.style.display = 'flex';
     }
 }
 
 function renderGroupWishlist(wishlists) {
+    console.log('renderGroupWishlist called with', wishlists.length, 'items');
+
     const grid = document.getElementById('groupWishlistGrid');
     const emptyState = document.getElementById('emptyGroupWishlist');
 
+    if (!grid || !emptyState) {
+        console.error('Required DOM elements not found for rendering group wishlist');
+        return;
+    }
+
     if (!wishlists || wishlists.length === 0) {
+        console.log('No wishlist items to render, showing empty state');
         grid.innerHTML = '';
         emptyState.style.display = 'flex';
+        grid.style.display = 'none';
         return;
     }
 
     emptyState.style.display = 'none';
+    grid.style.display = 'grid';
 
     // Group by TMDB ID
     const movieMap = new Map();
@@ -3159,6 +3286,8 @@ function renderGroupWishlist(wishlists) {
         }
     });
 
+    console.log('Grouped into', movieMap.size, 'unique movies');
+
     // Convert to array and sort by most wanted
     const movies = Array.from(movieMap.values()).sort((a, b) => b.members.length - a.members.length);
 
@@ -3170,27 +3299,37 @@ function renderGroupWishlist(wishlists) {
         const membersList = movie.members.map(m => m.name).join(', ');
         const memberCount = movie.members.length;
         const memberLabel = memberCount === 1 ? '1 member' : `${memberCount} members`;
+        const title = movie.title || 'Unknown Title';
+        const year = movie.release_date ? movie.release_date.substring(0, 4) : (movie.year || 'N/A');
 
         return `
             <div class="movie-card" data-member-ids="${movie.members.map(m => m.id).join(',')}">
-                <img src="${posterUrl}" alt="${movie.title}">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${title}" class="movie-poster">
+                    ${memberCount > 1 ? `<div class="wishlist-badge">❤️ ${memberLabel}</div>` : ''}
+                </div>
                 <div class="movie-info">
-                    <h3>${movie.title}</h3>
-                    <p class="year">${movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'}</p>
-                    <div class="wishlist-badge">
-                        <span>❤️ ${memberLabel}</span>
-                    </div>
+                    <h3>${title}</h3>
+                    ${year !== 'N/A' ? `<p class="year">${year}</p>` : ''}
                     <p class="wishlist-members">${membersList}</p>
                 </div>
             </div>
         `;
     }).join('');
+
+    console.log('Rendered', movies.length, 'movie cards');
 }
 
 function filterWishlistByMember(memberId) {
-    if (!window.currentGroupWishlist) return;
+    console.log('filterWishlistByMember called with memberId:', memberId);
+
+    if (!window.currentGroupWishlist) {
+        console.error('No currentGroupWishlist data available');
+        return;
+    }
 
     if (memberId === 'all') {
+        console.log('Showing all members wishlist');
         renderGroupWishlist(window.currentGroupWishlist);
         return;
     }
@@ -3199,6 +3338,7 @@ function filterWishlistByMember(memberId) {
         String(item.member_id) === String(memberId)
     );
 
+    console.log(`Filtered to ${filtered.length} items for member ${memberId}`);
     renderGroupWishlist(filtered);
 }
 
