@@ -814,7 +814,7 @@ case 'resolve_movie':
             break;
 
         case 'get_group':
-            $groupId = $data['group_id'] ?? null;
+            $groupId = $input['group_id'] ?? null;
 
             if (!$groupId) {
                 jsonResponse(false, null, 'Group ID required');
@@ -873,7 +873,7 @@ case 'resolve_movie':
             break;
 
         case 'get_user_wishlist':
-            $targetUserId = $data['user_id'] ?? null;
+            $targetUserId = $input['user_id'] ?? null;
 
             if (!$targetUserId) {
                 jsonResponse(false, null, 'User ID required');
