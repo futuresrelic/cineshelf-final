@@ -725,23 +725,42 @@ ${debugInfo.content_preview}
                     // Keep original movie objects for the extracted list
                     movies = result.data.movies;
 
+                    console.group('✅ CHECKPOINT 1: Data Extracted from AI');
+                    console.log('Movies array:', movies);
+                    console.log('Movies count:', movies.length);
+                    console.log('First movie:', movies[0]);
+                    console.groupEnd();
+
                 } else {
                     // Standard extraction
                     const content = result.data.content;
                     showStatus('🔍 Analyzing content and extracting movies...', 'info');
                     movies = extractMoviesFromContent(content);
+
+                    console.group('✅ CHECKPOINT 1: Data Extracted (Standard)');
+                    console.log('Movies array:', movies);
+                    console.log('Movies count:', movies.length);
+                    console.groupEnd();
                 }
 
                 if (movies.length === 0) {
+                    console.error('❌ CHECKPOINT 1 FAILED: No movies found');
                     showStatus('❌ No movies found in article. Click "Open" to manually extract the list.', 'error');
                     return;
                 }
 
                 // Auto-populate the list name from article title
+                let listName = '';
                 if (title) {
-                    const listName = extractListNameFromTitle(title);
+                    listName = extractListNameFromTitle(title);
                     if (listName) {
-                        document.getElementById('listName').value = listName;
+                        const listNameField = document.getElementById('listName');
+                        listNameField.value = listName;
+
+                        console.group('✅ CHECKPOINT 2: List Name Populated');
+                        console.log('List Name:', listName);
+                        console.log('Field value:', listNameField.value);
+                        console.groupEnd();
                     }
 
                     // Auto-generate a description based on the extraction
@@ -755,34 +774,83 @@ ${debugInfo.content_preview}
                             description += ` - Source: ${url}`;
                         }
                         descriptionField.value = description;
+
+                        console.group('✅ CHECKPOINT 3: Description Populated');
+                        console.log('Description:', description);
+                        console.log('Field value:', descriptionField.value);
+                        console.groupEnd();
                     }
                 }
 
                 // Populate the main textarea with extracted movies (convert to strings)
                 const movieInput = document.getElementById('movieInput');
-                const movieLines = movies.map(movie => {
+
+                if (!movieInput) {
+                    console.error('❌ CRITICAL ERROR: movieInput textarea not found!');
+                    alert('ERROR: Could not find movie input textarea. Please refresh the page.');
+                    return;
+                }
+
+                console.group('🔄 CHECKPOINT 4: Converting Movies to Strings');
+                console.log('Movies before conversion:', movies);
+
+                const movieLines = movies.map((movie, index) => {
+                    let formatted = '';
                     if (typeof movie === 'string') {
-                        return movie; // Already formatted as "Title (Year)"
+                        formatted = movie;
+                        console.log(`  [${index}] String: "${formatted}"`);
                     } else if (movie.title && movie.year) {
-                        return `${movie.title} (${movie.year})`;
+                        formatted = `${movie.title} (${movie.year})`;
+                        console.log(`  [${index}] Object: {title: "${movie.title}", year: ${movie.year}} → "${formatted}"`);
                     } else if (movie.title) {
-                        return movie.title;
+                        formatted = movie.title;
+                        console.log(`  [${index}] Object (no year): {title: "${movie.title}"} → "${formatted}"`);
+                    } else {
+                        console.warn(`  [${index}] Invalid movie:`, movie);
                     }
-                    return '';
+                    return formatted;
                 }).filter(line => line.trim() !== '');
 
-                movieInput.value = movieLines.join('\n');
+                console.log('Movie lines after conversion:', movieLines);
+                console.groupEnd();
+
+                const movieText = movieLines.join('\n');
+
+                console.group('✅ CHECKPOINT 5: Populating Textarea');
+                console.log('Text to populate (length):', movieText.length);
+                console.log('Text preview:', movieText.substring(0, 200));
+
+                movieInput.value = movieText;
+
+                console.log('Textarea value after setting:', movieInput.value.substring(0, 200));
+                console.log('Textarea has content:', movieInput.value.length > 0 ? 'YES ✅' : 'NO ❌');
+                console.groupEnd();
 
                 // Store movie objects (not strings) for the extracted movies list
                 extractedMovies = movies;
+
+                console.group('✅ CHECKPOINT 6: Rendering Extracted Movies List');
+                console.log('extractedMovies array:', extractedMovies);
+
                 renderExtractedMovies();
-                document.getElementById('extractedList').style.display = 'block';
+
+                const extractedListDiv = document.getElementById('extractedList');
+                extractedListDiv.style.display = 'block';
+
+                console.log('Extracted list visible:', extractedListDiv.style.display === 'block' ? 'YES ✅' : 'NO ❌');
+                console.groupEnd();
 
                 const aiLabel = useAI ? ' (AI-powered)' : '';
                 showStatus(`✅ Successfully extracted ${movies.length} movies${aiLabel}! Click "Parse & Verify Movies" to continue.`, 'success');
 
+                console.log('═══════════════════════════════════════');
+                console.log('✅ ALL CHECKPOINTS PASSED!');
+                console.log('Form should now be populated. Check above for any ❌');
+                console.log('═══════════════════════════════════════');
+
                 // Scroll to the form textarea so user can see the populated data
                 movieInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
 
             } catch (error) {
                 console.error('Auto-extraction error:', error);
