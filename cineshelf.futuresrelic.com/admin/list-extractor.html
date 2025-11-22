@@ -461,7 +461,7 @@ The Dark Knight (2008)"></textarea>
                     </h3>
                     <div id="movieList" class="extracted-list"></div>
 
-                    <button class="btn btn-success" onclick="exportToPreset()">💾 Save to Presets.json (Auto-Verify TMDB)</button>
+                    <button class="btn btn-success" onclick="exportToPreset()">💾 Save to Presets.json</button>
                     <button class="btn btn-danger" onclick="clearList()">🗑️ Clear List</button>
                 </div>
 
@@ -498,10 +498,10 @@ The Dark Knight (2008)"></textarea>
         })();
 
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-TMDB-DEBUG', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-PRESET-SAVE', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
-        console.log('🔍 Debug: TMDB search logging enabled for first 2 movies');
+        console.log('💾 Save presets directly (use Preset Manager for TMDB verification)');
 
         let extractedMovies = [];
 
@@ -1128,90 +1128,10 @@ ${debugInfo.content_preview}
                 return;
             }
 
-            showStatus('🔄 Searching TMDB for movies and saving to presets...', 'info');
+            showStatus('💾 Saving to presets.json...', 'info');
 
             try {
-                // Step 1: Search TMDB for each movie to get IDs
-                const verifiedMovies = [];
-                let notFound = 0;
-
-                for (let i = 0; i < extractedMovies.length; i++) {
-                    const movie = extractedMovies[i];
-
-                    // Show progress
-                    if (i % 5 === 0) {
-                        showStatus(`🔍 Searching TMDB: ${i + 1}/${extractedMovies.length}...`, 'info');
-                    }
-
-                    try {
-                        const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
-                        const response = await fetch('/api/api.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({
-                                action: 'search_movie',
-                                query: query
-                            })
-                        });
-
-                        const result = await response.json();
-
-                        // DEBUG: Log first 2 searches to understand response format
-                        if (i < 2) {
-                            console.group(`🔍 TMDB Search Debug [${i+1}]: ${movie.title}`);
-                            console.log('Query:', query);
-                            console.log('result.ok:', result.ok);
-                            console.log('result.data type:', typeof result.data);
-                            console.log('result.data:', result.data);
-                            console.log('result.error:', result.error);
-                            if (result.data) {
-                                console.log('Is array:', Array.isArray(result.data));
-                                console.log('Length:', result.data?.length);
-                            }
-                            console.groupEnd();
-                        }
-
-                        if (result.ok && result.data && result.data.length > 0) {
-                            // Try to find exact match or use first result
-                            let match = result.data[0];
-
-                            if (movie.year) {
-                                const exactMatch = result.data.find(m =>
-                                    m.release_date && m.release_date.startsWith(movie.year.toString())
-                                );
-                                if (exactMatch) match = exactMatch;
-                            }
-
-                            console.log(`✅ Found: ${movie.title} → ${match.title} (${match.id})`);
-
-                            verifiedMovies.push({
-                                title: match.title,
-                                year: match.release_date ? parseInt(match.release_date.substring(0, 4)) : movie.year,
-                                tmdb_id: match.id
-                            });
-                        } else {
-                            console.warn(`❌ No match for: ${movie.title} (result.ok: ${result.ok}, data length: ${result.data?.length || 0})`);
-                            notFound++;
-                        }
-
-                        // Delay to avoid rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 250));
-
-                    } catch (error) {
-                        console.error(`Error searching for ${movie.title}:`, error);
-                        notFound++;
-                    }
-                }
-
-                if (verifiedMovies.length === 0) {
-                    showStatus('❌ No movies could be verified on TMDB', 'error');
-                    return;
-                }
-
-                // Step 2: Load existing presets
-                showStatus('📥 Loading existing presets...', 'info');
-
+                // Step 1: Load existing presets
                 const getPresetsResponse = await fetch('/api/api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1222,19 +1142,20 @@ ${debugInfo.content_preview}
                 const getPresetsResult = await getPresetsResponse.json();
                 const existingPresets = getPresetsResult.ok ? getPresetsResult.data : {};
 
-                // Step 3: Add new preset
+                // Step 2: Generate key and add new preset
                 const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+                // Filter out movies without years (optional, but recommended for TMDB matching)
+                const moviesWithYears = extractedMovies.filter(m => m.year !== null);
 
                 existingPresets[key] = {
                     name: name,
                     description: description || `Curated list: ${name}`,
                     icon: icon || '🎬',
-                    movies: verifiedMovies
+                    movies: moviesWithYears
                 };
 
-                // Step 4: Save back to presets.json
-                showStatus('💾 Saving to presets.json...', 'info');
-
+                // Step 3: Save back to presets.json
                 const saveResponse = await fetch('/api/api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1251,15 +1172,17 @@ ${debugInfo.content_preview}
                     throw new Error(saveResult.error || 'Failed to save presets');
                 }
 
-                // Step 5: Show success and preview
+                // Step 4: Show success and preview
                 const json = JSON.stringify({ [key]: existingPresets[key] }, null, 2);
                 document.getElementById('exportJson').textContent = json;
                 document.getElementById('exportPreview').style.display = 'block';
 
+                const skipped = extractedMovies.length - moviesWithYears.length;
                 const summary = `✅ Successfully saved "${name}" to presets.json!\n\n` +
-                    `📊 Verified: ${verifiedMovies.length} movies\n` +
-                    (notFound > 0 ? `⚠️ Not found: ${notFound} movies\n` : '') +
-                    `🔑 Key: ${key}`;
+                    `📊 Saved: ${moviesWithYears.length} movies\n` +
+                    (skipped > 0 ? `⚠️ Skipped (no year): ${skipped} movies\n` : '') +
+                    `🔑 Key: ${key}\n\n` +
+                    `Next step: Use Preset Manager to verify TMDB matches!`;
 
                 showStatus(summary, 'success');
                 alert(summary);
