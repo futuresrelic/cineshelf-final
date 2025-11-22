@@ -1805,24 +1805,73 @@ function getCertColor(cert) {
     }
     
     function exportData() {
-        const data = {
-            user: currentUser,
-            exported: new Date().toISOString(),
-            collection: collection,
-            wishlist: wishlist
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        // Build CSV header
+        const csvHeader = 'title,year,tmdb_id,status,format,edition,region,condition,notes,barcode\n';
+
+        // Build CSV rows from collection and wishlist
+        const csvRows = [];
+
+        // Export collection items
+        collection.forEach(group => {
+            group.copies.forEach(copy => {
+                const movie = group.movie;
+                const row = [
+                    escapeCsvValue(movie.title),
+                    movie.year || '',
+                    movie.tmdb_id || '',
+                    'collection',
+                    escapeCsvValue(copy.format || 'DVD'),
+                    escapeCsvValue(copy.edition || ''),
+                    escapeCsvValue(copy.region || ''),
+                    escapeCsvValue(copy.condition || 'Good'),
+                    escapeCsvValue(copy.notes || ''),
+                    escapeCsvValue(copy.barcode || '')
+                ];
+                csvRows.push(row.join(','));
+            });
+        });
+
+        // Export wishlist items
+        wishlist.forEach(movie => {
+            const row = [
+                escapeCsvValue(movie.title),
+                movie.year || '',
+                movie.tmdb_id || '',
+                'wishlist',
+                '', // no format for wishlist
+                '', // no edition
+                '', // no region
+                '', // no condition
+                '', // no notes
+                ''  // no barcode
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvContent = csvHeader + csvRows.join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cineshelf_${currentUser}_${Date.now()}.json`;
+        a.download = `cineshelf_${currentUser}_${Date.now()}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        showToast('Data exported!', 'success');
+
+        showToast(`Exported ${csvRows.length} items to CSV!`, 'success');
+    }
+
+    function escapeCsvValue(value) {
+        if (!value) return '';
+        // Convert to string and escape quotes
+        const stringValue = String(value);
+        // If value contains comma, quote, or newline, wrap in quotes and escape internal quotes
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
     }
 
     // Helper function to parse CSV line respecting quoted fields
