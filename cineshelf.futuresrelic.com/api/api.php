@@ -45,11 +45,25 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
 
     // Step 3: Build prompt
     $debugSteps[] = 'Step 3: Building AI prompt';
-    $prompt = "Extract all movie titles and their release years from this article";
+    $prompt = "You are analyzing an article";
     if ($articleTitle) {
         $prompt .= " titled '$articleTitle'";
     }
-    $prompt .= ".\n\nReturn ONLY a JSON array with this exact format:\n[{\"title\": \"Movie Name\", \"year\": 2024}, ...]\n\nRules:\n- Extract ONLY movies (not TV shows, books, or other media)\n- Include the release year if mentioned\n- If year is not mentioned, use null\n- Return empty array [] if no movies found\n- Do not include explanatory text, only the JSON array\n\nArticle content:\n\n" . $cleanedContent;
+    $prompt .= " that contains information about movies. Your task is to extract ALL movie titles and their release years.\n\n";
+    $prompt .= "This may be a ranked list, review, or article discussing movies. Look for:\n";
+    $prompt .= "- Movie titles (may include subtitles in parentheses)\n";
+    $prompt .= "- Release years (often in parentheses like '(2014)' or mentioned in text)\n";
+    $prompt .= "- Director names and actor names are often mentioned near movie titles\n\n";
+    $prompt .= "Return a JSON object with a 'movies' array like this:\n";
+    $prompt .= "{\"movies\": [{\"title\": \"Movie Name\", \"year\": 2024}, {\"title\": \"Another Movie\", \"year\": 2020}]}\n\n";
+    $prompt .= "Important rules:\n";
+    $prompt .= "- Extract ALL movies mentioned (this could be 5-50+ movies)\n";
+    $prompt .= "- Include the release year as a number (not a string)\n";
+    $prompt .= "- If no year is found, use null\n";
+    $prompt .= "- Only extract movies (not TV shows)\n";
+    $prompt .= "- Remove subtitles like 'or (The Unexpected Virtue of Ignorance)' - keep main title only\n";
+    $prompt .= "- If you truly find no movies, return {\"movies\": []}\n\n";
+    $prompt .= "Article content:\n\n" . $cleanedContent;
 
     // Step 4: Prepare API request
     $debugSteps[] = 'Step 4: Preparing OpenAI API request';
@@ -58,7 +72,7 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
         'messages' => [
             [
                 'role' => 'system',
-                'content' => 'You are a helpful assistant that extracts movie information from articles. Always respond with valid JSON only.'
+                'content' => 'You are a specialized movie information extractor. You analyze web articles, reviews, and lists to identify all movie titles and years mentioned. You MUST respond with ONLY valid JSON - no explanations, no markdown, no commentary. If you find movies, return the array. If you find none, return [].'
             ],
             [
                 'role' => 'user',
@@ -66,9 +80,10 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
             ]
         ],
         'temperature' => 0.3,
-        'max_tokens' => 2000
+        'max_tokens' => 3000,
+        'response_format' => ['type' => 'json_object']
     ];
-    $debugSteps[] = 'Step 4: Request prepared for model: ' . OPENAI_MODEL;
+    $debugSteps[] = 'Step 4: Request prepared for model: ' . OPENAI_MODEL . ' (JSON mode enabled)';
 
     // Step 5: Make cURL request
     $debugSteps[] = 'Step 5: Making cURL request to OpenAI';
@@ -141,15 +156,16 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
 
     $content = trim($result['choices'][0]['message']['content']);
     $debugSteps[] = 'Step 7: Extracted content (' . strlen($content) . ' chars)';
+    $debugSteps[] = 'Step 7: AI response preview: ' . substr($content, 0, 200);
 
     // Step 8: Parse movie data
     $debugSteps[] = 'Step 8: Parsing movie data from AI response';
-    $movies = json_decode($content, true);
+    $parsedData = json_decode($content, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
         $debugSteps[] = 'Step 8: Initial JSON parse failed, trying markdown extraction';
         if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
-            $movies = json_decode(trim($matches[1]), true);
+            $parsedData = json_decode(trim($matches[1]), true);
         }
 
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -162,16 +178,43 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
         }
     }
 
-    if (!is_array($movies)) {
-        $debugSteps[] = 'Step 8: Response was not an array';
+    // Extract movies array from response object
+    $movies = [];
+    if (is_array($parsedData)) {
+        // Check if it's already an array of movies (legacy format)
+        if (isset($parsedData[0]) && isset($parsedData[0]['title'])) {
+            $movies = $parsedData;
+            $debugSteps[] = 'Step 8: Using legacy array format';
+        }
+        // Check if it's an object with a movies key (new format)
+        else if (isset($parsedData['movies']) && is_array($parsedData['movies'])) {
+            $movies = $parsedData['movies'];
+            $debugSteps[] = 'Step 8: Extracted movies from response object';
+        }
+        else {
+            $debugSteps[] = 'Step 8: Unexpected response format';
+            $debugSteps[] = 'Response keys: ' . implode(', ', array_keys($parsedData));
+        }
+    } else {
+        $debugSteps[] = 'Step 8: Response was not an array or object';
         return [
-            'error' => 'AI response was not an array',
+            'error' => 'AI response was not valid JSON',
             'debug_steps' => $debugSteps,
-            'response_type' => gettype($movies)
+            'response_type' => gettype($parsedData)
         ];
     }
 
-    $debugSteps[] = 'Step 8: Successfully parsed ' . count($movies) . ' movies';
+    $movieCount = count($movies);
+    $debugSteps[] = 'Step 8: Successfully parsed ' . $movieCount . ' movies';
+
+    // If we got 0 movies, that's suspicious - log more details
+    if ($movieCount === 0) {
+        $debugSteps[] = 'WARNING: AI returned empty array';
+        $debugSteps[] = 'Full AI response: ' . $content;
+        $debugSteps[] = 'Input content length sent to AI: ' . strlen($cleanedContent) . ' chars';
+        $debugSteps[] = 'Input preview: ' . substr($cleanedContent, 0, 500);
+    }
+
     $debugSteps[] = 'SUCCESS: AI extraction completed';
 
     return [
