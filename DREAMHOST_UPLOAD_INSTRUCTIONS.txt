@@ -1,0 +1,62 @@
+═══════════════════════════════════════════════════════════
+  DREAMHOST UPLOAD INSTRUCTIONS - CLEAR SERVICE WORKER CACHE
+═══════════════════════════════════════════════════════════
+
+The issue is your browser's SERVICE WORKER is caching old JavaScript.
+
+SOLUTION - Follow these steps EXACTLY:
+
+1. UNREGISTER SERVICE WORKER (In Browser):
+   ───────────────────────────────────────────────────
+   a. Open https://cineshelf.futuresrelic.com
+   b. Press F12 (open DevTools)
+   c. Go to "Application" tab (or "Storage" tab)
+   d. Click "Service Workers" in left sidebar
+   e. Click "Unregister" next to any service workers
+   f. Close all tabs for cineshelf.futuresrelic.com
+   g. Close browser completely
+
+2. CLEAR ALL CACHE:
+   ───────────────────────────────────────────────────
+   Windows: Ctrl + Shift + Delete
+   Mac: Cmd + Shift + Delete
+
+   Select:
+   ☑ Cached images and files
+   ☑ Cookies and site data
+   Time range: "All time"
+
+   Click "Clear data"
+
+3. VERIFY LATEST FILE IS ON SERVER:
+   ───────────────────────────────────────────────────
+   On DreamHost, check that your file includes this at the TOP of the <script> tag:
+
+   <script>
+       // VERSION CHECK - This should appear FIRST in console
+       console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-CHECKPOINTS',
+
+   If you DON'T see that, download fresh from GitHub!
+
+4. REOPEN IN INCOGNITO/PRIVATE:
+   ───────────────────────────────────────────────────
+   Open a PRIVATE/INCOGNITO window:
+   Windows: Ctrl + Shift + N
+   Mac: Cmd + Shift + N
+
+   Go to: https://cineshelf.futuresrelic.com/admin/list-extractor-1.html
+
+5. CHECK CONSOLE:
+   ───────────────────────────────────────────────────
+   You should IMMEDIATELY see (before clicking anything):
+
+   🔥 LIST EXTRACTOR VERSION: 2025-01-22-CHECKPOINTS
+   ✅ If you see this message, the latest code is loaded!
+
+   If you see that = SUCCESS! Try Auto Extract
+   If you DON'T see that = File still wrong
+
+═══════════════════════════════════════════════════════════
+STILL NOT WORKING? The file on your server is OLD!
+Download fresh ZIP from GitHub and re-upload.
+═══════════════════════════════════════════════════════════
