@@ -408,6 +408,9 @@
                         <input type="checkbox" id="debugMode" style="width: auto;">
                         <span>🔧 Debug Mode (show connection details)</span>
                     </label>
+                    <button class="btn" onclick="testFormPopulation()" style="margin-top: 0.5rem; background: #f59e0b; color: white;">
+                        🧪 Test Form Population
+                    </button>
                 </div>
 
                 <div style="margin: 1.5rem 0; text-align: center; color: #9ca3af;">
@@ -495,10 +498,10 @@ The Dark Knight (2008)"></textarea>
         })();
 
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-AUTH-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-OK-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
-        console.log('🔐 Auth cookie included in API calls - extraction should work now!');
+        console.log('🔐 Fixed: result.success → result.ok (critical bug fix!)');
 
         let extractedMovies = [];
 
@@ -640,6 +643,66 @@ The Dark Knight (2008)"></textarea>
             await performAutoExtraction(url, null);
         }
 
+        function testFormPopulation() {
+            console.group('🧪 TEST: Form Population');
+            console.log('Populating form fields with test data...');
+
+            // Test data
+            const testMovies = [
+                {title: "The Shawshank Redemption", year: 1994},
+                {title: "The Godfather", year: 1972},
+                {title: "The Dark Knight", year: 2008},
+                {title: "Pulp Fiction", year: 1994},
+                {title: "Forrest Gump", year: 1994}
+            ];
+
+            // Populate List Name
+            const listNameField = document.getElementById('listName');
+            if (listNameField) {
+                listNameField.value = "Test Movie List";
+                console.log('✅ List Name populated:', listNameField.value);
+            } else {
+                console.error('❌ listName field not found!');
+            }
+
+            // Populate List Description
+            const descriptionField = document.getElementById('listDescription');
+            if (descriptionField) {
+                descriptionField.value = "This is a test list to verify form population works";
+                console.log('✅ Description populated:', descriptionField.value);
+            } else {
+                console.error('❌ listDescription field not found!');
+            }
+
+            // Populate textarea with movies
+            const movieInput = document.getElementById('movieInput');
+            if (movieInput) {
+                const movieLines = testMovies.map(m => `${m.title} (${m.year})`);
+                const movieText = movieLines.join('\n');
+                movieInput.value = movieText;
+                console.log('✅ Movie textarea populated with', testMovies.length, 'movies');
+                console.log('Textarea value:', movieInput.value);
+            } else {
+                console.error('❌ movieInput textarea not found!');
+            }
+
+            // Store in extractedMovies for rendering
+            extractedMovies = testMovies;
+            renderExtractedMovies();
+
+            const extractedListDiv = document.getElementById('extractedList');
+            if (extractedListDiv) {
+                extractedListDiv.style.display = 'block';
+                console.log('✅ Extracted list displayed');
+            }
+
+            console.log('═══════════════════════════════════════');
+            console.log('✅ Test complete! Check form fields above.');
+            console.groupEnd();
+
+            showStatus('✅ Test data populated! Check the form fields.', 'success');
+        }
+
         async function performAutoExtraction(url, articleTitle) {
             const debugMode = document.getElementById('debugMode').checked;
             const useAI = document.getElementById('useAI').checked;
@@ -665,8 +728,21 @@ The Dark Knight (2008)"></textarea>
 
                 const result = await response.json();
 
+                // DETAILED RESPONSE DEBUGGING
+                console.group('🔍 RAW API RESPONSE');
+                console.log('Full response object:', result);
+                console.log('result.ok:', result.ok);
+                console.log('result.error:', result.error);
+                console.log('result.data:', result.data);
+                if (result.data) {
+                    console.log('result.data.ai_extracted:', result.data.ai_extracted);
+                    console.log('result.data.movies:', result.data.movies);
+                    console.log('result.data.movie_count:', result.data.movie_count);
+                }
+                console.groupEnd();
+
                 // Debug mode - show detailed connection info
-                if (result.success && result.data && result.data.debug) {
+                if (result.ok && result.data && result.data.debug) {
                     const debugInfo = result.data;
                     const debugMsg = `
 🔍 DEBUG INFO:
@@ -687,7 +763,7 @@ ${debugInfo.content_preview}
                     return;
                 }
 
-                if (!result.success) {
+                if (!result.ok) {
                     const errorMsg = result.error || 'Unknown error';
                     showStatus(`⚠️ ${errorMsg}`, 'error');
 
