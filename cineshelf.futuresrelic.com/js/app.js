@@ -1980,10 +1980,9 @@ function getCertColor(cert) {
 
                 // Confirm import
                 const confirmMsg = `Import ${movies.length} movies from CSV?\n\n` +
-                    `Movies with TMDB IDs will be added to Collection.\n` +
-                    `Movies without TMDB IDs will be searched and added to Collection if found.\n` +
-                    `Unmatched movies will be added to Resolve.\n\n` +
-                    `This may take a few minutes.`;
+                    `✅ Movies with TMDB IDs → Added directly to Collection/Wishlist\n` +
+                    `❓ Movies without TMDB IDs → Sent to Resolve for manual matching\n\n` +
+                    `This will be quick - no automatic searching!`;
 
                 if (!confirm(confirmMsg)) {
                     return;
@@ -2028,54 +2027,16 @@ function getCertColor(cert) {
                                 console.log(`Added "${movie.title}" with TMDB ID ${movie.tmdb_id}`);
                             }
                         } else {
-                            // No TMDB ID - search for it
-                            const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
-                            const response = await apiCall('search_movie', { query: query });
-
-                            if (response && response.length > 0) {
-                                // Try to find exact match
-                                let match = response.find(r =>
-                                    r.title.toLowerCase() === movie.title.toLowerCase() &&
-                                    (!movie.year || r.release_date?.startsWith(movie.year))
-                                );
-
-                                // Fall back to first result
-                                if (!match) match = response[0];
-
-                                // Check if already in collection
-                                const alreadyExists = collection.some(g => g.movie.tmdb_id === match.id);
-                                if (alreadyExists) {
-                                    console.log(`Skipped "${movie.title}" - already in collection`);
-                                    skipped++;
-                                } else {
-                                    // Add to collection (matched films land in collection)
-                                    await apiCall('add_copy', {
-                                        tmdb_id: match.id,
-                                        format: movie.format,
-                                        edition: movie.edition,
-                                        region: movie.region,
-                                        condition: movie.condition,
-                                        notes: movie.notes,
-                                        barcode: movie.barcode
-                                    });
-                                    addedToCollection++;
-                                    console.log(`Added "${movie.title}" as "${match.title}" to collection`);
-                                }
-                            } else {
-                                // No TMDB match - add to unresolved
-                                await apiCall('add_unresolved', { title: movie.title });
-                                addedToUnresolved++;
-                                console.log(`Added "${movie.title}" to unresolved - no TMDB match`);
-                            }
+                            // No TMDB ID - send directly to unresolved for manual matching
+                            await apiCall('add_unresolved', { title: movie.title });
+                            addedToUnresolved++;
+                            console.log(`Added "${movie.title}" to unresolved - no TMDB ID (manual matching required)`);
                         }
 
-                        // Show progress every 25 movies
-                        if ((i + 1) % 25 === 0 || i === movies.length - 1) {
+                        // Show progress every 50 movies
+                        if ((i + 1) % 50 === 0 || i === movies.length - 1) {
                             showToast(`Progress: ${i + 1}/${movies.length} movies processed...`, 'info');
                         }
-
-                        // Delay to avoid rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
                         console.error(`Failed to import "${movie.title}":`, error);
                         failed++;
@@ -2091,9 +2052,10 @@ function getCertColor(cert) {
                 const summary = `Import complete!\n\n` +
                     `✅ Added to Collection: ${addedToCollection}\n` +
                     `📝 Added to Wishlist: ${addedToWishlist}\n` +
-                    `❓ Added to Unresolved: ${addedToUnresolved}\n` +
+                    `❓ Sent to Resolve: ${addedToUnresolved}\n` +
                     `⏭️ Skipped (duplicates): ${skipped}\n` +
-                    `❌ Failed: ${failed}`;
+                    `❌ Failed: ${failed}` +
+                    (addedToUnresolved > 0 ? `\n\n💡 Tip: Go to Resolve tab to manually match ${addedToUnresolved} movies` : '');
 
                 showToast(summary, 'success');
 
