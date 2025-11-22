@@ -2139,7 +2139,7 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Valid URL required');
             }
 
-            // Fetch the article content using cURL
+            // Fetch the article content using cURL with comprehensive browser headers
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -2147,15 +2147,52 @@ case 'resolve_movie':
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
+
+            // Comprehensive browser headers to bypass anti-scraping
+            $headers = [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language: en-US,en;q=0.9',
+                'Accept-Encoding: gzip, deflate, br',
+                'DNT: 1',
+                'Connection: keep-alive',
+                'Upgrade-Insecure-Requests: 1',
+                'Sec-Fetch-Dest: document',
+                'Sec-Fetch-Mode: navigate',
+                'Sec-Fetch-Site: none',
+                'Cache-Control: max-age=0',
+            ];
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
             $content = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
             curl_close($ch);
 
-            if ($error || $httpCode !== 200) {
-                jsonResponse(false, null, 'Failed to fetch article: ' . ($error ?: 'HTTP ' . $httpCode));
+            // Better error handling
+            if ($error) {
+                jsonResponse(false, null, 'Network error: ' . $error);
+            }
+
+            if ($httpCode !== 200) {
+                // Provide helpful error messages based on HTTP status
+                $errorMsg = 'HTTP ' . $httpCode;
+                if ($httpCode == 403 || $httpCode == 401) {
+                    $errorMsg .= ' - Site blocked the request. Try manual extraction instead.';
+                } elseif ($httpCode == 404) {
+                    $errorMsg .= ' - Page not found. Check the URL.';
+                } elseif ($httpCode == 429) {
+                    $errorMsg .= ' - Too many requests. Wait a moment and try again.';
+                } elseif ($httpCode >= 500) {
+                    $errorMsg .= ' - Server error. Try again later.';
+                }
+                jsonResponse(false, null, $errorMsg);
+            }
+
+            if (empty($content)) {
+                jsonResponse(false, null, 'No content received from URL');
             }
 
             // Extract title from HTML if possible

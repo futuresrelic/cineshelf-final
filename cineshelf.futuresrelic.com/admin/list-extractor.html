@@ -617,7 +617,12 @@ The Dark Knight (2008)"></textarea>
                 const result = await response.json();
 
                 if (!result.success) {
-                    showStatus(`Failed to fetch article: ${result.error || 'Unknown error'}`, 'error');
+                    const errorMsg = result.error || 'Unknown error';
+                    showStatus(`⚠️ ${errorMsg}`, 'error');
+                    // Suggest manual extraction
+                    setTimeout(() => {
+                        showStatus('💡 Tip: Click "Open" button to manually copy the list from the article.', 'info');
+                    }, 3000);
                     return;
                 }
 
@@ -630,7 +635,7 @@ The Dark Knight (2008)"></textarea>
                 const movies = extractMoviesFromContent(content);
 
                 if (movies.length === 0) {
-                    showStatus('❌ No movies found in article. Try manual extraction instead.', 'error');
+                    showStatus('❌ No movies found in article. Click "Open" to manually extract the list.', 'error');
                     return;
                 }
 
