@@ -473,8 +473,29 @@ The Dark Knight (2008)"></textarea>
     </div>
 
     <script>
+        // AUTOMATIC SERVICE WORKER CLEANUP - Runs FIRST to clear cache
+        (async function() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        const unregistered = await registration.unregister();
+                        if (unregistered) {
+                            console.log('%c🧹 Service Worker Unregistered!', 'background: #f59e0b; color: white; padding: 6px; font-weight: bold;');
+                            console.log('Page will reload in 2 seconds to load fresh code...');
+                            // Reload after a short delay
+                            setTimeout(() => window.location.reload(true), 2000);
+                            return; // Stop here, reload will happen
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Could not unregister service worker:', error);
+                }
+            }
+        })();
+
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-CHECKPOINTS', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
 

@@ -284,15 +284,27 @@ function createSession($user, $tokenData) {
     $_SESSION['session_token'] = $sessionToken;
 
     // Set cookie
+    // Note: secure flag should be true for HTTPS, but we detect it dynamically
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        || (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+
     setcookie(
         AUTH_TOKEN_NAME,
         $sessionToken,
         time() + SESSION_LIFETIME,
         '/',
         '',
-        true, // HTTPS only
-        true  // HTTP only
+        $isHttps, // HTTPS only if actually using HTTPS
+        true  // HTTP only (prevents JavaScript access)
     );
+
+    // Log for debugging
+    error_log(sprintf('Session cookie set: %s (HTTPS: %s, Expires: %s)',
+        AUTH_TOKEN_NAME,
+        $isHttps ? 'yes' : 'no',
+        date('Y-m-d H:i:s', time() + SESSION_LIFETIME)
+    ));
 }
 
 /**
