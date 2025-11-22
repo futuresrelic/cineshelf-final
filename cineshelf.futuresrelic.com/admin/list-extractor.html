@@ -495,53 +495,29 @@ The Dark Knight (2008)"></textarea>
         })();
 
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-AUTH-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
+        console.log('🔐 Auth cookie included in API calls - extraction should work now!');
 
         let extractedMovies = [];
 
-        // Curated article sources
+        // Curated article sources - AI extraction recommended
         const curatedArticles = [
             {
-                title: "100 Best Sci-Fi Movies of All Time",
+                title: "Best Sci-Fi Movies of All Time",
                 source: "Rotten Tomatoes",
                 url: "https://editorial.rottentomatoes.com/guide/best-sci-fi-movies-of-all-time/"
             },
             {
-                title: "50 Best Horror Movies of All Time",
-                source: "Rolling Stone",
-                url: "https://www.rollingstone.com/tv-movies/tv-movie-lists/50-best-horror-movies-of-all-time-162708/"
-            },
-            {
-                title: "The 100 Best Movies of All Time",
-                source: "TIME",
-                url: "https://time.com/collection/100-best-movies/"
-            },
-            {
-                title: "Top 100 Action Movies",
+                title: "Best Action Movies of All Time",
                 source: "Rotten Tomatoes",
                 url: "https://editorial.rottentomatoes.com/guide/best-action-movies-of-all-time/"
             },
             {
-                title: "Best Animated Movies of All Time",
-                source: "IndieWire",
-                url: "https://www.indiewire.com/gallery/best-animated-movies-of-all-time/"
-            },
-            {
-                title: "Best Thriller Movies of All Time",
-                source: "Collider",
-                url: "https://collider.com/best-thriller-movies-of-all-time/"
-            },
-            {
-                title: "Best Crime Movies Ever Made",
-                source: "Collider",
-                url: "https://collider.com/best-crime-movies-ever-made/"
-            },
-            {
-                title: "Best Romance Movies of All Time",
-                source: "Collider",
-                url: "https://collider.com/best-romance-movies-of-all-time/"
+                title: "Best Horror Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-horror-movies-of-all-time/"
             },
             {
                 title: "Best Comedy Movies of All Time",
@@ -549,74 +525,84 @@ The Dark Knight (2008)"></textarea>
                 url: "https://editorial.rottentomatoes.com/guide/best-comedies-of-all-time/"
             },
             {
-                title: "Best Drama Movies Ever Made",
-                source: "Collider",
-                url: "https://collider.com/best-drama-movies-ever-made/"
+                title: "Best Thriller Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-thriller-movies-of-all-time/"
             },
             {
-                title: "Best Gangster Movies of All Time",
-                source: "Screen Rant",
-                url: "https://screenrant.com/best-gangster-movies-all-time-ranked/"
-            },
-            {
-                title: "Best Mystery Movies Ever Made",
-                source: "Screen Rant",
-                url: "https://screenrant.com/best-mystery-movies-ranked/"
-            },
-            {
-                title: "Best Psychological Thriller Movies",
-                source: "Screen Rant",
-                url: "https://screenrant.com/best-psychological-thriller-movies-ranked/"
-            },
-            {
-                title: "Best Heist Movies of All Time",
-                source: "Screen Rant",
-                url: "https://screenrant.com/best-heist-movies-all-time-ranked/"
-            },
-            {
-                title: "Best Disaster Movies Ever Made",
-                source: "Screen Rant",
-                url: "https://screenrant.com/best-disaster-movies-ranked/"
-            },
-            {
-                title: "Best Film Noir Movies",
-                source: "BFI",
-                url: "https://www.bfi.org.uk/lists/10-great-film-noirs"
-            },
-            {
-                title: "Greatest Westerns of All Time",
-                source: "The Wrap",
-                url: "https://www.thewrap.com/best-westerns-of-all-time/"
-            },
-            {
-                title: "Best Documentaries Ever Made",
-                source: "Esquire",
-                url: "https://www.esquire.com/entertainment/movies/g26645520/best-documentaries-of-all-time/"
-            },
-            {
-                title: "Top 50 Superhero Movies",
-                source: "Empire",
-                url: "https://www.empireonline.com/movies/features/50-best-superhero-movies/"
+                title: "Best Romance Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-romance-movies-of-all-time/"
             },
             {
                 title: "Best War Movies of All Time",
-                source: "Vulture",
-                url: "https://www.vulture.com/article/best-war-movies-of-all-time.html"
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-war-movies-of-all-time/"
+            },
+            {
+                title: "Best Drama Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-drama-movies-of-all-time/"
+            },
+            {
+                title: "Best Animated Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-animated-movies-of-all-time/"
             },
             {
                 title: "Best Fantasy Movies of All Time",
-                source: "Collider",
-                url: "https://collider.com/best-fantasy-movies-of-all-time-ranked/"
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-fantasy-movies-of-all-time/"
             },
             {
-                title: "Best Adventure Movies Ever Made",
+                title: "Best Crime Movies of All Time",
                 source: "Collider",
-                url: "https://collider.com/best-adventure-movies/"
+                url: "https://collider.com/best-crime-movies-ever-made/"
             },
             {
-                title: "Best Biographical Movies",
+                title: "Best Western Movies of All Time",
                 source: "Collider",
-                url: "https://collider.com/best-biographical-movies-ranked/"
+                url: "https://collider.com/best-western-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Heist Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-heist-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Mystery Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-mystery-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Superhero Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-superhero-movies-ever/"
+            },
+            {
+                title: "Best Sports Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-sports-movies-of-all-time/"
+            },
+            {
+                title: "Best Disaster Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-disaster-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Christmas Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-christmas-movies-ranked/"
+            },
+            {
+                title: "Best Monster Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-monster-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Zombie Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-zombie-movies-ranked/"
             }
         ];
 
@@ -668,6 +654,7 @@ The Dark Knight (2008)"></textarea>
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Include auth cookie
                     body: JSON.stringify({
                         action: 'fetch_article',
                         url: url,
