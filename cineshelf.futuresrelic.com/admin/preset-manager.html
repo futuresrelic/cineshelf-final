@@ -657,7 +657,7 @@
                 const posterUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '';
 
                 return `
-                    <div class="result-card" onclick="selectMatch(${movie.id}, '${escapeHtml(movie.title)}', ${year})">
+                    <div class="result-card" onclick="selectMatch(${movie.id}, '${escapeJs(movie.title)}', ${year})">
                         ${posterUrl ? `<img src="${posterUrl}" class="result-poster" alt="${escapeHtml(movie.title)}">` : '<div class="result-poster"></div>'}
                         <div class="result-info">
                             <div class="result-title">${escapeHtml(movie.title)}</div>
@@ -696,6 +696,11 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function escapeJs(text) {
+            // Escape single quotes and backslashes for JavaScript strings
+            return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         function deleteList(listKey) {
