@@ -461,7 +461,7 @@ The Dark Knight (2008)"></textarea>
                     </h3>
                     <div id="movieList" class="extracted-list"></div>
 
-                    <button class="btn btn-success" onclick="exportToPreset()">💾 Export to Preset Format</button>
+                    <button class="btn btn-success" onclick="exportToPreset()">💾 Save to Presets.json (Auto-Verify TMDB)</button>
                     <button class="btn btn-danger" onclick="clearList()">🗑️ Clear List</button>
                 </div>
 
@@ -498,10 +498,10 @@ The Dark Knight (2008)"></textarea>
         })();
 
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-OK-FIX', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-AUTO-SAVE', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
-        console.log('🔐 Fixed: result.success → result.ok (critical bug fix!)');
+        console.log('💾 New: Auto-save to presets.json with TMDB verification!');
 
         let extractedMovies = [];
 
@@ -1113,7 +1113,7 @@ ${debugInfo.content_preview}
             }
         }
 
-        function exportToPreset() {
+        async function exportToPreset() {
             const name = document.getElementById('listName').value.trim();
             const description = document.getElementById('listDescription').value.trim();
             const icon = document.getElementById('listIcon').value.trim();
@@ -1128,26 +1128,133 @@ ${debugInfo.content_preview}
                 return;
             }
 
-            // Generate a key from the name
-            const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            showStatus('🔄 Searching TMDB for movies and saving to presets...', 'info');
 
-            const preset = {
-                [key]: {
+            try {
+                // Step 1: Search TMDB for each movie to get IDs
+                const verifiedMovies = [];
+                let notFound = 0;
+
+                for (let i = 0; i < extractedMovies.length; i++) {
+                    const movie = extractedMovies[i];
+
+                    // Show progress
+                    if (i % 5 === 0) {
+                        showStatus(`🔍 Searching TMDB: ${i + 1}/${extractedMovies.length}...`, 'info');
+                    }
+
+                    try {
+                        const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
+                        const response = await fetch('/api/api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                action: 'search_movie',
+                                query: query
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.ok && result.data && result.data.length > 0) {
+                            // Try to find exact match or use first result
+                            let match = result.data[0];
+
+                            if (movie.year) {
+                                const exactMatch = result.data.find(m =>
+                                    m.release_date && m.release_date.startsWith(movie.year.toString())
+                                );
+                                if (exactMatch) match = exactMatch;
+                            }
+
+                            verifiedMovies.push({
+                                title: match.title,
+                                year: match.release_date ? parseInt(match.release_date.substring(0, 4)) : movie.year,
+                                tmdb_id: match.id
+                            });
+                        } else {
+                            console.warn(`Could not find TMDB match for: ${movie.title}`);
+                            notFound++;
+                        }
+
+                        // Delay to avoid rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 250));
+
+                    } catch (error) {
+                        console.error(`Error searching for ${movie.title}:`, error);
+                        notFound++;
+                    }
+                }
+
+                if (verifiedMovies.length === 0) {
+                    showStatus('❌ No movies could be verified on TMDB', 'error');
+                    return;
+                }
+
+                // Step 2: Load existing presets
+                showStatus('📥 Loading existing presets...', 'info');
+
+                const getPresetsResponse = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_presets' })
+                });
+
+                const getPresetsResult = await getPresetsResponse.json();
+                const existingPresets = getPresetsResult.ok ? getPresetsResult.data : {};
+
+                // Step 3: Add new preset
+                const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+                existingPresets[key] = {
                     name: name,
                     description: description || `Curated list: ${name}`,
                     icon: icon || '🎬',
-                    movies: extractedMovies.filter(m => m.year !== null) // Only include movies with years
+                    movies: verifiedMovies
+                };
+
+                // Step 4: Save back to presets.json
+                showStatus('💾 Saving to presets.json...', 'info');
+
+                const saveResponse = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'save_presets',
+                        presets: existingPresets
+                    })
+                });
+
+                const saveResult = await saveResponse.json();
+
+                if (!saveResult.ok) {
+                    throw new Error(saveResult.error || 'Failed to save presets');
                 }
-            };
 
-            const json = JSON.stringify(preset, null, 2);
-            document.getElementById('exportJson').textContent = json;
-            document.getElementById('exportPreview').style.display = 'block';
+                // Step 5: Show success and preview
+                const json = JSON.stringify({ [key]: existingPresets[key] }, null, 2);
+                document.getElementById('exportJson').textContent = json;
+                document.getElementById('exportPreview').style.display = 'block';
 
-            showStatus(`Exported ${extractedMovies.filter(m => m.year !== null).length} movies to preset format!`, 'success');
+                const summary = `✅ Successfully saved "${name}" to presets.json!\n\n` +
+                    `📊 Verified: ${verifiedMovies.length} movies\n` +
+                    (notFound > 0 ? `⚠️ Not found: ${notFound} movies\n` : '') +
+                    `🔑 Key: ${key}`;
 
-            // Scroll to preview
-            document.getElementById('exportPreview').scrollIntoView({ behavior: 'smooth' });
+                showStatus(summary, 'success');
+                alert(summary);
+
+                // Scroll to preview
+                document.getElementById('exportPreview').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Export to preset error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                alert(`Failed to save preset: ${error.message}`);
+            }
         }
 
         function copyToClipboard() {
