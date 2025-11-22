@@ -14,6 +14,17 @@ define('TMDB_API_KEY', '8039283176a74ffd71a1658c6f84a051');
 define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
+// OpenAI API Configuration (for AI-powered article extraction)
+// Load from environment variable or local secrets file (not in version control)
+$openaiKey = getenv('OPENAI_API_KEY');
+if (!$openaiKey && file_exists(__DIR__ . '/secrets.php')) {
+    $secrets = include __DIR__ . '/secrets.php';
+    $openaiKey = $secrets['OPENAI_API_KEY'] ?? '';
+}
+define('OPENAI_API_KEY', $openaiKey ?: '');
+define('OPENAI_MODEL', 'gpt-4o-mini'); // Cost-effective model (~$0.01 per article)
+define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
+
 // App Configuration
 // Read version dynamically from version.json (managed by version-manager.html)
 $versionFile = __DIR__ . '/../version.json';

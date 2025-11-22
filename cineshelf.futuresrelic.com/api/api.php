@@ -9,6 +9,105 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/auth-middleware.php';
 
+/**
+ * Extract movie titles and years from HTML content using OpenAI
+ * @param string $htmlContent The HTML content to parse
+ * @param string $articleTitle Optional article title for context
+ * @return array Array of movies with title and year, or error
+ */
+function extractMoviesWithAI($htmlContent, $articleTitle = '') {
+    // Remove scripts, styles, and other noise
+    $cleanedContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $htmlContent);
+    $cleanedContent = preg_replace('/<style\b[^>]*>.*?<\/style>/is', '', $cleanedContent);
+    $cleanedContent = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', '', $cleanedContent);
+    $cleanedContent = preg_replace('/<footer\b[^>]*>.*?<\/footer>/is', '', $cleanedContent);
+
+    // Strip tags but keep structure
+    $cleanedContent = strip_tags($cleanedContent);
+
+    // Truncate if too long (to avoid token limits - keep first 15000 chars)
+    if (strlen($cleanedContent) > 15000) {
+        $cleanedContent = substr($cleanedContent, 0, 15000);
+    }
+
+    // Build the prompt
+    $prompt = "Extract all movie titles and their release years from this article";
+    if ($articleTitle) {
+        $prompt .= " titled '$articleTitle'";
+    }
+    $prompt .= ".\n\nReturn ONLY a JSON array with this exact format:\n[{\"title\": \"Movie Name\", \"year\": 2024}, ...]\n\nRules:\n- Extract ONLY movies (not TV shows, books, or other media)\n- Include the release year if mentioned\n- If year is not mentioned, use null\n- Return empty array [] if no movies found\n- Do not include explanatory text, only the JSON array\n\nArticle content:\n\n" . $cleanedContent;
+
+    // Prepare OpenAI API request
+    $apiData = [
+        'model' => OPENAI_MODEL,
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => 'You are a helpful assistant that extracts movie information from articles. Always respond with valid JSON only.'
+            ],
+            [
+                'role' => 'user',
+                'content' => $prompt
+            ]
+        ],
+        'temperature' => 0.3, // Lower temperature for more consistent extraction
+        'max_tokens' => 2000
+    ];
+
+    // Make API request
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, OPENAI_API_URL);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . OPENAI_API_KEY
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        return ['error' => 'OpenAI API request failed: ' . $curlError];
+    }
+
+    if ($httpCode !== 200) {
+        return ['error' => 'OpenAI API returned HTTP ' . $httpCode];
+    }
+
+    $result = json_decode($response, true);
+
+    if (!$result || !isset($result['choices'][0]['message']['content'])) {
+        return ['error' => 'Invalid response from OpenAI API'];
+    }
+
+    $content = trim($result['choices'][0]['message']['content']);
+
+    // Try to parse the JSON response
+    $movies = json_decode($content, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        // Try to extract JSON from markdown code blocks if present
+        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
+            $movies = json_decode(trim($matches[1]), true);
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return ['error' => 'Failed to parse AI response as JSON'];
+        }
+    }
+
+    if (!is_array($movies)) {
+        return ['error' => 'AI response was not an array'];
+    }
+
+    return ['success' => true, 'movies' => $movies];
+}
+
 // Set execution time limit for long-running operations (e.g., large CSV imports)
 set_time_limit(300); // 5 minutes
 
@@ -2135,6 +2234,7 @@ case 'resolve_movie':
 
             $url = $input['url'] ?? '';
             $debug = $input['debug'] ?? false;
+            $useAI = $input['use_ai'] ?? false;
 
             if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
                 jsonResponse(false, null, 'Valid URL required');
@@ -2194,11 +2294,13 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Network error: ' . $error);
             }
 
-            if ($httpCode !== 200) {
+            // For AI extraction, we can work with any HTTP response that has content
+            // (even 403/404 sometimes return HTML we can parse)
+            if ($httpCode !== 200 && !$useAI) {
                 // Provide helpful error messages based on HTTP status
                 $errorMsg = 'HTTP ' . $httpCode;
                 if ($httpCode == 403 || $httpCode == 401) {
-                    $errorMsg .= ' - Site blocked the request. Try manual extraction instead.';
+                    $errorMsg .= ' - Site blocked the request. Try AI extraction instead.';
                 } elseif ($httpCode == 404) {
                     $errorMsg .= ' - Page not found. Check the URL.';
                 } elseif ($httpCode == 429) {
@@ -2221,6 +2323,23 @@ case 'resolve_movie':
                 $title = html_entity_decode(strip_tags($matches[1]));
             }
 
+            // AI Extraction Mode - Use OpenAI to extract movie data
+            if ($useAI) {
+                $aiResult = extractMoviesWithAI($content, $title);
+
+                if (isset($aiResult['error'])) {
+                    jsonResponse(false, null, 'AI extraction failed: ' . $aiResult['error']);
+                }
+
+                jsonResponse(true, [
+                    'ai_extracted' => true,
+                    'movies' => $aiResult['movies'],
+                    'title' => $title,
+                    'movie_count' => count($aiResult['movies'])
+                ]);
+            }
+
+            // Standard extraction (legacy mode)
             // Convert HTML to plain text for easier parsing
             // Remove scripts and styles
             $content = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $content);

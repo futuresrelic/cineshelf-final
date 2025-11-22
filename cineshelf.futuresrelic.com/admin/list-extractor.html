@@ -395,7 +395,11 @@
                     <button class="btn btn-success" onclick="autoExtractCustomUrl()" style="margin-top: 0;">🤖 Auto Extract</button>
                 </div>
 
-                <div style="margin-top: 1rem;">
+                <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="useAI" style="width: auto;" checked>
+                        <span>🤖 AI Extraction (works with all sites, bypasses blocks)</span>
+                    </label>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="checkbox" id="debugMode" style="width: auto;">
                         <span>🔧 Debug Mode (show connection details)</span>
@@ -607,7 +611,10 @@ The Dark Knight (2008)"></textarea>
 
         async function performAutoExtraction(url, articleTitle) {
             const debugMode = document.getElementById('debugMode').checked;
-            showStatus('🔄 Fetching article content...', 'info');
+            const useAI = document.getElementById('useAI').checked;
+
+            const statusMsg = useAI ? '🤖 Using AI to fetch and extract article...' : '🔄 Fetching article content...';
+            showStatus(statusMsg, 'info');
 
             try {
                 // Call the API to fetch article content
@@ -619,7 +626,8 @@ The Dark Knight (2008)"></textarea>
                     body: JSON.stringify({
                         action: 'fetch_article',
                         url: url,
-                        debug: debugMode
+                        debug: debugMode,
+                        use_ai: useAI
                     })
                 });
 
@@ -650,20 +658,38 @@ ${debugInfo.content_preview}
                 if (!result.success) {
                     const errorMsg = result.error || 'Unknown error';
                     showStatus(`⚠️ ${errorMsg}`, 'error');
-                    // Suggest manual extraction
+                    // Suggest manual extraction or AI mode
                     setTimeout(() => {
-                        showStatus('💡 Tip: Click "Open" button to manually copy the list from the article.', 'info');
+                        if (useAI) {
+                            showStatus('💡 Tip: Click "Open" button to manually copy the list from the article.', 'info');
+                        } else {
+                            showStatus('💡 Tip: Try enabling AI Extraction or use the "Open" button for manual extraction.', 'info');
+                        }
                     }, 3000);
                     return;
                 }
 
-                const content = result.data.content;
+                let movies = [];
                 const title = result.data.title || articleTitle;
 
-                showStatus('🔍 Analyzing content and extracting movies...', 'info');
+                // AI Extraction - movies already extracted
+                if (result.data.ai_extracted) {
+                    showStatus(`🤖 AI extracted ${result.data.movie_count} movies! Processing...`, 'info');
 
-                // Extract movie titles from content
-                const movies = extractMoviesFromContent(content);
+                    // Convert AI format to our format (title and year)
+                    movies = result.data.movies.map(movie => {
+                        const titlePart = movie.title;
+                        const year = movie.year;
+                        // Format: "Title (Year)" or just "Title" if no year
+                        return year ? `${titlePart} (${year})` : titlePart;
+                    });
+
+                } else {
+                    // Standard extraction
+                    const content = result.data.content;
+                    showStatus('🔍 Analyzing content and extracting movies...', 'info');
+                    movies = extractMoviesFromContent(content);
+                }
 
                 if (movies.length === 0) {
                     showStatus('❌ No movies found in article. Click "Open" to manually extract the list.', 'error');
@@ -683,7 +709,8 @@ ${debugInfo.content_preview}
                 renderExtractedMovies();
                 document.getElementById('extractedList').style.display = 'block';
 
-                showStatus(`✅ Successfully extracted ${movies.length} movies! Review and edit as needed.`, 'success');
+                const aiLabel = useAI ? ' (AI-powered)' : '';
+                showStatus(`✅ Successfully extracted ${movies.length} movies${aiLabel}! Review and edit as needed.`, 'success');
 
                 // Scroll to the extracted list
                 document.getElementById('extractedList').scrollIntoView({ behavior: 'smooth' });
