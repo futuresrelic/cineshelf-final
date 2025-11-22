@@ -722,13 +722,8 @@ ${debugInfo.content_preview}
                 if (result.data.ai_extracted) {
                     showStatus(`🤖 AI extracted ${result.data.movie_count} movies! Processing...`, 'info');
 
-                    // Convert AI format to our format (title and year)
-                    movies = result.data.movies.map(movie => {
-                        const titlePart = movie.title;
-                        const year = movie.year;
-                        // Format: "Title (Year)" or just "Title" if no year
-                        return year ? `${titlePart} (${year})` : titlePart;
-                    });
+                    // Keep original movie objects for the extracted list
+                    movies = result.data.movies;
 
                 } else {
                     // Standard extraction
@@ -763,7 +758,7 @@ ${debugInfo.content_preview}
                     }
                 }
 
-                // Populate the main textarea with extracted movies
+                // Populate the main textarea with extracted movies (convert to strings)
                 const movieInput = document.getElementById('movieInput');
                 const movieLines = movies.map(movie => {
                     if (typeof movie === 'string') {
@@ -778,7 +773,7 @@ ${debugInfo.content_preview}
 
                 movieInput.value = movieLines.join('\n');
 
-                // Also populate the extracted movies list for advanced editing
+                // Store movie objects (not strings) for the extracted movies list
                 extractedMovies = movies;
                 renderExtractedMovies();
                 document.getElementById('extractedList').style.display = 'block';
