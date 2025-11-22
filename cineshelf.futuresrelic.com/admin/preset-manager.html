@@ -601,16 +601,45 @@
                 return;
             }
 
+            // Save scroll position before re-rendering
+            const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+            const moviesList = presetCard?.querySelector('.movies-list');
+            const scrollPosition = moviesList?.scrollTop || 0;
+
             presets[listKey].movies.push({ title, year });
             document.getElementById(`title-${listKey}`).value = '';
             document.getElementById(`year-${listKey}`).value = '';
             renderPresets();
+
+            // Restore scroll position after DOM updates (scroll to bottom to show new movie)
+            requestAnimationFrame(() => {
+                const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                if (newMoviesList) {
+                    // Scroll to bottom to show the newly added movie
+                    newMoviesList.scrollTop = newMoviesList.scrollHeight;
+                }
+            });
         }
 
         function removeMovie(listKey, index) {
             if (confirm('Remove this movie from the list?')) {
+                // Save scroll position before re-rendering
+                const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const moviesList = presetCard?.querySelector('.movies-list');
+                const scrollPosition = moviesList?.scrollTop || 0;
+
                 presets[listKey].movies.splice(index, 1);
                 renderPresets();
+
+                // Restore scroll position after DOM updates
+                requestAnimationFrame(() => {
+                    const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                    const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                    if (newMoviesList) {
+                        newMoviesList.scrollTop = scrollPosition;
+                    }
+                });
             }
         }
 
@@ -676,6 +705,11 @@
 
             const { listKey, index } = currentMatchTarget;
 
+            // Save scroll position before re-rendering
+            const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+            const moviesList = presetCard?.querySelector('.movies-list');
+            const scrollPosition = moviesList?.scrollTop || 0;
+
             presets[listKey].movies[index] = {
                 title: title,
                 year: year,
@@ -683,6 +717,16 @@
             };
 
             renderPresets();
+
+            // Restore scroll position after DOM updates
+            requestAnimationFrame(() => {
+                const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                if (newMoviesList) {
+                    newMoviesList.scrollTop = scrollPosition;
+                }
+            });
+
             closeMatchModal();
             showStatus(`✓ Matched: ${title} (${year}) → TMDB #${tmdbId}`, 'success');
         }
