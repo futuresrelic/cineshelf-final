@@ -733,6 +733,19 @@ ${debugInfo.content_preview}
                     if (listName) {
                         document.getElementById('listName').value = listName;
                     }
+
+                    // Auto-generate a description based on the extraction
+                    const descriptionField = document.getElementById('listDescription');
+                    if (!descriptionField.value.trim()) { // Only if description is empty
+                        let description = `Curated list`;
+                        if (listName) {
+                            description = `${listName}`;
+                        }
+                        if (url) {
+                            description += ` - Source: ${url}`;
+                        }
+                        descriptionField.value = description;
+                    }
                 }
 
                 // Populate the extracted movies
