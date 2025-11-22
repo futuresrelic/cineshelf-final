@@ -498,10 +498,10 @@ The Dark Knight (2008)"></textarea>
         })();
 
         // VERSION CHECK - This should appear FIRST in console
-        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-AUTO-SAVE', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-TMDB-DEBUG', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
         console.log('✅ If you see this message, the latest code is loaded!');
         console.log('📋 Checkpoints will appear after extraction completes.');
-        console.log('💾 New: Auto-save to presets.json with TMDB verification!');
+        console.log('🔍 Debug: TMDB search logging enabled for first 2 movies');
 
         let extractedMovies = [];
 
@@ -1157,6 +1157,21 @@ ${debugInfo.content_preview}
 
                         const result = await response.json();
 
+                        // DEBUG: Log first 2 searches to understand response format
+                        if (i < 2) {
+                            console.group(`🔍 TMDB Search Debug [${i+1}]: ${movie.title}`);
+                            console.log('Query:', query);
+                            console.log('result.ok:', result.ok);
+                            console.log('result.data type:', typeof result.data);
+                            console.log('result.data:', result.data);
+                            console.log('result.error:', result.error);
+                            if (result.data) {
+                                console.log('Is array:', Array.isArray(result.data));
+                                console.log('Length:', result.data?.length);
+                            }
+                            console.groupEnd();
+                        }
+
                         if (result.ok && result.data && result.data.length > 0) {
                             // Try to find exact match or use first result
                             let match = result.data[0];
@@ -1168,13 +1183,15 @@ ${debugInfo.content_preview}
                                 if (exactMatch) match = exactMatch;
                             }
 
+                            console.log(`✅ Found: ${movie.title} → ${match.title} (${match.id})`);
+
                             verifiedMovies.push({
                                 title: match.title,
                                 year: match.release_date ? parseInt(match.release_date.substring(0, 4)) : movie.year,
                                 tmdb_id: match.id
                             });
                         } else {
-                            console.warn(`Could not find TMDB match for: ${movie.title}`);
+                            console.warn(`❌ No match for: ${movie.title} (result.ok: ${result.ok}, data length: ${result.data?.length || 0})`);
                             notFound++;
                         }
 
