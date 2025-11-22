@@ -29,13 +29,50 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
     }
     $debugSteps[] = 'Step 1: API key found (' . strlen(OPENAI_API_KEY) . ' chars)';
 
-    // Step 2: Clean content
+    // Step 2: Clean content - preserve article text while removing noise
     $debugSteps[] = 'Step 2: Cleaning HTML content';
-    $cleanedContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $htmlContent);
-    $cleanedContent = preg_replace('/<style\b[^>]*>.*?<\/style>/is', '', $cleanedContent);
-    $cleanedContent = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', '', $cleanedContent);
-    $cleanedContent = preg_replace('/<footer\b[^>]*>.*?<\/footer>/is', '', $cleanedContent);
-    $cleanedContent = strip_tags($cleanedContent);
+
+    // First, try to extract main article content if possible
+    $articleContent = $htmlContent;
+
+    // Try to find <article> tag first (most semantic)
+    if (preg_match('/<article[^>]*>(.*?)<\/article>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found <article> tag, using its content';
+    }
+    // Try <main> tag as fallback
+    else if (preg_match('/<main[^>]*>(.*?)<\/main>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found <main> tag, using its content';
+    }
+    // Try to find div with article/content/post class
+    else if (preg_match('/<div[^>]*class="[^"]*(?:article|content|post|entry)[^"]*"[^>]*>(.*?)<\/div>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found content div, using its content';
+    }
+    else {
+        $debugSteps[] = 'Step 2: No article container found, using full HTML';
+    }
+
+    // Remove noisy elements
+    $cleanedContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $articleContent);
+    $cleanedContent = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<header\b[^>]*>.*?<\/header>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<footer\b[^>]*>.*?<\/footer>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<aside\b[^>]*>.*?<\/aside>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<!--.*?-->/s', ' ', $cleanedContent); // Remove comments
+
+    // Strip remaining HTML tags but preserve spacing
+    $cleanedContent = preg_replace('/<[^>]+>/', ' ', $cleanedContent);
+
+    // Decode HTML entities
+    $cleanedContent = html_entity_decode($cleanedContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Clean up whitespace - collapse multiple spaces/newlines but keep paragraph breaks
+    $cleanedContent = preg_replace('/[ \t]+/', ' ', $cleanedContent); // Collapse spaces
+    $cleanedContent = preg_replace('/\n\s*\n+/', "\n\n", $cleanedContent); // Keep paragraph breaks
+    $cleanedContent = trim($cleanedContent);
 
     $originalLength = strlen($cleanedContent);
     if ($originalLength > 15000) {
