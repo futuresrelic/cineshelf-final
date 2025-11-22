@@ -2127,6 +2127,57 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'fetch_article':
+            // Fetch article content from URL (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $url = $input['url'] ?? '';
+
+            if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+                jsonResponse(false, null, 'Valid URL required');
+            }
+
+            // Fetch the article content using cURL
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+            $content = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($error || $httpCode !== 200) {
+                jsonResponse(false, null, 'Failed to fetch article: ' . ($error ?: 'HTTP ' . $httpCode));
+            }
+
+            // Extract title from HTML if possible
+            $title = '';
+            if (preg_match('/<title>(.*?)<\/title>/is', $content, $matches)) {
+                $title = html_entity_decode(strip_tags($matches[1]));
+            }
+
+            // Convert HTML to plain text for easier parsing
+            // Remove scripts and styles
+            $content = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $content);
+            $content = preg_replace('/<style\b[^>]*>.*?<\/style>/is', '', $content);
+
+            // Decode HTML entities
+            $content = html_entity_decode($content);
+
+            jsonResponse(true, [
+                'content' => $content,
+                'title' => $title
+            ]);
+            break;
+
         // ========================================
         // DEFAULT
         // ========================================
