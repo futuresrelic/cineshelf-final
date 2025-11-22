@@ -658,6 +658,30 @@ ${debugInfo.content_preview}
                 if (!result.success) {
                     const errorMsg = result.error || 'Unknown error';
                     showStatus(`⚠️ ${errorMsg}`, 'error');
+
+                    // Display detailed debug information if available
+                    if (result.data && result.data.debug_steps) {
+                        console.group('🔍 AI Extraction Debug Information');
+                        console.log('Error:', result.data.error_message);
+                        console.log('Debug Steps:');
+                        result.data.debug_steps.forEach(step => console.log('  ' + step));
+
+                        if (result.data.http_code) {
+                            console.log('HTTP Code:', result.data.http_code);
+                        }
+                        if (result.data.raw_response) {
+                            console.log('Raw Response:', result.data.raw_response);
+                        }
+                        if (result.data.help) {
+                            console.log('Help:', result.data.help);
+                        }
+                        console.groupEnd();
+
+                        // Show detailed error in alert
+                        const debugInfo = result.data.debug_steps.join('\n');
+                        alert(`🔍 DEBUGGING INFORMATION:\n\n${errorMsg}\n\n${debugInfo}\n\nCheck browser console for more details.`);
+                    }
+
                     // Suggest manual extraction or AI mode
                     setTimeout(() => {
                         if (useAI) {
@@ -671,6 +695,13 @@ ${debugInfo.content_preview}
 
                 let movies = [];
                 const title = result.data.title || articleTitle;
+
+                // Log debug steps on success too
+                if (result.data.debug_steps) {
+                    console.group('🔍 AI Extraction Debug Information (Success)');
+                    result.data.debug_steps.forEach(step => console.log('  ' + step));
+                    console.groupEnd();
+                }
 
                 // AI Extraction - movies already extracted
                 if (result.data.ai_extracted) {

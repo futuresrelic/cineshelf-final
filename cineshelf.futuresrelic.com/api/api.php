@@ -13,31 +13,46 @@ require_once __DIR__ . '/auth-middleware.php';
  * Extract movie titles and years from HTML content using OpenAI
  * @param string $htmlContent The HTML content to parse
  * @param string $articleTitle Optional article title for context
- * @return array Array of movies with title and year, or error
+ * @return array Array of movies with title and year, or error with debug info
  */
 function extractMoviesWithAI($htmlContent, $articleTitle = '') {
-    // Remove scripts, styles, and other noise
+    $debugSteps = [];
+
+    // Step 1: Check API key
+    $debugSteps[] = 'Step 1: Checking API key';
+    if (empty(OPENAI_API_KEY)) {
+        return [
+            'error' => 'OpenAI API key not configured',
+            'debug_steps' => $debugSteps,
+            'help' => 'Create config/secrets.php with OPENAI_API_KEY'
+        ];
+    }
+    $debugSteps[] = 'Step 1: API key found (' . strlen(OPENAI_API_KEY) . ' chars)';
+
+    // Step 2: Clean content
+    $debugSteps[] = 'Step 2: Cleaning HTML content';
     $cleanedContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $htmlContent);
     $cleanedContent = preg_replace('/<style\b[^>]*>.*?<\/style>/is', '', $cleanedContent);
     $cleanedContent = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', '', $cleanedContent);
     $cleanedContent = preg_replace('/<footer\b[^>]*>.*?<\/footer>/is', '', $cleanedContent);
-
-    // Strip tags but keep structure
     $cleanedContent = strip_tags($cleanedContent);
 
-    // Truncate if too long (to avoid token limits - keep first 15000 chars)
-    if (strlen($cleanedContent) > 15000) {
+    $originalLength = strlen($cleanedContent);
+    if ($originalLength > 15000) {
         $cleanedContent = substr($cleanedContent, 0, 15000);
     }
+    $debugSteps[] = "Step 2: Cleaned content: $originalLength chars (truncated to " . strlen($cleanedContent) . ")";
 
-    // Build the prompt
+    // Step 3: Build prompt
+    $debugSteps[] = 'Step 3: Building AI prompt';
     $prompt = "Extract all movie titles and their release years from this article";
     if ($articleTitle) {
         $prompt .= " titled '$articleTitle'";
     }
     $prompt .= ".\n\nReturn ONLY a JSON array with this exact format:\n[{\"title\": \"Movie Name\", \"year\": 2024}, ...]\n\nRules:\n- Extract ONLY movies (not TV shows, books, or other media)\n- Include the release year if mentioned\n- If year is not mentioned, use null\n- Return empty array [] if no movies found\n- Do not include explanatory text, only the JSON array\n\nArticle content:\n\n" . $cleanedContent;
 
-    // Prepare OpenAI API request
+    // Step 4: Prepare API request
+    $debugSteps[] = 'Step 4: Preparing OpenAI API request';
     $apiData = [
         'model' => OPENAI_MODEL,
         'messages' => [
@@ -50,11 +65,13 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
                 'content' => $prompt
             ]
         ],
-        'temperature' => 0.3, // Lower temperature for more consistent extraction
+        'temperature' => 0.3,
         'max_tokens' => 2000
     ];
+    $debugSteps[] = 'Step 4: Request prepared for model: ' . OPENAI_MODEL;
 
-    // Make API request
+    // Step 5: Make cURL request
+    $debugSteps[] = 'Step 5: Making cURL request to OpenAI';
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, OPENAI_API_URL);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -72,40 +89,96 @@ function extractMoviesWithAI($htmlContent, $articleTitle = '') {
     curl_close($ch);
 
     if ($curlError) {
-        return ['error' => 'OpenAI API request failed: ' . $curlError];
+        $debugSteps[] = 'Step 5: cURL ERROR - ' . $curlError;
+        return [
+            'error' => 'Network error connecting to OpenAI: ' . $curlError,
+            'debug_steps' => $debugSteps
+        ];
     }
+    $debugSteps[] = 'Step 5: Request completed with HTTP ' . $httpCode;
 
+    // Step 6: Check HTTP response
     if ($httpCode !== 200) {
-        return ['error' => 'OpenAI API returned HTTP ' . $httpCode];
-    }
+        $debugSteps[] = 'Step 6: HTTP error ' . $httpCode;
+        $errorDetail = json_decode($response, true);
+        $errorMsg = 'OpenAI API returned HTTP ' . $httpCode;
 
+        if ($errorDetail && isset($errorDetail['error']['message'])) {
+            $errorMsg .= ': ' . $errorDetail['error']['message'];
+            $debugSteps[] = 'OpenAI error: ' . $errorDetail['error']['message'];
+        }
+
+        return [
+            'error' => $errorMsg,
+            'debug_steps' => $debugSteps,
+            'http_code' => $httpCode,
+            'raw_response' => substr($response, 0, 500)
+        ];
+    }
+    $debugSteps[] = 'Step 6: HTTP 200 OK';
+
+    // Step 7: Parse response
+    $debugSteps[] = 'Step 7: Parsing OpenAI response';
     $result = json_decode($response, true);
 
-    if (!$result || !isset($result['choices'][0]['message']['content'])) {
-        return ['error' => 'Invalid response from OpenAI API'];
+    if (!$result) {
+        $debugSteps[] = 'Step 7: Failed to decode JSON response';
+        return [
+            'error' => 'Failed to decode OpenAI response',
+            'debug_steps' => $debugSteps,
+            'raw_response' => substr($response, 0, 500)
+        ];
+    }
+
+    if (!isset($result['choices'][0]['message']['content'])) {
+        $debugSteps[] = 'Step 7: Invalid response structure';
+        return [
+            'error' => 'Invalid response structure from OpenAI',
+            'debug_steps' => $debugSteps,
+            'response_keys' => array_keys($result)
+        ];
     }
 
     $content = trim($result['choices'][0]['message']['content']);
+    $debugSteps[] = 'Step 7: Extracted content (' . strlen($content) . ' chars)';
 
-    // Try to parse the JSON response
+    // Step 8: Parse movie data
+    $debugSteps[] = 'Step 8: Parsing movie data from AI response';
     $movies = json_decode($content, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        // Try to extract JSON from markdown code blocks if present
+        $debugSteps[] = 'Step 8: Initial JSON parse failed, trying markdown extraction';
         if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
             $movies = json_decode(trim($matches[1]), true);
         }
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            return ['error' => 'Failed to parse AI response as JSON'];
+            $debugSteps[] = 'Step 8: JSON parse failed - ' . json_last_error_msg();
+            return [
+                'error' => 'Failed to parse AI response as JSON: ' . json_last_error_msg(),
+                'debug_steps' => $debugSteps,
+                'ai_content' => substr($content, 0, 500)
+            ];
         }
     }
 
     if (!is_array($movies)) {
-        return ['error' => 'AI response was not an array'];
+        $debugSteps[] = 'Step 8: Response was not an array';
+        return [
+            'error' => 'AI response was not an array',
+            'debug_steps' => $debugSteps,
+            'response_type' => gettype($movies)
+        ];
     }
 
-    return ['success' => true, 'movies' => $movies];
+    $debugSteps[] = 'Step 8: Successfully parsed ' . count($movies) . ' movies';
+    $debugSteps[] = 'SUCCESS: AI extraction completed';
+
+    return [
+        'success' => true,
+        'movies' => $movies,
+        'debug_steps' => $debugSteps
+    ];
 }
 
 // Set execution time limit for long-running operations (e.g., large CSV imports)
@@ -2328,14 +2401,32 @@ case 'resolve_movie':
                 $aiResult = extractMoviesWithAI($content, $title);
 
                 if (isset($aiResult['error'])) {
-                    jsonResponse(false, null, 'AI extraction failed: ' . $aiResult['error']);
+                    // Return detailed error with debug information
+                    $errorData = [
+                        'error_message' => $aiResult['error'],
+                        'debug_steps' => $aiResult['debug_steps'] ?? [],
+                    ];
+
+                    // Include additional debug info if available
+                    if (isset($aiResult['http_code'])) {
+                        $errorData['http_code'] = $aiResult['http_code'];
+                    }
+                    if (isset($aiResult['raw_response'])) {
+                        $errorData['raw_response'] = $aiResult['raw_response'];
+                    }
+                    if (isset($aiResult['help'])) {
+                        $errorData['help'] = $aiResult['help'];
+                    }
+
+                    jsonResponse(false, $errorData, 'AI extraction failed: ' . $aiResult['error']);
                 }
 
                 jsonResponse(true, [
                     'ai_extracted' => true,
                     'movies' => $aiResult['movies'],
                     'title' => $title,
-                    'movie_count' => count($aiResult['movies'])
+                    'movie_count' => count($aiResult['movies']),
+                    'debug_steps' => $aiResult['debug_steps'] ?? []
                 ]);
             }
 
