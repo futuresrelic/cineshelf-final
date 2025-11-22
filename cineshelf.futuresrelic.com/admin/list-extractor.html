@@ -395,6 +395,13 @@
                     <button class="btn btn-success" onclick="autoExtractCustomUrl()" style="margin-top: 0;">🤖 Auto Extract</button>
                 </div>
 
+                <div style="margin-top: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="debugMode" style="width: auto;">
+                        <span>🔧 Debug Mode (show connection details)</span>
+                    </label>
+                </div>
+
                 <div style="margin: 1.5rem 0; text-align: center; color: #9ca3af;">
                     <strong>— OR —</strong>
                 </div>
@@ -599,6 +606,7 @@ The Dark Knight (2008)"></textarea>
         }
 
         async function performAutoExtraction(url, articleTitle) {
+            const debugMode = document.getElementById('debugMode').checked;
             showStatus('🔄 Fetching article content...', 'info');
 
             try {
@@ -610,11 +618,34 @@ The Dark Knight (2008)"></textarea>
                     },
                     body: JSON.stringify({
                         action: 'fetch_article',
-                        url: url
+                        url: url,
+                        debug: debugMode
                     })
                 });
 
                 const result = await response.json();
+
+                // Debug mode - show detailed connection info
+                if (result.success && result.data && result.data.debug) {
+                    const debugInfo = result.data;
+                    const debugMsg = `
+🔍 DEBUG INFO:
+━━━━━━━━━━━━━━━━━━━━━━━━
+URL: ${debugInfo.url}
+Effective URL: ${debugInfo.effective_url}
+HTTP Code: ${debugInfo.http_code}
+Content Type: ${debugInfo.content_type || 'N/A'}
+Content Length: ${debugInfo.content_length} bytes
+Error: ${debugInfo.error || 'None'}
+
+CONTENT PREVIEW:
+${debugInfo.content_preview}
+                    `.trim();
+
+                    alert(debugMsg);
+                    console.log('Full debug info:', debugInfo);
+                    return;
+                }
 
                 if (!result.success) {
                     const errorMsg = result.error || 'Unknown error';

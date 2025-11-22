@@ -2134,6 +2134,7 @@ case 'resolve_movie':
             }
 
             $url = $input['url'] ?? '';
+            $debug = $input['debug'] ?? false;
 
             if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
                 jsonResponse(false, null, 'Valid URL required');
@@ -2149,6 +2150,7 @@ case 'resolve_movie':
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
+            curl_setopt($ch, CURLOPT_VERBOSE, $debug); // Enable verbose output for debugging
 
             // Comprehensive browser headers to bypass anti-scraping
             $headers = [
@@ -2168,8 +2170,24 @@ case 'resolve_movie':
 
             $content = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
             $error = curl_error($ch);
             curl_close($ch);
+
+            // Debug information
+            if ($debug) {
+                jsonResponse(true, [
+                    'debug' => true,
+                    'url' => $url,
+                    'effective_url' => $effectiveUrl,
+                    'http_code' => $httpCode,
+                    'content_type' => $contentType,
+                    'error' => $error,
+                    'content_length' => strlen($content),
+                    'content_preview' => substr($content, 0, 500)
+                ]);
+            }
 
             // Better error handling
             if ($error) {
@@ -2187,6 +2205,8 @@ case 'resolve_movie':
                     $errorMsg .= ' - Too many requests. Wait a moment and try again.';
                 } elseif ($httpCode >= 500) {
                     $errorMsg .= ' - Server error. Try again later.';
+                } elseif ($httpCode == 0) {
+                    $errorMsg = 'Connection failed - Unable to reach the website.';
                 }
                 jsonResponse(false, null, $errorMsg);
             }
