@@ -515,8 +515,8 @@ The Dark Knight (2008)"></textarea>
             },
             {
                 title: "Best Comedy Movies of All Time",
-                source: "Collider",
-                url: "https://collider.com/best-comedy-movies-of-all-time-ranked/"
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-comedies-of-all-time/"
             },
             {
                 title: "Best Drama Movies Ever Made",
@@ -572,6 +572,21 @@ The Dark Knight (2008)"></textarea>
                 title: "Best War Movies of All Time",
                 source: "Vulture",
                 url: "https://www.vulture.com/article/best-war-movies-of-all-time.html"
+            },
+            {
+                title: "Best Fantasy Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-fantasy-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Adventure Movies Ever Made",
+                source: "Collider",
+                url: "https://collider.com/best-adventure-movies/"
+            },
+            {
+                title: "Best Biographical Movies",
+                source: "Collider",
+                url: "https://collider.com/best-biographical-movies-ranked/"
             }
         ];
 
@@ -748,16 +763,31 @@ ${debugInfo.content_preview}
                     }
                 }
 
-                // Populate the extracted movies
+                // Populate the main textarea with extracted movies
+                const movieInput = document.getElementById('movieInput');
+                const movieLines = movies.map(movie => {
+                    if (typeof movie === 'string') {
+                        return movie; // Already formatted as "Title (Year)"
+                    } else if (movie.title && movie.year) {
+                        return `${movie.title} (${movie.year})`;
+                    } else if (movie.title) {
+                        return movie.title;
+                    }
+                    return '';
+                }).filter(line => line.trim() !== '');
+
+                movieInput.value = movieLines.join('\n');
+
+                // Also populate the extracted movies list for advanced editing
                 extractedMovies = movies;
                 renderExtractedMovies();
                 document.getElementById('extractedList').style.display = 'block';
 
                 const aiLabel = useAI ? ' (AI-powered)' : '';
-                showStatus(`✅ Successfully extracted ${movies.length} movies${aiLabel}! Review and edit as needed.`, 'success');
+                showStatus(`✅ Successfully extracted ${movies.length} movies${aiLabel}! Click "Parse & Verify Movies" to continue.`, 'success');
 
-                // Scroll to the extracted list
-                document.getElementById('extractedList').scrollIntoView({ behavior: 'smooth' });
+                // Scroll to the form textarea so user can see the populated data
+                movieInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             } catch (error) {
                 console.error('Auto-extraction error:', error);
