@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie List Extractor - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .info-box {
+            background: #e0e7ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            color: #1e1b4b;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 0.8;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            margin-top: 0.5rem;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .article-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .article-item {
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .article-item:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+
+        .article-item.selected {
+            border-color: #667eea;
+            background: #eff6ff;
+        }
+
+        .article-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .article-source {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+
+        .extracted-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .movie-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            background: #f9fafb;
+        }
+
+        .movie-poster {
+            width: 50px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #e5e7eb;
+        }
+
+        .movie-info {
+            flex: 1;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
+        .movie-year {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .movie-remove {
+            padding: 0.25rem 0.75rem;
+            background: #fee2e2;
+            color: #991b1b;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .movie-remove:hover {
+            background: #fecaca;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+            display: block;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+            display: block;
+        }
+
+        .status.info {
+            background: #e0e7ff;
+            color: #1e3a8a;
+            border: 1px solid #667eea;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .export-preview {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .export-preview pre {
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Movie List Extractor</h1>
+            <p class="subtitle">Discover and extract movie lists from articles to add to preset lists</p>
+
+            <div class="info-box">
+                <strong>📝 How to use:</strong>
+                <ol style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                    <li>Select a curated article or paste your own URL</li>
+                    <li>Manually extract movie titles and years from the article</li>
+                    <li>Each movie should be on its own line: "Movie Title (Year)"</li>
+                    <li>Preview and verify the extracted list</li>
+                    <li>Export to JSON format to add to preset lists</li>
+                </ol>
+            </div>
+
+            <a href="/admin/" class="back-link">← Back to Admin Panel</a>
+        </div>
+
+        <div class="content">
+            <!-- Article Discovery -->
+            <div class="card">
+                <h2 class="card-title">📰 Discover Movie Lists</h2>
+
+                <div class="input-group">
+                    <label>Custom Article URL</label>
+                    <input type="url" id="customUrl" placeholder="https://example.com/top-10-sci-fi-movies">
+                    <p class="help-text">Paste a URL to any article with a movie list</p>
+                </div>
+
+                <button class="btn btn-primary" onclick="openCustomUrl()">Open Article</button>
+
+                <div style="margin: 1.5rem 0; text-align: center; color: #9ca3af;">
+                    <strong>— OR —</strong>
+                </div>
+
+                <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">Curated Articles</h3>
+                <div class="article-list" id="articleList">
+                    <!-- Populated with curated articles -->
+                </div>
+            </div>
+
+            <!-- Extractor Tool -->
+            <div class="card">
+                <h2 class="card-title">✂️ Extract & Build List</h2>
+
+                <div class="input-group">
+                    <label>List Name</label>
+                    <input type="text" id="listName" placeholder="e.g., Best Skydiving Films">
+                    <p class="help-text">Give this list a descriptive name</p>
+                </div>
+
+                <div class="input-group">
+                    <label>List Description</label>
+                    <input type="text" id="listDescription" placeholder="e.g., The best films featuring skydiving">
+                </div>
+
+                <div class="input-group">
+                    <label>Icon (emoji)</label>
+                    <input type="text" id="listIcon" placeholder="🪂" maxlength="2">
+                </div>
+
+                <div class="input-group">
+                    <label>Paste Movies (one per line: "Title (Year)")</label>
+                    <textarea id="movieInput" placeholder="The Shawshank Redemption (1994)
+The Godfather (1972)
+The Dark Knight (2008)"></textarea>
+                    <p class="help-text">Format: Movie Title (Year) - one per line</p>
+                </div>
+
+                <button class="btn btn-primary" onclick="parseMovies()">🔍 Parse & Verify Movies</button>
+
+                <div id="status" class="status"></div>
+
+                <div id="extractedList" style="display: none; margin-top: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">
+                        Extracted Movies (<span id="movieCount">0</span>)
+                    </h3>
+                    <div id="movieList" class="extracted-list"></div>
+
+                    <button class="btn btn-success" onclick="exportToPreset()">💾 Export to Preset Format</button>
+                    <button class="btn btn-danger" onclick="clearList()">🗑️ Clear List</button>
+                </div>
+
+                <div id="exportPreview" class="export-preview" style="display: none;">
+                    <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">Export Preview</h3>
+                    <p class="help-text">Copy this JSON and add it to your presets.json file:</p>
+                    <pre id="exportJson"></pre>
+                    <button class="btn btn-primary" onclick="copyToClipboard()" style="margin-top: 1rem;">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let extractedMovies = [];
+
+        // Curated article sources
+        const curatedArticles = [
+            {
+                title: "100 Best Sci-Fi Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-sci-fi-movies-of-all-time/"
+            },
+            {
+                title: "50 Best Horror Movies of All Time",
+                source: "Rolling Stone",
+                url: "https://www.rollingstone.com/tv-movies/tv-movie-lists/50-best-horror-movies-of-all-time-162708/"
+            },
+            {
+                title: "The 100 Best Movies of All Time",
+                source: "TIME",
+                url: "https://time.com/collection/100-best-movies/"
+            },
+            {
+                title: "Top 100 Action Movies",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-action-movies-of-all-time/"
+            },
+            {
+                title: "Best Animated Movies of All Time",
+                source: "IndieWire",
+                url: "https://www.indiewire.com/gallery/best-animated-movies-of-all-time/"
+            },
+            {
+                title: "Best Film Noir Movies",
+                source: "BFI",
+                url: "https://www.bfi.org.uk/lists/10-great-film-noirs"
+            },
+            {
+                title: "Greatest Westerns of All Time",
+                source: "The Wrap",
+                url: "https://www.thewrap.com/best-westerns-of-all-time/"
+            },
+            {
+                title: "Best Documentaries Ever Made",
+                source: "Esquire",
+                url: "https://www.esquire.com/entertainment/movies/g26645520/best-documentaries-of-all-time/"
+            },
+            {
+                title: "Top 50 Superhero Movies",
+                source: "Empire",
+                url: "https://www.empireonline.com/movies/features/50-best-superhero-movies/"
+            },
+            {
+                title: "Best War Movies of All Time",
+                source: "Vulture",
+                url: "https://www.vulture.com/article/best-war-movies-of-all-time.html"
+            }
+        ];
+
+        function renderArticles() {
+            const container = document.getElementById('articleList');
+            container.innerHTML = curatedArticles.map((article, index) => `
+                <div class="article-item" onclick="selectArticle(${index})">
+                    <div class="article-title">${article.title}</div>
+                    <div class="article-source">${article.source}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectArticle(index) {
+            const article = curatedArticles[index];
+            window.open(article.url, '_blank');
+            showStatus(`Opened: ${article.title}. Copy the movie list from the article and paste it into the extractor.`, 'info');
+        }
+
+        function openCustomUrl() {
+            const url = document.getElementById('customUrl').value.trim();
+            if (!url) {
+                showStatus('Please enter a URL', 'error');
+                return;
+            }
+            window.open(url, '_blank');
+            showStatus('Article opened in new tab. Copy the movie list and paste it into the extractor.', 'info');
+        }
+
+        function parseMovies() {
+            const input = document.getElementById('movieInput').value.trim();
+            if (!input) {
+                showStatus('Please paste some movies to parse', 'error');
+                return;
+            }
+
+            const lines = input.split('\n').map(line => line.trim()).filter(line => line);
+            extractedMovies = [];
+
+            for (const line of lines) {
+                // Try to parse "Title (Year)" format
+                const match = line.match(/^(.+?)\s*\((\d{4})\)\s*$/);
+                if (match) {
+                    extractedMovies.push({
+                        title: match[1].trim(),
+                        year: parseInt(match[2])
+                    });
+                } else {
+                    // Try to extract year from anywhere in the line
+                    const yearMatch = line.match(/\b(\d{4})\b/);
+                    if (yearMatch) {
+                        const title = line.replace(/\b\d{4}\b/, '').replace(/[()]/g, '').trim();
+                        extractedMovies.push({
+                            title: title,
+                            year: parseInt(yearMatch[1])
+                        });
+                    } else {
+                        // No year found, add without year
+                        extractedMovies.push({
+                            title: line,
+                            year: null
+                        });
+                    }
+                }
+            }
+
+            if (extractedMovies.length === 0) {
+                showStatus('No movies could be parsed. Please check the format.', 'error');
+                return;
+            }
+
+            renderExtractedMovies();
+            document.getElementById('extractedList').style.display = 'block';
+            showStatus(`Successfully parsed ${extractedMovies.length} movies!`, 'success');
+        }
+
+        function renderExtractedMovies() {
+            const container = document.getElementById('movieList');
+            document.getElementById('movieCount').textContent = extractedMovies.length;
+
+            container.innerHTML = extractedMovies.map((movie, index) => `
+                <div class="movie-item">
+                    <div class="movie-info">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="movie-year">${movie.year || 'Year unknown'}</div>
+                    </div>
+                    <button class="movie-remove" onclick="removeMovie(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeMovie(index) {
+            extractedMovies.splice(index, 1);
+            renderExtractedMovies();
+            if (extractedMovies.length === 0) {
+                document.getElementById('extractedList').style.display = 'none';
+                showStatus('All movies removed', 'info');
+            }
+        }
+
+        function clearList() {
+            if (confirm('Are you sure you want to clear the entire list?')) {
+                extractedMovies = [];
+                document.getElementById('extractedList').style.display = 'none';
+                document.getElementById('movieInput').value = '';
+                document.getElementById('exportPreview').style.display = 'none';
+                showStatus('List cleared', 'info');
+            }
+        }
+
+        function exportToPreset() {
+            const name = document.getElementById('listName').value.trim();
+            const description = document.getElementById('listDescription').value.trim();
+            const icon = document.getElementById('listIcon').value.trim();
+
+            if (!name) {
+                showStatus('Please enter a list name', 'error');
+                return;
+            }
+
+            if (extractedMovies.length === 0) {
+                showStatus('No movies to export', 'error');
+                return;
+            }
+
+            // Generate a key from the name
+            const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+            const preset = {
+                [key]: {
+                    name: name,
+                    description: description || `Curated list: ${name}`,
+                    icon: icon || '🎬',
+                    movies: extractedMovies.filter(m => m.year !== null) // Only include movies with years
+                }
+            };
+
+            const json = JSON.stringify(preset, null, 2);
+            document.getElementById('exportJson').textContent = json;
+            document.getElementById('exportPreview').style.display = 'block';
+
+            showStatus(`Exported ${extractedMovies.filter(m => m.year !== null).length} movies to preset format!`, 'success');
+
+            // Scroll to preview
+            document.getElementById('exportPreview').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copyToClipboard() {
+            const json = document.getElementById('exportJson').textContent;
+            navigator.clipboard.writeText(json).then(() => {
+                showStatus('✅ Copied to clipboard! You can now paste this into presets.json', 'success');
+            }).catch(() => {
+                showStatus('Failed to copy. Please select and copy manually.', 'error');
+            });
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialize
+        renderArticles();
+    </script>
+</body>
+</html>
