@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineShelf Documentation</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f9fb;
+            --bg-sidebar: #fafbfc;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --accent: #4a9eff;
+            --accent-hover: #3b82f6;
+            --border: #e5e7eb;
+            --code-bg: #f3f4f6;
+            --sidebar-width: 280px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .sidebar .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .sidebar .logo::before {
+            content: '🎬 ';
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 3rem 4rem;
+            max-width: 900px;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        code {
+            background: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e83e8c;
+        }
+
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-primary);
+        }
+
+        ul, ol {
+            margin: 1rem 0 1rem 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--accent);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .toc {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .toc-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .toc a {
+            display: block;
+            padding: 0.25rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 2rem 1.5rem;
+            }
+
+            .container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">CineShelf</div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <a class="nav-link active" data-section="introduction">Introduction</a>
+                <a class="nav-link" data-section="quick-start">Quick Start</a>
+                <a class="nav-link" data-section="installation">Installation</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Features</div>
+                <a class="nav-link" data-section="collections">Collections</a>
+                <a class="nav-link" data-section="wishlist">Wishlist</a>
+                <a class="nav-link" data-section="groups">Groups & Sharing</a>
+                <a class="nav-link" data-section="trivia">Trivia Game</a>
+                <a class="nav-link" data-section="scanning">Barcode Scanning</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">User Guide</div>
+                <a class="nav-link" data-section="adding-movies">Adding Movies</a>
+                <a class="nav-link" data-section="organizing">Organizing Collections</a>
+                <a class="nav-link" data-section="group-guide">Working with Groups</a>
+                <a class="nav-link" data-section="importing">Importing Data</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Developer Docs</div>
+                <a class="nav-link" data-section="architecture">Architecture</a>
+                <a class="nav-link" data-section="api-reference">API Reference</a>
+                <a class="nav-link" data-section="database">Database Schema</a>
+                <a class="nav-link" data-section="admin-tools">Admin Tools</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Resources</div>
+                <a class="nav-link" data-section="faq">FAQ</a>
+                <a class="nav-link" data-section="troubleshooting">Troubleshooting</a>
+                <a class="nav-link" data-section="changelog">Changelog</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Introduction -->
+            <section id="introduction" class="content-section active">
+                <h1>Welcome to CineShelf</h1>
+                <p class="subtitle">Your personal movie collection manager</p>
+
+                <p>CineShelf is a Progressive Web Application (PWA) designed to help you manage your physical movie collection with ease. Whether you collect DVDs, Blu-rays, or 4K UHDs, CineShelf provides powerful tools to organize, track, and share your collection.</p>
+
+                <div class="success-box">
+                    <strong>Current Version:</strong> v2.2.1 - Production ready with all features stable
+                </div>
+
+                <h2>What is CineShelf?</h2>
+                <p>CineShelf combines personal collection management with social features, creating a comprehensive platform for movie enthusiasts. It's perfect for collectors who want to:</p>
+
+                <ul>
+                    <li>Track their physical movie collection (DVDs, Blu-rays, 4K UHDs)</li>
+                    <li>Maintain a wishlist of movies they want to acquire</li>
+                    <li>Share collections with family and friends</li>
+                    <li>Avoid buying duplicates when shopping</li>
+                    <li>Test their movie knowledge with trivia games</li>
+                    <li>Keep track of borrowed movies</li>
+                </ul>
+
+                <h2>Key Features</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>📚 Collection Management</h4>
+                        <p>Track unlimited movies with detailed metadata from TMDB including posters, ratings, and cast information.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>⭐ Wishlist System</h4>
+                        <p>Keep track of movies you want to buy with priority levels, target formats, and price tracking.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>👥 Family Groups</h4>
+                        <p>Create groups to share collections with family and friends. View combined collections and wishlists.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🎮 Trivia Game</h4>
+                        <p>Test your movie knowledge with 3 game modes, multiple difficulty levels, and leaderboards.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📱 Progressive Web App</h4>
+                        <p>Install on any device, works offline, and provides a native app experience.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🔍 Barcode Scanning</h4>
+                        <p>Quickly add movies using your phone's camera to scan barcodes or cover images.</p>
+                    </div>
+                </div>
+
+                <h2>Technology</h2>
+                <p>CineShelf is built with modern web technologies:</p>
+                <ul>
+                    <li><strong>Frontend:</strong> Vanilla JavaScript (no frameworks), HTML5, CSS3</li>
+                    <li><strong>Backend:</strong> PHP 7.4+ with SQLite database</li>
+                    <li><strong>Authentication:</strong> Google OAuth 2.0</li>
+                    <li><strong>Movie Data:</strong> The Movie Database (TMDB) API</li>
+                    <li><strong>PWA Features:</strong> Service Workers, Web App Manifest</li>
+                </ul>
+            </section>
+
+            <!-- Quick Start -->
+            <section id="quick-start" class="content-section">
+                <h1>Quick Start Guide</h1>
+                <p class="subtitle">Get up and running in 5 minutes</p>
+
+                <h2>Step 1: Sign In</h2>
+                <ol>
+                    <li>Navigate to CineShelf in your web browser</li>
+                    <li>Click <strong>"Sign in with Google"</strong></li>
+                    <li>Authorize the application with your Google account</li>
+                </ol>
+
+                <div class="info-box">
+                    <strong>First Time?</strong> A new account will be created automatically using your Google profile.
+                </div>
+
+                <h2>Step 2: Add Your First Movie</h2>
+                <ol>
+                    <li>Go to the <strong>Collection</strong> tab</li>
+                    <li>Click the <strong>"Add Movie"</strong> button</li>
+                    <li>Search for a movie by title</li>
+                    <li>Select the correct movie from search results</li>
+                    <li>Fill in details:
+                        <ul>
+                            <li><strong>Format:</strong> DVD, Blu-ray, 4K UHD, etc.</li>
+                            <li><strong>Edition:</strong> Standard, Director's Cut, Collector's Edition, etc.</li>
+                            <li><strong>Condition:</strong> Mint, Excellent, Good, Fair</li>
+                            <li><strong>Location:</strong> Where you store it (optional)</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>"Add to Collection"</strong></li>
+                </ol>
+
+                <h2>Step 3: Explore Features</h2>
+                <ul>
+                    <li><strong>Filter your collection</strong> by format, genre, rating, year, or director</li>
+                    <li><strong>Add movies to wishlist</strong> from the Wishlist tab</li>
+                    <li><strong>Create a group</strong> to share with family in the Groups tab</li>
+                    <li><strong>Play trivia</strong> to test your movie knowledge in the Game tab</li>
+                </ul>
+
+                <h2>Step 4: Install as an App (Optional)</h2>
+                <p>CineShelf works great in your browser, but you can also install it as a standalone app:</p>
+
+                <h3>On Desktop (Chrome/Edge)</h3>
+                <ol>
+                    <li>Click the install icon in the address bar (or three-dot menu)</li>
+                    <li>Click <strong>"Install"</strong></li>
+                </ol>
+
+                <h3>On Mobile (iOS/Android)</h3>
+                <ol>
+                    <li><strong>iOS:</strong> Tap Share → "Add to Home Screen"</li>
+                    <li><strong>Android:</strong> Tap menu → "Add to Home Screen" or "Install App"</li>
+                </ol>
+
+                <div class="success-box">
+                    <strong>You're all set!</strong> Start building your collection and exploring all the features CineShelf has to offer.
+                </div>
+            </section>
+
+            <!-- Collections -->
+            <section id="collections" class="content-section">
+                <h1>Collection Management</h1>
+                <p class="subtitle">Track and organize your physical movie collection</p>
+
+                <h2>Overview</h2>
+                <p>The Collection feature is the heart of CineShelf, allowing you to catalog every movie you own with detailed information about format, edition, condition, and more.</p>
+
+                <h2>Adding Movies</h2>
+                <p>There are several ways to add movies to your collection:</p>
+
+                <h3>Method 1: Search by Title</h3>
+                <ol>
+                    <li>Click <strong>"Add Movie"</strong></li>
+                    <li>Type the movie title in the search box</li>
+                    <li>Select from search results powered by TMDB</li>
+                    <li>Fill in copy details and save</li>
+                </ol>
+
+                <h3>Method 2: Barcode Scanning</h3>
+                <ol>
+                    <li>Click the barcode icon in the Add Movie dialog</li>
+                    <li>Allow camera access when prompted</li>
+                    <li>Point camera at the barcode on your movie case</li>
+                    <li>CineShelf will automatically search and add the movie</li>
+                </ol>
+
+                <h3>Method 3: Manual Entry</h3>
+                <p>For rare or obscure titles not in TMDB:</p>
+                <ol>
+                    <li>Search for the title</li>
+                    <li>Click <strong>"Can't find it? Add manually"</strong></li>
+                    <li>Enter title, year, and other details manually</li>
+                </ol>
+
+                <h2>Copy Details</h2>
+                <p>For each movie, you can track:</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Description</th>
+                            <th>Required</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Format</strong></td>
+                            <td>DVD, Blu-ray, 4K UHD, Digital, VHS, etc.</td>
+                            <td>Yes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Edition</strong></td>
+                            <td>Standard, Director's Cut, Extended, Collector's</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Region</strong></td>
+                            <td>Region code (e.g., Region 1, Region A, Region Free)</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Condition</strong></td>
+                            <td>Mint, Excellent, Good, Fair, Poor</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Location</strong></td>
+                            <td>Where you store it (e.g., "Living Room Shelf 2")</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Purchase Date</strong></td>
+                            <td>When you acquired it</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Purchase Price</strong></td>
+                            <td>How much you paid</td>
+                            <td>No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Notes</strong></td>
+                            <td>Any additional information</td>
+                            <td>No</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Filtering & Sorting</h2>
+                <p>Find movies quickly with powerful filtering options:</p>
+
+                <ul>
+                    <li><strong>Format:</strong> Show only DVDs, Blu-rays, 4K UHDs, etc.</li>
+                    <li><strong>Genre:</strong> Action, Comedy, Drama, Horror, etc.</li>
+                    <li><strong>Rating:</strong> Minimum TMDB rating (e.g., 7.0+)</li>
+                    <li><strong>Year:</strong> Decade or specific year range</li>
+                    <li><strong>Director:</strong> Movies by a specific director</li>
+                    <li><strong>Actors:</strong> Movies featuring specific actors</li>
+                    <li><strong>Studio:</strong> Movies from specific studios</li>
+                </ul>
+
+                <p>Sort your collection by:</p>
+                <ul>
+                    <li>Title (A-Z or Z-A)</li>
+                    <li>Year (newest or oldest first)</li>
+                    <li>Rating (highest or lowest first)</li>
+                    <li>Date Added (recently added first)</li>
+                </ul>
+
+                <h2>View Modes</h2>
+                <p>Switch between two display modes:</p>
+                <ul>
+                    <li><strong>Grid View:</strong> Visual poster grid (default)</li>
+                    <li><strong>List View:</strong> Compact list with details</li>
+                </ul>
+
+                <h2>Statistics</h2>
+                <p>Track your collection growth with automatic statistics:</p>
+                <ul>
+                    <li>Total number of movies</li>
+                    <li>Breakdown by format</li>
+                    <li>Most common genres</li>
+                    <li>Average rating</li>
+                    <li>Total collection value (if purchase prices entered)</li>
+                </ul>
+            </section>
+
+            <!-- Wishlist -->
+            <section id="wishlist" class="content-section">
+                <h1>Wishlist</h1>
+                <p class="subtitle">Keep track of movies you want to add to your collection</p>
+
+                <h2>What is the Wishlist?</h2>
+                <p>The Wishlist lets you maintain a list of movies you want to buy. It's perfect for:</p>
+                <ul>
+                    <li>Planning future purchases</li>
+                    <li>Tracking upcoming releases</li>
+                    <li>Sharing gift ideas with family</li>
+                    <li>Price comparison shopping</li>
+                </ul>
+
+                <h2>Adding to Wishlist</h2>
+                <ol>
+                    <li>Go to the <strong>Wishlist</strong> tab</li>
+                    <li>Click <strong>"Add to Wishlist"</strong></li>
+                    <li>Search for the movie</li>
+                    <li>Set wishlist details:
+                        <ul>
+                            <li><strong>Priority:</strong> High, Medium, or Low</li>
+                            <li><strong>Target Format:</strong> Preferred format to buy</li>
+                            <li><strong>Target Edition:</strong> Specific edition you want</li>
+                            <li><strong>Max Price:</strong> Most you're willing to pay</li>
+                            <li><strong>Notes:</strong> Additional info (e.g., "Wait for sale")</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>"Add to Wishlist"</strong></li>
+                </ol>
+
+                <h2>Priority Levels</h2>
+                <ul>
+                    <li><strong>High Priority:</strong> Movies you really want, highest on shopping list</li>
+                    <li><strong>Medium Priority:</strong> Interested but can wait</li>
+                    <li><strong>Low Priority:</strong> Nice to have eventually</li>
+                </ul>
+
+                <h2>Quick Add to Collection</h2>
+                <p>When you acquire a wishlist movie:</p>
+                <ol>
+                    <li>Find the movie in your wishlist</li>
+                    <li>Click <strong>"Add to Collection"</strong></li>
+                    <li>The target format and edition pre-fill automatically</li>
+                    <li>Complete any additional details</li>
+                    <li>Save - the movie moves to your collection and removes from wishlist</li>
+                </ol>
+
+                <h2>Group Wishlist</h2>
+                <p>When you're in a group, you can view everyone's wishlists together:</p>
+                <ol>
+                    <li>Go to <strong>Groups</strong> tab</li>
+                    <li>Select a group</li>
+                    <li>Click <strong>"Group Wishlist"</strong></li>
+                    <li>See all members' wanted movies in one place</li>
+                </ol>
+
+                <p>This is perfect for:</p>
+                <ul>
+                    <li>Avoiding duplicate gifts</li>
+                    <li>Birthday and holiday shopping</li>
+                    <li>Coordinating group buys</li>
+                </ul>
+            </section>
+
+            <!-- Groups -->
+            <section id="groups" class="content-section">
+                <h1>Groups & Sharing</h1>
+                <p class="subtitle">Share your collection with family and friends</p>
+
+                <h2>What are Groups?</h2>
+                <p>Groups allow you to share your movie collection with family and friends. Perfect for:</p>
+                <ul>
+                    <li>Families who share a physical collection</li>
+                    <li>Movie enthusiasts comparing collections</li>
+                    <li>Avoiding duplicate purchases in households</li>
+                    <li>Tracking borrowed movies</li>
+                </ul>
+
+                <h2>Creating a Group</h2>
+                <ol>
+                    <li>Go to the <strong>Groups</strong> tab</li>
+                    <li>Click <strong>"Create Group"</strong></li>
+                    <li>Enter group details:
+                        <ul>
+                            <li><strong>Name:</strong> Group name (e.g., "Smith Family Collection")</li>
+                            <li><strong>Description:</strong> Optional description</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>"Create"</strong></li>
+                </ol>
+
+                <div class="info-box">
+                    <strong>You're the Admin:</strong> As the creator, you have admin privileges to manage members and settings.
+                </div>
+
+                <h2>Inviting Members</h2>
+                <ol>
+                    <li>Open your group</li>
+                    <li>Click <strong>"Invite Member"</strong></li>
+                    <li>Enter the person's email address</li>
+                    <li>An invite link will be generated</li>
+                    <li>Share the invite link with the person (via email, text, etc.)</li>
+                </ol>
+
+                <p>When they click the link:</p>
+                <ul>
+                    <li>If they have a CineShelf account: They join immediately</li>
+                    <li>If they're new: They'll be prompted to create an account first</li>
+                </ul>
+
+                <h2>Group Features</h2>
+
+                <h3>Combined Collection View</h3>
+                <p>See everyone's movies together in one searchable, filterable collection. Each movie shows who owns it.</p>
+
+                <h3>Member Collections</h3>
+                <p>View individual members' collections to see what specific people own.</p>
+
+                <h3>Group Wishlist</h3>
+                <p>See all members' wishlists combined - perfect for gift shopping and avoiding duplicates.</p>
+
+                <h3>Borrowing System</h3>
+                <p>Track borrowed movies:</p>
+                <ol>
+                    <li>Browse the group collection</li>
+                    <li>Click <strong>"Borrow"</strong> on a movie</li>
+                    <li>Optionally set a due date</li>
+                    <li>Owner can see who borrowed what</li>
+                    <li>When returned, mark it as returned</li>
+                </ol>
+
+                <h2>Member Roles</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Role</th>
+                            <th>Permissions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Admin</strong></td>
+                            <td>
+                                • Invite members<br>
+                                • Remove members<br>
+                                • Edit group details<br>
+                                • Delete group<br>
+                                • View all collections
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Member</strong></td>
+                            <td>
+                                • View group collection<br>
+                                • View member collections<br>
+                                • Borrow movies<br>
+                                • Share their own collection
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Privacy</h2>
+                <ul>
+                    <li>Your collection is <strong>private by default</strong></li>
+                    <li>Only members of groups you join can see your collection</li>
+                    <li>You control which groups you join</li>
+                    <li>You can leave a group anytime</li>
+                    <li>Purchase prices and personal notes are never shared</li>
+                </ul>
+            </section>
+
+            <!-- Trivia -->
+            <section id="trivia" class="content-section">
+                <h1>Movie Trivia Game</h1>
+                <p class="subtitle">Test your movie knowledge with fun quiz games</p>
+
+                <h2>Game Modes</h2>
+
+                <h3>🏃 Sprint Mode</h3>
+                <p>Fast-paced 10-question quiz with 60-second timer per question.</p>
+                <ul>
+                    <li><strong>Questions:</strong> Exactly 10</li>
+                    <li><strong>Time Limit:</strong> 60 seconds per question</li>
+                    <li><strong>Scoring:</strong> Points + time bonus + streak multiplier</li>
+                    <li><strong>Win Condition:</strong> Answer all 10 correctly</li>
+                </ul>
+
+                <h3>♾️ Endless Mode</h3>
+                <p>Keep playing as long as you want - no time limit, no pressure.</p>
+                <ul>
+                    <li><strong>Questions:</strong> Unlimited</li>
+                    <li><strong>Time Limit:</strong> None</li>
+                    <li><strong>Scoring:</strong> Cumulative score, track your best</li>
+                    <li><strong>End:</strong> Whenever you quit</li>
+                </ul>
+
+                <h3>💀 Survival Mode</h3>
+                <p>You have 3 lives - one wrong answer costs a life. How far can you go?</p>
+                <ul>
+                    <li><strong>Questions:</strong> Until you lose all lives</li>
+                    <li><strong>Lives:</strong> Start with 3, lose 1 per wrong answer</li>
+                    <li><strong>Time Limit:</strong> None</li>
+                    <li><strong>Scoring:</strong> Higher scores for longer streaks</li>
+                </ul>
+
+                <h2>Question Scopes</h2>
+                <p>Choose what movies to quiz yourself on:</p>
+                <ul>
+                    <li><strong>Collection:</strong> Only movies you own</li>
+                    <li><strong>Wishlist:</strong> Only movies on your wishlist</li>
+                    <li><strong>All Movies:</strong> Entire TMDB database</li>
+                    <li><strong>Mix:</strong> Combination of collection and wishlist</li>
+                </ul>
+
+                <h2>Question Types</h2>
+                <p>CineShelf asks 20+ different question types:</p>
+                <ul>
+                    <li>What year was this movie released?</li>
+                    <li>Who directed this movie?</li>
+                    <li>What genre is this movie?</li>
+                    <li>What's the rating of this movie?</li>
+                    <li>How long is this movie?</li>
+                    <li>Which movie has the higher rating?</li>
+                    <li>Which movie came out first?</li>
+                    <li>Match the movie to its poster</li>
+                    <li>And many more!</li>
+                </ul>
+
+                <h2>Difficulty Scaling</h2>
+                <p>Questions get harder as you progress:</p>
+                <ul>
+                    <li><strong>Rounds 1-5:</strong> Easy questions</li>
+                    <li><strong>Rounds 6-15:</strong> Medium questions</li>
+                    <li><strong>Rounds 16+:</strong> Hard questions</li>
+                </ul>
+
+                <h2>Scoring System</h2>
+                <pre>
+Base Points:
+  Easy: 10 points
+  Medium: 20 points
+  Hard: 30 points
+
+Time Bonus (Sprint Mode only):
+  + (seconds remaining) points
+
+Streak Multiplier:
+  2+ correct: 1.2x
+  5+ correct: 1.5x
+  10+ correct: 2.0x
+                </pre>
+
+                <h2>Leaderboards</h2>
+                <p>Track your progress and compete:</p>
+
+                <h3>Personal Stats</h3>
+                <ul>
+                    <li>Total games played</li>
+                    <li>Win rate</li>
+                    <li>Best score per mode</li>
+                    <li>Longest streak</li>
+                    <li>Total time played</li>
+                    <li>Questions answered by difficulty</li>
+                </ul>
+
+                <h3>Group Leaderboard</h3>
+                <p>See how you rank against friends in your group:</p>
+                <ul>
+                    <li>Top scores by mode</li>
+                    <li>Best streaks</li>
+                    <li>Most games played</li>
+                </ul>
+
+                <h3>Global Leaderboard</h3>
+                <p>Compare with all CineShelf users worldwide!</p>
+            </section>
+
+            <!-- Architecture -->
+            <section id="architecture" class="content-section">
+                <h1>Architecture Overview</h1>
+                <p class="subtitle">Technical design and structure</p>
+
+                <h2>System Architecture</h2>
+                <p>CineShelf uses a modern web application architecture:</p>
+
+                <h3>Frontend</h3>
+                <ul>
+                    <li><strong>Pure JavaScript</strong> - No frameworks, ~5,500 lines of code</li>
+                    <li><strong>Module Pattern</strong> - Organized into logical modules with IIFEs</li>
+                    <li><strong>Responsive Design</strong> - Works on desktop, tablet, and mobile</li>
+                    <li><strong>PWA</strong> - Service worker for offline support</li>
+                </ul>
+
+                <h3>Backend</h3>
+                <ul>
+                    <li><strong>PHP 7.4+</strong> - Server-side logic</li>
+                    <li><strong>SQLite 3</strong> - Database with WAL mode</li>
+                    <li><strong>RESTful API</strong> - Single endpoint, action-based routing</li>
+                    <li><strong>Session Auth</strong> - 30-day token lifetime</li>
+                </ul>
+
+                <h3>External Services</h3>
+                <ul>
+                    <li><strong>TMDB API</strong> - Movie metadata, posters, ratings</li>
+                    <li><strong>Google OAuth</strong> - User authentication</li>
+                </ul>
+
+                <h2>Project Structure</h2>
+                <pre>
+cineshelf.futuresrelic.com/
+├── api/
+│   ├── api.php              # Main API (48+ endpoints)
+│   ├── auth.php             # OAuth flow
+│   ├── auth-middleware.php  # Session validation
+│   └── schema.sql           # Database schema
+├── js/
+│   ├── app.js               # Main app (4,230 lines)
+│   ├── trivia.js            # Trivia game (708 lines)
+│   ├── cover-scanner.js     # Barcode scanning (397 lines)
+│   └── auth.js              # OAuth frontend (156 lines)
+├── css/
+│   └── styles.css           # Stylesheet (2,932 lines)
+├── admin/                   # 29 admin tools
+│   ├── database-tools/
+│   ├── data-tools/
+│   ├── migration-tools/
+│   ├── diagnostics/
+│   └── test-tools/
+├── config/
+│   ├── config.php           # DB, TMDB key, admins
+│   └── oauth-config.php     # Google OAuth credentials
+├── data/
+│   └── cineshelf.sqlite     # SQLite database
+├── index.html               # Main app UI
+├── manifest.json            # PWA manifest
+└── service-worker.js        # Offline support
+                </pre>
+
+                <h2>Database Design</h2>
+                <p><strong>14 tables</strong> with proper normalization and foreign keys:</p>
+
+                <h3>Core Tables</h3>
+                <ul>
+                    <li><code>users</code> - User accounts</li>
+                    <li><code>sessions</code> - Authentication tokens</li>
+                    <li><code>movies</code> - Global movie database</li>
+                    <li><code>copies</code> - User's physical copies</li>
+                    <li><code>wishlist</code> - Wanted movies</li>
+                </ul>
+
+                <h3>Social Tables</h3>
+                <ul>
+                    <li><code>groups</code> - Family/friend groups</li>
+                    <li><code>group_members</code> - Group membership</li>
+                    <li><code>group_invites</code> - Email invitations</li>
+                    <li><code>borrows</code> - Lending tracker</li>
+                </ul>
+
+                <h3>Trivia Tables</h3>
+                <ul>
+                    <li><code>trivia_games</code> - Game sessions</li>
+                    <li><code>trivia_questions</code> - Question history</li>
+                    <li><code>trivia_stats</code> - User statistics</li>
+                </ul>
+
+                <h2>Security</h2>
+                <ul>
+                    <li>✅ <strong>Prepared Statements</strong> - 100% SQL injection protection</li>
+                    <li>✅ <strong>Output Escaping</strong> - XSS prevention</li>
+                    <li>✅ <strong>OAuth 2.0</strong> - Secure authentication</li>
+                    <li>✅ <strong>Session Tokens</strong> - httpOnly cookies</li>
+                    <li>✅ <strong>CSRF Protection</strong> - Same-site cookies</li>
+                </ul>
+            </section>
+
+            <!-- API Reference -->
+            <section id="api-reference" class="content-section">
+                <h1>API Reference</h1>
+                <p class="subtitle">Complete API endpoint documentation</p>
+
+                <h2>API Design</h2>
+                <p><strong>Endpoint:</strong> <code>POST /api/api.php</code></p>
+                <p><strong>Format:</strong> JSON request/response</p>
+                <p><strong>Authentication:</strong> Session cookie or Bearer token</p>
+
+                <h3>Request Format</h3>
+                <pre><code>{
+  "action": "action_name",
+  "param1": "value1",
+  "param2": "value2"
+}</code></pre>
+
+                <h3>Response Format</h3>
+                <pre><code>{
+  "ok": true,
+  "data": { ... },
+  "error": null
+}</code></pre>
+
+                <h2>API Actions (48 endpoints)</h2>
+
+                <h3>Movie Search & Metadata (5 actions)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>search_movie</code></td>
+                            <td>Search TMDB by title</td>
+                        </tr>
+                        <tr>
+                            <td><code>search_multi</code></td>
+                            <td>Search movies + TV shows</td>
+                        </tr>
+                        <tr>
+                            <td><code>get_movie</code></td>
+                            <td>Get movie details by TMDB ID</td>
+                        </tr>
+                        <tr>
+                            <td><code>get_movie_posters</code></td>
+                            <td>Fetch alternative posters</td>
+                        </tr>
+                        <tr>
+                            <td><code>update_movie_poster</code></td>
+                            <td>Change movie's poster</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Collection Management (9 actions)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>add_copy</code></td>
+                            <td>Add physical copy to collection</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_collection</code></td>
+                            <td>Get user's collection with filters</td>
+                        </tr>
+                        <tr>
+                            <td><code>delete_copy</code></td>
+                            <td>Remove copy from collection</td>
+                        </tr>
+                        <tr>
+                            <td><code>update_copy</code></td>
+                            <td>Edit copy details</td>
+                        </tr>
+                        <tr>
+                            <td><code>get_movie_copies</code></td>
+                            <td>Get all copies of a specific movie</td>
+                        </tr>
+                        <tr>
+                            <td><code>update_display_title</code></td>
+                            <td>Change how movie title is displayed</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_unresolved</code></td>
+                            <td>Get movies needing TMDB matching</td>
+                        </tr>
+                        <tr>
+                            <td><code>resolve_movie</code></td>
+                            <td>Match unresolved movie to TMDB</td>
+                        </tr>
+                        <tr>
+                            <td><code>add_unresolved</code></td>
+                            <td>Add movie without TMDB match</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Wishlist (4 actions)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>add_wishlist</code></td>
+                            <td>Add movie to wishlist</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_wishlist</code></td>
+                            <td>Get user's wishlist</td>
+                        </tr>
+                        <tr>
+                            <td><code>remove_wishlist</code></td>
+                            <td>Remove from wishlist</td>
+                        </tr>
+                        <tr>
+                            <td><code>get_user_wishlist</code></td>
+                            <td>View another user's wishlist</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Groups (13 actions)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>create_group</code></td>
+                            <td>Create new group</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_groups</code></td>
+                            <td>Get user's groups</td>
+                        </tr>
+                        <tr>
+                            <td><code>get_group</code></td>
+                            <td>Get group details + members</td>
+                        </tr>
+                        <tr>
+                            <td><code>update_group</code></td>
+                            <td>Edit group name/description</td>
+                        </tr>
+                        <tr>
+                            <td><code>delete_group</code></td>
+                            <td>Delete group (admin only)</td>
+                        </tr>
+                        <tr>
+                            <td><code>add_group_member</code></td>
+                            <td>Add member (invite by email)</td>
+                        </tr>
+                        <tr>
+                            <td><code>remove_group_member</code></td>
+                            <td>Remove member (admin only)</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_group_collection</code></td>
+                            <td>Get combined group collection</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_member_collection</code></td>
+                            <td>Get specific member's collection</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_group_wishlist</code></td>
+                            <td>Get combined group wishlist</td>
+                        </tr>
+                        <tr>
+                            <td><code>create_group_invite</code></td>
+                            <td>Generate invite token</td>
+                        </tr>
+                        <tr>
+                            <td><code>accept_group_invite</code></td>
+                            <td>Join group via invite</td>
+                        </tr>
+                        <tr>
+                            <td><code>list_group_invites</code></td>
+                            <td>Get pending invites</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p><em>...and 17 more actions for borrowing, trivia, user management, and admin functions.</em></p>
+
+                <div class="info-box">
+                    <strong>Full API documentation</strong> is available in the codebase at <code>/api/api.php</code>
+                </div>
+            </section>
+
+            <!-- Admin Tools -->
+            <section id="admin-tools" class="content-section">
+                <h1>Admin Tools</h1>
+                <p class="subtitle">29 powerful tools for development and maintenance</p>
+
+                <h2>Overview</h2>
+                <p>The <code>/admin/</code> directory contains a comprehensive suite of tools organized into 5 categories.</p>
+
+                <div class="warning-box">
+                    <strong>Admin Access Required:</strong> You must be configured as an admin user in <code>/config/config.php</code> to access these tools.
+                </div>
+
+                <h2>Configuration Tools (4 tools)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>config-editor.html</td>
+                            <td>Visual editor for app settings and API keys</td>
+                        </tr>
+                        <tr>
+                            <td>version-manager.html</td>
+                            <td>Version bumping and cache management</td>
+                        </tr>
+                        <tr>
+                            <td>bump-version.php</td>
+                            <td>Automatic version increment</td>
+                        </tr>
+                        <tr>
+                            <td>group-manager.html</td>
+                            <td>Group administration interface</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Database Tools (5 tools)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>view-database.php</td>
+                            <td>Browse all tables and schema</td>
+                        </tr>
+                        <tr>
+                            <td>check-schema.php</td>
+                            <td>Verify schema integrity</td>
+                        </tr>
+                        <tr>
+                            <td>clean-database.php</td>
+                            <td>Remove orphaned records</td>
+                        </tr>
+                        <tr>
+                            <td>remove-duplicates.php</td>
+                            <td>Find and merge duplicate movies</td>
+                        </tr>
+                        <tr>
+                            <td>check-movie-data.php</td>
+                            <td>Validate metadata completeness</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Data Enhancement Tools (5 tools)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>fill-directors-AUTO.php</td>
+                            <td>Auto-fetch missing directors from TMDB</td>
+                        </tr>
+                        <tr>
+                            <td>fill-directors-certs.php</td>
+                            <td>Add missing certifications</td>
+                        </tr>
+                        <tr>
+                            <td>fix-corrupted-titles.php</td>
+                            <td>Repair malformed titles</td>
+                        </tr>
+                        <tr>
+                            <td>fix-unknown-titles-v2.php</td>
+                            <td>Resolve unknown titles</td>
+                        </tr>
+                        <tr>
+                            <td>add-movie-metadata-columns.php</td>
+                            <td>Schema upgrade tool</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Migration Tools (8 tools)</h2>
+                <div class="warning-box">
+                    <strong>⚠️ Warning:</strong> These tools modify database structure. Always backup before running.
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>migrate-v1-to-v2.php</td>
+                            <td>Major version upgrade</td>
+                        </tr>
+                        <tr>
+                            <td>migrate-simple-batch.php</td>
+                            <td>Batch processing migration</td>
+                        </tr>
+                        <tr>
+                            <td>migrate-add-groups.php</td>
+                            <td>Add group functionality</td>
+                        </tr>
+                        <tr>
+                            <td>migrate-add-group-invites.php</td>
+                            <td>Add invite system</td>
+                        </tr>
+                        <tr>
+                            <td>grant-admin-access.php</td>
+                            <td>Grant admin privileges</td>
+                        </tr>
+                        <tr>
+                            <td>make-user-admin.php</td>
+                            <td>Make user admin via CLI</td>
+                        </tr>
+                        <tr>
+                            <td>add-display-name.php</td>
+                            <td>Add display name field</td>
+                        </tr>
+                        <tr>
+                            <td>allow-null-invited-email.php</td>
+                            <td>Schema adjustment for invites</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Diagnostics (1 tool)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>status-check.php</td>
+                            <td>Comprehensive system health check</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Test & Development Tools (4 tools)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>cache-diagnostic.html</td>
+                            <td>Service worker inspection</td>
+                        </tr>
+                        <tr>
+                            <td>clear-cache.html</td>
+                            <td>Manual cache clearing</td>
+                        </tr>
+                        <tr>
+                            <td>icon-editor.html</td>
+                            <td>PWA icon editing</td>
+                        </tr>
+                        <tr>
+                            <td>icon-generator.html</td>
+                            <td>Generate PWA icons in multiple sizes</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Accessing Admin Tools</h2>
+                <p>Navigate to <code>/admin/</code> in your browser to access the admin panel dashboard with all tools organized by category.</p>
+            </section>
+
+            <!-- FAQ -->
+            <section id="faq" class="content-section">
+                <h1>Frequently Asked Questions</h1>
+
+                <h3>Q: Is CineShelf free to use?</h3>
+                <p>A: Yes, CineShelf is completely free and open source.</p>
+
+                <h3>Q: Does it work offline?</h3>
+                <p>A: Yes! Once loaded, CineShelf works offline thanks to service worker caching. You can browse your collection without internet.</p>
+
+                <h3>Q: Can I track digital movies?</h3>
+                <p>A: Yes, "Digital" is one of the format options. However, CineShelf is designed primarily for physical media.</p>
+
+                <h3>Q: How many movies can I add?</h3>
+                <p>A: There's no limit. SQLite can handle tens of thousands of movies easily.</p>
+
+                <h3>Q: Can I add TV shows?</h3>
+                <p>A: Currently CineShelf is focused on movies, but the search includes TV shows if you want to track box sets.</p>
+
+                <h3>Q: Is my data private?</h3>
+                <p>A: Yes. Your collection is private by default. Only people in groups you join can see your collection.</p>
+
+                <h3>Q: Can I export my data?</h3>
+                <p>A: Yes! Go to Settings → Export Data to download your collection as a CSV file.</p>
+
+                <h3>Q: What if a movie isn't in TMDB?</h3>
+                <p>A: You can add it manually without TMDB metadata. Just search, then click "Can't find it? Add manually".</p>
+
+                <h3>Q: Can I have multiple formats of the same movie?</h3>
+                <p>A: Yes! You can add multiple copies of the same movie (e.g., DVD + Blu-ray + 4K UHD).</p>
+
+                <h3>Q: Do group members need to create an account?</h3>
+                <p>A: Yes, they need a free CineShelf account to join groups and view shared collections.</p>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section id="troubleshooting" class="content-section">
+                <h1>Troubleshooting</h1>
+
+                <h2>Common Issues</h2>
+
+                <h3>Problem: Can't sign in with Google</h3>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Make sure you're using a supported browser (Chrome, Firefox, Safari, Edge)</li>
+                    <li>Check that third-party cookies are enabled</li>
+                    <li>Try clearing browser cache and cookies</li>
+                    <li>Disable browser extensions temporarily</li>
+                </ul>
+
+                <h3>Problem: Movies not loading</h3>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Check your internet connection</li>
+                    <li>Try refreshing the page (Ctrl+F5 or Cmd+Shift+R)</li>
+                    <li>Clear browser cache</li>
+                    <li>Check browser console for errors (F12)</li>
+                </ul>
+
+                <h3>Problem: Barcode scanner not working</h3>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Make sure you granted camera permissions</li>
+                    <li>Use HTTPS (barcode scanner requires secure connection)</li>
+                    <li>Try cleaning the barcode on your movie case</li>
+                    <li>Ensure good lighting when scanning</li>
+                    <li>On iPhone: Use Safari (Chrome iOS doesn't support camera API)</li>
+                </ul>
+
+                <h3>Problem: Posters not showing</h3>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Check internet connection (posters load from TMDB)</li>
+                    <li>Some older movies may not have posters in TMDB</li>
+                    <li>A placeholder will show if poster is unavailable</li>
+                </ul>
+
+                <h3>Problem: App is slow</h3>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Close other browser tabs</li>
+                    <li>Clear browser cache</li>
+                    <li>Try list view instead of grid view for large collections</li>
+                    <li>Use filters to narrow down results</li>
+                </ul>
+
+                <h2>Getting Help</h2>
+                <p>If you encounter issues not covered here:</p>
+                <ul>
+                    <li>Check browser console (F12) for error messages</li>
+                    <li>Try a different browser to isolate the issue</li>
+                    <li>Contact your system administrator if self-hosted</li>
+                </ul>
+            </section>
+
+            <!-- Changelog -->
+            <section id="changelog" class="content-section">
+                <h1>Changelog</h1>
+
+                <h2>Version 2.2.1 (Current)</h2>
+                <p><strong>Released:</strong> 2025-11-22</p>
+
+                <h3>Bug Fixes</h3>
+                <ul>
+                    <li>Fixed group wishlist posters to use correct poster_url field</li>
+                    <li>Fixed placeholder image for missing posters in group wishlist</li>
+                    <li>Fixed SQL error in get_user_wishlist - removed non-existent column</li>
+                    <li>Fixed group wishlist loading - added JOIN with movies table</li>
+                    <li>Fixed group wishlist variable names in API</li>
+                </ul>
+
+                <h2>Version 2.2.0</h2>
+                <p><strong>Released:</strong> 2025-11-20</p>
+
+                <h3>New Features</h3>
+                <ul>
+                    <li>Group Wishlist view - see all members' wishlists together</li>
+                    <li>Trivia Leaderboards - personal, group, and global rankings</li>
+                    <li>Advanced filters - filter by actors, director, studio</li>
+                    <li>Compact Resolve tab - redesigned for better usability</li>
+                    <li>iPhone camera support - fixed Cover Scanner for iOS</li>
+                </ul>
+
+                <h3>Improvements</h3>
+                <ul>
+                    <li>CSV import now supports large files with progress tracking</li>
+                    <li>CSV parser handles quoted fields correctly</li>
+                    <li>Better error messages throughout the app</li>
+                </ul>
+
+                <h2>Version 2.1.0</h2>
+                <h3>New Features</h3>
+                <ul>
+                    <li>Barcode scanning for quick movie entry</li>
+                    <li>Cover image recognition</li>
+                    <li>CSV import with auto-TMDB matching</li>
+                    <li>Group borrowing system</li>
+                </ul>
+
+                <h2>Version 2.0.0</h2>
+                <h3>Major Release</h3>
+                <ul>
+                    <li>Complete rewrite with OAuth authentication</li>
+                    <li>Groups and family collections</li>
+                    <li>Movie trivia game with 3 modes</li>
+                    <li>PWA support with offline capability</li>
+                    <li>Comprehensive admin tools</li>
+                </ul>
+
+                <h2>Version 1.0.0</h2>
+                <h3>Initial Release</h3>
+                <ul>
+                    <li>Basic collection management</li>
+                    <li>Wishlist functionality</li>
+                    <li>TMDB integration</li>
+                    <li>Username-based authentication</li>
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Handle navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Update active states
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+
+                // Show corresponding section
+                const sectionId = this.getAttribute('data-section');
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(sectionId).classList.add('active');
+
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
+        // Handle direct links (for bookmarking)
+        if (window.location.hash) {
+            const section = window.location.hash.substring(1);
+            const link = document.querySelector(`[data-section="${section}"]`);
+            if (link) {
+                link.click();
+            }
+        }
+
+        // Update hash when navigating
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                const section = this.getAttribute('data-section');
+                history.pushState(null, null, `#${section}`);
+            });
+        });
+    </script>
+</body>
+</html>
