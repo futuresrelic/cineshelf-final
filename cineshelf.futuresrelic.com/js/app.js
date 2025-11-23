@@ -540,48 +540,80 @@ function renderCollection() {
         const displayTitle = movie.display_title || movie.title || 'Unknown';
         const safeTitle = displayTitle.replace(/"/g, '&quot;');
         const mediaIcon = movie.media_type === 'tv' ? '📺' : '🎬';
-        
+
         // Get genre emojis
         const genreEmojis = getGenreEmojis(movie.genre);
-        
+
         // Get cert color
         const certColor = movie.certification ? getCertColor(movie.certification) : '#666';
-        
+
         // Format runtime
         const runtimeFormatted = formatRuntime(movie.runtime);
-        
-        return `
-        <div class="movie-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
-            <div class="movie-poster-container">
-                <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
-                ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
-            </div>
-            
-            <!-- ✨ NETFLIX HOVER OVERLAY -->
-            <div class="hover-overlay">
-                <div class="hover-title">${safeTitle}</div>
-                <div class="hover-meta">
-                    ${movie.year ? `<span>${movie.year}</span>` : ''}
-                    ${movie.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
-                    ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
-                    ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+
+        // Conditional rendering based on currentView
+        if (currentView === 'list') {
+            // Wishlist-style for list view (always-visible metadata)
+            return `
+            <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                    ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
                 </div>
-                ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
-                ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
-                <div class="hover-actions">
-                    <button class="hover-btn" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
-                    ${copyCount > 1 ? 
-                        `<button class="hover-btn" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
-                        `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
+                <div class="movie-info">
+                    <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+                    <div class="movie-meta">
+                        ${movie.year ? `<span>${movie.year}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                        ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                        ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                    </div>
+                    ${movie.director ? `<div class="movie-director">🎬 ${movie.director}</div>` : ''}
+                    ${genreEmojis ? `<div class="movie-genres">${genreEmojis}</div>` : ''}
+                </div>
+                <div class="movie-actions">
+                    <button class="btn-icon" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
+                    ${copyCount > 1 ?
+                        `<button class="btn-icon" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
+                        `<button class="btn-icon" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
                     }
                 </div>
             </div>
-            
-            <div class="movie-info">
-                <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+            `;
+        } else {
+            // Netflix-style for grid and compact views (hover overlay)
+            return `
+            <div class="movie-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                    ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
+                </div>
+
+                <!-- ✨ NETFLIX HOVER OVERLAY -->
+                <div class="hover-overlay">
+                    <div class="hover-title">${safeTitle}</div>
+                    <div class="hover-meta">
+                        ${movie.year ? `<span>${movie.year}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                        ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                        ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                    </div>
+                    ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
+                    ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
+                    <div class="hover-actions">
+                        <button class="hover-btn" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
+                        ${copyCount > 1 ?
+                            `<button class="hover-btn" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
+                            `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
+                        }
+                    </div>
+                </div>
+
+                <div class="movie-info">
+                    <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+                </div>
             </div>
-        </div>
-        `;
+            `;
+        }
     }).join('');
 }
     
@@ -723,30 +755,59 @@ function renderCollection() {
         grid.innerHTML = wishlist.map(item => {
             const posterUrl = item.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
             const safeTitle = (item.title || 'Unknown').replace(/"/g, '&quot;');
-            
-            return `
-            <div class="movie-card wishlist-card" data-movie-id="${item.movie_id}">
-                <div class="movie-poster-container">
-                    <img src="${posterUrl}" 
-                         alt="${safeTitle}" 
-                         class="movie-poster">
-                    ${item.priority > 0 ? 
-                        `<div class="priority-badge">⭐ Priority</div>` : ''}
-                </div>
-                <div class="movie-info">
-                    <h3 class="movie-title">${safeTitle}</h3>
-                    <div class="movie-meta">
-                        ${item.year ? `<span>${item.year}</span>` : ''}
-                        ${item.rating ? `<span>⭐ ${item.rating.toFixed(1)}</span>` : ''}
+            const isPriority = item.priority > 0;
+
+            // Conditional rendering based on currentView
+            if (currentView === 'list') {
+                // Wishlist-style for list view (always-visible metadata)
+                return `
+                <div class="movie-card wishlist-card" data-movie-id="${item.movie_id}">
+                    <div class="movie-poster-container">
+                        <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                        ${isPriority ? `<div class="priority-badge">⭐ Priority</div>` : ''}
                     </div>
-                    ${item.target_format ? `<div class="movie-format">Want: ${item.target_format}</div>` : ''}
+                    <div class="movie-info">
+                        <h3 class="movie-title">${safeTitle}</h3>
+                        <div class="movie-meta">
+                            ${item.year ? `<span>${item.year}</span>` : ''}
+                            ${item.rating ? `<span>⭐ ${item.rating.toFixed(1)}</span>` : ''}
+                        </div>
+                        ${item.target_format ? `<div class="movie-format">Want: ${item.target_format}</div>` : ''}
+                    </div>
+                    <div class="movie-actions">
+                        <button class="btn-icon" onclick="App.moveToCollection(${item.movie_id})" title="Add to Collection">➕</button>
+                        <button class="btn-icon" onclick="App.removeFromWishlist(${item.movie_id})" title="Remove">🗑️</button>
+                    </div>
                 </div>
-                <div class="movie-actions">
-                    <button class="btn-icon" onclick="App.moveToCollection(${item.movie_id})" title="Add to Collection">➕</button>
-                    <button class="btn-icon" onclick="App.removeFromWishlist(${item.movie_id})" title="Remove">🗑️</button>
+                `;
+            } else {
+                // Netflix-style for grid and compact views (hover overlay)
+                return `
+                <div class="movie-card" data-movie-id="${item.movie_id}">
+                    <div class="movie-poster-container">
+                        <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                        ${isPriority ? `<div class="priority-badge">⭐ Priority</div>` : ''}
+                    </div>
+
+                    <div class="hover-overlay">
+                        <div class="hover-title">${safeTitle}</div>
+                        <div class="hover-meta">
+                            ${item.year ? `<span>${item.year}</span>` : ''}
+                            ${item.rating ? `<span>⭐ ${item.rating.toFixed(1)}</span>` : ''}
+                        </div>
+                        ${item.target_format ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">Want: ${item.target_format}</div>` : ''}
+                        <div class="hover-actions">
+                            <button class="hover-btn" onclick="event.stopPropagation(); App.moveToCollection(${item.movie_id});" title="Add to Collection">➕</button>
+                            <button class="hover-btn" onclick="event.stopPropagation(); App.removeFromWishlist(${item.movie_id});" title="Remove">🗑️</button>
+                        </div>
+                    </div>
+
+                    <div class="movie-info">
+                        <h3 class="movie-title">${safeTitle}</h3>
+                    </div>
                 </div>
-            </div>
-            `;
+                `;
+            }
         }).join('');
     }
     
@@ -1646,11 +1707,13 @@ function getCertColor(cert) {
             }
         });
 
-        // Update both collection and wishlist grids
+        // Update all four grids
         const collectionGrid = document.getElementById('collectionGrid');
         const wishlistGrid = document.getElementById('wishlistGrid');
+        const familyCollectionGrid = document.getElementById('familyCollectionGrid');
+        const groupWishlistGrid = document.getElementById('groupWishlistGrid');
 
-        [collectionGrid, wishlistGrid].forEach(grid => {
+        [collectionGrid, wishlistGrid, familyCollectionGrid, groupWishlistGrid].forEach(grid => {
             if (!grid) return;
 
             // Remove all view classes
@@ -1665,6 +1728,20 @@ function getCertColor(cert) {
                 grid.classList.add('grid-view');
             }
         });
+
+        // Trigger re-renders to update HTML structure based on view
+        renderCollection();
+        renderWishlist();
+
+        // Re-render family collection if a group is selected
+        if (currentGroupId && window.familyCollectionData) {
+            renderFamilyCollection(window.familyCollectionData);
+        }
+
+        // Re-render group wishlist if data exists
+        if (window.currentGroupWishlist) {
+            renderGroupWishlist(window.currentGroupWishlist);
+        }
 
         // Save preference
         settings.defaultView = viewType;
@@ -2891,6 +2968,9 @@ async function loadFamilyCollection(groupId) {
 }
 
 function renderFamilyCollection(movies) {
+    // Save data for re-rendering when view changes
+    window.familyCollectionData = movies;
+
     const grid = document.getElementById('familyCollectionGrid');
     const emptyState = document.getElementById('emptyFamilyCollection');
 
@@ -2934,34 +3014,64 @@ function renderFamilyCollection(movies) {
         const safeTitle = displayTitle.replace(/"/g, '&quot;');
         const mediaIcon = movie.media_type === 'tv' ? '📺' : '🎬';
         const certColor = movie.certification ? getCertColor(movie.certification) : '#666';
+        const genreEmojis = getGenreEmojis(movie.genre);
+        const runtimeFormatted = formatRuntime(movie.runtime);
 
-        return `
-        <div class="movie-card" onclick="App.viewGroupMovieDetails(${movie.movie_id})" data-movie-id="${movie.movie_id}">
-            <div class="movie-poster-container">
-                <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
-                ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
-            </div>
-
-            <div class="hover-overlay">
-                <div class="hover-title">${safeTitle}</div>
-                <div class="hover-meta">
-                    ${movie.year ? `<span>${movie.year}</span>` : ''}
-                    ${movie.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
-                    ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
-                    ${movie.runtime ? `<span>${formatRuntime(movie.runtime)}</span>` : ''}
+        // Conditional rendering based on currentView
+        if (currentView === 'list') {
+            // Wishlist-style for list view (always-visible metadata)
+            return `
+            <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.viewGroupMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                    ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
                 </div>
-                ${movie.genre ? `<div class="genre-emojis">${getGenreEmojis(movie.genre)}</div>` : ''}
-                ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
-                <div class="hover-actions">
-                    <button class="hover-btn" onclick="event.stopPropagation(); App.viewGroupMovieDetails(${movie.movie_id});">ℹ️</button>
+                <div class="movie-info">
+                    <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+                    <div class="movie-meta">
+                        ${movie.year ? `<span>${movie.year}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                        ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                        ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                    </div>
+                    ${movie.director ? `<div class="movie-director">🎬 ${movie.director}</div>` : ''}
+                    ${genreEmojis ? `<div class="movie-genres">${genreEmojis}</div>` : ''}
+                </div>
+                <div class="movie-actions">
+                    <button class="btn-icon" onclick="event.stopPropagation(); App.viewGroupMovieDetails(${movie.movie_id});" title="Details">👁️</button>
                 </div>
             </div>
+            `;
+        } else {
+            // Netflix-style for grid and compact views (hover overlay)
+            return `
+            <div class="movie-card" onclick="App.viewGroupMovieDetails(${movie.movie_id})" data-movie-id="${movie.movie_id}">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                    ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
+                </div>
 
-            <div class="movie-info">
-                <div class="movie-title">${mediaIcon} ${safeTitle}</div>
+                <div class="hover-overlay">
+                    <div class="hover-title">${safeTitle}</div>
+                    <div class="hover-meta">
+                        ${movie.year ? `<span>${movie.year}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                        ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                        ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                    </div>
+                    ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
+                    ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
+                    <div class="hover-actions">
+                        <button class="hover-btn" onclick="event.stopPropagation(); App.viewGroupMovieDetails(${movie.movie_id});">ℹ️</button>
+                    </div>
+                </div>
+
+                <div class="movie-info">
+                    <div class="movie-title">${mediaIcon} ${safeTitle}</div>
+                </div>
             </div>
-        </div>
-        `;
+            `;
+        }
     }).join('');
 }
 
@@ -3220,26 +3330,53 @@ function renderGroupWishlist(wishlists) {
 
     grid.innerHTML = movies.map(movie => {
         const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
-
+        const safeTitle = (movie.title || 'Unknown Title').replace(/"/g, '&quot;');
         const membersList = movie.members.map(m => m.name).join(', ');
         const memberCount = movie.members.length;
         const memberLabel = memberCount === 1 ? '1 member' : `${memberCount} members`;
-        const title = movie.title || 'Unknown Title';
         const year = movie.release_date ? movie.release_date.substring(0, 4) : (movie.year || 'N/A');
 
-        return `
-            <div class="movie-card" data-member-ids="${movie.members.map(m => m.id).join(',')}">
+        // Conditional rendering based on currentView
+        if (currentView === 'list') {
+            // Wishlist-style for list view (always-visible metadata)
+            return `
+            <div class="movie-card wishlist-card" data-member-ids="${movie.members.map(m => m.id).join(',')}">
                 <div class="movie-poster-container">
-                    <img src="${posterUrl}" alt="${title}" class="movie-poster">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     ${memberCount > 1 ? `<div class="wishlist-badge">❤️ ${memberLabel}</div>` : ''}
                 </div>
                 <div class="movie-info">
-                    <h3>${title}</h3>
-                    ${year !== 'N/A' ? `<p class="year">${year}</p>` : ''}
+                    <h3 class="movie-title">${safeTitle}</h3>
+                    <div class="movie-meta">
+                        ${year !== 'N/A' ? `<span>${year}</span>` : ''}
+                    </div>
                     <p class="wishlist-members">${membersList}</p>
                 </div>
             </div>
-        `;
+            `;
+        } else {
+            // Netflix-style for grid and compact views (hover overlay)
+            return `
+            <div class="movie-card" data-member-ids="${movie.members.map(m => m.id).join(',')}">
+                <div class="movie-poster-container">
+                    <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                    ${memberCount > 1 ? `<div class="wishlist-badge">❤️ ${memberLabel}</div>` : ''}
+                </div>
+
+                <div class="hover-overlay">
+                    <div class="hover-title">${safeTitle}</div>
+                    <div class="hover-meta">
+                        ${year !== 'N/A' ? `<span>${year}</span>` : ''}
+                    </div>
+                    <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">${membersList}</div>
+                </div>
+
+                <div class="movie-info">
+                    <h3 class="movie-title">${safeTitle}</h3>
+                </div>
+            </div>
+            `;
+        }
     }).join('');
 
     console.log('Rendered', movies.length, 'movie cards');
