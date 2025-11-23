@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Manager - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-section.dragging {
+            border-color: #764ba2;
+            background: #e8e9ff;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+
+        .control-group h3 {
+            margin-bottom: 1rem;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .slider-control {
+            margin-bottom: 1rem;
+        }
+
+        .slider-control label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .slider-control input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .slider-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .checkbox-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .checkbox-control input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .color-control {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .color-control input[type="color"] {
+            width: 60px;
+            height: 40px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .preview-section {
+            position: sticky;
+            top: 2rem;
+        }
+
+        .preview-canvas-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        #previewCanvas {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        .preview-sizes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .preview-size {
+            text-align: center;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .preview-size canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .preview-size span {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .filter-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .filter-btn {
+            padding: 0.75rem;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #28a745;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(100px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .preview-section {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Icon Manager</h1>
+            <p>Upload and customize your CineShelf app icons with advanced effects</p>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <!-- Upload Section -->
+                <div class="upload-section" id="uploadSection">
+                    <div class="upload-icon">📁</div>
+                    <h2>Upload Your Icon</h2>
+                    <p>Click or drag and drop an image here</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                        Recommended: Square image, PNG format, 1024x1024 or larger
+                    </p>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <!-- Color Adjustments -->
+                <div class="control-group">
+                    <h3>🎨 Color Adjustments</h3>
+                    <div class="slider-control">
+                        <label>
+                            <span>Brightness</span>
+                            <span id="brightnessValue">100%</span>
+                        </label>
+                        <input type="range" id="brightness" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            <span>Contrast</span>
+                            <span id="contrastValue">100%</span>
+                        </label>
+                        <input type="range" id="contrast" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            <span>Saturation</span>
+                            <span id="saturationValue">100%</span>
+                        </label>
+                        <input type="range" id="saturation" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            <span>Hue Rotation</span>
+                            <span id="hueValue">0°</span>
+                        </label>
+                        <input type="range" id="hue" min="0" max="360" value="0">
+                    </div>
+                </div>
+
+                <!-- Effects -->
+                <div class="control-group">
+                    <h3>✨ Effects</h3>
+                    <div class="slider-control">
+                        <label>
+                            <span>Blur</span>
+                            <span id="blurValue">0px</span>
+                        </label>
+                        <input type="range" id="blur" min="0" max="10" value="0" step="0.5">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            <span>Opacity</span>
+                            <span id="opacityValue">100%</span>
+                        </label>
+                        <input type="range" id="opacity" min="0" max="100" value="100">
+                    </div>
+                    <div class="checkbox-control">
+                        <input type="checkbox" id="grayscale">
+                        <label for="grayscale">Grayscale</label>
+                    </div>
+                    <div class="checkbox-control">
+                        <input type="checkbox" id="sepia">
+                        <label for="sepia">Sepia</label>
+                    </div>
+                    <div class="checkbox-control">
+                        <input type="checkbox" id="invert">
+                        <label for="invert">Invert Colors</label>
+                    </div>
+                </div>
+
+                <!-- Preset Filters -->
+                <div class="control-group">
+                    <h3>🎭 Preset Filters</h3>
+                    <div class="filter-buttons">
+                        <button class="filter-btn" onclick="applyFilter('none')">Original</button>
+                        <button class="filter-btn" onclick="applyFilter('vintage')">Vintage</button>
+                        <button class="filter-btn" onclick="applyFilter('cool')">Cool</button>
+                        <button class="filter-btn" onclick="applyFilter('warm')">Warm</button>
+                        <button class="filter-btn" onclick="applyFilter('dramatic')">Dramatic</button>
+                        <button class="filter-btn" onclick="applyFilter('soft')">Soft</button>
+                    </div>
+                </div>
+
+                <!-- Background & Border -->
+                <div class="control-group">
+                    <h3>🖼️ Background & Border</h3>
+                    <div class="slider-control">
+                        <label>
+                            <span>Padding</span>
+                            <span id="paddingValue">0%</span>
+                        </label>
+                        <input type="range" id="padding" min="0" max="20" value="0">
+                    </div>
+                    <div class="slider-control">
+                        <label>
+                            <span>Corner Radius</span>
+                            <span id="radiusValue">0%</span>
+                        </label>
+                        <input type="range" id="radius" min="0" max="50" value="0">
+                    </div>
+                    <div class="color-control">
+                        <label>Background Color:</label>
+                        <input type="color" id="bgColor" value="#ffffff">
+                        <div class="checkbox-control">
+                            <input type="checkbox" id="transparent">
+                            <label for="transparent">Transparent</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="buttons">
+                    <button class="btn-secondary" onclick="resetAll()">🔄 Reset All</button>
+                    <button class="btn-primary" onclick="downloadIcons()">💾 Download Icons</button>
+                    <button class="btn-secondary" onclick="saveFavicon()">🔖 Save as Favicon</button>
+                    <button class="btn-primary" onclick="saveAppIcon()">📱 Save as App Icon</button>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <div class="control-group">
+                    <h3>👁️ Preview</h3>
+                    <div class="preview-canvas-container">
+                        <canvas id="previewCanvas" width="512" height="512"></canvas>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>📐 Generated Sizes</h3>
+                    <div class="preview-sizes">
+                        <div class="preview-size">
+                            <canvas id="icon16" width="16" height="16"></canvas>
+                            <span>16×16</span>
+                        </div>
+                        <div class="preview-size">
+                            <canvas id="icon32" width="32" height="32"></canvas>
+                            <span>32×32</span>
+                        </div>
+                        <div class="preview-size">
+                            <canvas id="icon192" width="192" height="192"></canvas>
+                            <span>192×192</span>
+                        </div>
+                        <div class="preview-size">
+                            <canvas id="icon512" width="512" height="512"></canvas>
+                            <span>512×512</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let originalImage = null;
+        let currentImage = null;
+
+        // Upload handling
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadSection.addEventListener('click', () => fileInput.click());
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragging');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragging');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragging');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                loadImage(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                loadImage(file);
+            }
+        });
+
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    currentImage = img;
+                    applyEffects();
+                    showToast('Image loaded successfully!');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Slider value updates
+        const sliders = [
+            { id: 'brightness', suffix: '%' },
+            { id: 'contrast', suffix: '%' },
+            { id: 'saturation', suffix: '%' },
+            { id: 'hue', suffix: '°' },
+            { id: 'blur', suffix: 'px' },
+            { id: 'opacity', suffix: '%' },
+            { id: 'padding', suffix: '%' },
+            { id: 'radius', suffix: '%' }
+        ];
+
+        sliders.forEach(({ id, suffix }) => {
+            const slider = document.getElementById(id);
+            const valueDisplay = document.getElementById(id + 'Value');
+            slider.addEventListener('input', () => {
+                valueDisplay.textContent = slider.value + suffix;
+                applyEffects();
+            });
+        });
+
+        // Checkbox listeners
+        ['grayscale', 'sepia', 'invert', 'transparent'].forEach(id => {
+            document.getElementById(id).addEventListener('change', applyEffects);
+        });
+
+        // Color picker listener
+        document.getElementById('bgColor').addEventListener('input', applyEffects);
+
+        function applyEffects() {
+            if (!originalImage) return;
+
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Get values
+            const brightness = document.getElementById('brightness').value;
+            const contrast = document.getElementById('contrast').value;
+            const saturation = document.getElementById('saturation').value;
+            const hue = document.getElementById('hue').value;
+            const blur = document.getElementById('blur').value;
+            const opacity = document.getElementById('opacity').value / 100;
+            const padding = parseInt(document.getElementById('padding').value);
+            const radius = parseInt(document.getElementById('radius').value);
+            const grayscale = document.getElementById('grayscale').checked;
+            const sepia = document.getElementById('sepia').checked;
+            const invert = document.getElementById('invert').checked;
+            const transparent = document.getElementById('transparent').checked;
+            const bgColor = document.getElementById('bgColor').value;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Apply background
+            if (!transparent) {
+                ctx.fillStyle = bgColor;
+                if (radius > 0) {
+                    roundRect(ctx, 0, 0, canvas.width, canvas.height, (radius / 100) * canvas.width);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            // Calculate image dimensions with padding
+            const paddingPx = (padding / 100) * canvas.width;
+            const imgSize = canvas.width - (paddingPx * 2);
+            const imgX = paddingPx;
+            const imgY = paddingPx;
+
+            // Apply filters
+            ctx.filter = `
+                brightness(${brightness}%)
+                contrast(${contrast}%)
+                saturate(${saturation}%)
+                hue-rotate(${hue}deg)
+                blur(${blur}px)
+                ${grayscale ? 'grayscale(100%)' : ''}
+                ${sepia ? 'sepia(100%)' : ''}
+                ${invert ? 'invert(100%)' : ''}
+            `;
+
+            ctx.globalAlpha = opacity;
+
+            // Save context for clipping
+            ctx.save();
+
+            // Apply border radius clipping
+            if (radius > 0) {
+                roundRect(ctx, imgX, imgY, imgSize, imgSize, (radius / 100) * imgSize);
+                ctx.clip();
+            }
+
+            // Draw image
+            ctx.drawImage(originalImage, imgX, imgY, imgSize, imgSize);
+
+            ctx.restore();
+            ctx.globalAlpha = 1;
+            ctx.filter = 'none';
+
+            // Generate all sizes
+            generateAllSizes(canvas);
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function generateAllSizes(sourceCanvas) {
+            const sizes = [
+                { id: 'icon16', size: 16 },
+                { id: 'icon32', size: 32 },
+                { id: 'icon192', size: 192 },
+                { id: 'icon512', size: 512 }
+            ];
+
+            sizes.forEach(({ id, size }) => {
+                const canvas = document.getElementById(id);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, size, size);
+                ctx.drawImage(sourceCanvas, 0, 0, size, size);
+            });
+        }
+
+        function applyFilter(filter) {
+            const presets = {
+                none: { brightness: 100, contrast: 100, saturation: 100, hue: 0, grayscale: false, sepia: false },
+                vintage: { brightness: 110, contrast: 120, saturation: 80, hue: 20, grayscale: false, sepia: true },
+                cool: { brightness: 105, contrast: 110, saturation: 120, hue: 200, grayscale: false, sepia: false },
+                warm: { brightness: 110, contrast: 105, saturation: 120, hue: 30, grayscale: false, sepia: false },
+                dramatic: { brightness: 90, contrast: 150, saturation: 80, hue: 0, grayscale: false, sepia: false },
+                soft: { brightness: 115, contrast: 85, saturation: 90, hue: 0, grayscale: false, sepia: false }
+            };
+
+            const preset = presets[filter];
+            if (preset) {
+                document.getElementById('brightness').value = preset.brightness;
+                document.getElementById('contrast').value = preset.contrast;
+                document.getElementById('saturation').value = preset.saturation;
+                document.getElementById('hue').value = preset.hue;
+                document.getElementById('grayscale').checked = preset.grayscale;
+                document.getElementById('sepia').checked = preset.sepia;
+
+                // Update displays
+                document.getElementById('brightnessValue').textContent = preset.brightness + '%';
+                document.getElementById('contrastValue').textContent = preset.contrast + '%';
+                document.getElementById('saturationValue').textContent = preset.saturation + '%';
+                document.getElementById('hueValue').textContent = preset.hue + '°';
+
+                applyEffects();
+            }
+        }
+
+        function resetAll() {
+            sliders.forEach(({ id }) => {
+                const slider = document.getElementById(id);
+                const defaultValues = { brightness: 100, contrast: 100, saturation: 100, hue: 0, blur: 0, opacity: 100, padding: 0, radius: 0 };
+                slider.value = defaultValues[id] || 0;
+                const suffix = id === 'hue' ? '°' : id === 'blur' ? 'px' : '%';
+                document.getElementById(id + 'Value').textContent = slider.value + suffix;
+            });
+
+            document.getElementById('grayscale').checked = false;
+            document.getElementById('sepia').checked = false;
+            document.getElementById('invert').checked = false;
+            document.getElementById('transparent').checked = false;
+            document.getElementById('bgColor').value = '#ffffff';
+
+            applyEffects();
+            showToast('Reset to defaults');
+        }
+
+        function downloadIcons() {
+            if (!originalImage) {
+                showToast('Please upload an image first', 'error');
+                return;
+            }
+
+            const sizes = ['icon16', 'icon32', 'icon192', 'icon512'];
+            sizes.forEach(id => {
+                const canvas = document.getElementById(id);
+                const link = document.createElement('a');
+                link.download = `cineshelf-icon-${canvas.width}x${canvas.height}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+
+            showToast('Icons downloaded successfully!');
+        }
+
+        async function saveFavicon() {
+            if (!originalImage) {
+                showToast('Please upload an image first', 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('icon32');
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            const formData = new FormData();
+            formData.append('icon', blob, 'favicon.png');
+            formData.append('type', 'favicon');
+
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'save_icon',
+                        type: 'favicon',
+                        data: canvas.toDataURL('image/png')
+                    })
+                });
+
+                const result = await response.json();
+                if (result.ok) {
+                    showToast('Favicon saved successfully!');
+                } else {
+                    showToast('Failed to save favicon: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error saving favicon: ' + error.message, 'error');
+            }
+        }
+
+        async function saveAppIcon() {
+            if (!originalImage) {
+                showToast('Please upload an image first', 'error');
+                return;
+            }
+
+            const icon192 = document.getElementById('icon192');
+            const icon512 = document.getElementById('icon512');
+
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'save_icon',
+                        type: 'app',
+                        data192: icon192.toDataURL('image/png'),
+                        data512: icon512.toDataURL('image/png')
+                    })
+                });
+
+                const result = await response.json();
+                if (result.ok) {
+                    showToast('App icons saved successfully!');
+                } else {
+                    showToast('Failed to save app icons: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error saving app icons: ' + error.message, 'error');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + (type === 'error' ? 'error' : '');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize with placeholder
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#999';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Upload an image to start', canvas.width / 2, canvas.height / 2);
+        });
+    </script>
+</body>
+</html>
