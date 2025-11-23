@@ -293,10 +293,20 @@ if (empty($action)) {
 try {
     $db = getDb();
 
-    // Authenticate user (supports both OAuth and legacy)
-    $currentUser = authenticateRequest();
-    $userId = $currentUser['id'];
-    $user = $currentUser['username']; // For backwards compatibility
+    // Admin-only actions that don't require user authentication
+    $adminActions = ['save_icon'];
+
+    if (in_array($action, $adminActions)) {
+        // Skip authentication for admin tools
+        $currentUser = null;
+        $userId = null;
+        $user = null;
+    } else {
+        // Authenticate user (supports both OAuth and legacy)
+        $currentUser = authenticateRequest();
+        $userId = $currentUser['id'];
+        $user = $currentUser['username']; // For backwards compatibility
+    }
 
     // Route to appropriate action
     switch ($action) {
