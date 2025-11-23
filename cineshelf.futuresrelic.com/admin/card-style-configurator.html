@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Style Configurator - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text: #ffffff;
+            --text-muted: #b0b0b0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 0;
+            background: #f5f5f5;
+        }
+
+        .controls {
+            background: white;
+            padding: 2rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+            border-right: 2px solid #e0e0e0;
+        }
+
+        .control-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+        }
+
+        .control-section h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .preview-section {
+            padding: 2rem;
+            background: var(--bg);
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+
+        .view-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .view-tab {
+            padding: 0.75rem 1.5rem;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .view-tab:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .view-tab.active {
+            background: var(--primary);
+        }
+
+        .preview-container {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .movie-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .movie-grid.grid-view {
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        }
+
+        .movie-grid.compact-view {
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .movie-grid.list-view {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+
+        .movie-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .movie-poster-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+        }
+
+        .movie-poster {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .copy-count-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .hover-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, transparent 100%);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .movie-card:hover .hover-overlay {
+            opacity: 1;
+        }
+
+        .hover-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: white;
+        }
+
+        .hover-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 0.5rem;
+        }
+
+        .cert-badge-hover {
+            background: var(--cert-color, #666);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+        }
+
+        .genre-emojis {
+            font-size: 1rem;
+            margin-top: 0.25rem;
+        }
+
+        .hover-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .hover-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .movie-info {
+            padding: 0.75rem;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .movie-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .cert-badge {
+            background: var(--cert-color, #666);
+            color: white;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .movie-director {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .movie-genres {
+            font-size: 1rem;
+            margin-top: 0.25rem;
+        }
+
+        .movie-actions {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-icon {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        /* List View Specific */
+        .movie-grid.list-view .movie-card {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+        }
+
+        .movie-grid.list-view .movie-poster-container {
+            flex-shrink: 0;
+            width: 80px;
+            aspect-ratio: 2/3;
+        }
+
+        .movie-grid.list-view .movie-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .movie-grid.list-view .movie-title {
+            font-size: 1.1rem;
+            -webkit-line-clamp: 1;
+        }
+
+        .movie-grid.list-view .hover-overlay {
+            display: none;
+        }
+
+        .movie-grid.list-view .movie-actions {
+            flex-shrink: 0;
+            border-top: none;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Compact View Specific */
+        .movie-grid.compact-view .movie-card {
+            font-size: 0.65rem;
+        }
+
+        .movie-grid.compact-view .movie-title {
+            font-size: 0.5rem;
+            -webkit-line-clamp: 1;
+        }
+
+        .movie-grid.compact-view .hover-overlay {
+            font-size: 0.5rem;
+        }
+
+        .movie-grid.compact-view .hover-meta {
+            font-size: 0.4rem;
+            gap: 0.25rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #28a745;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(100px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Card Style Configurator</h1>
+            <p>Customize the look of your movie cards in Grid, Compact, and List views</p>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <!-- Font Sizes -->
+                <div class="control-section">
+                    <h3>📝 Font Sizes</h3>
+                    <div class="control-group">
+                        <label>
+                            <span>Title Size (List)</span>
+                            <span id="titleSizeValue">1.1rem</span>
+                        </label>
+                        <input type="range" id="titleSize" min="0.8" max="1.6" step="0.1" value="1.1">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Meta Size</span>
+                            <span id="metaSizeValue">0.85rem</span>
+                        </label>
+                        <input type="range" id="metaSize" min="0.6" max="1.2" step="0.05" value="0.85">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Director Size</span>
+                            <span id="directorSizeValue">0.85rem</span>
+                        </label>
+                        <input type="range" id="directorSize" min="0.6" max="1.2" step="0.05" value="0.85">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Genre Size</span>
+                            <span id="genreSizeValue">1.0rem</span>
+                        </label>
+                        <input type="range" id="genreSize" min="0.6" max="1.4" step="0.1" value="1.0">
+                    </div>
+                </div>
+
+                <!-- Card Dimensions -->
+                <div class="control-section">
+                    <h3>📐 Card Dimensions (List View)</h3>
+                    <div class="control-group">
+                        <label>
+                            <span>Card Height</span>
+                            <span id="cardHeightValue">120px</span>
+                        </label>
+                        <input type="range" id="cardHeight" min="80" max="200" step="10" value="120">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Poster Width</span>
+                            <span id="posterWidthValue">80px</span>
+                        </label>
+                        <input type="range" id="posterWidth" min="60" max="150" step="5" value="80">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Card Padding</span>
+                            <span id="cardPaddingValue">0.75rem</span>
+                        </label>
+                        <input type="range" id="cardPadding" min="0.25" max="1.5" step="0.25" value="0.75">
+                    </div>
+                </div>
+
+                <!-- Visibility -->
+                <div class="control-section">
+                    <h3>👁️ Visibility</h3>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showDirector" checked>
+                        <label for="showDirector">Show Director</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showGenres" checked>
+                        <label for="showGenres">Show Genres</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showRuntime" checked>
+                        <label for="showRuntime">Show Runtime</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showCertification" checked>
+                        <label for="showCertification">Show Certification</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showYear" checked>
+                        <label for="showYear">Show Year</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showRating" checked>
+                        <label for="showRating">Show Rating</label>
+                    </div>
+                </div>
+
+                <!-- Spacing -->
+                <div class="control-section">
+                    <h3>↔️ Spacing</h3>
+                    <div class="control-group">
+                        <label>
+                            <span>Meta Gap</span>
+                            <span id="metaGapValue">0.5rem</span>
+                        </label>
+                        <input type="range" id="metaGap" min="0.25" max="1.0" step="0.25" value="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Element Spacing</span>
+                            <span id="elementSpacingValue">0.25rem</span>
+                        </label>
+                        <input type="range" id="elementSpacing" min="0" max="1.0" step="0.25" value="0.25">
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-buttons">
+                    <button class="btn-secondary" onclick="resetStyles()">🔄 Reset</button>
+                    <button class="btn-primary" onclick="saveStyles()">💾 Save</button>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <div class="view-tabs">
+                    <button class="view-tab active" data-view="list" onclick="switchView('list')">☰ List View</button>
+                    <button class="view-tab" data-view="grid" onclick="switchView('grid')">⊞ Grid View</button>
+                    <button class="view-tab" data-view="compact" onclick="switchView('compact')">⊡ Compact</button>
+                </div>
+
+                <div class="preview-container">
+                    <div class="movie-grid list-view" id="movieGrid">
+                        <!-- Sample cards will be generated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Sample movie data
+        const sampleMovies = [
+            {
+                title: "2001: A Space Odyssey",
+                year: 1968,
+                certification: "G",
+                rating: 8.1,
+                runtime: 149,
+                director: "Stanley Kubrick",
+                genres: "🚀 🔍 🗺️",
+                poster: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect fill='%23334455' width='200' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='16'%3E2001%3C/text%3E%3C/svg%3E"
+            },
+            {
+                title: "The Godfather",
+                year: 1972,
+                certification: "R",
+                rating: 9.2,
+                runtime: 175,
+                director: "Francis Ford Coppola",
+                genres: "🔫 👔 🎭",
+                poster: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect fill='%23443322' width='200' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='16'%3EGodfather%3C/text%3E%3C/svg%3E"
+            },
+            {
+                title: "Inception",
+                year: 2010,
+                certification: "PG-13",
+                rating: 8.8,
+                runtime: 148,
+                director: "Christopher Nolan",
+                genres: "🧠 💭 🌀",
+                poster: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect fill='%23225544' width='200' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='16'%3EInception%3C/text%3E%3C/svg%3E"
+            }
+        ];
+
+        let currentView = 'list';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedStyles();
+            renderCards();
+            setupListeners();
+        });
+
+        function setupListeners() {
+            const controls = ['titleSize', 'metaSize', 'directorSize', 'genreSize',
+                            'cardHeight', 'posterWidth', 'cardPadding', 'metaGap', 'elementSpacing'];
+
+            controls.forEach(id => {
+                const element = document.getElementById(id);
+                element.addEventListener('input', () => {
+                    const suffix = id.includes('Size') || id.includes('Gap') || id.includes('Spacing') || id.includes('Padding') ? 'rem' : 'px';
+                    document.getElementById(id + 'Value').textContent = element.value + suffix;
+                    applyStyles();
+                });
+            });
+
+            ['showDirector', 'showGenres', 'showRuntime', 'showCertification', 'showYear', 'showRating'].forEach(id => {
+                document.getElementById(id).addEventListener('change', renderCards);
+            });
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.view === view) {
+                    tab.classList.add('active');
+                }
+            });
+
+            const grid = document.getElementById('movieGrid');
+            grid.className = 'movie-grid ' + view + '-view';
+        }
+
+        function renderCards() {
+            const grid = document.getElementById('movieGrid');
+            const showDirector = document.getElementById('showDirector').checked;
+            const showGenres = document.getElementById('showGenres').checked;
+            const showRuntime = document.getElementById('showRuntime').checked;
+            const showCert = document.getElementById('showCertification').checked;
+            const showYear = document.getElementById('showYear').checked;
+            const showRating = document.getElementById('showRating').checked;
+
+            grid.innerHTML = sampleMovies.map((movie, idx) => {
+                const certColor = movie.certification === 'G' ? '#4caf50' :
+                                 movie.certification === 'PG' ? '#2196f3' :
+                                 movie.certification === 'PG-13' ? '#ff9800' : '#f44336';
+
+                return `
+                <div class="movie-card">
+                    <div class="movie-poster-container">
+                        <img src="${movie.poster}" alt="${movie.title}" class="movie-poster">
+                        ${idx === 0 ? '<div class="copy-count-badge">2 copies</div>' : ''}
+                    </div>
+
+                    <div class="hover-overlay">
+                        <div class="hover-title">${movie.title}</div>
+                        <div class="hover-meta">
+                            ${showYear ? `<span>${movie.year}</span>` : ''}
+                            ${showCert ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                            ${showRating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                            ${showRuntime ? `<span>${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m</span>` : ''}
+                        </div>
+                        ${showGenres ? `<div class="genre-emojis">${movie.genres}</div>` : ''}
+                        ${showDirector ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
+                        <div class="hover-actions">
+                            <button class="hover-btn">👁️</button>
+                            <button class="hover-btn">📋</button>
+                        </div>
+                    </div>
+
+                    <div class="movie-info">
+                        <h3 class="movie-title">🎬 ${movie.title}</h3>
+                        <div class="movie-meta">
+                            ${showYear ? `<span>${movie.year}</span>` : ''}
+                            ${showCert ? `<span class="cert-badge" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                            ${showRating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                            ${showRuntime ? `<span>${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m</span>` : ''}
+                        </div>
+                        ${showDirector ? `<div class="movie-director">🎬 ${movie.director}</div>` : ''}
+                        ${showGenres ? `<div class="movie-genres">${movie.genres}</div>` : ''}
+                    </div>
+                    <div class="movie-actions">
+                        <button class="btn-icon">👁️</button>
+                        <button class="btn-icon">🗑️</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            applyStyles();
+        }
+
+        function applyStyles() {
+            const titleSize = document.getElementById('titleSize').value;
+            const metaSize = document.getElementById('metaSize').value;
+            const directorSize = document.getElementById('directorSize').value;
+            const genreSize = document.getElementById('genreSize').value;
+            const cardHeight = document.getElementById('cardHeight').value;
+            const posterWidth = document.getElementById('posterWidth').value;
+            const cardPadding = document.getElementById('cardPadding').value;
+            const metaGap = document.getElementById('metaGap').value;
+            const elementSpacing = document.getElementById('elementSpacing').value;
+
+            const style = document.createElement('style');
+            style.id = 'dynamic-styles';
+
+            // Remove old dynamic styles
+            const oldStyle = document.getElementById('dynamic-styles');
+            if (oldStyle) oldStyle.remove();
+
+            style.textContent = `
+                .movie-grid.list-view .movie-title {
+                    font-size: ${titleSize}rem !important;
+                }
+                .movie-meta {
+                    font-size: ${metaSize}rem !important;
+                    gap: ${metaGap}rem !important;
+                }
+                .movie-director {
+                    font-size: ${directorSize}rem !important;
+                    margin-top: ${elementSpacing}rem !important;
+                }
+                .movie-genres {
+                    font-size: ${genreSize}rem !important;
+                    margin-top: ${elementSpacing}rem !important;
+                }
+                .movie-grid.list-view .movie-card {
+                    min-height: ${cardHeight}px !important;
+                    max-height: ${cardHeight}px !important;
+                }
+                .movie-grid.list-view .movie-poster-container {
+                    width: ${posterWidth}px !important;
+                }
+                .movie-info {
+                    padding: ${cardPadding}rem !important;
+                }
+                .movie-actions {
+                    padding: ${cardPadding}rem !important;
+                }
+            `;
+
+            document.head.appendChild(style);
+        }
+
+        function saveStyles() {
+            const config = {
+                titleSize: document.getElementById('titleSize').value,
+                metaSize: document.getElementById('metaSize').value,
+                directorSize: document.getElementById('directorSize').value,
+                genreSize: document.getElementById('genreSize').value,
+                cardHeight: document.getElementById('cardHeight').value,
+                posterWidth: document.getElementById('posterWidth').value,
+                cardPadding: document.getElementById('cardPadding').value,
+                metaGap: document.getElementById('metaGap').value,
+                elementSpacing: document.getElementById('elementSpacing').value,
+                showDirector: document.getElementById('showDirector').checked,
+                showGenres: document.getElementById('showGenres').checked,
+                showRuntime: document.getElementById('showRuntime').checked,
+                showCertification: document.getElementById('showCertification').checked,
+                showYear: document.getElementById('showYear').checked,
+                showRating: document.getElementById('showRating').checked
+            };
+
+            localStorage.setItem('cineshelf_card_styles', JSON.stringify(config));
+
+            // Generate CSS for copying
+            const css = generateCSS(config);
+            console.log('Generated CSS:\n', css);
+
+            showToast('Styles saved! Check console for CSS to copy to styles.css');
+        }
+
+        function generateCSS(config) {
+            return `/* CineShelf Card Styles - Generated by Card Configurator */
+.movie-grid.list-view .movie-title {
+    font-size: ${config.titleSize}rem !important;
+}
+
+.movie-meta {
+    font-size: ${config.metaSize}rem !important;
+    gap: ${config.metaGap}rem !important;
+}
+
+.movie-director {
+    font-size: ${config.directorSize}rem !important;
+    margin-top: ${config.elementSpacing}rem !important;
+    ${!config.showDirector ? 'display: none !important;' : ''}
+}
+
+.movie-genres {
+    font-size: ${config.genreSize}rem !important;
+    margin-top: ${config.elementSpacing}rem !important;
+    ${!config.showGenres ? 'display: none !important;' : ''}
+}
+
+.movie-grid.list-view .movie-card {
+    min-height: ${config.cardHeight}px !important;
+    max-height: ${config.cardHeight}px !important;
+}
+
+.movie-grid.list-view .movie-poster-container {
+    width: ${config.posterWidth}px !important;
+}
+
+.movie-info {
+    padding: ${config.cardPadding}rem !important;
+}
+
+.movie-actions {
+    padding: ${config.cardPadding}rem !important;
+}`;
+        }
+
+        function loadSavedStyles() {
+            const saved = localStorage.getItem('cineshelf_card_styles');
+            if (!saved) return;
+
+            const config = JSON.parse(saved);
+
+            Object.keys(config).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = config[key];
+                    } else {
+                        element.value = config[key];
+                        const suffix = key.includes('Size') || key.includes('Gap') || key.includes('Spacing') || key.includes('Padding') ? 'rem' : 'px';
+                        const valueDisplay = document.getElementById(key + 'Value');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = config[key] + suffix;
+                        }
+                    }
+                }
+            });
+
+            renderCards();
+        }
+
+        function resetStyles() {
+            localStorage.removeItem('cineshelf_card_styles');
+            location.reload();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
