@@ -540,45 +540,39 @@ function renderCollection() {
         const displayTitle = movie.display_title || movie.title || 'Unknown';
         const safeTitle = displayTitle.replace(/"/g, '&quot;');
         const mediaIcon = movie.media_type === 'tv' ? '📺' : '🎬';
-        
+
         // Get genre emojis
         const genreEmojis = getGenreEmojis(movie.genre);
-        
+
         // Get cert color
         const certColor = movie.certification ? getCertColor(movie.certification) : '#666';
-        
+
         // Format runtime
         const runtimeFormatted = formatRuntime(movie.runtime);
-        
+
         return `
-        <div class="movie-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+        <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
             <div class="movie-poster-container">
                 <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                 ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
             </div>
-            
-            <!-- ✨ NETFLIX HOVER OVERLAY -->
-            <div class="hover-overlay">
-                <div class="hover-title">${safeTitle}</div>
-                <div class="hover-meta">
+            <div class="movie-info">
+                <h3 class="movie-title">${safeTitle}</h3>
+                <div class="movie-meta">
                     ${movie.year ? `<span>${movie.year}</span>` : ''}
-                    ${movie.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
+                    ${movie.certification ? `<span class="cert-badge" style="--cert-color: ${certColor};">${movie.certification}</span>` : ''}
                     ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
                     ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
                 </div>
-                ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
-                ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
-                <div class="hover-actions">
-                    <button class="hover-btn" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
-                    ${copyCount > 1 ? 
-                        `<button class="hover-btn" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
-                        `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
-                    }
-                </div>
+                ${movie.director ? `<div class="movie-director">🎬 ${movie.director}</div>` : ''}
+                ${genreEmojis ? `<div class="movie-genres">${genreEmojis}</div>` : ''}
             </div>
-            
-            <div class="movie-info">
-                <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+            <div class="movie-actions">
+                <button class="btn-icon" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="View Details">👁️</button>
+                ${copyCount > 1 ?
+                    `<button class="btn-icon" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage Copies">📋</button>` :
+                    `<button class="btn-icon" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
+                }
             </div>
         </div>
         `;
@@ -1670,7 +1664,36 @@ function getCertColor(cert) {
         settings.defaultView = viewType;
         saveSettings();
     }
-    
+
+    function setFamilyView(viewType) {
+        // Update buttons in Family Collection view switcher
+        const familyCollection = document.getElementById('familyCollection');
+        if (!familyCollection) return;
+
+        familyCollection.querySelectorAll('.view-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.view === viewType) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Update family collection grid
+        const familyGrid = document.getElementById('familyCollectionGrid');
+        if (!familyGrid) return;
+
+        // Remove all view classes
+        familyGrid.classList.remove('grid-view', 'compact-view', 'list-view');
+
+        // Add the selected view class
+        if (viewType === 'list') {
+            familyGrid.classList.add('list-view');
+        } else if (viewType === 'compact') {
+            familyGrid.classList.add('compact-view');
+        } else {
+            familyGrid.classList.add('grid-view');
+        }
+    }
+
         function updateBadges() {
     const collectionCount = collection.length;
     const wishlistCount = wishlist.length;
@@ -4062,6 +4085,7 @@ return {
     init,
     switchTab,
     setView,
+    setFamilyView,
     searchMovies,
     selectMovie,
     addToCollection,

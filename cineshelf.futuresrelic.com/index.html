@@ -223,7 +223,9 @@
             <div class="section-header">
                 <h2 id="wishlistHeader">Your Wishlist</h2>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn-ghost" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
+                    <button class="btn btn-secondary" onclick="App.openPresetLists()" title="Browse curated movie lists">
+                        📚 Browse Lists
+                    </button>
                     <div class="view-switcher">
                         <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
                         <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
@@ -271,13 +273,18 @@
         <div id="familyCollection" class="groups-subtab">
             <div class="section-header">
                 <h2>Family Collection</h2>
-                <div class="view-controls">
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                     <select id="familyGroupSelect" onchange="App.loadFamilyCollection(this.value)">
                         <option value="">Select a group...</option>
                     </select>
                     <select id="familyMemberFilter" onchange="App.filterFamilyByMember(this.value)" style="display:none;">
                         <option value="all">All Members</option>
                     </select>
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="grid" onclick="App.setFamilyView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-view="compact" onclick="App.setFamilyView('compact')" title="Compact Grid">⊡</button>
+                        <button class="view-btn" data-view="list" onclick="App.setFamilyView('list')" title="List View">☰</button>
+                    </div>
                 </div>
             </div>
             <div id="familyCollectionGrid" class="movie-grid grid-view"></div>
