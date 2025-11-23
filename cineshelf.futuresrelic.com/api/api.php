@@ -2612,8 +2612,8 @@ case 'resolve_movie':
             break;
 
         case 'save_icon':
-            // Save app icons (favicon or PWA icons)
-            // Supports saving favicon.png and PWA icons (192x192, 512x512)
+            // Save app icons to ROOT directory
+            // App uses: /app-icon.png (512x512), /app-icon-192.png, /favicon.ico
 
             $type = $input['type'] ?? '';
 
@@ -2631,12 +2631,15 @@ case 'resolve_movie':
                     jsonResponse(false, null, 'Invalid image data');
                 }
 
-                // Save to root directory as favicon.png
-                $faviconPath = __DIR__ . '/../favicon.png';
-                $result = file_put_contents($faviconPath, $imageData);
+                // Save to root directory as BOTH favicon.png and favicon.ico
+                $faviconPngPath = __DIR__ . '/../favicon.png';
+                $faviconIcoPath = __DIR__ . '/../favicon.ico';
 
-                if ($result === false) {
-                    jsonResponse(false, null, 'Failed to write favicon file');
+                $resultPng = file_put_contents($faviconPngPath, $imageData);
+                $resultIco = file_put_contents($faviconIcoPath, $imageData);
+
+                if ($resultPng === false || $resultIco === false) {
+                    jsonResponse(false, null, 'Failed to write favicon files');
                 }
 
                 jsonResponse(true, ['message' => 'Favicon saved successfully']);
@@ -2647,12 +2650,6 @@ case 'resolve_movie':
 
                 if (empty($data192) || empty($data512)) {
                     jsonResponse(false, null, 'Both 192x192 and 512x512 icon data required');
-                }
-
-                // Ensure icons directory exists
-                $iconsDir = __DIR__ . '/../icons';
-                if (!is_dir($iconsDir)) {
-                    mkdir($iconsDir, 0755, true);
                 }
 
                 // Process 192x192 icon
@@ -2669,15 +2666,15 @@ case 'resolve_movie':
                     jsonResponse(false, null, 'Invalid 512x512 icon data');
                 }
 
-                // Save both icons
-                $icon192Path = $iconsDir . '/pwa-icon-192.png';
-                $icon512Path = $iconsDir . '/pwa-icon-512.png';
+                // Save both icons to ROOT directory (not /icons/)
+                $icon192Path = __DIR__ . '/../app-icon-192.png';
+                $icon512Path = __DIR__ . '/../app-icon.png';
 
                 $result192 = file_put_contents($icon192Path, $imageData192);
                 $result512 = file_put_contents($icon512Path, $imageData512);
 
                 if ($result192 === false || $result512 === false) {
-                    jsonResponse(false, null, 'Failed to write icon files');
+                    jsonResponse(false, null, 'Failed to write app icon files');
                 }
 
                 jsonResponse(true, ['message' => 'App icons saved successfully']);
