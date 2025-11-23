@@ -1,0 +1,22 @@
+# Secrets and API keys (never commit these!)
+cineshelf.futuresrelic.com/config/secrets.php
+
+# Environment files
+.env
+.env.local
+
+# Database files (optional - uncomment if you don't want to track the database)
+# cineshelf.futuresrelic.com/data/*.sqlite
+
+# Error logs
+cineshelf.futuresrelic.com/data/php-errors.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

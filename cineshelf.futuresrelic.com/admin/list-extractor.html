@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- VERSION: 2025-01-22-CHECKPOINTS -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Movie List Extractor - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .info-box {
+            background: #e0e7ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            color: #1e1b4b;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 0.8;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            margin-top: 0.5rem;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .article-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .article-item {
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .article-item:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+
+        .article-item.selected {
+            border-color: #667eea;
+            background: #eff6ff;
+        }
+
+        .article-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .article-source {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .article-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.85rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-small.btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-small.btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-small.btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-small.btn-success:hover {
+            background: #059669;
+        }
+
+        .extracted-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .movie-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            background: #f9fafb;
+        }
+
+        .movie-poster {
+            width: 50px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #e5e7eb;
+        }
+
+        .movie-info {
+            flex: 1;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
+        .movie-year {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .movie-remove {
+            padding: 0.25rem 0.75rem;
+            background: #fee2e2;
+            color: #991b1b;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .movie-remove:hover {
+            background: #fecaca;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+            display: block;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+            display: block;
+        }
+
+        .status.info {
+            background: #e0e7ff;
+            color: #1e3a8a;
+            border: 1px solid #667eea;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .export-preview {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .export-preview pre {
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Movie List Extractor</h1>
+            <p class="subtitle">Discover and extract movie lists from articles to add to preset lists</p>
+
+            <div class="info-box">
+                <strong>📝 How to use:</strong>
+                <ol style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                    <li>Select a curated article or paste your own URL</li>
+                    <li><strong>Auto-Extract:</strong> Click "🤖 Auto Extract" to automatically scan and extract movies</li>
+                    <li><strong>Manual:</strong> Click "Open" to read the article and manually paste movie titles</li>
+                    <li>Format: Each movie should be "Movie Title (Year)" on its own line</li>
+                    <li>Review and edit the extracted list as needed</li>
+                    <li>Export to JSON format to add to preset lists</li>
+                </ol>
+            </div>
+
+            <a href="/admin/" class="back-link">← Back to Admin Panel</a>
+        </div>
+
+        <div class="content">
+            <!-- Article Discovery -->
+            <div class="card">
+                <h2 class="card-title">📰 Discover Movie Lists</h2>
+
+                <div class="input-group">
+                    <label>Custom Article URL</label>
+                    <input type="url" id="customUrl" placeholder="https://example.com/top-10-sci-fi-movies">
+                    <p class="help-text">Paste a URL to any article with a movie list</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="openCustomUrl()">🌐 Open Article</button>
+                    <button class="btn btn-success" onclick="autoExtractCustomUrl()" style="margin-top: 0;">🤖 Auto Extract</button>
+                </div>
+
+                <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="useAI" style="width: auto;" checked>
+                        <span>🤖 AI Extraction (works with all sites, bypasses blocks)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="debugMode" style="width: auto;">
+                        <span>🔧 Debug Mode (show connection details)</span>
+                    </label>
+                    <button class="btn" onclick="testFormPopulation()" style="margin-top: 0.5rem; background: #f59e0b; color: white;">
+                        🧪 Test Form Population
+                    </button>
+                </div>
+
+                <div style="margin: 1.5rem 0; text-align: center; color: #9ca3af;">
+                    <strong>— OR —</strong>
+                </div>
+
+                <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">Curated Articles</h3>
+                <div class="article-list" id="articleList">
+                    <!-- Populated with curated articles -->
+                </div>
+            </div>
+
+            <!-- Extractor Tool -->
+            <div class="card">
+                <h2 class="card-title">✂️ Extract & Build List</h2>
+
+                <div class="input-group">
+                    <label>List Name</label>
+                    <input type="text" id="listName" placeholder="e.g., Best Skydiving Films">
+                    <p class="help-text">Give this list a descriptive name</p>
+                </div>
+
+                <div class="input-group">
+                    <label>List Description</label>
+                    <input type="text" id="listDescription" placeholder="e.g., The best films featuring skydiving">
+                </div>
+
+                <div class="input-group">
+                    <label>Icon (emoji)</label>
+                    <input type="text" id="listIcon" placeholder="🪂" maxlength="2">
+                </div>
+
+                <div class="input-group">
+                    <label>Paste Movies (one per line: "Title (Year)")</label>
+                    <textarea id="movieInput" placeholder="The Shawshank Redemption (1994)
+The Godfather (1972)
+The Dark Knight (2008)"></textarea>
+                    <p class="help-text">Format: Movie Title (Year) - one per line</p>
+                </div>
+
+                <button class="btn btn-primary" onclick="parseMovies()">🔍 Parse & Verify Movies</button>
+
+                <div id="status" class="status"></div>
+
+                <div id="extractedList" style="display: none; margin-top: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">
+                        Extracted Movies (<span id="movieCount">0</span>)
+                    </h3>
+                    <div id="movieList" class="extracted-list"></div>
+
+                    <button class="btn btn-success" onclick="exportToPreset()">💾 Save to Presets.json</button>
+                    <button class="btn btn-danger" onclick="clearList()">🗑️ Clear List</button>
+                </div>
+
+                <div id="exportPreview" class="export-preview" style="display: none;">
+                    <h3 style="font-size: 1rem; color: #374151; margin-bottom: 0.75rem;">Export Preview</h3>
+                    <p class="help-text">Copy this JSON and add it to your presets.json file:</p>
+                    <pre id="exportJson"></pre>
+                    <button class="btn btn-primary" onclick="copyToClipboard()" style="margin-top: 1rem;">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AUTOMATIC SERVICE WORKER CLEANUP - Runs FIRST to clear cache
+        (async function() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        const unregistered = await registration.unregister();
+                        if (unregistered) {
+                            console.log('%c🧹 Service Worker Unregistered!', 'background: #f59e0b; color: white; padding: 6px; font-weight: bold;');
+                            console.log('Page will reload in 2 seconds to load fresh code...');
+                            // Reload after a short delay
+                            setTimeout(() => window.location.reload(true), 2000);
+                            return; // Stop here, reload will happen
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Could not unregister service worker:', error);
+                }
+            }
+        })();
+
+        // VERSION CHECK - This should appear FIRST in console
+        console.log('%c🔥 LIST EXTRACTOR VERSION: 2025-01-22-PRESET-SAVE', 'background: #10b981; color: white; padding: 8px; font-size: 14px; font-weight: bold;');
+        console.log('✅ If you see this message, the latest code is loaded!');
+        console.log('📋 Checkpoints will appear after extraction completes.');
+        console.log('💾 Save presets directly (use Preset Manager for TMDB verification)');
+
+        let extractedMovies = [];
+
+        // Curated article sources - AI extraction recommended
+        const curatedArticles = [
+            {
+                title: "Best Sci-Fi Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-sci-fi-movies-of-all-time/"
+            },
+            {
+                title: "Best Action Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-action-movies-of-all-time/"
+            },
+            {
+                title: "Best Horror Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-horror-movies-of-all-time/"
+            },
+            {
+                title: "Best Comedy Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-comedies-of-all-time/"
+            },
+            {
+                title: "Best Thriller Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-thriller-movies-of-all-time/"
+            },
+            {
+                title: "Best Romance Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-romance-movies-of-all-time/"
+            },
+            {
+                title: "Best War Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-war-movies-of-all-time/"
+            },
+            {
+                title: "Best Drama Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-drama-movies-of-all-time/"
+            },
+            {
+                title: "Best Animated Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-animated-movies-of-all-time/"
+            },
+            {
+                title: "Best Fantasy Movies of All Time",
+                source: "Rotten Tomatoes",
+                url: "https://editorial.rottentomatoes.com/guide/best-fantasy-movies-of-all-time/"
+            },
+            {
+                title: "Best Crime Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-crime-movies-ever-made/"
+            },
+            {
+                title: "Best Western Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-western-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Heist Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-heist-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Mystery Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-mystery-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Superhero Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-superhero-movies-ever/"
+            },
+            {
+                title: "Best Sports Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-sports-movies-of-all-time/"
+            },
+            {
+                title: "Best Disaster Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-disaster-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Christmas Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-christmas-movies-ranked/"
+            },
+            {
+                title: "Best Monster Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-monster-movies-of-all-time-ranked/"
+            },
+            {
+                title: "Best Zombie Movies of All Time",
+                source: "Collider",
+                url: "https://collider.com/best-zombie-movies-ranked/"
+            }
+        ];
+
+        function renderArticles() {
+            const container = document.getElementById('articleList');
+            container.innerHTML = curatedArticles.map((article, index) => `
+                <div class="article-item">
+                    <div class="article-title">${article.title}</div>
+                    <div class="article-source">${article.source}</div>
+                    <div class="article-actions">
+                        <button class="btn-small btn-primary" onclick="selectArticle(${index})">🌐 Open</button>
+                        <button class="btn-small btn-success" onclick="autoExtractArticle(${index})">🤖 Auto Extract</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectArticle(index) {
+            const article = curatedArticles[index];
+            window.open(article.url, '_blank');
+            showStatus(`Opened: ${article.title}. Copy the movie list from the article and paste it into the extractor.`, 'info');
+        }
+
+        async function autoExtractArticle(index) {
+            const article = curatedArticles[index];
+            await performAutoExtraction(article.url, article.title);
+        }
+
+        async function autoExtractCustomUrl() {
+            const url = document.getElementById('customUrl').value.trim();
+            if (!url) {
+                showStatus('Please enter a URL', 'error');
+                return;
+            }
+            await performAutoExtraction(url, null);
+        }
+
+        function testFormPopulation() {
+            console.group('🧪 TEST: Form Population');
+            console.log('Populating form fields with test data...');
+
+            // Test data
+            const testMovies = [
+                {title: "The Shawshank Redemption", year: 1994},
+                {title: "The Godfather", year: 1972},
+                {title: "The Dark Knight", year: 2008},
+                {title: "Pulp Fiction", year: 1994},
+                {title: "Forrest Gump", year: 1994}
+            ];
+
+            // Populate List Name
+            const listNameField = document.getElementById('listName');
+            if (listNameField) {
+                listNameField.value = "Test Movie List";
+                console.log('✅ List Name populated:', listNameField.value);
+            } else {
+                console.error('❌ listName field not found!');
+            }
+
+            // Populate List Description
+            const descriptionField = document.getElementById('listDescription');
+            if (descriptionField) {
+                descriptionField.value = "This is a test list to verify form population works";
+                console.log('✅ Description populated:', descriptionField.value);
+            } else {
+                console.error('❌ listDescription field not found!');
+            }
+
+            // Populate textarea with movies
+            const movieInput = document.getElementById('movieInput');
+            if (movieInput) {
+                const movieLines = testMovies.map(m => `${m.title} (${m.year})`);
+                const movieText = movieLines.join('\n');
+                movieInput.value = movieText;
+                console.log('✅ Movie textarea populated with', testMovies.length, 'movies');
+                console.log('Textarea value:', movieInput.value);
+            } else {
+                console.error('❌ movieInput textarea not found!');
+            }
+
+            // Store in extractedMovies for rendering
+            extractedMovies = testMovies;
+            renderExtractedMovies();
+
+            const extractedListDiv = document.getElementById('extractedList');
+            if (extractedListDiv) {
+                extractedListDiv.style.display = 'block';
+                console.log('✅ Extracted list displayed');
+            }
+
+            console.log('═══════════════════════════════════════');
+            console.log('✅ Test complete! Check form fields above.');
+            console.groupEnd();
+
+            showStatus('✅ Test data populated! Check the form fields.', 'success');
+        }
+
+        async function performAutoExtraction(url, articleTitle) {
+            const debugMode = document.getElementById('debugMode').checked;
+            const useAI = document.getElementById('useAI').checked;
+
+            const statusMsg = useAI ? '🤖 Using AI to fetch and extract article...' : '🔄 Fetching article content...';
+            showStatus(statusMsg, 'info');
+
+            try {
+                // Call the API to fetch article content
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include', // Include auth cookie
+                    body: JSON.stringify({
+                        action: 'fetch_article',
+                        url: url,
+                        debug: debugMode,
+                        use_ai: useAI
+                    })
+                });
+
+                const result = await response.json();
+
+                // DETAILED RESPONSE DEBUGGING
+                console.group('🔍 RAW API RESPONSE');
+                console.log('Full response object:', result);
+                console.log('result.ok:', result.ok);
+                console.log('result.error:', result.error);
+                console.log('result.data:', result.data);
+                if (result.data) {
+                    console.log('result.data.ai_extracted:', result.data.ai_extracted);
+                    console.log('result.data.movies:', result.data.movies);
+                    console.log('result.data.movie_count:', result.data.movie_count);
+                }
+                console.groupEnd();
+
+                // Debug mode - show detailed connection info
+                if (result.ok && result.data && result.data.debug) {
+                    const debugInfo = result.data;
+                    const debugMsg = `
+🔍 DEBUG INFO:
+━━━━━━━━━━━━━━━━━━━━━━━━
+URL: ${debugInfo.url}
+Effective URL: ${debugInfo.effective_url}
+HTTP Code: ${debugInfo.http_code}
+Content Type: ${debugInfo.content_type || 'N/A'}
+Content Length: ${debugInfo.content_length} bytes
+Error: ${debugInfo.error || 'None'}
+
+CONTENT PREVIEW:
+${debugInfo.content_preview}
+                    `.trim();
+
+                    alert(debugMsg);
+                    console.log('Full debug info:', debugInfo);
+                    return;
+                }
+
+                if (!result.ok) {
+                    const errorMsg = result.error || 'Unknown error';
+                    showStatus(`⚠️ ${errorMsg}`, 'error');
+
+                    // Display detailed debug information if available
+                    if (result.data && result.data.debug_steps) {
+                        console.group('🔍 AI Extraction Debug Information');
+                        console.log('Error:', result.data.error_message);
+                        console.log('Debug Steps:');
+                        result.data.debug_steps.forEach(step => console.log('  ' + step));
+
+                        if (result.data.http_code) {
+                            console.log('HTTP Code:', result.data.http_code);
+                        }
+                        if (result.data.raw_response) {
+                            console.log('Raw Response:', result.data.raw_response);
+                        }
+                        if (result.data.help) {
+                            console.log('Help:', result.data.help);
+                        }
+                        console.groupEnd();
+
+                        // Show detailed error in alert
+                        const debugInfo = result.data.debug_steps.join('\n');
+                        alert(`🔍 DEBUGGING INFORMATION:\n\n${errorMsg}\n\n${debugInfo}\n\nCheck browser console for more details.`);
+                    }
+
+                    // Suggest manual extraction or AI mode
+                    setTimeout(() => {
+                        if (useAI) {
+                            showStatus('💡 Tip: Click "Open" button to manually copy the list from the article.', 'info');
+                        } else {
+                            showStatus('💡 Tip: Try enabling AI Extraction or use the "Open" button for manual extraction.', 'info');
+                        }
+                    }, 3000);
+                    return;
+                }
+
+                let movies = [];
+                const title = result.data.title || articleTitle;
+
+                // Log debug steps on success too
+                if (result.data.debug_steps) {
+                    console.group('🔍 AI Extraction Debug Information (Success)');
+                    result.data.debug_steps.forEach(step => console.log('  ' + step));
+                    console.groupEnd();
+                }
+
+                // AI Extraction - movies already extracted
+                if (result.data.ai_extracted) {
+                    showStatus(`🤖 AI extracted ${result.data.movie_count} movies! Processing...`, 'info');
+
+                    // Keep original movie objects for the extracted list
+                    movies = result.data.movies;
+
+                    console.group('✅ CHECKPOINT 1: Data Extracted from AI');
+                    console.log('Movies array:', movies);
+                    console.log('Movies count:', movies.length);
+                    console.log('First movie:', movies[0]);
+                    console.groupEnd();
+
+                } else {
+                    // Standard extraction
+                    const content = result.data.content;
+                    showStatus('🔍 Analyzing content and extracting movies...', 'info');
+                    movies = extractMoviesFromContent(content);
+
+                    console.group('✅ CHECKPOINT 1: Data Extracted (Standard)');
+                    console.log('Movies array:', movies);
+                    console.log('Movies count:', movies.length);
+                    console.groupEnd();
+                }
+
+                if (movies.length === 0) {
+                    console.error('❌ CHECKPOINT 1 FAILED: No movies found');
+                    showStatus('❌ No movies found in article. Click "Open" to manually extract the list.', 'error');
+                    return;
+                }
+
+                // Auto-populate the list name from article title
+                let listName = '';
+                if (title) {
+                    listName = extractListNameFromTitle(title);
+                    if (listName) {
+                        const listNameField = document.getElementById('listName');
+                        listNameField.value = listName;
+
+                        console.group('✅ CHECKPOINT 2: List Name Populated');
+                        console.log('List Name:', listName);
+                        console.log('Field value:', listNameField.value);
+                        console.groupEnd();
+                    }
+
+                    // Auto-generate a description based on the extraction
+                    const descriptionField = document.getElementById('listDescription');
+                    if (!descriptionField.value.trim()) { // Only if description is empty
+                        let description = `Curated list`;
+                        if (listName) {
+                            description = `${listName}`;
+                        }
+                        if (url) {
+                            description += ` - Source: ${url}`;
+                        }
+                        descriptionField.value = description;
+
+                        console.group('✅ CHECKPOINT 3: Description Populated');
+                        console.log('Description:', description);
+                        console.log('Field value:', descriptionField.value);
+                        console.groupEnd();
+                    }
+                }
+
+                // Populate the main textarea with extracted movies (convert to strings)
+                const movieInput = document.getElementById('movieInput');
+
+                if (!movieInput) {
+                    console.error('❌ CRITICAL ERROR: movieInput textarea not found!');
+                    alert('ERROR: Could not find movie input textarea. Please refresh the page.');
+                    return;
+                }
+
+                console.group('🔄 CHECKPOINT 4: Converting Movies to Strings');
+                console.log('Movies before conversion:', movies);
+
+                const movieLines = movies.map((movie, index) => {
+                    let formatted = '';
+                    if (typeof movie === 'string') {
+                        formatted = movie;
+                        console.log(`  [${index}] String: "${formatted}"`);
+                    } else if (movie.title && movie.year) {
+                        formatted = `${movie.title} (${movie.year})`;
+                        console.log(`  [${index}] Object: {title: "${movie.title}", year: ${movie.year}} → "${formatted}"`);
+                    } else if (movie.title) {
+                        formatted = movie.title;
+                        console.log(`  [${index}] Object (no year): {title: "${movie.title}"} → "${formatted}"`);
+                    } else {
+                        console.warn(`  [${index}] Invalid movie:`, movie);
+                    }
+                    return formatted;
+                }).filter(line => line.trim() !== '');
+
+                console.log('Movie lines after conversion:', movieLines);
+                console.groupEnd();
+
+                const movieText = movieLines.join('\n');
+
+                console.group('✅ CHECKPOINT 5: Populating Textarea');
+                console.log('Text to populate (length):', movieText.length);
+                console.log('Text preview:', movieText.substring(0, 200));
+
+                movieInput.value = movieText;
+
+                console.log('Textarea value after setting:', movieInput.value.substring(0, 200));
+                console.log('Textarea has content:', movieInput.value.length > 0 ? 'YES ✅' : 'NO ❌');
+                console.groupEnd();
+
+                // Store movie objects (not strings) for the extracted movies list
+                extractedMovies = movies;
+
+                console.group('✅ CHECKPOINT 6: Rendering Extracted Movies List');
+                console.log('extractedMovies array:', extractedMovies);
+
+                renderExtractedMovies();
+
+                const extractedListDiv = document.getElementById('extractedList');
+                extractedListDiv.style.display = 'block';
+
+                console.log('Extracted list visible:', extractedListDiv.style.display === 'block' ? 'YES ✅' : 'NO ❌');
+                console.groupEnd();
+
+                const aiLabel = useAI ? ' (AI-powered)' : '';
+                showStatus(`✅ Successfully extracted ${movies.length} movies${aiLabel}! Click "Parse & Verify Movies" to continue.`, 'success');
+
+                console.log('═══════════════════════════════════════');
+                console.log('✅ ALL CHECKPOINTS PASSED!');
+                console.log('Form should now be populated. Check above for any ❌');
+                console.log('═══════════════════════════════════════');
+
+                // Scroll to the form textarea so user can see the populated data
+                movieInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+
+            } catch (error) {
+                console.error('Auto-extraction error:', error);
+                showStatus(`Error: ${error.message}. Try manual extraction instead.`, 'error');
+            }
+        }
+
+        function extractMoviesFromContent(content) {
+            const movies = [];
+            const seen = new Set();
+
+            // Pattern 1: Look for "Movie Title (Year)" format
+            const pattern1 = /(?:^|\n|<[^>]*>|\d+\.\s*)([A-Z][^(\n<]{2,80}?)\s*\((\d{4})\)/gm;
+            let match;
+
+            while ((match = pattern1.exec(content)) !== null) {
+                const title = match[1].trim()
+                    .replace(/^[\d\.\)\-\s]+/, '') // Remove leading numbers/bullets
+                    .replace(/[*_]/g, '') // Remove markdown
+                    .replace(/\s{2,}/g, ' '); // Normalize spaces
+
+                const year = parseInt(match[2]);
+
+                // Validate it looks like a movie title
+                if (title.length > 2 &&
+                    title.length < 80 &&
+                    year >= 1900 &&
+                    year <= 2030 &&
+                    !seen.has(title.toLowerCase())) {
+
+                    movies.push({ title, year });
+                    seen.add(title.toLowerCase());
+                }
+            }
+
+            // Pattern 2: Look for years followed by movie titles
+            const pattern2 = /(\d{4})[:\-\s]+([A-Z][^\n<]{2,80}?)(?=\n|<|$)/gm;
+
+            while ((match = pattern2.exec(content)) !== null) {
+                const year = parseInt(match[1]);
+                const title = match[2].trim()
+                    .replace(/[*_]/g, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .replace(/\s*\(.*?\)\s*$/, ''); // Remove trailing parentheses
+
+                if (title.length > 2 &&
+                    title.length < 80 &&
+                    year >= 1900 &&
+                    year <= 2030 &&
+                    !seen.has(title.toLowerCase())) {
+
+                    movies.push({ title, year });
+                    seen.add(title.toLowerCase());
+                }
+            }
+
+            return movies;
+        }
+
+        function extractListNameFromTitle(title) {
+            // Try to extract a clean list name from the article title
+            let name = title;
+
+            // Remove common prefixes
+            name = name.replace(/^(The|Best|Top|Greatest)\s+/i, '');
+
+            // Remove numbers and "of all time"
+            name = name.replace(/\d+\s+/g, '');
+            name = name.replace(/\s+(of all time|ever made|ranked)/gi, '');
+
+            // Capitalize properly
+            name = name.split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+
+            return name.trim();
+        }
+
+        function openCustomUrl() {
+            const url = document.getElementById('customUrl').value.trim();
+            if (!url) {
+                showStatus('Please enter a URL', 'error');
+                return;
+            }
+            window.open(url, '_blank');
+            showStatus('Article opened in new tab. Copy the movie list and paste it into the extractor.', 'info');
+        }
+
+        function parseMovies() {
+            const input = document.getElementById('movieInput').value.trim();
+            if (!input) {
+                showStatus('Please paste some movies to parse', 'error');
+                return;
+            }
+
+            const lines = input.split('\n').map(line => line.trim()).filter(line => line);
+            extractedMovies = [];
+
+            for (const line of lines) {
+                // Try to parse "Title (Year)" format
+                const match = line.match(/^(.+?)\s*\((\d{4})\)\s*$/);
+                if (match) {
+                    extractedMovies.push({
+                        title: match[1].trim(),
+                        year: parseInt(match[2])
+                    });
+                } else {
+                    // Try to extract year from anywhere in the line
+                    const yearMatch = line.match(/\b(\d{4})\b/);
+                    if (yearMatch) {
+                        const title = line.replace(/\b\d{4}\b/, '').replace(/[()]/g, '').trim();
+                        extractedMovies.push({
+                            title: title,
+                            year: parseInt(yearMatch[1])
+                        });
+                    } else {
+                        // No year found, add without year
+                        extractedMovies.push({
+                            title: line,
+                            year: null
+                        });
+                    }
+                }
+            }
+
+            if (extractedMovies.length === 0) {
+                showStatus('No movies could be parsed. Please check the format.', 'error');
+                return;
+            }
+
+            renderExtractedMovies();
+            document.getElementById('extractedList').style.display = 'block';
+            showStatus(`Successfully parsed ${extractedMovies.length} movies!`, 'success');
+        }
+
+        function renderExtractedMovies() {
+            const container = document.getElementById('movieList');
+            document.getElementById('movieCount').textContent = extractedMovies.length;
+
+            container.innerHTML = extractedMovies.map((movie, index) => `
+                <div class="movie-item">
+                    <div class="movie-info">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="movie-year">${movie.year || 'Year unknown'}</div>
+                    </div>
+                    <button class="movie-remove" onclick="removeMovie(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeMovie(index) {
+            extractedMovies.splice(index, 1);
+            renderExtractedMovies();
+            if (extractedMovies.length === 0) {
+                document.getElementById('extractedList').style.display = 'none';
+                showStatus('All movies removed', 'info');
+            }
+        }
+
+        function clearList() {
+            if (confirm('Are you sure you want to clear the entire list?')) {
+                extractedMovies = [];
+                document.getElementById('extractedList').style.display = 'none';
+                document.getElementById('movieInput').value = '';
+                document.getElementById('exportPreview').style.display = 'none';
+                showStatus('List cleared', 'info');
+            }
+        }
+
+        async function exportToPreset() {
+            const name = document.getElementById('listName').value.trim();
+            const description = document.getElementById('listDescription').value.trim();
+            const icon = document.getElementById('listIcon').value.trim();
+
+            if (!name) {
+                showStatus('Please enter a list name', 'error');
+                return;
+            }
+
+            if (extractedMovies.length === 0) {
+                showStatus('No movies to export', 'error');
+                return;
+            }
+
+            showStatus('💾 Saving to presets.json...', 'info');
+
+            try {
+                // Step 1: Load existing presets
+                const getPresetsResponse = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_presets' })
+                });
+
+                const getPresetsResult = await getPresetsResponse.json();
+                const existingPresets = getPresetsResult.ok ? getPresetsResult.data : {};
+
+                // Step 2: Generate key and add new preset
+                const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+                // Filter out movies without years (optional, but recommended for TMDB matching)
+                const moviesWithYears = extractedMovies.filter(m => m.year !== null);
+
+                existingPresets[key] = {
+                    name: name,
+                    description: description || `Curated list: ${name}`,
+                    icon: icon || '🎬',
+                    movies: moviesWithYears
+                };
+
+                // Step 3: Save back to presets.json
+                const saveResponse = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'save_presets',
+                        presets: existingPresets
+                    })
+                });
+
+                const saveResult = await saveResponse.json();
+
+                if (!saveResult.ok) {
+                    throw new Error(saveResult.error || 'Failed to save presets');
+                }
+
+                // Step 4: Show success and preview
+                const json = JSON.stringify({ [key]: existingPresets[key] }, null, 2);
+                document.getElementById('exportJson').textContent = json;
+                document.getElementById('exportPreview').style.display = 'block';
+
+                const skipped = extractedMovies.length - moviesWithYears.length;
+                const summary = `✅ Successfully saved "${name}" to presets.json!\n\n` +
+                    `📊 Saved: ${moviesWithYears.length} movies\n` +
+                    (skipped > 0 ? `⚠️ Skipped (no year): ${skipped} movies\n` : '') +
+                    `🔑 Key: ${key}\n\n` +
+                    `Next step: Use Preset Manager to verify TMDB matches!`;
+
+                showStatus(summary, 'success');
+                alert(summary);
+
+                // Scroll to preview
+                document.getElementById('exportPreview').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Export to preset error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                alert(`Failed to save preset: ${error.message}`);
+            }
+        }
+
+        function copyToClipboard() {
+            const json = document.getElementById('exportJson').textContent;
+            navigator.clipboard.writeText(json).then(() => {
+                showStatus('✅ Copied to clipboard! You can now paste this into presets.json', 'success');
+            }).catch(() => {
+                showStatus('Failed to copy. Please select and copy manually.', 'error');
+            });
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialize
+        renderArticles();
+    </script>
+</body>
+</html>

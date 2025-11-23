@@ -7,7 +7,7 @@
  * - Minimal caching, only for offline support
  */
 
-const CACHE_NAME = 'cineshelf-offline-v1';
+const CACHE_NAME = 'cineshelf-offline-v2';
 const OFFLINE_ASSETS = [
     '/',
     '/index.html',
@@ -72,6 +72,7 @@ self.addEventListener('fetch', event => {
     const neverCache = [
         '/api/',
         '/data/',
+        '/admin/',  // Never cache admin pages (they change frequently)
         'get-version.php',
         'bump-version.php',
         '/manifest.php',

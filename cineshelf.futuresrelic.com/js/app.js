@@ -1,5 +1,6 @@
-// CineShelf v2.0 - Frontend Application
+// CineShelf - Frontend Application
 // Clean architecture inspired by ChoreQuest
+// Version: Managed by version-manager.html (see version.json)
 
 // Genre Emoji Mapping
 const GENRE_EMOJIS = {
@@ -791,137 +792,34 @@ function renderCollection() {
     // ========================================
     // PRESET WISHLIST COLLECTIONS
     // ========================================
+    // Loaded dynamically from /data/presets.json via API
+    // Managed through /admin/preset-manager.html
 
-    const PRESET_LISTS = {
-        imdb_top100: {
-            name: "IMDB Top 100",
-            description: "The highest rated movies on IMDB",
-            icon: "🏆",
-            movies: [
-                { title: "The Shawshank Redemption", year: 1994 },
-                { title: "The Godfather", year: 1972 },
-                { title: "The Dark Knight", year: 2008 },
-                { title: "The Godfather Part II", year: 1974 },
-                { title: "12 Angry Men", year: 1957 },
-                { title: "Schindler's List", year: 1993 },
-                { title: "The Lord of the Rings: The Return of the King", year: 2003 },
-                { title: "Pulp Fiction", year: 1994 },
-                { title: "The Lord of the Rings: The Fellowship of the Ring", year: 2001 },
-                { title: "The Good, the Bad and the Ugly", year: 1966 },
-                { title: "Forrest Gump", year: 1994 },
-                { title: "Fight Club", year: 1999 },
-                { title: "Inception", year: 2010 },
-                { title: "The Lord of the Rings: The Two Towers", year: 2002 },
-                { title: "Star Wars: Episode V - The Empire Strikes Back", year: 1980 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Goodfellas", year: 1990 },
-                { title: "One Flew Over the Cuckoo's Nest", year: 1975 },
-                { title: "Se7en", year: 1995 },
-                { title: "Seven Samurai", year: 1954 }
-            ]
-        },
-        best_picture: {
-            name: "Oscar Best Picture Winners",
-            description: "Academy Award winners for Best Picture (last 25 years)",
-            icon: "🎬",
-            movies: [
-                { title: "Oppenheimer", year: 2023 },
-                { title: "Everything Everywhere All at Once", year: 2022 },
-                { title: "CODA", year: 2021 },
-                { title: "Nomadland", year: 2020 },
-                { title: "Parasite", year: 2019 },
-                { title: "Green Book", year: 2018 },
-                { title: "The Shape of Water", year: 2017 },
-                { title: "Moonlight", year: 2016 },
-                { title: "Spotlight", year: 2015 },
-                { title: "Birdman", year: 2014 },
-                { title: "12 Years a Slave", year: 2013 },
-                { title: "Argo", year: 2012 },
-                { title: "The Artist", year: 2011 },
-                { title: "The King's Speech", year: 2010 },
-                { title: "The Hurt Locker", year: 2009 },
-                { title: "Slumdog Millionaire", year: 2008 },
-                { title: "No Country for Old Men", year: 2007 },
-                { title: "The Departed", year: 2006 },
-                { title: "Crash", year: 2005 },
-                { title: "Million Dollar Baby", year: 2004 },
-                { title: "The Lord of the Rings: The Return of the King", year: 2003 },
-                { title: "Chicago", year: 2002 },
-                { title: "A Beautiful Mind", year: 2001 },
-                { title: "Gladiator", year: 2000 }
-            ]
-        },
-        scifi_classics: {
-            name: "Sci-Fi Classics",
-            description: "Essential science fiction movies",
-            icon: "🚀",
-            movies: [
-                { title: "2001: A Space Odyssey", year: 1968 },
-                { title: "Blade Runner", year: 1982 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Star Wars", year: 1977 },
-                { title: "Alien", year: 1979 },
-                { title: "The Terminator", year: 1984 },
-                { title: "E.T. the Extra-Terrestrial", year: 1982 },
-                { title: "Back to the Future", year: 1985 },
-                { title: "Inception", year: 2010 },
-                { title: "Interstellar", year: 2014 },
-                { title: "The Fifth Element", year: 1997 },
-                { title: "Total Recall", year: 1990 },
-                { title: "Minority Report", year: 2002 },
-                { title: "District 9", year: 2009 },
-                { title: "Arrival", year: 2016 }
-            ]
-        },
-        horror_essentials: {
-            name: "Horror Essentials",
-            description: "Must-see horror films",
-            icon: "👻",
-            movies: [
-                { title: "The Exorcist", year: 1973 },
-                { title: "The Shining", year: 1980 },
-                { title: "Halloween", year: 1978 },
-                { title: "A Nightmare on Elm Street", year: 1984 },
-                { title: "The Texas Chain Saw Massacre", year: 1974 },
-                { title: "Psycho", year: 1960 },
-                { title: "Alien", year: 1979 },
-                { title: "Get Out", year: 2017 },
-                { title: "The Silence of the Lambs", year: 1991 },
-                { title: "Rosemary's Baby", year: 1968 },
-                { title: "The Thing", year: 1982 },
-                { title: "28 Days Later", year: 2002 },
-                { title: "Hereditary", year: 2018 },
-                { title: "The Conjuring", year: 2013 },
-                { title: "It Follows", year: 2014 }
-            ]
-        },
-        action_blockbusters: {
-            name: "Action Blockbusters",
-            description: "High-octane action movies",
-            icon: "💥",
-            movies: [
-                { title: "Die Hard", year: 1988 },
-                { title: "Mad Max: Fury Road", year: 2015 },
-                { title: "The Dark Knight", year: 2008 },
-                { title: "Terminator 2: Judgment Day", year: 1991 },
-                { title: "The Matrix", year: 1999 },
-                { title: "Raiders of the Lost Ark", year: 1981 },
-                { title: "John Wick", year: 2014 },
-                { title: "Heat", year: 1995 },
-                { title: "Mission: Impossible - Fallout", year: 2018 },
-                { title: "Casino Royale", year: 2006 },
-                { title: "Gladiator", year: 2000 },
-                { title: "The Bourne Identity", year: 2002 },
-                { title: "Top Gun: Maverick", year: 2022 },
-                { title: "Speed", year: 1994 },
-                { title: "Face/Off", year: 1997 }
-            ]
+    let PRESET_LISTS = {}; // Will be populated from API
+
+    // Load presets from API
+    async function loadPresets() {
+        try {
+            const result = await apiCall('get_presets');
+            PRESET_LISTS = result || {};
+        } catch (error) {
+            console.error('Failed to load presets:', error);
+            PRESET_LISTS = {}; // Fallback to empty if load fails
         }
-    };
+    }
 
-    function openPresetLists() {
+    // Load presets when app initializes
+    loadPresets();
+
+    async function openPresetLists() {
         const modal = document.getElementById('presetListsModal');
         const container = document.getElementById('presetListsContainer');
+
+        // Reload presets from server to get latest changes
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Loading presets...</div>';
+        modal.style.display = 'flex';
+
+        await loadPresets();
 
         // Build preset list cards
         container.innerHTML = Object.entries(PRESET_LISTS).map(([key, list]) => `
@@ -939,8 +837,6 @@ function renderCollection() {
                 </div>
             </div>
         `).join('');
-
-        modal.style.display = 'flex';
     }
 
     function closePresetLists() {
@@ -969,25 +865,48 @@ function renderCollection() {
 
         for (const movie of list.movies) {
             try {
-                // Search for the movie using TMDB
-                const results = await apiCall('search_movie', { query: movie.title });
+                let tmdbId = movie.tmdb_id; // Use stored TMDB ID if available
+                let movieData = null;
 
-                // Find best match by year
-                const match = results.find(r =>
-                    r.title.toLowerCase() === movie.title.toLowerCase() &&
-                    r.release_date && r.release_date.startsWith(movie.year.toString())
-                ) || results[0];
+                // If we have a stored TMDB ID, fetch movie data directly
+                if (tmdbId) {
+                    try {
+                        movieData = await apiCall('get_movie', {
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
+                        });
+                    } catch (error) {
+                        console.warn(`Stored TMDB ID ${tmdbId} failed, falling back to search`);
+                        tmdbId = null; // Fall back to search
+                    }
+                }
 
-                if (match) {
+                // If no stored ID or fetch failed, search for the movie
+                if (!tmdbId) {
+                    const results = await apiCall('search_movie', { query: movie.title });
+
+                    // Find best match by year
+                    const match = results.find(r =>
+                        r.title.toLowerCase() === movie.title.toLowerCase() &&
+                        r.release_date && r.release_date.startsWith(movie.year.toString())
+                    ) || results[0];
+
+                    if (match) {
+                        tmdbId = match.id;
+                        movieData = await apiCall('get_movie', {
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
+                        });
+                    }
+                }
+
+                if (movieData && tmdbId) {
                     // Check if already in wishlist
-                    const exists = wishlist.find(w => w.tmdb_id === match.id);
+                    const exists = wishlist.find(w => w.tmdb_id === tmdbId.toString());
                     if (!exists) {
                         await apiCall('add_wishlist', {
-                            tmdb_id: match.id,
-                            title: match.title,
-                            year: match.release_date ? new Date(match.release_date).getFullYear() : null,
-                            poster_url: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
-                            rating: match.vote_average
+                            tmdb_id: tmdbId,
+                            media_type: 'movie'
                         });
                         added++;
                     } else {
@@ -1886,24 +1805,73 @@ function getCertColor(cert) {
     }
     
     function exportData() {
-        const data = {
-            user: currentUser,
-            exported: new Date().toISOString(),
-            collection: collection,
-            wishlist: wishlist
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        // Build CSV header
+        const csvHeader = 'title,year,tmdb_id,status,format,edition,region,condition,notes,barcode\n';
+
+        // Build CSV rows from collection and wishlist
+        const csvRows = [];
+
+        // Export collection items
+        collection.forEach(group => {
+            group.copies.forEach(copy => {
+                const movie = group.movie;
+                const row = [
+                    escapeCsvValue(movie.title),
+                    movie.year || '',
+                    movie.tmdb_id || '',
+                    'collection',
+                    escapeCsvValue(copy.format || 'DVD'),
+                    escapeCsvValue(copy.edition || ''),
+                    escapeCsvValue(copy.region || ''),
+                    escapeCsvValue(copy.condition || 'Good'),
+                    escapeCsvValue(copy.notes || ''),
+                    escapeCsvValue(copy.barcode || '')
+                ];
+                csvRows.push(row.join(','));
+            });
+        });
+
+        // Export wishlist items
+        wishlist.forEach(movie => {
+            const row = [
+                escapeCsvValue(movie.title),
+                movie.year || '',
+                movie.tmdb_id || '',
+                'wishlist',
+                '', // no format for wishlist
+                '', // no edition
+                '', // no region
+                '', // no condition
+                '', // no notes
+                ''  // no barcode
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvContent = csvHeader + csvRows.join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cineshelf_${currentUser}_${Date.now()}.json`;
+        a.download = `cineshelf_${currentUser}_${Date.now()}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        showToast('Data exported!', 'success');
+
+        showToast(`Exported ${csvRows.length} items to CSV!`, 'success');
+    }
+
+    function escapeCsvValue(value) {
+        if (!value) return '';
+        // Convert to string and escape quotes
+        const stringValue = String(value);
+        // If value contains comma, quote, or newline, wrap in quotes and escape internal quotes
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
     }
 
     // Helper function to parse CSV line respecting quoted fields
@@ -2012,10 +1980,9 @@ function getCertColor(cert) {
 
                 // Confirm import
                 const confirmMsg = `Import ${movies.length} movies from CSV?\n\n` +
-                    `Movies with TMDB IDs will be added to Collection.\n` +
-                    `Movies without TMDB IDs will be searched and added to Collection if found.\n` +
-                    `Unmatched movies will be added to Resolve.\n\n` +
-                    `This may take a few minutes.`;
+                    `✅ Movies with TMDB IDs → Added directly to Collection/Wishlist\n` +
+                    `❓ Movies without TMDB IDs → Sent to Resolve for manual matching\n\n` +
+                    `This will be quick - no automatic searching!`;
 
                 if (!confirm(confirmMsg)) {
                     return;
@@ -2060,54 +2027,16 @@ function getCertColor(cert) {
                                 console.log(`Added "${movie.title}" with TMDB ID ${movie.tmdb_id}`);
                             }
                         } else {
-                            // No TMDB ID - search for it
-                            const query = movie.year ? `${movie.title} ${movie.year}` : movie.title;
-                            const response = await apiCall('search_movie', { query: query });
-
-                            if (response && response.length > 0) {
-                                // Try to find exact match
-                                let match = response.find(r =>
-                                    r.title.toLowerCase() === movie.title.toLowerCase() &&
-                                    (!movie.year || r.release_date?.startsWith(movie.year))
-                                );
-
-                                // Fall back to first result
-                                if (!match) match = response[0];
-
-                                // Check if already in collection
-                                const alreadyExists = collection.some(g => g.movie.tmdb_id === match.id);
-                                if (alreadyExists) {
-                                    console.log(`Skipped "${movie.title}" - already in collection`);
-                                    skipped++;
-                                } else {
-                                    // Add to collection (matched films land in collection)
-                                    await apiCall('add_copy', {
-                                        tmdb_id: match.id,
-                                        format: movie.format,
-                                        edition: movie.edition,
-                                        region: movie.region,
-                                        condition: movie.condition,
-                                        notes: movie.notes,
-                                        barcode: movie.barcode
-                                    });
-                                    addedToCollection++;
-                                    console.log(`Added "${movie.title}" as "${match.title}" to collection`);
-                                }
-                            } else {
-                                // No TMDB match - add to unresolved
-                                await apiCall('add_unresolved', { title: movie.title });
-                                addedToUnresolved++;
-                                console.log(`Added "${movie.title}" to unresolved - no TMDB match`);
-                            }
+                            // No TMDB ID - send directly to unresolved for manual matching
+                            await apiCall('add_unresolved', { title: movie.title });
+                            addedToUnresolved++;
+                            console.log(`Added "${movie.title}" to unresolved - no TMDB ID (manual matching required)`);
                         }
 
-                        // Show progress every 25 movies
-                        if ((i + 1) % 25 === 0 || i === movies.length - 1) {
+                        // Show progress every 50 movies
+                        if ((i + 1) % 50 === 0 || i === movies.length - 1) {
                             showToast(`Progress: ${i + 1}/${movies.length} movies processed...`, 'info');
                         }
-
-                        // Delay to avoid rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
                         console.error(`Failed to import "${movie.title}":`, error);
                         failed++;
@@ -2123,9 +2052,10 @@ function getCertColor(cert) {
                 const summary = `Import complete!\n\n` +
                     `✅ Added to Collection: ${addedToCollection}\n` +
                     `📝 Added to Wishlist: ${addedToWishlist}\n` +
-                    `❓ Added to Unresolved: ${addedToUnresolved}\n` +
+                    `❓ Sent to Resolve: ${addedToUnresolved}\n` +
                     `⏭️ Skipped (duplicates): ${skipped}\n` +
-                    `❌ Failed: ${failed}`;
+                    `❌ Failed: ${failed}` +
+                    (addedToUnresolved > 0 ? `\n\n💡 Tip: Go to Resolve tab to manually match ${addedToUnresolved} movies` : '');
 
                 showToast(summary, 'success');
 

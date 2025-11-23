@@ -1,12 +1,265 @@
 <?php
 /**
- * CineShelf v3.0 - Main API Endpoint
- * NEW: Groups/Family Collections & Borrowing System
+ * CineShelf - Main API Endpoint
+ * Features: Groups/Family Collections, Borrowing System, Trivia Game
  * OAuth-Enabled: Session-based authentication with legacy fallback
+ * Version: Managed by version-manager.html (see version.json)
  */
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/auth-middleware.php';
+
+/**
+ * Extract movie titles and years from HTML content using OpenAI
+ * @param string $htmlContent The HTML content to parse
+ * @param string $articleTitle Optional article title for context
+ * @return array Array of movies with title and year, or error with debug info
+ */
+function extractMoviesWithAI($htmlContent, $articleTitle = '') {
+    $debugSteps = [];
+
+    // Step 1: Check API key
+    $debugSteps[] = 'Step 1: Checking API key';
+    if (empty(OPENAI_API_KEY)) {
+        return [
+            'error' => 'OpenAI API key not configured',
+            'debug_steps' => $debugSteps,
+            'help' => 'Create config/secrets.php with OPENAI_API_KEY'
+        ];
+    }
+    $debugSteps[] = 'Step 1: API key found (' . strlen(OPENAI_API_KEY) . ' chars)';
+
+    // Step 2: Clean content - preserve article text while removing noise
+    $debugSteps[] = 'Step 2: Cleaning HTML content';
+
+    // First, try to extract main article content if possible
+    $articleContent = $htmlContent;
+
+    // Try to find <article> tag first (most semantic)
+    if (preg_match('/<article[^>]*>(.*?)<\/article>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found <article> tag, using its content';
+    }
+    // Try <main> tag as fallback
+    else if (preg_match('/<main[^>]*>(.*?)<\/main>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found <main> tag, using its content';
+    }
+    // Try to find div with article/content/post class
+    else if (preg_match('/<div[^>]*class="[^"]*(?:article|content|post|entry)[^"]*"[^>]*>(.*?)<\/div>/is', $htmlContent, $matches)) {
+        $articleContent = $matches[1];
+        $debugSteps[] = 'Step 2: Found content div, using its content';
+    }
+    else {
+        $debugSteps[] = 'Step 2: No article container found, using full HTML';
+    }
+
+    // Remove noisy elements
+    $cleanedContent = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $articleContent);
+    $cleanedContent = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<header\b[^>]*>.*?<\/header>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<footer\b[^>]*>.*?<\/footer>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<aside\b[^>]*>.*?<\/aside>/is', ' ', $cleanedContent);
+    $cleanedContent = preg_replace('/<!--.*?-->/s', ' ', $cleanedContent); // Remove comments
+
+    // Strip remaining HTML tags but preserve spacing
+    $cleanedContent = preg_replace('/<[^>]+>/', ' ', $cleanedContent);
+
+    // Decode HTML entities
+    $cleanedContent = html_entity_decode($cleanedContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Clean up whitespace - collapse multiple spaces/newlines but keep paragraph breaks
+    $cleanedContent = preg_replace('/[ \t]+/', ' ', $cleanedContent); // Collapse spaces
+    $cleanedContent = preg_replace('/\n\s*\n+/', "\n\n", $cleanedContent); // Keep paragraph breaks
+    $cleanedContent = trim($cleanedContent);
+
+    $originalLength = strlen($cleanedContent);
+    if ($originalLength > 15000) {
+        $cleanedContent = substr($cleanedContent, 0, 15000);
+    }
+    $debugSteps[] = "Step 2: Cleaned content: $originalLength chars (truncated to " . strlen($cleanedContent) . ")";
+
+    // Step 3: Build prompt
+    $debugSteps[] = 'Step 3: Building AI prompt';
+    $prompt = "You are analyzing an article";
+    if ($articleTitle) {
+        $prompt .= " titled '$articleTitle'";
+    }
+    $prompt .= " that contains information about movies. Your task is to extract ALL movie titles and their release years.\n\n";
+    $prompt .= "This may be a ranked list, review, or article discussing movies. Look for:\n";
+    $prompt .= "- Movie titles (may include subtitles in parentheses)\n";
+    $prompt .= "- Release years (often in parentheses like '(2014)' or mentioned in text)\n";
+    $prompt .= "- Director names and actor names are often mentioned near movie titles\n\n";
+    $prompt .= "Return a JSON object with a 'movies' array like this:\n";
+    $prompt .= "{\"movies\": [{\"title\": \"Movie Name\", \"year\": 2024}, {\"title\": \"Another Movie\", \"year\": 2020}]}\n\n";
+    $prompt .= "Important rules:\n";
+    $prompt .= "- Extract ALL movies mentioned (this could be 5-50+ movies)\n";
+    $prompt .= "- Include the release year as a number (not a string)\n";
+    $prompt .= "- If no year is found, use null\n";
+    $prompt .= "- Only extract movies (not TV shows)\n";
+    $prompt .= "- Remove subtitles like 'or (The Unexpected Virtue of Ignorance)' - keep main title only\n";
+    $prompt .= "- If you truly find no movies, return {\"movies\": []}\n\n";
+    $prompt .= "Article content:\n\n" . $cleanedContent;
+
+    // Step 4: Prepare API request
+    $debugSteps[] = 'Step 4: Preparing OpenAI API request';
+    $apiData = [
+        'model' => OPENAI_MODEL,
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => 'You are a specialized movie information extractor. You analyze web articles, reviews, and lists to identify all movie titles and years mentioned. You MUST respond with ONLY valid JSON - no explanations, no markdown, no commentary. If you find movies, return the array. If you find none, return [].'
+            ],
+            [
+                'role' => 'user',
+                'content' => $prompt
+            ]
+        ],
+        'temperature' => 0.3,
+        'max_tokens' => 3000,
+        'response_format' => ['type' => 'json_object']
+    ];
+    $debugSteps[] = 'Step 4: Request prepared for model: ' . OPENAI_MODEL . ' (JSON mode enabled)';
+
+    // Step 5: Make cURL request
+    $debugSteps[] = 'Step 5: Making cURL request to OpenAI';
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, OPENAI_API_URL);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . OPENAI_API_KEY
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        $debugSteps[] = 'Step 5: cURL ERROR - ' . $curlError;
+        return [
+            'error' => 'Network error connecting to OpenAI: ' . $curlError,
+            'debug_steps' => $debugSteps
+        ];
+    }
+    $debugSteps[] = 'Step 5: Request completed with HTTP ' . $httpCode;
+
+    // Step 6: Check HTTP response
+    if ($httpCode !== 200) {
+        $debugSteps[] = 'Step 6: HTTP error ' . $httpCode;
+        $errorDetail = json_decode($response, true);
+        $errorMsg = 'OpenAI API returned HTTP ' . $httpCode;
+
+        if ($errorDetail && isset($errorDetail['error']['message'])) {
+            $errorMsg .= ': ' . $errorDetail['error']['message'];
+            $debugSteps[] = 'OpenAI error: ' . $errorDetail['error']['message'];
+        }
+
+        return [
+            'error' => $errorMsg,
+            'debug_steps' => $debugSteps,
+            'http_code' => $httpCode,
+            'raw_response' => substr($response, 0, 500)
+        ];
+    }
+    $debugSteps[] = 'Step 6: HTTP 200 OK';
+
+    // Step 7: Parse response
+    $debugSteps[] = 'Step 7: Parsing OpenAI response';
+    $result = json_decode($response, true);
+
+    if (!$result) {
+        $debugSteps[] = 'Step 7: Failed to decode JSON response';
+        return [
+            'error' => 'Failed to decode OpenAI response',
+            'debug_steps' => $debugSteps,
+            'raw_response' => substr($response, 0, 500)
+        ];
+    }
+
+    if (!isset($result['choices'][0]['message']['content'])) {
+        $debugSteps[] = 'Step 7: Invalid response structure';
+        return [
+            'error' => 'Invalid response structure from OpenAI',
+            'debug_steps' => $debugSteps,
+            'response_keys' => array_keys($result)
+        ];
+    }
+
+    $content = trim($result['choices'][0]['message']['content']);
+    $debugSteps[] = 'Step 7: Extracted content (' . strlen($content) . ' chars)';
+    $debugSteps[] = 'Step 7: AI response preview: ' . substr($content, 0, 200);
+
+    // Step 8: Parse movie data
+    $debugSteps[] = 'Step 8: Parsing movie data from AI response';
+    $parsedData = json_decode($content, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $debugSteps[] = 'Step 8: Initial JSON parse failed, trying markdown extraction';
+        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
+            $parsedData = json_decode(trim($matches[1]), true);
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $debugSteps[] = 'Step 8: JSON parse failed - ' . json_last_error_msg();
+            return [
+                'error' => 'Failed to parse AI response as JSON: ' . json_last_error_msg(),
+                'debug_steps' => $debugSteps,
+                'ai_content' => substr($content, 0, 500)
+            ];
+        }
+    }
+
+    // Extract movies array from response object
+    $movies = [];
+    if (is_array($parsedData)) {
+        // Check if it's already an array of movies (legacy format)
+        if (isset($parsedData[0]) && isset($parsedData[0]['title'])) {
+            $movies = $parsedData;
+            $debugSteps[] = 'Step 8: Using legacy array format';
+        }
+        // Check if it's an object with a movies key (new format)
+        else if (isset($parsedData['movies']) && is_array($parsedData['movies'])) {
+            $movies = $parsedData['movies'];
+            $debugSteps[] = 'Step 8: Extracted movies from response object';
+        }
+        else {
+            $debugSteps[] = 'Step 8: Unexpected response format';
+            $debugSteps[] = 'Response keys: ' . implode(', ', array_keys($parsedData));
+        }
+    } else {
+        $debugSteps[] = 'Step 8: Response was not an array or object';
+        return [
+            'error' => 'AI response was not valid JSON',
+            'debug_steps' => $debugSteps,
+            'response_type' => gettype($parsedData)
+        ];
+    }
+
+    $movieCount = count($movies);
+    $debugSteps[] = 'Step 8: Successfully parsed ' . $movieCount . ' movies';
+
+    // If we got 0 movies, that's suspicious - log more details
+    if ($movieCount === 0) {
+        $debugSteps[] = 'WARNING: AI returned empty array';
+        $debugSteps[] = 'Full AI response: ' . $content;
+        $debugSteps[] = 'Input content length sent to AI: ' . strlen($cleanedContent) . ' chars';
+        $debugSteps[] = 'Input preview: ' . substr($cleanedContent, 0, 500);
+    }
+
+    $debugSteps[] = 'SUCCESS: AI extraction completed';
+
+    return [
+        'success' => true,
+        'movies' => $movies,
+        'debug_steps' => $debugSteps
+    ];
+}
 
 // Set execution time limit for long-running operations (e.g., large CSV imports)
 set_time_limit(300); // 5 minutes
@@ -142,8 +395,8 @@ try {
                     'id' => $data['id'],
                     'title' => $data['name'],
                     'year' => isset($data['first_air_date']) ? intval(substr($data['first_air_date'], 0, 4)) : null,
-                    'poster_path' => $data['poster_path'] ?? null,
-                    'backdrop_path' => $data['backdrop_path'] ?? null,
+                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => isset($data['episode_run_time'][0]) ? $data['episode_run_time'][0] : null,
@@ -163,13 +416,13 @@ try {
                         }
                     }
                 }
-                
+
                 jsonResponse(true, [
                     'id' => $data['id'],
                     'title' => $data['title'],
                     'year' => isset($data['release_date']) ? intval(substr($data['release_date'], 0, 4)) : null,
-                    'poster_path' => $data['poster_path'] ?? null,
-                    'backdrop_path' => $data['backdrop_path'] ?? null,
+                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => $data['runtime'] ?? null,
@@ -1929,6 +2182,347 @@ case 'resolve_movie':
             }, $cast);
 
             jsonResponse(true, $castNames);
+            break;
+
+        // ========================================
+        // PRESET LISTS MANAGEMENT
+        // ========================================
+
+        case 'get_presets':
+            // Get all wishlist preset lists
+            $presetsFile = __DIR__ . '/../data/presets.json';
+
+            if (!file_exists($presetsFile)) {
+                jsonResponse(false, null, 'Presets file not found');
+            }
+
+            $presets = json_decode(file_get_contents($presetsFile), true);
+
+            if ($presets === null) {
+                jsonResponse(false, null, 'Failed to parse presets file');
+            }
+
+            jsonResponse(true, $presets);
+            break;
+
+        case 'save_presets':
+            // Save preset lists (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $presets = $input['presets'] ?? null;
+
+            if (!$presets) {
+                jsonResponse(false, null, 'Presets data required');
+            }
+
+            $presetsFile = __DIR__ . '/../data/presets.json';
+
+            // Backup existing file
+            if (file_exists($presetsFile)) {
+                $backupFile = __DIR__ . '/../data/presets.backup.' . date('Y-m-d_H-i-s') . '.json';
+                copy($presetsFile, $backupFile);
+            }
+
+            // Save new presets
+            $result = file_put_contents($presetsFile, json_encode($presets, JSON_PRETTY_PRINT));
+
+            if ($result === false) {
+                jsonResponse(false, null, 'Failed to save presets file');
+            }
+
+            logAction($db, $userId, 'presets_updated', 'settings', null);
+
+            jsonResponse(true, ['message' => 'Presets saved successfully']);
+            break;
+
+        // ========================================
+        // ADMIN USER DATA MANAGEMENT
+        // ========================================
+
+        case 'admin_list_users':
+            // List all users with their collection/wishlist counts (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $stmt = $db->prepare("
+                SELECT
+                    u.id,
+                    u.username,
+                    u.email,
+                    u.display_name,
+                    u.is_admin,
+                    u.created_at,
+                    COUNT(DISTINCT c.id) as collection_count,
+                    COUNT(DISTINCT w.id) as wishlist_count
+                FROM users u
+                LEFT JOIN copies c ON u.id = c.user_id
+                LEFT JOIN wishlist w ON u.id = w.user_id
+                GROUP BY u.id
+                ORDER BY u.username ASC
+            ");
+            $stmt->execute();
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'admin_get_user_data':
+            // Get detailed user data (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get user info
+            $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+            $stmt->execute([$targetUserId]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                jsonResponse(false, null, 'User not found');
+            }
+
+            // Get collection count
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $collectionCount = $stmt->fetch()['count'];
+
+            // Get wishlist count
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $wishlistCount = $stmt->fetch()['count'];
+
+            // Get group memberships
+            $stmt = $db->prepare("
+                SELECT g.id, g.name
+                FROM groups g
+                JOIN group_members gm ON g.id = gm.group_id
+                WHERE gm.user_id = ?
+            ");
+            $stmt->execute([$targetUserId]);
+            $groups = $stmt->fetchAll();
+
+            jsonResponse(true, [
+                'user' => $user,
+                'collection_count' => $collectionCount,
+                'wishlist_count' => $wishlistCount,
+                'groups' => $groups
+            ]);
+            break;
+
+        case 'admin_clear_wishlist':
+            // Clear a user's wishlist (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get count before deleting
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $count = $stmt->fetch()['count'];
+
+            // Delete all wishlist items for this user
+            $stmt = $db->prepare("DELETE FROM wishlist WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+
+            logAction($db, $userId, 'admin_cleared_wishlist', 'user', $targetUserId, [
+                'items_deleted' => $count
+            ]);
+
+            jsonResponse(true, [
+                'message' => 'Wishlist cleared successfully',
+                'items_deleted' => $count
+            ]);
+            break;
+
+        case 'admin_clear_collection':
+            // Clear a user's collection (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get count before deleting
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+            $count = $stmt->fetch()['count'];
+
+            // Delete all copies for this user
+            $stmt = $db->prepare("DELETE FROM copies WHERE user_id = ?");
+            $stmt->execute([$targetUserId]);
+
+            logAction($db, $userId, 'admin_cleared_collection', 'user', $targetUserId, [
+                'items_deleted' => $count
+            ]);
+
+            jsonResponse(true, [
+                'message' => 'Collection cleared successfully',
+                'items_deleted' => $count
+            ]);
+            break;
+
+        case 'fetch_article':
+            // Fetch article content from URL (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $url = $input['url'] ?? '';
+            $debug = $input['debug'] ?? false;
+            $useAI = $input['use_ai'] ?? false;
+
+            if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+                jsonResponse(false, null, 'Valid URL required');
+            }
+
+            // Fetch the article content using cURL with comprehensive browser headers
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
+            curl_setopt($ch, CURLOPT_VERBOSE, $debug); // Enable verbose output for debugging
+
+            // Comprehensive browser headers to bypass anti-scraping
+            $headers = [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language: en-US,en;q=0.9',
+                'Accept-Encoding: gzip, deflate, br',
+                'DNT: 1',
+                'Connection: keep-alive',
+                'Upgrade-Insecure-Requests: 1',
+                'Sec-Fetch-Dest: document',
+                'Sec-Fetch-Mode: navigate',
+                'Sec-Fetch-Site: none',
+                'Cache-Control: max-age=0',
+            ];
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            $content = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            // Debug information
+            if ($debug) {
+                jsonResponse(true, [
+                    'debug' => true,
+                    'url' => $url,
+                    'effective_url' => $effectiveUrl,
+                    'http_code' => $httpCode,
+                    'content_type' => $contentType,
+                    'error' => $error,
+                    'content_length' => strlen($content),
+                    'content_preview' => substr($content, 0, 500)
+                ]);
+            }
+
+            // Better error handling
+            if ($error) {
+                jsonResponse(false, null, 'Network error: ' . $error);
+            }
+
+            // For AI extraction, we can work with any HTTP response that has content
+            // (even 403/404 sometimes return HTML we can parse)
+            if ($httpCode !== 200 && !$useAI) {
+                // Provide helpful error messages based on HTTP status
+                $errorMsg = 'HTTP ' . $httpCode;
+                if ($httpCode == 403 || $httpCode == 401) {
+                    $errorMsg .= ' - Site blocked the request. Try AI extraction instead.';
+                } elseif ($httpCode == 404) {
+                    $errorMsg .= ' - Page not found. Check the URL.';
+                } elseif ($httpCode == 429) {
+                    $errorMsg .= ' - Too many requests. Wait a moment and try again.';
+                } elseif ($httpCode >= 500) {
+                    $errorMsg .= ' - Server error. Try again later.';
+                } elseif ($httpCode == 0) {
+                    $errorMsg = 'Connection failed - Unable to reach the website.';
+                }
+                jsonResponse(false, null, $errorMsg);
+            }
+
+            if (empty($content)) {
+                jsonResponse(false, null, 'No content received from URL');
+            }
+
+            // Extract title from HTML if possible
+            $title = '';
+            if (preg_match('/<title>(.*?)<\/title>/is', $content, $matches)) {
+                $title = html_entity_decode(strip_tags($matches[1]));
+            }
+
+            // AI Extraction Mode - Use OpenAI to extract movie data
+            if ($useAI) {
+                $aiResult = extractMoviesWithAI($content, $title);
+
+                if (isset($aiResult['error'])) {
+                    // Return detailed error with debug information
+                    $errorData = [
+                        'error_message' => $aiResult['error'],
+                        'debug_steps' => $aiResult['debug_steps'] ?? [],
+                    ];
+
+                    // Include additional debug info if available
+                    if (isset($aiResult['http_code'])) {
+                        $errorData['http_code'] = $aiResult['http_code'];
+                    }
+                    if (isset($aiResult['raw_response'])) {
+                        $errorData['raw_response'] = $aiResult['raw_response'];
+                    }
+                    if (isset($aiResult['help'])) {
+                        $errorData['help'] = $aiResult['help'];
+                    }
+
+                    jsonResponse(false, $errorData, 'AI extraction failed: ' . $aiResult['error']);
+                }
+
+                jsonResponse(true, [
+                    'ai_extracted' => true,
+                    'movies' => $aiResult['movies'],
+                    'title' => $title,
+                    'movie_count' => count($aiResult['movies']),
+                    'debug_steps' => $aiResult['debug_steps'] ?? []
+                ]);
+            }
+
+            // Standard extraction (legacy mode)
+            // Convert HTML to plain text for easier parsing
+            // Remove scripts and styles
+            $content = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $content);
+            $content = preg_replace('/<style\b[^>]*>.*?<\/style>/is', '', $content);
+
+            // Decode HTML entities
+            $content = html_entity_decode($content);
+
+            jsonResponse(true, [
+                'content' => $content,
+                'title' => $title
+            ]);
             break;
 
         // ========================================

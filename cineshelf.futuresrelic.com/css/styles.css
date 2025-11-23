@@ -522,13 +522,16 @@ body {
 }
 
 .btn-ghost {
-    background: transparent;
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text);
 }
 
 .btn-ghost:hover {
-    background: var(--bg-card);
-    box-shadow: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
 }
 
 /* Add Movie Section */

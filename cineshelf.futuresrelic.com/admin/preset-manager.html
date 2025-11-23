@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preset Manager - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-ghost {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-ghost:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+
+        .preset-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .preset-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .preset-icon {
+            font-size: 3rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .preset-icon:hover {
+            transform: scale(1.2);
+        }
+
+        .preset-info {
+            flex: 1;
+        }
+
+        .preset-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            border: none;
+            width: 100%;
+            padding: 0.25rem 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .preset-description {
+            color: #6b7280;
+            font-size: 0.9rem;
+            border: none;
+            width: 100%;
+            padding: 0.25rem 0;
+        }
+
+        .preset-name:focus, .preset-description:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .movie-count {
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .movies-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .movie-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .movie-item:hover {
+            background: #f3f4f6;
+        }
+
+        .movie-item.matched {
+            border-left: 3px solid #10b981;
+        }
+
+        .movie-item.unmatched {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .movie-info {
+            flex: 1;
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
+        .movie-meta {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-top: 0.25rem;
+        }
+
+        .movie-year {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .tmdb-badge {
+            background: #10b981;
+            color: white;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .movie-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .add-movie-form {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #f3f4f6;
+        }
+
+        .add-movie-form input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .add-movie-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Match Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .match-modal {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 800px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .match-modal h2 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        .search-results {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .result-card {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .result-card:hover {
+            background: #eff6ff;
+            border-color: #667eea;
+        }
+
+        .result-poster {
+            width: 80px;
+            height: 120px;
+            border-radius: 4px;
+            object-fit: cover;
+            background: #e5e7eb;
+        }
+
+        .result-info {
+            flex: 1;
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .result-year {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-overview {
+            color: #6b7280;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .emoji-picker {
+            display: none;
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            font-size: 2rem;
+            max-width: 300px;
+        }
+
+        .emoji-option {
+            display: inline-block;
+            cursor: pointer;
+            padding: 0.5rem;
+            transition: transform 0.2s;
+        }
+
+        .emoji-option:hover {
+            transform: scale(1.3);
+        }
+
+        .preset-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Preset List Manager</h1>
+            <p class="subtitle">Manage wishlist preset collections with TMDB matching for accurate results</p>
+
+            <div class="toolbar">
+                <button class="btn btn-success" onclick="saveAllPresets()">💾 Save All Changes</button>
+                <button class="btn btn-primary" onclick="createNewList()">➕ Create New List</button>
+                <button class="btn btn-ghost" onclick="window.location.reload()">🔄 Reload</button>
+            </div>
+
+            <div class="status" id="status"></div>
+            <a href="/admin/" class="back-link">← Back to Admin Panel</a>
+        </div>
+
+        <div id="loading" class="loading">Loading presets...</div>
+        <div id="presetsContainer" class="presets-grid" style="display: none;"></div>
+    </div>
+
+    <!-- TMDB Match Modal -->
+    <div id="matchModal" class="modal-overlay">
+        <div class="match-modal">
+            <h2 id="matchModalTitle">Select TMDB Match</h2>
+            <div id="searchResults" class="search-results">
+                <!-- Populated dynamically -->
+            </div>
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button class="btn btn-ghost" onclick="closeMatchModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="emojiPicker" class="emoji-picker"></div>
+
+    <script>
+        let presets = {};
+        let currentEmojiTarget = null;
+        let currentMatchTarget = null;
+
+        // Common emojis for movie categories
+        const COMMON_EMOJIS = ['🏆', '🎬', '🚀', '👻', '💥', '🎭', '🎪', '🎨', '🎯', '🎲', '🎮', '🎸', '🎺', '🎻', '🎤', '🎧', '📺', '📽️', '🎞️', '🍿', '🎟️', '🎫', '🏅', '🥇', '🌟', '⭐', '💫', '✨'];
+
+        async function loadPresets() {
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_presets' })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to load presets');
+                }
+
+                presets = result.data;
+                renderPresets();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('presetsContainer').style.display = 'grid';
+            } catch (error) {
+                showStatus('Error loading presets: ' + error.message, 'error');
+                document.getElementById('loading').textContent = 'Error loading presets: ' + error.message;
+            }
+        }
+
+        function renderPresets() {
+            const container = document.getElementById('presetsContainer');
+
+            container.innerHTML = Object.entries(presets).map(([key, preset]) => `
+                <div class="preset-card" data-key="${key}">
+                    <div class="preset-header">
+                        <div class="preset-icon" onclick="showEmojiPicker('${key}')" title="Click to change emoji">${preset.icon}</div>
+                        <div class="preset-info">
+                            <input
+                                type="text"
+                                class="preset-name"
+                                value="${preset.name}"
+                                onchange="updatePresetField('${key}', 'name', this.value)"
+                                placeholder="List name">
+                            <input
+                                type="text"
+                                class="preset-description"
+                                value="${preset.description}"
+                                onchange="updatePresetField('${key}', 'description', this.value)"
+                                placeholder="List description">
+                        </div>
+                        <span class="movie-count">${preset.movies.length} movies</span>
+                    </div>
+
+                    <div class="movies-list">
+                        ${preset.movies.map((movie, index) => `
+                            <div class="movie-item ${movie.tmdb_id ? 'matched' : 'unmatched'}">
+                                <div class="movie-info">
+                                    <div class="movie-title">${movie.title}</div>
+                                    <div class="movie-meta">
+                                        <span class="movie-year">${movie.year}</span>
+                                        ${movie.tmdb_id ? `<span class="tmdb-badge">✓ TMDB #${movie.tmdb_id}</span>` : ''}
+                                    </div>
+                                </div>
+                                <div class="movie-actions">
+                                    <button class="btn btn-ghost btn-small" onclick="matchMovie('${key}', ${index})">
+                                        ${movie.tmdb_id ? '🔄 Rematch' : '🔍 Match'}
+                                    </button>
+                                    <button class="btn btn-danger btn-small" onclick="removeMovie('${key}', ${index})">✖</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="add-movie-form">
+                        <input
+                            type="text"
+                            placeholder="Movie title"
+                            id="title-${key}">
+                        <input
+                            type="number"
+                            placeholder="Year"
+                            id="year-${key}"
+                            min="1900"
+                            max="2030"
+                            style="width: 100px;">
+                        <button class="btn btn-primary" onclick="addMovie('${key}')">➕ Add</button>
+                    </div>
+
+                    <div class="preset-actions">
+                        <button class="btn btn-danger" onclick="deleteList('${key}')">🗑️ Delete List</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showEmojiPicker(listKey) {
+            const picker = document.getElementById('emojiPicker');
+            currentEmojiTarget = listKey;
+
+            picker.innerHTML = COMMON_EMOJIS.map(emoji =>
+                `<span class="emoji-option" onclick="selectEmoji('${emoji}')">${emoji}</span>`
+            ).join('');
+
+            picker.style.display = 'block';
+            picker.style.left = '50%';
+            picker.style.top = '30%';
+            picker.style.transform = 'translate(-50%, -50%)';
+        }
+
+        function selectEmoji(emoji) {
+            if (currentEmojiTarget) {
+                presets[currentEmojiTarget].icon = emoji;
+                renderPresets();
+            }
+            document.getElementById('emojiPicker').style.display = 'none';
+        }
+
+        // Close emoji picker when clicking outside
+        document.addEventListener('click', (e) => {
+            const picker = document.getElementById('emojiPicker');
+            if (!e.target.closest('.preset-icon') && !e.target.closest('.emoji-picker')) {
+                picker.style.display = 'none';
+            }
+        });
+
+        function updatePresetField(key, field, value) {
+            presets[key][field] = value;
+        }
+
+        function addMovie(listKey) {
+            const title = document.getElementById(`title-${listKey}`).value.trim();
+            const year = parseInt(document.getElementById(`year-${listKey}`).value);
+
+            if (!title || !year) {
+                alert('Please enter both title and year');
+                return;
+            }
+
+            // Save scroll position before re-rendering
+            const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+            const moviesList = presetCard?.querySelector('.movies-list');
+            const scrollPosition = moviesList?.scrollTop || 0;
+
+            presets[listKey].movies.push({ title, year });
+            document.getElementById(`title-${listKey}`).value = '';
+            document.getElementById(`year-${listKey}`).value = '';
+            renderPresets();
+
+            // Restore scroll position after DOM updates (scroll to bottom to show new movie)
+            requestAnimationFrame(() => {
+                const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                if (newMoviesList) {
+                    // Scroll to bottom to show the newly added movie
+                    newMoviesList.scrollTop = newMoviesList.scrollHeight;
+                }
+            });
+        }
+
+        function removeMovie(listKey, index) {
+            if (confirm('Remove this movie from the list?')) {
+                // Save scroll position before re-rendering
+                const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const moviesList = presetCard?.querySelector('.movies-list');
+                const scrollPosition = moviesList?.scrollTop || 0;
+
+                presets[listKey].movies.splice(index, 1);
+                renderPresets();
+
+                // Restore scroll position after DOM updates
+                requestAnimationFrame(() => {
+                    const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                    const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                    if (newMoviesList) {
+                        newMoviesList.scrollTop = scrollPosition;
+                    }
+                });
+            }
+        }
+
+        async function matchMovie(listKey, index) {
+            const movie = presets[listKey].movies[index];
+            currentMatchTarget = { listKey, index };
+
+            try {
+                showStatus(`Searching TMDB for "${movie.title}"...`, 'info');
+
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'search_movie',
+                        query: movie.title
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok || !result.data || result.data.length === 0) {
+                    showStatus(`No results found for "${movie.title}"`, 'error');
+                    return;
+                }
+
+                showMatchModal(result.data, movie);
+
+            } catch (error) {
+                showStatus('Error searching TMDB: ' + error.message, 'error');
+            }
+        }
+
+        function showMatchModal(results, originalMovie) {
+            const modal = document.getElementById('matchModal');
+            const resultsContainer = document.getElementById('searchResults');
+            const modalTitle = document.getElementById('matchModalTitle');
+
+            modalTitle.textContent = `Select match for "${originalMovie.title}" (${originalMovie.year})`;
+
+            resultsContainer.innerHTML = results.slice(0, 10).map(movie => {
+                const year = movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : 'N/A';
+                const posterUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '';
+
+                return `
+                    <div class="result-card" onclick="selectMatch(${movie.id}, '${escapeJs(movie.title)}', ${year})">
+                        ${posterUrl ? `<img src="${posterUrl}" class="result-poster" alt="${escapeHtml(movie.title)}">` : '<div class="result-poster"></div>'}
+                        <div class="result-info">
+                            <div class="result-title">${escapeHtml(movie.title)}</div>
+                            <div class="result-year">${year} • TMDB ID: ${movie.id}</div>
+                            <div class="result-overview">${escapeHtml(movie.overview || 'No overview available')}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            modal.classList.add('active');
+        }
+
+        function selectMatch(tmdbId, title, year) {
+            if (!currentMatchTarget) return;
+
+            const { listKey, index } = currentMatchTarget;
+
+            // Save scroll position before re-rendering
+            const presetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+            const moviesList = presetCard?.querySelector('.movies-list');
+            const scrollPosition = moviesList?.scrollTop || 0;
+
+            presets[listKey].movies[index] = {
+                title: title,
+                year: year,
+                tmdb_id: tmdbId
+            };
+
+            renderPresets();
+
+            // Restore scroll position after DOM updates
+            requestAnimationFrame(() => {
+                const newPresetCard = document.querySelector(`.preset-card[data-key="${listKey}"]`);
+                const newMoviesList = newPresetCard?.querySelector('.movies-list');
+                if (newMoviesList) {
+                    newMoviesList.scrollTop = scrollPosition;
+                }
+            });
+
+            closeMatchModal();
+            showStatus(`✓ Matched: ${title} (${year}) → TMDB #${tmdbId}`, 'success');
+        }
+
+        function closeMatchModal() {
+            document.getElementById('matchModal').classList.remove('active');
+            currentMatchTarget = null;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeJs(text) {
+            // Escape single quotes and backslashes for JavaScript strings
+            return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function deleteList(listKey) {
+            if (confirm(`Delete "${presets[listKey].name}"?\n\nThis cannot be undone!`)) {
+                delete presets[listKey];
+                renderPresets();
+                showStatus('List deleted. Remember to save changes!', 'success');
+            }
+        }
+
+        function createNewList() {
+            const key = 'custom_' + Date.now();
+            presets[key] = {
+                name: 'New List',
+                description: 'Enter description here',
+                icon: '📝',
+                movies: []
+            };
+            renderPresets();
+            showStatus('New list created. Remember to save changes!', 'success');
+        }
+
+        async function saveAllPresets() {
+            try {
+                showStatus('Saving presets...', 'info');
+
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'save_presets',
+                        presets: presets
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to save presets');
+                }
+
+                showStatus('✅ Presets saved successfully! Changes are now live in the app.', 'success');
+
+            } catch (error) {
+                showStatus('Error saving presets: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Load on page load
+        loadPresets();
+    </script>
+</body>
+</html>

@@ -1,7 +1,8 @@
 <?php
 /**
- * CineShelf v2.0 - Database Configuration
+ * CineShelf - Database Configuration
  * Clean architecture inspired by ChoreQuest
+ * Version: Managed by version-manager.html (see version.json)
  */
 
 // Database file location
@@ -13,12 +14,47 @@ define('TMDB_API_KEY', '8039283176a74ffd71a1658c6f84a051');
 define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
+// OpenAI API Configuration (for AI-powered article extraction)
+// Load from environment variable or local secrets file (not in version control)
+$openaiKey = getenv('OPENAI_API_KEY');
+if (!$openaiKey && file_exists(__DIR__ . '/secrets.php')) {
+    $secrets = include __DIR__ . '/secrets.php';
+    $openaiKey = $secrets['OPENAI_API_KEY'] ?? '';
+}
+define('OPENAI_API_KEY', $openaiKey ?: '');
+define('OPENAI_MODEL', 'gpt-4o-mini'); // Cost-effective model (~$0.01 per article)
+define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
+
 // App Configuration
-define('APP_VERSION', '2.2.1');
+// Read version dynamically from version.json (managed by version-manager.html)
+$versionFile = __DIR__ . '/../version.json';
+$appVersion = '2.0.0'; // Fallback version
+if (file_exists($versionFile)) {
+    $versionData = json_decode(file_get_contents($versionFile), true);
+    $appVersion = $versionData['version'] ?? '2.0.0';
+}
+define('APP_VERSION', $appVersion);
 define('DEFAULT_USER', 'default');
 
 // Admin users list (usernames)
 define('ADMIN_USERS', ['admin', 'klindakoil', 'default']);
+
+// Error Reporting Configuration
+// Set to true for development (shows detailed errors), false for production (logs errors silently)
+define('DEBUG_MODE', false);
+
+if (DEBUG_MODE) {
+    // Development: Show all errors
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+} else {
+    // Production: Log errors, don't display them
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    ini_set('error_log', __DIR__ . '/../data/php-errors.log');
+}
 
 // Security settings
 ini_set('session.cookie_httponly', 1);
