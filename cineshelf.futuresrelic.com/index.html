@@ -41,7 +41,11 @@
     <!-- Header -->
     <header class="header">
 <div class="header-content">
-    <h1 class="logo" onclick="location.reload(true)" style="cursor: pointer;" title="Click to refresh">🎬 CineShelf</h1>
+    <h1 class="logo" onclick="location.reload(true)" style="cursor: pointer;" title="Click to refresh">
+        <img src="/icons/pwa-icon-192.png" alt="CineShelf" class="logo-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-fallback" style="display:none;">🎬</span>
+        <span class="logo-text">CineShelf</span>
+    </h1>
     
     <!-- GROUP SELECTOR -->
     <div id="groupSelector" style="display:none; margin-left:auto; margin-right:1rem;">

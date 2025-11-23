@@ -2601,6 +2601,82 @@ case 'resolve_movie':
             jsonResponse(true, ['title' => $title]);
             break;
 
+        case 'save_icon':
+            // Save app icons (favicon or PWA icons)
+            // Supports saving favicon.png and PWA icons (192x192, 512x512)
+
+            $type = $input['type'] ?? '';
+
+            if ($type === 'favicon') {
+                $data = $input['data'] ?? '';
+                if (empty($data)) {
+                    jsonResponse(false, null, 'Icon data required');
+                }
+
+                // Remove data:image/png;base64, prefix
+                $data = str_replace('data:image/png;base64,', '', $data);
+                $imageData = base64_decode($data);
+
+                if ($imageData === false) {
+                    jsonResponse(false, null, 'Invalid image data');
+                }
+
+                // Save to root directory as favicon.png
+                $faviconPath = __DIR__ . '/../favicon.png';
+                $result = file_put_contents($faviconPath, $imageData);
+
+                if ($result === false) {
+                    jsonResponse(false, null, 'Failed to write favicon file');
+                }
+
+                jsonResponse(true, ['message' => 'Favicon saved successfully']);
+
+            } elseif ($type === 'app') {
+                $data192 = $input['data192'] ?? '';
+                $data512 = $input['data512'] ?? '';
+
+                if (empty($data192) || empty($data512)) {
+                    jsonResponse(false, null, 'Both 192x192 and 512x512 icon data required');
+                }
+
+                // Ensure icons directory exists
+                $iconsDir = __DIR__ . '/../icons';
+                if (!is_dir($iconsDir)) {
+                    mkdir($iconsDir, 0755, true);
+                }
+
+                // Process 192x192 icon
+                $data192 = str_replace('data:image/png;base64,', '', $data192);
+                $imageData192 = base64_decode($data192);
+                if ($imageData192 === false) {
+                    jsonResponse(false, null, 'Invalid 192x192 icon data');
+                }
+
+                // Process 512x512 icon
+                $data512 = str_replace('data:image/png;base64,', '', $data512);
+                $imageData512 = base64_decode($data512);
+                if ($imageData512 === false) {
+                    jsonResponse(false, null, 'Invalid 512x512 icon data');
+                }
+
+                // Save both icons
+                $icon192Path = $iconsDir . '/pwa-icon-192.png';
+                $icon512Path = $iconsDir . '/pwa-icon-512.png';
+
+                $result192 = file_put_contents($icon192Path, $imageData192);
+                $result512 = file_put_contents($icon512Path, $imageData512);
+
+                if ($result192 === false || $result512 === false) {
+                    jsonResponse(false, null, 'Failed to write icon files');
+                }
+
+                jsonResponse(true, ['message' => 'App icons saved successfully']);
+
+            } else {
+                jsonResponse(false, null, 'Invalid icon type. Must be "favicon" or "app"');
+            }
+            break;
+
         // ========================================
         // DEFAULT
         // ========================================
