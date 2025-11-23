@@ -1,0 +1,93 @@
+[22-Nov-2025 10:42:12 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 10:42:12 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:08:37 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:08:37 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:08:37 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:08:37 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:08:37 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:08:37 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:08:38 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:08:38 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:08:50 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:08:50 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:09:01 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:09:01 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:11:29 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:11:29 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 12:11:32 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 12:11:32 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 13:49:39 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 13:49:39 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 13:49:39 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 13:49:39 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 13:49:39 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 13:49:39 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 13:49:39 America/New_York] CineShelf API Error: Authentication required
+[22-Nov-2025 13:49:39 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 13:49:43 America/New_York] Session cookie set: cineshelf_auth_token (HTTPS: yes, Expires: 2025-12-22 13:49:43)
+[22-Nov-2025 22:36:59 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:36:59 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:36:59 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:36:59 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:36:59 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:36:59 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:36:59 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:36:59 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:34 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:34 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:39 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:39 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:43 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:43 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:45 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:45 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:46 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:46 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:48 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:48 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:37:51 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:37:51 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:38:05 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:38:05 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:38:09 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:38:09 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:39:11 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:39:11 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:39:12 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:39:12 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:39:21 America/New_York] CineShelf API Error: Invalid or expired session
+[22-Nov-2025 22:39:21 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[22-Nov-2025 22:39:44 America/New_York] Session cookie set: cineshelf_auth_token (HTTPS: yes, Expires: 2025-12-22 22:39:44)
+[23-Nov-2025 00:52:12 America/New_York] CineShelf API Error: Invalid or expired session
+[23-Nov-2025 00:52:12 America/New_York] Stack trace: #0 /home/dh_4qqzck/cineshelf.futuresrelic.com/api/api.php(297): authenticateRequest()
+#1 {main}
+[23-Nov-2025 00:52:18 America/New_York] Session cookie set: cineshelf_auth_token (HTTPS: yes, Expires: 2025-12-23 00:52:18)

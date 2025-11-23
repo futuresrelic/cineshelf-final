@@ -1,0 +1,1145 @@
+{
+    "imdb_top100": {
+        "name": "IMDB Top 100",
+        "description": "The highest rated movies on IMDB",
+        "icon": "\ud83c\udfc6",
+        "movies": [
+            {
+                "title": "The Shawshank Redemption",
+                "year": 1994
+            },
+            {
+                "title": "The Godfather",
+                "year": 1972
+            },
+            {
+                "title": "The Dark Knight",
+                "year": 2008
+            },
+            {
+                "title": "The Godfather Part II",
+                "year": 1974
+            },
+            {
+                "title": "12 Angry Men",
+                "year": 1957
+            },
+            {
+                "title": "Schindler's List",
+                "year": 1993
+            },
+            {
+                "title": "The Lord of the Rings: The Return of the King",
+                "year": 2003
+            },
+            {
+                "title": "Pulp Fiction",
+                "year": 1994
+            },
+            {
+                "title": "The Lord of the Rings: The Fellowship of the Ring",
+                "year": 2001
+            },
+            {
+                "title": "The Good, the Bad and the Ugly",
+                "year": 1966
+            },
+            {
+                "title": "Forrest Gump",
+                "year": 1994
+            },
+            {
+                "title": "Fight Club",
+                "year": 1999
+            },
+            {
+                "title": "Inception",
+                "year": 2010
+            },
+            {
+                "title": "The Lord of the Rings: The Two Towers",
+                "year": 2002
+            },
+            {
+                "title": "Star Wars: Episode V - The Empire Strikes Back",
+                "year": 1980
+            },
+            {
+                "title": "The Matrix",
+                "year": 1999
+            },
+            {
+                "title": "Goodfellas",
+                "year": 1990
+            },
+            {
+                "title": "One Flew Over the Cuckoo's Nest",
+                "year": 1975
+            },
+            {
+                "title": "Se7en",
+                "year": 1995
+            },
+            {
+                "title": "Seven Samurai",
+                "year": 1954
+            },
+            {
+                "title": "It's a Wonderful Life",
+                "year": 1946
+            },
+            {
+                "title": "The Silence of the Lambs",
+                "year": 1991
+            },
+            {
+                "title": "City of God",
+                "year": 2002
+            },
+            {
+                "title": "Saving Private Ryan",
+                "year": 1998
+            },
+            {
+                "title": "Life Is Beautiful",
+                "year": 1997
+            },
+            {
+                "title": "The Green Mile",
+                "year": 1999
+            },
+            {
+                "title": "Interstellar",
+                "year": 2014
+            },
+            {
+                "title": "Star Wars",
+                "year": 1977
+            },
+            {
+                "title": "Terminator 2: Judgment Day",
+                "year": 1991
+            },
+            {
+                "title": "Back to the Future",
+                "year": 1985
+            },
+            {
+                "title": "Spirited Away",
+                "year": 2001
+            },
+            {
+                "title": "The Pianist",
+                "year": 2002
+            },
+            {
+                "title": "Psycho",
+                "year": 1960
+            },
+            {
+                "title": "L\u00e9on: The Professional",
+                "year": 1994
+            },
+            {
+                "title": "The Lion King",
+                "year": 1994
+            },
+            {
+                "title": "Gladiator",
+                "year": 2000
+            },
+            {
+                "title": "American History X",
+                "year": 1998
+            },
+            {
+                "title": "The Departed",
+                "year": 2006
+            },
+            {
+                "title": "The Prestige",
+                "year": 2006
+            },
+            {
+                "title": "Whiplash",
+                "year": 2014
+            },
+            {
+                "title": "The Usual Suspects",
+                "year": 1995
+            },
+            {
+                "title": "Harakiri",
+                "year": 1962
+            },
+            {
+                "title": "Casablanca",
+                "year": 1942
+            },
+            {
+                "title": "Grave of the Fireflies",
+                "year": 1988
+            },
+            {
+                "title": "Modern Times",
+                "year": 1936
+            },
+            {
+                "title": "Cinema Paradiso",
+                "year": 1988
+            },
+            {
+                "title": "City Lights",
+                "year": 1931
+            },
+            {
+                "title": "Once Upon a Time in the West",
+                "year": 1968
+            },
+            {
+                "title": "Rear Window",
+                "year": 1954
+            },
+            {
+                "title": "Alien",
+                "year": 1979
+            },
+            {
+                "title": "Apocalypse Now",
+                "year": 1979
+            },
+            {
+                "title": "Memento",
+                "year": 2000
+            },
+            {
+                "title": "Raiders of the Lost Ark",
+                "year": 1981
+            },
+            {
+                "title": "The Great Dictator",
+                "year": 1940
+            },
+            {
+                "title": "Django Unchained",
+                "year": 2012
+            },
+            {
+                "title": "The Lives of Others",
+                "year": 2006
+            },
+            {
+                "title": "Paths of Glory",
+                "year": 1957
+            },
+            {
+                "title": "WALL-E",
+                "year": 2008
+            },
+            {
+                "title": "The Shining",
+                "year": 1980
+            },
+            {
+                "title": "Sunset Boulevard",
+                "year": 1950
+            },
+            {
+                "title": "Witness for the Prosecution",
+                "year": 1957
+            },
+            {
+                "title": "Dr. Strangelove",
+                "year": 1964
+            },
+            {
+                "title": "Oldboy",
+                "year": 2003
+            },
+            {
+                "title": "Princess Mononoke",
+                "year": 1997
+            },
+            {
+                "title": "Once Upon a Time in America",
+                "year": 1984
+            },
+            {
+                "title": "Avengers: Infinity War",
+                "year": 2018
+            },
+            {
+                "title": "Aliens",
+                "year": 1986
+            },
+            {
+                "title": "Coco",
+                "year": 2017
+            },
+            {
+                "title": "American Beauty",
+                "year": 1999
+            },
+            {
+                "title": "Das Boot",
+                "year": 1981
+            },
+            {
+                "title": "3 Idiots",
+                "year": 2009
+            },
+            {
+                "title": "Braveheart",
+                "year": 1995
+            },
+            {
+                "title": "High and Low",
+                "year": 1963
+            },
+            {
+                "title": "Toy Story",
+                "year": 1995
+            },
+            {
+                "title": "Amadeus",
+                "year": 1984
+            },
+            {
+                "title": "Inglourious Basterds",
+                "year": 2009
+            },
+            {
+                "title": "Good Will Hunting",
+                "year": 1997
+            },
+            {
+                "title": "2001: A Space Odyssey",
+                "year": 1968
+            },
+            {
+                "title": "Reservoir Dogs",
+                "year": 1992
+            },
+            {
+                "title": "Requiem for a Dream",
+                "year": 2000
+            },
+            {
+                "title": "Vertigo",
+                "year": 1958
+            },
+            {
+                "title": "M",
+                "year": 1931
+            },
+            {
+                "title": "Citizen Kane",
+                "year": 1941
+            },
+            {
+                "title": "North by Northwest",
+                "year": 1959
+            },
+            {
+                "title": "Full Metal Jacket",
+                "year": 1987
+            },
+            {
+                "title": "Bicycle Thieves",
+                "year": 1948
+            },
+            {
+                "title": "Singin' in the Rain",
+                "year": 1952
+            },
+            {
+                "title": "Snatch",
+                "year": 2000
+            },
+            {
+                "title": "Toy Story 3",
+                "year": 2010
+            },
+            {
+                "title": "Monty Python and the Holy Grail",
+                "year": 1975
+            },
+            {
+                "title": "Scarface",
+                "year": 1983
+            },
+            {
+                "title": "A Clockwork Orange",
+                "year": 1971
+            },
+            {
+                "title": "Parasite",
+                "year": 2019
+            },
+            {
+                "title": "Lawrence of Arabia",
+                "year": 1962
+            },
+            {
+                "title": "Am\u00e9lie",
+                "year": 2001
+            },
+            {
+                "title": "The Sting",
+                "year": 1973
+            },
+            {
+                "title": "Metropolis",
+                "year": 1927
+            },
+            {
+                "title": "The Apartment",
+                "year": 1960
+            },
+            {
+                "title": "For a Few Dollars More",
+                "year": 1965
+            },
+            {
+                "title": "Indiana Jones and the Last Crusade",
+                "year": 1989
+            }
+        ]
+    },
+    "best_picture": {
+        "name": "Oscar Best Picture Winners",
+        "description": "Academy Award winners for Best Picture (last 25 years)",
+        "icon": "\ud83c\udfac",
+        "movies": [
+            {
+                "title": "Oppenheimer",
+                "year": 2023
+            },
+            {
+                "title": "Everything Everywhere All at Once",
+                "year": 2022
+            },
+            {
+                "title": "CODA",
+                "year": 2021
+            },
+            {
+                "title": "Nomadland",
+                "year": 2020
+            },
+            {
+                "title": "Parasite",
+                "year": 2019
+            },
+            {
+                "title": "Green Book",
+                "year": 2018
+            },
+            {
+                "title": "The Shape of Water",
+                "year": 2017
+            },
+            {
+                "title": "Moonlight",
+                "year": 2016
+            },
+            {
+                "title": "Spotlight",
+                "year": 2015
+            },
+            {
+                "title": "Birdman",
+                "year": 2014
+            },
+            {
+                "title": "12 Years a Slave",
+                "year": 2013
+            },
+            {
+                "title": "Argo",
+                "year": 2012
+            },
+            {
+                "title": "The Artist",
+                "year": 2011
+            },
+            {
+                "title": "The King's Speech",
+                "year": 2010
+            },
+            {
+                "title": "The Hurt Locker",
+                "year": 2009
+            },
+            {
+                "title": "Slumdog Millionaire",
+                "year": 2008
+            },
+            {
+                "title": "No Country for Old Men",
+                "year": 2007
+            },
+            {
+                "title": "The Departed",
+                "year": 2006
+            },
+            {
+                "title": "Crash",
+                "year": 2005
+            },
+            {
+                "title": "Million Dollar Baby",
+                "year": 2004
+            },
+            {
+                "title": "The Lord of the Rings: The Return of the King",
+                "year": 2003
+            },
+            {
+                "title": "Chicago",
+                "year": 2002
+            },
+            {
+                "title": "A Beautiful Mind",
+                "year": 2001
+            },
+            {
+                "title": "Gladiator",
+                "year": 2000
+            }
+        ]
+    },
+    "scifi_classics": {
+        "name": "Sci-Fi Classics",
+        "description": "Essential science fiction movies",
+        "icon": "\ud83d\ude80",
+        "movies": [
+            {
+                "title": "2001: A Space Odyssey",
+                "year": 1968
+            },
+            {
+                "title": "Blade Runner",
+                "year": 1982
+            },
+            {
+                "title": "The Matrix",
+                "year": 1999
+            },
+            {
+                "title": "Star Wars",
+                "year": 1977
+            },
+            {
+                "title": "Alien",
+                "year": 1979
+            },
+            {
+                "title": "The Terminator",
+                "year": 1984
+            },
+            {
+                "title": "E.T. the Extra-Terrestrial",
+                "year": 1982
+            },
+            {
+                "title": "Back to the Future",
+                "year": 1985
+            },
+            {
+                "title": "Inception",
+                "year": 2010
+            },
+            {
+                "title": "Interstellar",
+                "year": 2014
+            },
+            {
+                "title": "The Fifth Element",
+                "year": 1997
+            },
+            {
+                "title": "Total Recall",
+                "year": 1990
+            },
+            {
+                "title": "Minority Report",
+                "year": 2002
+            },
+            {
+                "title": "District 9",
+                "year": 2009
+            },
+            {
+                "title": "Arrival",
+                "year": 2016
+            },
+            {
+                "title": "Star Wars: Episode V - The Empire Strikes Back",
+                "year": 1980
+            },
+            {
+                "title": "Star Wars: Episode VI - Return of the Jedi",
+                "year": 1983
+            },
+            {
+                "title": "Terminator 2: Judgment Day",
+                "year": 1991
+            },
+            {
+                "title": "Close Encounters of the Third Kind",
+                "year": 1977
+            },
+            {
+                "title": "The Day the Earth Stood Still",
+                "year": 1951
+            },
+            {
+                "title": "Metropolis",
+                "year": 1927
+            },
+            {
+                "title": "Solaris",
+                "year": 1972
+            },
+            {
+                "title": "The Thing",
+                "year": 1982
+            },
+            {
+                "title": "WALL-E",
+                "year": 2008
+            },
+            {
+                "title": "Children of Men",
+                "year": 2006
+            },
+            {
+                "title": "Ex Machina",
+                "year": 2014
+            },
+            {
+                "title": "Moon",
+                "year": 2009
+            },
+            {
+                "title": "Aliens",
+                "year": 1986
+            },
+            {
+                "title": "The War of the Worlds",
+                "year": 1953
+            },
+            {
+                "title": "Forbidden Planet",
+                "year": 1956
+            },
+            {
+                "title": "Planet of the Apes",
+                "year": 1968
+            },
+            {
+                "title": "Predator",
+                "year": 1987
+            },
+            {
+                "title": "RoboCop",
+                "year": 1987
+            },
+            {
+                "title": "The Fly",
+                "year": 1986
+            },
+            {
+                "title": "Starship Troopers",
+                "year": 1997
+            },
+            {
+                "title": "Contact",
+                "year": 1997
+            },
+            {
+                "title": "The Prestige",
+                "year": 2006
+            },
+            {
+                "title": "Primer",
+                "year": 2004
+            },
+            {
+                "title": "12 Monkeys",
+                "year": 1995
+            },
+            {
+                "title": "Edge of Tomorrow",
+                "year": 2014
+            },
+            {
+                "title": "Looper",
+                "year": 2012
+            },
+            {
+                "title": "Snowpiercer",
+                "year": 2013
+            },
+            {
+                "title": "Gattaca",
+                "year": 1997
+            },
+            {
+                "title": "Brazil",
+                "year": 1985
+            },
+            {
+                "title": "A Clockwork Orange",
+                "year": 1971
+            },
+            {
+                "title": "Mad Max: Fury Road",
+                "year": 2015
+            },
+            {
+                "title": "The Road Warrior",
+                "year": 1981
+            },
+            {
+                "title": "Dune",
+                "year": 2021
+            },
+            {
+                "title": "Gravity",
+                "year": 2013
+            },
+            {
+                "title": "The Martian",
+                "year": 2015
+            }
+        ]
+    },
+    "horror_essentials": {
+        "name": "Horror Essentials",
+        "description": "Must-see horror films",
+        "icon": "\ud83d\udc7b",
+        "movies": [
+            {
+                "title": "The Exorcist",
+                "year": 1973
+            },
+            {
+                "title": "The Shining",
+                "year": 1980
+            },
+            {
+                "title": "Halloween",
+                "year": 1978
+            },
+            {
+                "title": "A Nightmare on Elm Street",
+                "year": 1984
+            },
+            {
+                "title": "The Texas Chain Saw Massacre",
+                "year": 1974
+            },
+            {
+                "title": "Psycho",
+                "year": 1960
+            },
+            {
+                "title": "Alien",
+                "year": 1979
+            },
+            {
+                "title": "Get Out",
+                "year": 2017
+            },
+            {
+                "title": "The Silence of the Lambs",
+                "year": 1991
+            },
+            {
+                "title": "Rosemary's Baby",
+                "year": 1968
+            },
+            {
+                "title": "The Thing",
+                "year": 1982
+            },
+            {
+                "title": "28 Days Later",
+                "year": 2002
+            },
+            {
+                "title": "Hereditary",
+                "year": 2018
+            },
+            {
+                "title": "The Conjuring",
+                "year": 2013
+            },
+            {
+                "title": "It Follows",
+                "year": 2014
+            },
+            {
+                "title": "The Witch",
+                "year": 2015
+            },
+            {
+                "title": "Midsommar",
+                "year": 2019
+            },
+            {
+                "title": "The Blair Witch Project",
+                "year": 1999
+            },
+            {
+                "title": "The Ring",
+                "year": 2002
+            },
+            {
+                "title": "Sinister",
+                "year": 2012
+            },
+            {
+                "title": "The Cabin in the Woods",
+                "year": 2011
+            },
+            {
+                "title": "Night of the Living Dead",
+                "year": 1968
+            },
+            {
+                "title": "Dawn of the Dead",
+                "year": 1978
+            },
+            {
+                "title": "The Omen",
+                "year": 1976
+            },
+            {
+                "title": "Carrie",
+                "year": 1976
+            },
+            {
+                "title": "Scream",
+                "year": 1996
+            },
+            {
+                "title": "Jaws",
+                "year": 1975
+            },
+            {
+                "title": "Paranormal Activity",
+                "year": 2007
+            },
+            {
+                "title": "Let the Right One In",
+                "year": 2008
+            },
+            {
+                "title": "A Quiet Place",
+                "year": 2018
+            },
+            {
+                "title": "The Descent",
+                "year": 2005
+            },
+            {
+                "title": "Insidious",
+                "year": 2010
+            },
+            {
+                "title": "Evil Dead II",
+                "year": 1987
+            },
+            {
+                "title": "The Fly",
+                "year": 1986
+            },
+            {
+                "title": "Poltergeist",
+                "year": 1982
+            },
+            {
+                "title": "The Birds",
+                "year": 1963
+            },
+            {
+                "title": "The Wicker Man",
+                "year": 1973
+            },
+            {
+                "title": "Don't Look Now",
+                "year": 1973
+            },
+            {
+                "title": "Suspiria",
+                "year": 1977
+            },
+            {
+                "title": "Nosferatu",
+                "year": 1922
+            },
+            {
+                "title": "The Cabinet of Dr. Caligari",
+                "year": 1920
+            },
+            {
+                "title": "Frankenstein",
+                "year": 1931
+            },
+            {
+                "title": "Dracula",
+                "year": 1931
+            },
+            {
+                "title": "Freaks",
+                "year": 1932
+            },
+            {
+                "title": "The Innocents",
+                "year": 1961
+            },
+            {
+                "title": "Invasion of the Body Snatchers",
+                "year": 1978
+            },
+            {
+                "title": "Videodrome",
+                "year": 1983
+            },
+            {
+                "title": "Re-Animator",
+                "year": 1985
+            },
+            {
+                "title": "The Babadook",
+                "year": 2014
+            },
+            {
+                "title": "Train to Busan",
+                "year": 2016
+            }
+        ]
+    },
+    "action_blockbusters": {
+        "name": "Action Blockbusters",
+        "description": "High-octane action movies",
+        "icon": "\ud83d\udca5",
+        "movies": [
+            {
+                "title": "Die Hard",
+                "year": 1988
+            },
+            {
+                "title": "Mad Max: Fury Road",
+                "year": 2015
+            },
+            {
+                "title": "The Dark Knight",
+                "year": 2008
+            },
+            {
+                "title": "Terminator 2: Judgment Day",
+                "year": 1991
+            },
+            {
+                "title": "The Matrix",
+                "year": 1999
+            },
+            {
+                "title": "Raiders of the Lost Ark",
+                "year": 1981
+            },
+            {
+                "title": "John Wick",
+                "year": 2014
+            },
+            {
+                "title": "Heat",
+                "year": 1995
+            },
+            {
+                "title": "Mission: Impossible - Fallout",
+                "year": 2018
+            },
+            {
+                "title": "Casino Royale",
+                "year": 2006
+            },
+            {
+                "title": "Gladiator",
+                "year": 2000
+            },
+            {
+                "title": "The Bourne Identity",
+                "year": 2002
+            },
+            {
+                "title": "Top Gun: Maverick",
+                "year": 2022
+            },
+            {
+                "title": "Speed",
+                "year": 1994
+            },
+            {
+                "title": "Face\/Off",
+                "year": 1997
+            },
+            {
+                "title": "The Raid",
+                "year": 2011
+            },
+            {
+                "title": "John Wick: Chapter 2",
+                "year": 2017
+            },
+            {
+                "title": "Point Break",
+                "year": 1991
+            },
+            {
+                "title": "Lethal Weapon",
+                "year": 1987
+            },
+            {
+                "title": "Predator",
+                "year": 1987
+            },
+            {
+                "title": "RoboCop",
+                "year": 1987
+            },
+            {
+                "title": "True Lies",
+                "year": 1994
+            },
+            {
+                "title": "The Terminator",
+                "year": 1984
+            },
+            {
+                "title": "First Blood",
+                "year": 1982
+            },
+            {
+                "title": "The Road Warrior",
+                "year": 1981
+            },
+            {
+                "title": "Enter the Dragon",
+                "year": 1973
+            },
+            {
+                "title": "The Rock",
+                "year": 1996
+            },
+            {
+                "title": "Con Air",
+                "year": 1997
+            },
+            {
+                "title": "The Fugitive",
+                "year": 1993
+            },
+            {
+                "title": "Commando",
+                "year": 1985
+            },
+            {
+                "title": "Total Recall",
+                "year": 1990
+            },
+            {
+                "title": "The Bourne Supremacy",
+                "year": 2004
+            },
+            {
+                "title": "The Bourne Ultimatum",
+                "year": 2007
+            },
+            {
+                "title": "Skyfall",
+                "year": 2012
+            },
+            {
+                "title": "GoldenEye",
+                "year": 1995
+            },
+            {
+                "title": "Mission: Impossible",
+                "year": 1996
+            },
+            {
+                "title": "Mission: Impossible - Ghost Protocol",
+                "year": 2011
+            },
+            {
+                "title": "The Incredibles",
+                "year": 2004
+            },
+            {
+                "title": "Kill Bill: Vol. 1",
+                "year": 2003
+            },
+            {
+                "title": "Kill Bill: Vol. 2",
+                "year": 2004
+            },
+            {
+                "title": "Dredd",
+                "year": 2012
+            },
+            {
+                "title": "Edge of Tomorrow",
+                "year": 2014
+            },
+            {
+                "title": "Atomic Blonde",
+                "year": 2017
+            },
+            {
+                "title": "Baby Driver",
+                "year": 2017
+            },
+            {
+                "title": "The Matrix Reloaded",
+                "year": 2003
+            },
+            {
+                "title": "Hard Boiled",
+                "year": 1992
+            },
+            {
+                "title": "Police Story",
+                "year": 1985
+            },
+            {
+                "title": "Crouching Tiger, Hidden Dragon",
+                "year": 2000
+            },
+            {
+                "title": "Ip Man",
+                "year": 2008
+            },
+            {
+                "title": "Ong-Bak",
+                "year": 2003
+            }
+        ]
+    },
+    "most_original_drama_movies_of_the_21st_century_": {
+        "name": "Most Original Drama Movies Of The 21st Century,",
+        "description": "Most Original Drama Movies Of The 21st Century, - Source: https:\/\/collider.com\/drama-movies-most-original-21st-century-ranked\/",
+        "icon": "\ud83c\udfac",
+        "movies": [
+            {
+                "title": "Whiplash",
+                "year": 2014,
+                "tmdb_id": 244786
+            }
+        ]
+    }
+}
