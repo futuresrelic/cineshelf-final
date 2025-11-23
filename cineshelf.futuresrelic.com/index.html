@@ -278,6 +278,11 @@
                     <select id="familyMemberFilter" onchange="App.filterFamilyByMember(this.value)" style="display:none;">
                         <option value="all">All Members</option>
                     </select>
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
+                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                    </div>
                 </div>
             </div>
             <div id="familyCollectionGrid" class="movie-grid grid-view"></div>
@@ -298,6 +303,11 @@
                     <select id="wishlistMemberFilter" onchange="App.filterWishlistByMember(this.value)" style="display:none;">
                         <option value="all">All Members</option>
                     </select>
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
+                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                    </div>
                 </div>
             </div>
             <div id="groupWishlistGrid" class="movie-grid grid-view"></div>
