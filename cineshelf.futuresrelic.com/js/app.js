@@ -1719,18 +1719,15 @@ function getCertColor(cert) {
             console.error('Failed to load settings:', error);
             settings = {};
         }
-        if (document.getElementById('settingOpenAIKey')) {
-    document.getElementById('settingOpenAIKey').value = settings.openaiKey || '';
-}
+        // OpenAI key is now configured server-side in config/secrets.php
     }
-    
+
     function saveSettings() {
         try {
             localStorage.setItem('cineshelf_settings', JSON.stringify(settings));
         } catch (error) {
             console.error('Failed to save settings:', error);
         }
-        openaiKey: document.getElementById('settingOpenAIKey')?.value || ''
     }
     
     function saveSetting(key, value) {

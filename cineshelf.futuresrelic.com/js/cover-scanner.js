@@ -27,12 +27,7 @@ const CoverScanner = (function() {
 async function openScanner() {
     init();
 
-    const settings = JSON.parse(localStorage.getItem('cineshelf_settings') || '{}');
-    if (!settings.openaiKey) {
-        alert('⚠️ OpenAI API key required!\n\nGo to Settings tab and add your OpenAI API key first.');
-        return;
-    }
-
+    // No need to check for API key anymore - it's configured on the server
     document.getElementById('coverScannerModal').classList.add('active');
 
     try {
@@ -178,56 +173,37 @@ async function openScanner() {
         }
     }
     
-    // Send image to OpenAI Vision API
+    // Send image to backend API (which uses OpenAI Vision API)
+    // This keeps the API key secure on the server
     async function recognizeWithAI(base64Image) {
-        const settings = JSON.parse(localStorage.getItem('cineshelf_settings') || '{}');
-        const apiKey = settings.openaiKey;
-        
-        if (!apiKey) {
-            throw new Error('OpenAI API key not found');
-        }
-        
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Call our backend API endpoint instead of OpenAI directly
+        const response = await fetch('/api/api.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'user',
-                        content: [
-                            {
-                                type: 'text',
-                                text: 'This is a DVD or Blu-ray cover. Extract ONLY the movie title. Return just the title, nothing else. If you cannot determine the title, return "UNKNOWN".'
-                            },
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: `data:image/jpeg;base64,${base64Image}`
-                                }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens: 50
+                action: 'scan_cover_image',
+                image: base64Image
             })
         });
-        
+
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'OpenAI API request failed');
+            throw new Error('Backend API request failed');
         }
-        
-        const data = await response.json();
-        const title = data.choices[0]?.message?.content?.trim();
-        
+
+        const result = await response.json();
+
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to recognize cover image');
+        }
+
+        const title = result.data?.title?.trim();
+
         if (!title || title === 'UNKNOWN') {
             return null;
         }
-        
+
         return title;
     }
     
