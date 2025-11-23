@@ -2525,6 +2525,82 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'scan_cover_image':
+            // Recognize DVD/Blu-ray cover using OpenAI Vision API
+            // This keeps the API key secure on the server (not exposed to frontend)
+
+            $base64Image = $input['image'] ?? '';
+
+            if (empty($base64Image)) {
+                jsonResponse(false, null, 'Image data required');
+            }
+
+            // Check if OpenAI API key is configured
+            if (empty(OPENAI_API_KEY)) {
+                jsonResponse(false, null, 'OpenAI API not configured. Please add OPENAI_API_KEY to config/secrets.php');
+            }
+
+            // Prepare OpenAI Vision API request
+            $apiData = [
+                'model' => 'gpt-4o', // Vision-capable model
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'text',
+                                'text' => 'This is a DVD or Blu-ray cover. Extract ONLY the movie title. Return just the title, nothing else. If you cannot determine the title, return "UNKNOWN".'
+                            ],
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => 'data:image/jpeg;base64,' . $base64Image
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'max_tokens' => 50
+            ];
+
+            // Make request to OpenAI
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . OPENAI_API_KEY
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlError) {
+                jsonResponse(false, null, 'Network error: ' . $curlError);
+            }
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMsg = $errorData['error']['message'] ?? 'OpenAI API request failed';
+                jsonResponse(false, null, 'OpenAI API error: ' . $errorMsg);
+            }
+
+            $data = json_decode($response, true);
+            $title = $data['choices'][0]['message']['content'] ?? '';
+            $title = trim($title);
+
+            if (empty($title) || $title === 'UNKNOWN') {
+                jsonResponse(false, null, 'Could not recognize movie title from image');
+            }
+
+            jsonResponse(true, ['title' => $title]);
+            break;
+
         // ========================================
         // DEFAULT
         // ========================================
