@@ -294,7 +294,7 @@ try {
     $db = getDb();
 
     // Admin-only actions that don't require user authentication
-    $adminActions = ['save_icon'];
+    $adminActions = ['save_icon', 'save_css', 'restore_css', 'get_css_backup'];
 
     if (in_array($action, $adminActions)) {
         // Skip authentication for admin tools
@@ -2682,6 +2682,82 @@ case 'resolve_movie':
             } else {
                 jsonResponse(false, null, 'Invalid icon type. Must be "favicon" or "app"');
             }
+            break;
+
+        case 'save_css':
+            // Save CSS to styles.css with automatic backup
+            $css = $input['css'] ?? '';
+
+            if (empty($css)) {
+                jsonResponse(false, null, 'CSS content required');
+            }
+
+            $cssPath = __DIR__ . '/../css/styles.css';
+            $backupPath = __DIR__ . '/../css/styles.css.backup';
+
+            // Create backup of current CSS
+            if (file_exists($cssPath)) {
+                $currentCss = file_get_contents($cssPath);
+                if ($currentCss !== false) {
+                    file_put_contents($backupPath, $currentCss);
+                }
+            }
+
+            // Write new CSS
+            $result = file_put_contents($cssPath, $css);
+
+            if ($result === false) {
+                jsonResponse(false, null, 'Failed to write CSS file');
+            }
+
+            jsonResponse(true, [
+                'message' => 'CSS saved successfully',
+                'backup_created' => file_exists($backupPath),
+                'bytes_written' => $result
+            ]);
+            break;
+
+        case 'restore_css':
+            // Restore CSS from backup
+            $cssPath = __DIR__ . '/../css/styles.css';
+            $backupPath = __DIR__ . '/../css/styles.css.backup';
+
+            if (!file_exists($backupPath)) {
+                jsonResponse(false, null, 'No backup file found');
+            }
+
+            $backupCss = file_get_contents($backupPath);
+            if ($backupCss === false) {
+                jsonResponse(false, null, 'Failed to read backup file');
+            }
+
+            $result = file_put_contents($cssPath, $backupCss);
+
+            if ($result === false) {
+                jsonResponse(false, null, 'Failed to restore CSS file');
+            }
+
+            jsonResponse(true, [
+                'message' => 'CSS restored from backup successfully',
+                'bytes_written' => $result
+            ]);
+            break;
+
+        case 'get_css_backup':
+            // Get info about CSS backup
+            $cssPath = __DIR__ . '/../css/styles.css';
+            $backupPath = __DIR__ . '/../css/styles.css.backup';
+
+            $backupExists = file_exists($backupPath);
+            $backupDate = $backupExists ? date('Y-m-d H:i:s', filemtime($backupPath)) : null;
+            $backupSize = $backupExists ? filesize($backupPath) : 0;
+
+            jsonResponse(true, [
+                'backup_exists' => $backupExists,
+                'backup_date' => $backupDate,
+                'backup_size' => $backupSize,
+                'current_size' => file_exists($cssPath) ? filesize($cssPath) : 0
+            ]);
             break;
 
         // ========================================
