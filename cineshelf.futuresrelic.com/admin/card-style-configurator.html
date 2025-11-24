@@ -893,6 +893,9 @@
                 if (result.ok) {
                     showToast(`✅ ${gridName} styles saved to live CSS! Backup created.`, 'success');
                     checkBackup(); // Update backup info
+
+                    // Force CSS reload with cache-busting
+                    reloadCSS();
                 } else {
                     showToast('❌ Error: ' + (result.error || 'Failed to save'), 'error');
                 }
@@ -1032,6 +1035,15 @@ ${gridPrefix}.movie-actions {
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 4000);
+        }
+
+        function reloadCSS() {
+            // Force reload CSS with cache-busting timestamp
+            const links = document.querySelectorAll('link[rel="stylesheet"]');
+            links.forEach(link => {
+                const href = link.href.split('?')[0];
+                link.href = href + '?v=' + Date.now();
+            });
         }
 
         async function checkBackup() {
