@@ -967,19 +967,39 @@ ${gridPrefix}.movie-actions {
             const savedConfigs = JSON.parse(localStorage.getItem('cineshelf_card_styles_all') || '{}');
             const config = savedConfigs[gridType];
 
-            if (!config) return;
+            // Default values
+            const defaults = {
+                titleSize: 1.1,
+                metaSize: 0.85,
+                directorSize: 0.85,
+                genreSize: 1.0,
+                cardHeight: 100,
+                posterWidth: 80,
+                cardPadding: 0.75,
+                metaGap: 0.75,
+                elementSpacing: 0.25,
+                showDirector: true,
+                showGenres: true,
+                showRuntime: true,
+                showCertification: true,
+                showYear: true,
+                showRating: true
+            };
 
-            Object.keys(config).forEach(key => {
+            // Use saved config or defaults
+            const activeConfig = config || defaults;
+
+            Object.keys(activeConfig).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
                     if (element.type === 'checkbox') {
-                        element.checked = config[key];
+                        element.checked = activeConfig[key];
                     } else {
-                        element.value = config[key];
+                        element.value = activeConfig[key];
                         const suffix = key.includes('Size') || key.includes('Gap') || key.includes('Spacing') || key.includes('Padding') ? 'rem' : 'px';
                         const valueDisplay = document.getElementById(key + 'Value');
                         if (valueDisplay) {
-                            valueDisplay.textContent = config[key] + suffix;
+                            valueDisplay.textContent = activeConfig[key] + suffix;
                         }
                     }
                 }
