@@ -1582,17 +1582,20 @@ async function selectPoster(movieId, posterPath) {
 
 async function viewMovieDetails(movieId) {
     try {
+        // Save scroll position before opening modal
+        window.scrollPositionBeforeModal = window.scrollY || document.documentElement.scrollTop;
+
         const group = collection.find(c => c.movie.movie_id === movieId);
         if (!group) return;
-        
+
         const movie = group.movie;
-        
+
         // Get all copies for this movie
         const copies = await apiCall('get_movie_copies', { movie_id: movieId });
-        
+
         const content = document.getElementById('movieDetailContent');
         const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
-        
+
         content.innerHTML = `
             <div class="movie-detail-layout">
                 <div class="movie-detail-poster">
@@ -1614,10 +1617,10 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                     ${movie.genre ? `<div class="movie-detail-genre">${movie.genre}</div>` : ''}
                     ${movie.director ? `<div class="movie-detail-director">🎬 Directed by ${movie.director}</div>` : ''}
                     ${movie.overview ? `<p class="movie-detail-overview">${movie.overview}</p>` : ''}
-                    
+
                     <div class="movie-detail-section">
                         <h3>Your Copies (${copies.length})</h3>
-                        
+
                         ${copies.length > 0 ? `
                             <div class="copies-summary">
                                 ${copies.map((copy, i) => `
@@ -1629,7 +1632,7 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                                     </div>
                                 `).join('')}
                             </div>
-                            
+
                             ${copies.length > 0 ? `
                                 <button class="btn" onclick="App.openCopyManager(${movieId})" style="margin-top: 1rem;">
                                     ✏️ Manage Copies
@@ -1642,9 +1645,9 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                 </div>
             </div>
         `;
-        
+
         document.getElementById('movieDetailModal').classList.add('active');
-        
+
     } catch (error) {
         console.error('Failed to load movie details:', error);
         showToast('Failed to load movie details', 'error');
@@ -1667,6 +1670,13 @@ function getCertColor(cert) {
     
     function closeMovieDetail() {
         document.getElementById('movieDetailModal').classList.remove('active');
+
+        // Restore scroll position after modal closes
+        if (typeof window.scrollPositionBeforeModal !== 'undefined') {
+            setTimeout(() => {
+                window.scrollTo(0, window.scrollPositionBeforeModal);
+            }, 50); // Small delay to ensure modal is fully closed
+        }
     }
     
     // ========================================
@@ -3209,21 +3219,24 @@ function filterFamilyByMember(memberId) {
 // NEW FUNCTION: View movie details in group context (shows ALL copies from ALL members)
 async function viewGroupMovieDetails(movieId) {
     try {
+        // Save scroll position before opening modal
+        window.scrollPositionBeforeModal = window.scrollY || document.documentElement.scrollTop;
+
         // Get all copies for this movie in the current group
-        const copies = await apiCall('list_group_collection', { 
-            group_id: currentGroupId 
+        const copies = await apiCall('list_group_collection', {
+            group_id: currentGroupId
         });
-        
+
         // Filter to just this movie
         const movieCopies = copies.filter(c => c.movie_id === movieId);
-        
+
         if (movieCopies.length === 0) return;
-        
+
         const movie = movieCopies[0]; // Use first copy for movie data
-        
+
         const content = document.getElementById('movieDetailContent');
         const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
-        
+
         content.innerHTML = `
             <div class="movie-detail-layout">
                 <div class="movie-detail-poster">
@@ -3240,7 +3253,7 @@ async function viewGroupMovieDetails(movieId) {
                     ${movie.genre ? `<div class="movie-detail-genre">${movie.genre}</div>` : ''}
                     ${movie.director ? `<div class="movie-detail-director">🎬 Directed by ${movie.director}</div>` : ''}
                     ${movie.overview ? `<p class="movie-detail-overview">${movie.overview}</p>` : ''}
-                    
+
                     <h3>Group Copies (${movieCopies.length})</h3>
                     <div class="copies-summary">
                         ${movieCopies.map((copy, i) => {
@@ -3273,9 +3286,9 @@ async function viewGroupMovieDetails(movieId) {
                 </div>
             </div>
         `;
-        
+
         document.getElementById('movieDetailModal').classList.add('active');
-        
+
     } catch (error) {
         console.error('Failed to load group movie details:', error);
         showToast('Failed to load movie details', 'error');

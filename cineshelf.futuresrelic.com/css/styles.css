@@ -70,11 +70,14 @@ body {
 }
 
 .logo-icon {
-    width: 36px;
-    height: 36px;
+    width: 36px !important;
+    height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
+    object-fit: contain;
 }
 
 .logo:hover .logo-icon {
@@ -341,8 +344,8 @@ body {
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    min-height: 100px;
-    max-height: 120px;
+    min-height: 120px;
+    max-height: 140px;
     min-width: 280px;
 }
 
@@ -357,19 +360,20 @@ body {
     padding: 0.75rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     overflow: hidden;
 }
 
 .movie-grid.list-view .movie-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.35rem;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    -webkit-line-clamp: unset;
-    -webkit-box-orient: unset;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
 }
 
 /* Show metadata inline in list view */
@@ -398,6 +402,25 @@ body {
 .movie-grid.list-view .hover-actions,
 .movie-grid.list-view .genre-emojis {
     display: none; /* Hide in list view for cleaner look */
+}
+
+/* List view: director, genres, meta styling */
+.movie-grid.list-view .movie-director {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.movie-grid.list-view .movie-genres {
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.movie-grid.list-view .movie-meta {
+    margin-top: 0.25rem;
 }
 
 /* List view actions positioning */
