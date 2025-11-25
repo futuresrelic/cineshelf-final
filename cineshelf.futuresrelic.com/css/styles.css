@@ -343,6 +343,7 @@ body {
     align-items: stretch;
     min-height: 100px;
     max-height: 120px;
+    min-width: 280px;
 }
 
 .movie-grid.list-view .movie-poster-container {
@@ -1819,11 +1820,15 @@ body {
 .tabs .tab {
     padding: 0.75rem 1rem !important;
     min-width: 50px;
+    width: auto;
+    flex-shrink: 0;
 }
 
-/* Active tab gets more padding for label */
+/* Active tab gets more padding for label and expands to fit content */
 .tabs .tab.active {
     padding: 0.75rem 1.5rem !important;
+    width: auto;
+    min-width: fit-content;
 }
 
 .tabs .tab .tab-label,
