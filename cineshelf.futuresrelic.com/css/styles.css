@@ -254,19 +254,21 @@ body {
 }
 
 /* Movie Grid */
+/* Base grid with CSS variable support for full customization */
 .movie-grid {
     display: grid;
-    gap: 1.5rem;
+    gap: var(--grid-gap, 1.5rem);
 }
 
+/* Grid view - uses CSS variables for per-grid customization */
 .movie-grid.grid-view {
-    grid-template-columns: var(--grid-columns, repeat(auto-fill, minmax(180px, 1fr)));
+    grid-template-columns: repeat(auto-fill, minmax(var(--grid-min-width, 180px), 1fr));
 }
 
 /* Compact grid view - denser layout with smaller posters */
 .movie-grid.compact-view {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(var(--compact-min-width, 90px), 1fr));
+    gap: var(--compact-gap, 0.5rem);
 }
 
 .movie-grid.compact-view .movie-card {
@@ -287,9 +289,51 @@ body {
     gap: 0.5rem;
 }
 
+/* List view - single column */
 .movie-grid.list-view {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: var(--list-gap, 0.75rem);
+}
+
+/* ========================================
+   Per-Grid Customization via CSS Variables
+   These can be overridden by the Card Style Configurator
+   ======================================== */
+
+/* Collection Grid - Default values */
+#collectionGrid {
+    --grid-gap: 1.5rem;
+    --grid-min-width: 180px;
+    --compact-min-width: 90px;
+    --compact-gap: 0.5rem;
+    --list-gap: 0.75rem;
+}
+
+/* Wishlist Grid - Default values */
+#wishlistGrid {
+    --grid-gap: 1.5rem;
+    --grid-min-width: 180px;
+    --compact-min-width: 90px;
+    --compact-gap: 0.5rem;
+    --list-gap: 0.75rem;
+}
+
+/* Family Collection Grid - Slightly tighter spacing */
+#familyCollectionGrid {
+    --grid-gap: 1rem;
+    --grid-min-width: 180px;
+    --compact-min-width: 90px;
+    --compact-gap: 0.5rem;
+    --list-gap: 0.75rem;
+}
+
+/* Group Wishlist Grid - Default values */
+#groupWishlistGrid {
+    --grid-gap: 1.5rem;
+    --grid-min-width: 180px;
+    --compact-min-width: 90px;
+    --compact-gap: 0.5rem;
+    --list-gap: 0.75rem;
 }
 
 /* List view: horizontal card with small poster on left */
@@ -2279,16 +2323,9 @@ body {
 }
 
 /* ========================================
-   FAMILY COLLECTION - Match Collection Size
-   REPLACE previous fix in styles.css
+   FAMILY COLLECTION - Netflix-Style Grid Styling
+   Grid layout now controlled via CSS variables (lines 322-328)
    ======================================== */
-
-/* ✨ Make Family Collection match Netflix-style movie grid */
-#familyCollectionGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-}
 
 #familyCollectionGrid .movie-card {
   position: relative;

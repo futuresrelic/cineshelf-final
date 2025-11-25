@@ -151,6 +151,9 @@ const App = (function() {
             setView(settings.defaultView);
         }
 
+        // Apply saved card styles from Card Style Configurator
+        loadSavedCardStyles();
+
         console.log('CineShelf ready!');
     }
     
@@ -1747,7 +1750,119 @@ function getCertColor(cert) {
         settings.defaultView = viewType;
         saveSettings();
     }
-    
+
+    // Load and apply saved card styles from Card Style Configurator
+    function loadSavedCardStyles() {
+        try {
+            const savedConfigs = JSON.parse(localStorage.getItem('cineshelf_card_styles_all') || '{}');
+
+            if (Object.keys(savedConfigs).length === 0) {
+                console.log('No saved card styles found');
+                return;
+            }
+
+            // Generate CSS for each saved grid configuration
+            let cssText = '/* CineShelf - Auto-loaded Card Styles from localStorage */\n\n';
+
+            for (const [gridType, config] of Object.entries(savedConfigs)) {
+                const gridSelector = getGridSelectorForStyle(gridType);
+                const gridName = getGridName(gridType);
+
+                cssText += `/* ${gridName} */\n`;
+
+                // CSS Variables for Grid/Compact/List Views
+                if (config.gridMinWidth || config.gridGap || config.compactMinWidth || config.compactGap || config.listGap) {
+                    cssText += `${gridSelector} {\n`;
+                    if (config.gridMinWidth) cssText += `    --grid-min-width: ${config.gridMinWidth}px;\n`;
+                    if (config.gridGap) cssText += `    --grid-gap: ${config.gridGap}rem;\n`;
+                    if (config.compactMinWidth) cssText += `    --compact-min-width: ${config.compactMinWidth}px;\n`;
+                    if (config.compactGap) cssText += `    --compact-gap: ${config.compactGap}rem;\n`;
+                    if (config.listGap) cssText += `    --list-gap: ${config.listGap}rem;\n`;
+                    cssText += `}\n\n`;
+                }
+
+                // List View Styling
+                const gridPrefix = gridType === 'all' ? '' : `${gridSelector} `;
+
+                if (config.titleSize) {
+                    cssText += `${gridPrefix}.movie-grid.list-view .movie-title {\n    font-size: ${config.titleSize}rem !important;\n}\n\n`;
+                }
+
+                if (config.metaSize || config.metaGap) {
+                    cssText += `${gridPrefix}.movie-meta {\n`;
+                    if (config.metaSize) cssText += `    font-size: ${config.metaSize}rem !important;\n`;
+                    if (config.metaGap) cssText += `    gap: ${config.metaGap}rem !important;\n`;
+                    cssText += `}\n\n`;
+                }
+
+                if (config.directorSize || config.elementSpacing || config.showDirector === false) {
+                    cssText += `${gridPrefix}.movie-director {\n`;
+                    if (config.directorSize) cssText += `    font-size: ${config.directorSize}rem !important;\n`;
+                    if (config.elementSpacing) cssText += `    margin-top: ${config.elementSpacing}rem !important;\n`;
+                    if (config.showDirector === false) cssText += `    display: none !important;\n`;
+                    cssText += `}\n\n`;
+                }
+
+                if (config.genreSize || config.elementSpacing || config.showGenres === false) {
+                    cssText += `${gridPrefix}.movie-genres {\n`;
+                    if (config.genreSize) cssText += `    font-size: ${config.genreSize}rem !important;\n`;
+                    if (config.elementSpacing) cssText += `    margin-top: ${config.elementSpacing}rem !important;\n`;
+                    if (config.showGenres === false) cssText += `    display: none !important;\n`;
+                    cssText += `}\n\n`;
+                }
+
+                if (config.cardHeight) {
+                    cssText += `${gridPrefix}.movie-grid.list-view .movie-card {\n    min-height: ${config.cardHeight}px !important;\n    max-height: ${config.cardHeight}px !important;\n}\n\n`;
+                }
+
+                if (config.posterWidth) {
+                    cssText += `${gridPrefix}.movie-grid.list-view .movie-poster-container {\n    width: ${config.posterWidth}px !important;\n}\n\n`;
+                }
+
+                if (config.cardPadding) {
+                    cssText += `${gridPrefix}.movie-info {\n    padding: ${config.cardPadding}rem !important;\n}\n\n`;
+                    cssText += `${gridPrefix}.movie-actions {\n    padding: ${config.cardPadding}rem !important;\n}\n\n`;
+                }
+            }
+
+            // Inject the CSS into the page
+            const styleElement = document.createElement('style');
+            styleElement.id = 'cineshelf-saved-card-styles';
+            styleElement.textContent = cssText;
+
+            // Remove old styles if they exist
+            const oldStyle = document.getElementById('cineshelf-saved-card-styles');
+            if (oldStyle) oldStyle.remove();
+
+            document.head.appendChild(styleElement);
+            console.log('Saved card styles applied successfully');
+        } catch (error) {
+            console.error('Error loading saved card styles:', error);
+        }
+    }
+
+    function getGridSelectorForStyle(gridType) {
+        const gridMap = {
+            'all': '.movie-grid',
+            'collection': '#collectionGrid',
+            'wishlist': '#wishlistGrid',
+            'family': '#familyCollectionGrid',
+            'groupwishlist': '#groupWishlistGrid'
+        };
+        return gridMap[gridType] || '.movie-grid';
+    }
+
+    function getGridName(gridType) {
+        const nameMap = {
+            'all': 'All Grids',
+            'collection': 'Collection',
+            'wishlist': 'Wishlist',
+            'family': 'Family Collection',
+            'groupwishlist': 'Group Wishlist'
+        };
+        return nameMap[gridType] || gridType;
+    }
+
         function updateBadges() {
     const collectionCount = collection.length;
     const wishlistCount = wishlist.length;

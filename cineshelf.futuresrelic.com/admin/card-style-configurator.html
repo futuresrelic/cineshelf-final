@@ -493,9 +493,49 @@
                     </div>
                 </div>
 
+                <!-- Grid & Compact View Settings -->
+                <div class="control-section">
+                    <h3>📏 Grid & Compact View Settings</h3>
+                    <div class="control-group">
+                        <label>
+                            <span>Grid View: Card Min Width</span>
+                            <span id="gridMinWidthValue">180px</span>
+                        </label>
+                        <input type="range" id="gridMinWidth" min="120" max="300" step="10" value="180">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Grid View: Gap</span>
+                            <span id="gridGapValue">1.5rem</span>
+                        </label>
+                        <input type="range" id="gridGap" min="0.5" max="3.0" step="0.25" value="1.5">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Compact View: Card Min Width</span>
+                            <span id="compactMinWidthValue">90px</span>
+                        </label>
+                        <input type="range" id="compactMinWidth" min="60" max="150" step="5" value="90">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>Compact View: Gap</span>
+                            <span id="compactGapValue">0.5rem</span>
+                        </label>
+                        <input type="range" id="compactGap" min="0.25" max="1.5" step="0.25" value="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span>List View: Gap</span>
+                            <span id="listGapValue">0.75rem</span>
+                        </label>
+                        <input type="range" id="listGap" min="0.25" max="2.0" step="0.25" value="0.75">
+                    </div>
+                </div>
+
                 <!-- Font Sizes -->
                 <div class="control-section">
-                    <h3>📝 Font Sizes</h3>
+                    <h3>📝 Font Sizes (List View)</h3>
                     <div class="control-group">
                         <label>
                             <span>Title Size (List)</span>
@@ -677,7 +717,8 @@
         });
 
         function setupListeners() {
-            const controls = ['titleSize', 'metaSize', 'directorSize', 'genreSize',
+            const controls = ['gridMinWidth', 'gridGap', 'compactMinWidth', 'compactGap', 'listGap',
+                            'titleSize', 'metaSize', 'directorSize', 'genreSize',
                             'cardHeight', 'posterWidth', 'cardPadding', 'metaGap', 'elementSpacing'];
 
             controls.forEach(id => {
@@ -767,10 +808,20 @@
         }
 
         function applyStyles() {
+            // Grid/Compact View Settings
+            const gridMinWidth = document.getElementById('gridMinWidth').value;
+            const gridGap = document.getElementById('gridGap').value;
+            const compactMinWidth = document.getElementById('compactMinWidth').value;
+            const compactGap = document.getElementById('compactGap').value;
+            const listGap = document.getElementById('listGap').value;
+
+            // List View Font Sizes
             const titleSize = document.getElementById('titleSize').value;
             const metaSize = document.getElementById('metaSize').value;
             const directorSize = document.getElementById('directorSize').value;
             const genreSize = document.getElementById('genreSize').value;
+
+            // List View Dimensions
             const cardHeight = document.getElementById('cardHeight').value;
             const posterWidth = document.getElementById('posterWidth').value;
             const cardPadding = document.getElementById('cardPadding').value;
@@ -785,6 +836,16 @@
             if (oldStyle) oldStyle.remove();
 
             style.textContent = `
+                /* CSS Variables for Grid/Compact/List Views */
+                .movie-grid {
+                    --grid-min-width: ${gridMinWidth}px;
+                    --grid-gap: ${gridGap}rem;
+                    --compact-min-width: ${compactMinWidth}px;
+                    --compact-gap: ${compactGap}rem;
+                    --list-gap: ${listGap}rem;
+                }
+
+                /* List View Styling */
                 .movie-grid.list-view .movie-title {
                     font-size: ${titleSize}rem !important;
                 }
@@ -821,15 +882,27 @@
         async function saveStyles() {
             const gridType = document.getElementById('gridSelector').value;
             const config = {
+                // Grid & Compact View Settings
+                gridMinWidth: document.getElementById('gridMinWidth').value,
+                gridGap: document.getElementById('gridGap').value,
+                compactMinWidth: document.getElementById('compactMinWidth').value,
+                compactGap: document.getElementById('compactGap').value,
+                listGap: document.getElementById('listGap').value,
+
+                // List View Font Sizes
                 titleSize: document.getElementById('titleSize').value,
                 metaSize: document.getElementById('metaSize').value,
                 directorSize: document.getElementById('directorSize').value,
                 genreSize: document.getElementById('genreSize').value,
+
+                // List View Dimensions
                 cardHeight: document.getElementById('cardHeight').value,
                 posterWidth: document.getElementById('posterWidth').value,
                 cardPadding: document.getElementById('cardPadding').value,
                 metaGap: document.getElementById('metaGap').value,
                 elementSpacing: document.getElementById('elementSpacing').value,
+
+                // Visibility Toggles
                 showDirector: document.getElementById('showDirector').checked,
                 showGenres: document.getElementById('showGenres').checked,
                 showRuntime: document.getElementById('showRuntime').checked,
@@ -920,9 +993,21 @@
         function generateCSS(config, gridType = 'all') {
             const selector = getGridSelector(gridType);
             const gridPrefix = selector ? `${selector} ` : '';  // Note: space after selector
+            const gridSelector = selector || '.movie-grid';  // Use .movie-grid for 'all'
             const gridName = gridType === 'all' ? 'All Grids' : document.querySelector(`#gridSelector option[value="${gridType}"]`)?.textContent || gridType;
 
             return `/* CineShelf Card Styles - Generated by Card Configurator - ${gridName} */
+
+/* CSS Variables for Grid/Compact/List Views */
+${gridSelector} {
+    --grid-min-width: ${config.gridMinWidth}px;
+    --grid-gap: ${config.gridGap}rem;
+    --compact-min-width: ${config.compactMinWidth}px;
+    --compact-gap: ${config.compactGap}rem;
+    --list-gap: ${config.listGap}rem;
+}
+
+/* List View Font Sizes */
 ${gridPrefix}.movie-grid.list-view .movie-title {
     font-size: ${config.titleSize}rem !important;
 }
@@ -944,6 +1029,7 @@ ${gridPrefix}.movie-genres {
     ${!config.showGenres ? 'display: none !important;' : ''}
 }
 
+/* List View Dimensions */
 ${gridPrefix}.movie-grid.list-view .movie-card {
     min-height: ${config.cardHeight}px !important;
     max-height: ${config.cardHeight}px !important;
@@ -970,17 +1056,29 @@ ${gridPrefix}.movie-actions {
             const savedConfigs = JSON.parse(localStorage.getItem('cineshelf_card_styles_all') || '{}');
             const config = savedConfigs[gridType];
 
-            // Default values
+            // Default values (Family Collection has tighter grid gap)
             const defaults = {
+                // Grid & Compact View Settings
+                gridMinWidth: 180,
+                gridGap: gridType === 'family' ? 1.0 : 1.5,
+                compactMinWidth: 90,
+                compactGap: 0.5,
+                listGap: 0.75,
+
+                // List View Font Sizes
                 titleSize: 1.1,
                 metaSize: 0.85,
                 directorSize: 0.85,
                 genreSize: 1.0,
+
+                // List View Dimensions
                 cardHeight: 100,
                 posterWidth: 80,
                 cardPadding: 0.75,
                 metaGap: 0.75,
                 elementSpacing: 0.25,
+
+                // Visibility Toggles
                 showDirector: true,
                 showGenres: true,
                 showRuntime: true,
@@ -992,22 +1090,26 @@ ${gridPrefix}.movie-actions {
             // Use saved config or defaults
             const activeConfig = config || defaults;
 
-            Object.keys(activeConfig).forEach(key => {
+            // Merge defaults with saved config to ensure all new properties have values
+            const mergedConfig = { ...defaults, ...activeConfig };
+
+            Object.keys(mergedConfig).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
                     if (element.type === 'checkbox') {
-                        element.checked = activeConfig[key];
+                        element.checked = mergedConfig[key];
                     } else {
-                        element.value = activeConfig[key];
+                        element.value = mergedConfig[key];
                         const suffix = key.includes('Size') || key.includes('Gap') || key.includes('Spacing') || key.includes('Padding') ? 'rem' : 'px';
                         const valueDisplay = document.getElementById(key + 'Value');
                         if (valueDisplay) {
-                            valueDisplay.textContent = activeConfig[key] + suffix;
+                            valueDisplay.textContent = mergedConfig[key] + suffix;
                         }
                     }
                 }
             });
 
+            applyStyles();  // Apply CSS variables to preview
             renderCards();
         }
 
