@@ -852,8 +852,9 @@
                 .then(data => {
                     const v = data.version;
                     console.log('[ScriptLoader] Loading scripts with version:', v);
-                    // Load auth.js first, then trivia.js, then app.js (order matters)
+                    // Load auth.js, cover-scanner.js, trivia.js, then app.js (order matters)
                     return loadScript('js/auth.js?v=' + v)
+                        .then(() => loadScript('js/cover-scanner.js?v=' + v))
                         .then(() => loadScript('js/trivia.js?v=' + v))
                         .then(() => loadScript('js/app.js?v=' + v));
                 })
@@ -870,6 +871,7 @@
                     console.error('[ScriptLoader] Failed to load scripts:', err);
                     // Fallback: load without version
                     return loadScript('js/auth.js')
+                        .then(() => loadScript('js/cover-scanner.js'))
                         .then(() => loadScript('js/trivia.js'))
                         .then(() => loadScript('js/app.js'))
                         .then(() => {
@@ -936,7 +938,7 @@
     </div>
 </div>
 
-<script src="js/cover-scanner.js"></script>
+<!-- cover-scanner.js now loaded via dynamic script loader above with cache-busting -->
 <script src="/pwa-register.js"></script>
 <!-- Force Update Button - Add before closing </body> tag -->
 <button id="forceUpdateBtn" style="

@@ -7,7 +7,7 @@
  * - Minimal caching, only for offline support
  */
 
-const CACHE_NAME = 'cineshelf-offline-v2';
+const CACHE_NAME = 'cineshelf-offline-v3';
 const OFFLINE_ASSETS = [
     '/',
     '/index.html',
