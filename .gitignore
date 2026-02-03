@@ -5,8 +5,10 @@ cineshelf.futuresrelic.com/config/secrets.php
 .env
 .env.local
 
-# Database files (optional - uncomment if you don't want to track the database)
-# cineshelf.futuresrelic.com/data/*.sqlite
+# Database files (Railway will manage these with persistent volumes)
+cineshelf.futuresrelic.com/data/*.sqlite
+cineshelf.futuresrelic.com/data/*.sqlite-shm
+cineshelf.futuresrelic.com/data/*.sqlite-wal
 
 # Error logs
 cineshelf.futuresrelic.com/data/php-errors.log

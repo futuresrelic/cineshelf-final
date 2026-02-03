@@ -4,16 +4,46 @@
  * Google OAuth 2.0 settings
  */
 
-// IMPORTANT: You need to set these values from Google Cloud Console
-// 1. Go to: https://console.cloud.google.com/
-// 2. Create a new project or select existing
-// 3. Enable Google+ API
-// 4. Create OAuth 2.0 credentials
-// 5. Add authorized redirect URI: https://cineshelf.futuresrelic.com/api/auth.php
+// IMPORTANT: Set these values as environment variables (recommended)
+// Or create config/secrets.php with return ['GOOGLE_CLIENT_ID' => '...', ...]
+//
+// Get credentials from: https://console.cloud.google.com/apis/credentials
+// 1. Create OAuth 2.0 credentials
+// 2. Add authorized redirect URI to match your deployment URL
+// 3. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI as environment variables
 
-define('GOOGLE_CLIENT_ID', '754407099284-tqu2gj2b2ifm01ti34eqto6mejou75pr.apps.googleusercontent.com');
-define('GOOGLE_CLIENT_SECRET', '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');
-define('GOOGLE_REDIRECT_URI', 'https://cineshelf.futuresrelic.com/api/auth.php');
+// Read from environment variables first, then fall back to secrets.php
+$googleClientId = getenv('GOOGLE_CLIENT_ID');
+$googleClientSecret = getenv('GOOGLE_CLIENT_SECRET');
+$googleRedirectUri = getenv('GOOGLE_REDIRECT_URI');
+
+// Fallback to secrets.php for local development (not in version control)
+if (!$googleClientId || !$googleClientSecret || !$googleRedirectUri) {
+    if (file_exists(__DIR__ . '/secrets.php')) {
+        $secrets = include __DIR__ . '/secrets.php';
+        $googleClientId = $googleClientId ?: ($secrets['GOOGLE_CLIENT_ID'] ?? '');
+        $googleClientSecret = $googleClientSecret ?: ($secrets['GOOGLE_CLIENT_SECRET'] ?? '');
+        $googleRedirectUri = $googleRedirectUri ?: ($secrets['GOOGLE_REDIRECT_URI'] ?? '');
+    }
+}
+
+// Fallback for legacy setups (will show warning if used)
+if (!$googleClientId) {
+    $googleClientId = '754407099284-tqu2gj2b2ifm01ti34eqto6mejou75pr.apps.googleusercontent.com';
+    error_log('WARNING: Using hardcoded GOOGLE_CLIENT_ID. Please set environment variable!');
+}
+if (!$googleClientSecret) {
+    $googleClientSecret = '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';
+    error_log('WARNING: Using hardcoded GOOGLE_CLIENT_SECRET. Please set environment variable IMMEDIATELY!');
+}
+if (!$googleRedirectUri) {
+    $googleRedirectUri = 'https://cineshelf.futuresrelic.com/api/auth.php';
+    error_log('WARNING: Using hardcoded GOOGLE_REDIRECT_URI. Please set environment variable!');
+}
+
+define('GOOGLE_CLIENT_ID', $googleClientId);
+define('GOOGLE_CLIENT_SECRET', $googleClientSecret);
+define('GOOGLE_REDIRECT_URI', $googleRedirectUri);
 
 // OAuth endpoints
 define('GOOGLE_AUTH_URL', 'https://accounts.google.com/o/oauth2/v2/auth');

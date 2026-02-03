@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ["php82", "php82Extensions.pdo", "php82Extensions.pdo_sqlite", "php82Extensions.sqlite3", "php82Extensions.mbstring", "php82Extensions.curl"]
+
+[phases.build]
+
+[phases.start]
+cmd = "php -S 0.0.0.0:${PORT:-8080} -t cineshelf.futuresrelic.com"
+
+[variables]
+PORT = "8080"

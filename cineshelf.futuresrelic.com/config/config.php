@@ -6,11 +6,22 @@
  */
 
 // Database file location
-define('DB_PATH', __DIR__ . '/../data/cineshelf.sqlite');
-define('DATA_DIR', __DIR__ . '/../data');
+// Read from environment variable or use default path
+$dbPath = getenv('DB_PATH');
+if (!$dbPath) {
+    $dbPath = __DIR__ . '/../data/cineshelf.sqlite';
+}
+define('DB_PATH', $dbPath);
+define('DATA_DIR', dirname(DB_PATH));
 
 // TMDB API Configuration
-define('TMDB_API_KEY', '8039283176a74ffd71a1658c6f84a051');
+// Read from environment variable or fall back to hardcoded key (not recommended)
+$tmdbKey = getenv('TMDB_API_KEY');
+if (!$tmdbKey) {
+    // Fallback for local development only - DO NOT USE IN PRODUCTION
+    $tmdbKey = '8039283176a74ffd71a1658c6f84a051';
+}
+define('TMDB_API_KEY', $tmdbKey);
 define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
@@ -41,7 +52,17 @@ define('ADMIN_USERS', ['admin', 'klindakoil', 'default']);
 
 // Error Reporting Configuration
 // Set to true for development (shows detailed errors), false for production (logs errors silently)
-define('DEBUG_MODE', false);
+// Read from environment variable (DEBUG_MODE=true or DEBUG_MODE=false)
+$debugMode = getenv('DEBUG_MODE');
+if ($debugMode === 'true' || $debugMode === '1') {
+    $debugMode = true;
+} else if ($debugMode === 'false' || $debugMode === '0') {
+    $debugMode = false;
+} else {
+    // Default to false (production) if not set
+    $debugMode = false;
+}
+define('DEBUG_MODE', $debugMode);
 
 if (DEBUG_MODE) {
     // Development: Show all errors
