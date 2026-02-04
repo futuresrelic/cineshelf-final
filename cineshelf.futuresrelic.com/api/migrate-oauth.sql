@@ -5,6 +5,7 @@
 ALTER TABLE users ADD COLUMN oauth_provider TEXT;
 ALTER TABLE users ADD COLUMN oauth_provider_id TEXT;
 ALTER TABLE users ADD COLUMN profile_picture TEXT;
+ALTER TABLE users ADD COLUMN display_name TEXT;
 ALTER TABLE users ADD COLUMN updated_at DATETIME;
 
 -- Set default timestamp for existing users
