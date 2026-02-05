@@ -41,10 +41,38 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     is_admin INTEGER DEFAULT 0,
     settings_json TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    oauth_provider TEXT DEFAULT 'legacy',
+    oauth_provider_id TEXT,
+    profile_picture TEXT,
+    display_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider_id);
+
+-- ============================================
+-- OAUTH SESSIONS
+-- Session-based authentication with OAuth tokens
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    oauth_access_token TEXT,
+    oauth_refresh_token TEXT,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 -- ============================================
 -- PHYSICAL COPIES
@@ -154,6 +182,77 @@ VALUES ('default', 1, '{"defaultView":"grid","gridColumns":5}');
 -- Default settings
 INSERT OR IGNORE INTO settings (key, value) VALUES ('app_version', '2.0.0');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('initialized_at', datetime('now'));
+
+-- ============================================
+-- GROUPS AND FAMILY SHARING
+-- User groups for sharing collections
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_groups_creator ON groups(created_by);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+
+CREATE TABLE IF NOT EXISTS group_invites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    invited_email TEXT,
+    invite_token TEXT UNIQUE NOT NULL,
+    invited_by INTEGER NOT NULL,
+    expires_at DATETIME NOT NULL,
+    accepted_at DATETIME,
+    accepted_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_invites_token ON group_invites(invite_token);
+CREATE INDEX IF NOT EXISTS idx_group_invites_group ON group_invites(group_id);
+
+-- ============================================
+-- BORROWING SYSTEM
+-- Track lending and borrowing of physical copies
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS borrows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    copy_id INTEGER NOT NULL,
+    owner_id INTEGER NOT NULL,
+    borrower_id INTEGER NOT NULL,
+    borrowed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    due_date DATE,
+    returned_at DATETIME,
+    notes TEXT,
+    FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (borrower_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_borrows_copy ON borrows(copy_id);
+CREATE INDEX IF NOT EXISTS idx_borrows_owner ON borrows(owner_id);
+CREATE INDEX IF NOT EXISTS idx_borrows_borrower ON borrows(borrower_id);
 
 -- ============================================
 -- TRIVIA SYSTEM TABLES
