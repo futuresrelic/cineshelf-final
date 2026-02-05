@@ -49,7 +49,7 @@
 <body>
     <div class="container">
         <h1>🔧 Fix Database Schema</h1>
-        <p>This tool adds missing OAuth columns to your existing database.</p>
+        <p>This tool adds missing columns and tables to your existing database (OAuth, Groups, Borrowing).</p>
 
         <?php
         require_once __DIR__ . '/../config/config.php';
@@ -92,10 +92,42 @@
                 $needsFix = true;
             }
 
+            // Check if groups table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM groups LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'groups';
+                $needsFix = true;
+            }
+
+            // Check if group_members table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM group_members LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'group_members';
+                $needsFix = true;
+            }
+
+            // Check if group_invites table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM group_invites LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'group_invites';
+                $needsFix = true;
+            }
+
+            // Check if borrows table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM borrows LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'borrows';
+                $needsFix = true;
+            }
+
             if (!$needsFix) {
                 echo '<div class="success">';
                 echo '<strong>✅ Database is OK!</strong><br>';
-                echo 'All required OAuth columns and tables exist.<br>';
+                echo 'All required columns and tables exist (OAuth, Groups, Borrowing).<br>';
                 echo 'Your database is ready to use.';
                 echo '</div>';
                 echo '<a href="/" class="btn">← Back to CineShelf</a>';
@@ -185,14 +217,94 @@
                 echo "✓ Created sessions table indexes\n";
             }
 
+            // Create groups table if missing
+            if (in_array('groups', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        created_by INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                ");
+                echo "✓ Created groups table\n";
+            }
+
+            // Create group_members table if missing
+            if (in_array('group_members', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE group_members (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        group_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        role TEXT NOT NULL DEFAULT 'member',
+                        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        UNIQUE(group_id, user_id)
+                    )
+                ");
+                $db->exec("CREATE INDEX idx_group_members_group ON group_members(group_id)");
+                $db->exec("CREATE INDEX idx_group_members_user ON group_members(user_id)");
+                echo "✓ Created group_members table\n";
+            }
+
+            // Create group_invites table if missing
+            if (in_array('group_invites', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE group_invites (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        group_id INTEGER NOT NULL,
+                        invited_email TEXT,
+                        invite_token TEXT UNIQUE NOT NULL,
+                        invited_by INTEGER NOT NULL,
+                        expires_at DATETIME NOT NULL,
+                        accepted_at DATETIME,
+                        accepted_by INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+                        FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL
+                    )
+                ");
+                $db->exec("CREATE INDEX idx_group_invites_token ON group_invites(invite_token)");
+                $db->exec("CREATE INDEX idx_group_invites_group ON group_invites(group_id)");
+                echo "✓ Created group_invites table\n";
+            }
+
+            // Create borrows table if missing
+            if (in_array('borrows', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE borrows (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        copy_id INTEGER NOT NULL,
+                        owner_id INTEGER NOT NULL,
+                        borrower_id INTEGER NOT NULL,
+                        borrowed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        due_date DATE,
+                        returned_at DATETIME,
+                        notes TEXT,
+                        FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+                        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (borrower_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                ");
+                $db->exec("CREATE INDEX idx_borrows_copy ON borrows(copy_id)");
+                $db->exec("CREATE INDEX idx_borrows_owner ON borrows(owner_id)");
+                $db->exec("CREATE INDEX idx_borrows_borrower ON borrows(borrower_id)");
+                echo "✓ Created borrows table\n";
+            }
+
             $db->commit();
 
             echo '</pre>';
 
             echo '<div class="success">';
             echo '<strong>🎉 Database Fixed Successfully!</strong><br>';
-            echo 'All missing OAuth columns and tables have been added.<br>';
-            echo 'You can now log in with Google!';
+            echo 'All missing columns and tables have been added.<br>';
+            echo 'OAuth login, Groups, and Borrowing features are now ready!';
             echo '</div>';
 
             // Verify
