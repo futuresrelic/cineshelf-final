@@ -469,28 +469,67 @@ try {
             $movie = $stmt->fetch();
             
             if (!$movie) {
-                // Fetch from TMDB first
+                // Fetch from TMDB first (with credits for actors/director/studio)
                 $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY;
+                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=credits,release_dates';
                 $response = file_get_contents($url);
-                
+
                 if ($response === false) {
                     jsonResponse(false, null, 'Failed to fetch movie from TMDB');
                 }
-                
+
                 $data = json_decode($response, true);
                 $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
-                
-                // Insert movie
+
+                // Extract director
+                $director = '';
+                if (!empty($data['credits']['crew'])) {
+                    foreach ($data['credits']['crew'] as $person) {
+                        if ($person['job'] === 'Director') {
+                            $director = $person['name'];
+                            break;
+                        }
+                    }
+                }
+
+                // Extract top 5 actors
+                $actors = '';
+                if (!empty($data['credits']['cast'])) {
+                    $topActors = array_slice($data['credits']['cast'], 0, 5);
+                    $actors = implode(', ', array_column($topActors, 'name'));
+                }
+
+                // Extract studio (first production company)
+                $studio = '';
+                if (!empty($data['production_companies'])) {
+                    $studio = $data['production_companies'][0]['name'] ?? '';
+                }
+
+                // Extract certification
+                $certification = '';
+                if (!empty($data['release_dates']['results'])) {
+                    foreach ($data['release_dates']['results'] as $country) {
+                        if ($country['iso_3166_1'] === 'US') {
+                            foreach ($country['release_dates'] as $release) {
+                                if (!empty($release['certification'])) {
+                                    $certification = $release['certification'];
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Insert movie with all metadata
                 $stmt = $db->prepare("
-                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, media_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                
+
                 $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
                 $releaseDate = $mediaType === 'tv' ? ($data['first_air_date'] ?? null) : ($data['release_date'] ?? null);
                 $year = $releaseDate ? intval(substr($releaseDate, 0, 4)) : null;
-                
+
                 $stmt->execute([
                     $tmdbId,
                     $title,
@@ -500,9 +539,13 @@ try {
                     $data['vote_average'] ?? null,
                     $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
                     $genres,
+                    $director,
+                    $actors,
+                    $studio,
+                    $certification,
                     $mediaType
                 ]);
-                
+
                 $movieId = $db->lastInsertId();
             } else {
                 $movieId = $movie['id'];
@@ -545,6 +588,8 @@ try {
                     m.overview,
                     m.director,
                     m.certification,
+                    m.actors,
+                    m.studio,
                     COUNT(*) OVER (PARTITION BY m.id) as copy_count
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id

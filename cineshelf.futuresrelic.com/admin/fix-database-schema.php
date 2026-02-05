@@ -49,7 +49,7 @@
 <body>
     <div class="container">
         <h1>🔧 Fix Database Schema</h1>
-        <p>This tool adds missing columns and tables to your existing database (OAuth, Groups, Borrowing).</p>
+        <p>This tool adds missing columns and tables to your existing database (OAuth, Groups, Borrowing, Shelf Layout).</p>
 
         <?php
         require_once __DIR__ . '/../config/config.php';
@@ -67,6 +67,8 @@
             $missingColumns = [];
             $missingTables = [];
 
+            $missingMovieColumns = [];
+
             // Check if users table has OAuth columns
             try {
                 $stmt = $db->query("PRAGMA table_info(users)");
@@ -82,6 +84,22 @@
             } catch (PDOException $e) {
                 $missingTables[] = 'users';
                 $needsFix = true;
+            }
+
+            // Check if movies table has new columns
+            try {
+                $stmt = $db->query("PRAGMA table_info(movies)");
+                $movieColumns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+
+                $requiredMovieColumns = ['actors', 'studio'];
+                foreach ($requiredMovieColumns as $col) {
+                    if (!in_array($col, $movieColumns)) {
+                        $missingMovieColumns[] = $col;
+                        $needsFix = true;
+                    }
+                }
+            } catch (PDOException $e) {
+                // Movies table doesn't exist - shouldn't happen
             }
 
             // Check if sessions table exists
@@ -124,10 +142,26 @@
                 $needsFix = true;
             }
 
+            // Check if shelves table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM shelves LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'shelves';
+                $needsFix = true;
+            }
+
+            // Check if shelf_assignments table exists
+            try {
+                $stmt = $db->query("SELECT 1 FROM shelf_assignments LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'shelf_assignments';
+                $needsFix = true;
+            }
+
             if (!$needsFix) {
                 echo '<div class="success">';
                 echo '<strong>✅ Database is OK!</strong><br>';
-                echo 'All required columns and tables exist (OAuth, Groups, Borrowing).<br>';
+                echo 'All required columns and tables exist (OAuth, Groups, Borrowing, Shelf Layout).<br>';
                 echo 'Your database is ready to use.';
                 echo '</div>';
                 echo '<a href="/" class="btn">← Back to CineShelf</a>';
@@ -139,6 +173,9 @@
             echo '<strong>⚠️ Database needs fixing!</strong><br>';
             if (!empty($missingColumns)) {
                 echo 'Missing columns in users table: ' . implode(', ', $missingColumns) . '<br>';
+            }
+            if (!empty($missingMovieColumns)) {
+                echo 'Missing columns in movies table: ' . implode(', ', $missingMovieColumns) . '<br>';
             }
             if (!empty($missingTables)) {
                 echo 'Missing tables: ' . implode(', ', $missingTables) . '<br>';
@@ -297,6 +334,60 @@
                 echo "✓ Created borrows table\n";
             }
 
+            // Add actors column to movies table if missing
+            if (in_array('actors', $missingMovieColumns)) {
+                $db->exec("ALTER TABLE movies ADD COLUMN actors TEXT");
+                echo "✓ Added actors column to movies table\n";
+            }
+
+            // Add studio column to movies table if missing
+            if (in_array('studio', $missingMovieColumns)) {
+                $db->exec("ALTER TABLE movies ADD COLUMN studio TEXT");
+                echo "✓ Added studio column to movies table\n";
+            }
+
+            // Create shelves table if missing
+            if (in_array('shelves', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE shelves (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        position INTEGER NOT NULL DEFAULT 0,
+                        capacity INTEGER,
+                        description TEXT,
+                        theme TEXT,
+                        color TEXT DEFAULT '#667eea',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                ");
+                $db->exec("CREATE INDEX idx_shelves_user ON shelves(user_id)");
+                $db->exec("CREATE INDEX idx_shelves_position ON shelves(user_id, position)");
+                echo "✓ Created shelves table\n";
+            }
+
+            // Create shelf_assignments table if missing
+            if (in_array('shelf_assignments', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE shelf_assignments (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        shelf_id INTEGER NOT NULL,
+                        copy_id INTEGER NOT NULL,
+                        position_in_shelf INTEGER NOT NULL DEFAULT 0,
+                        notes TEXT,
+                        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE,
+                        FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+                        UNIQUE(copy_id)
+                    )
+                ");
+                $db->exec("CREATE INDEX idx_shelf_assignments_shelf ON shelf_assignments(shelf_id)");
+                $db->exec("CREATE INDEX idx_shelf_assignments_copy ON shelf_assignments(copy_id)");
+                $db->exec("CREATE INDEX idx_shelf_assignments_position ON shelf_assignments(shelf_id, position_in_shelf)");
+                echo "✓ Created shelf_assignments table\n";
+            }
+
             $db->commit();
 
             echo '</pre>';
@@ -304,7 +395,7 @@
             echo '<div class="success">';
             echo '<strong>🎉 Database Fixed Successfully!</strong><br>';
             echo 'All missing columns and tables have been added.<br>';
-            echo 'OAuth login, Groups, and Borrowing features are now ready!';
+            echo 'OAuth login, Groups, Borrowing, and Shelf Layout features are now ready!';
             echo '</div>';
 
             // Verify

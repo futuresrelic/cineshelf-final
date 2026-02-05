@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS movies (
     director TEXT,
     genre TEXT,
     certification TEXT,
+    actors TEXT,
+    studio TEXT,
     media_type TEXT DEFAULT 'movie',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -253,6 +255,43 @@ CREATE TABLE IF NOT EXISTS borrows (
 CREATE INDEX IF NOT EXISTS idx_borrows_copy ON borrows(copy_id);
 CREATE INDEX IF NOT EXISTS idx_borrows_owner ON borrows(owner_id);
 CREATE INDEX IF NOT EXISTS idx_borrows_borrower ON borrows(borrower_id);
+
+-- ============================================
+-- SHELF LAYOUT SYSTEM
+-- Physical organization of movie collection
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS shelves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    capacity INTEGER,
+    description TEXT,
+    theme TEXT,
+    color TEXT DEFAULT '#667eea',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_shelves_user ON shelves(user_id);
+CREATE INDEX IF NOT EXISTS idx_shelves_position ON shelves(user_id, position);
+
+CREATE TABLE IF NOT EXISTS shelf_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shelf_id INTEGER NOT NULL,
+    copy_id INTEGER NOT NULL,
+    position_in_shelf INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE,
+    FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+    UNIQUE(copy_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shelf_assignments_shelf ON shelf_assignments(shelf_id);
+CREATE INDEX IF NOT EXISTS idx_shelf_assignments_copy ON shelf_assignments(copy_id);
+CREATE INDEX IF NOT EXISTS idx_shelf_assignments_position ON shelf_assignments(shelf_id, position_in_shelf);
 
 -- ============================================
 -- TRIVIA SYSTEM TABLES
