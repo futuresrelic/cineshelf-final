@@ -2200,7 +2200,9 @@ case 'resolve_movie':
 
         case 'get_presets':
             // Get all wishlist preset lists
-            $presetsFile = __DIR__ . '/../data/presets.json';
+            // NOTE: presets.json is in the main directory (not /data) to avoid being
+            // overridden by Railway's persistent volume mount
+            $presetsFile = __DIR__ . '/../presets.json';
 
             if (!file_exists($presetsFile)) {
                 jsonResponse(false, null, 'Presets file not found');
@@ -2227,9 +2229,10 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Presets data required');
             }
 
-            $presetsFile = __DIR__ . '/../data/presets.json';
+            // NOTE: presets.json is in main directory (not /data) to avoid Railway volume override
+            $presetsFile = __DIR__ . '/../presets.json';
 
-            // Backup existing file
+            // Backup existing file (backups go to /data which is on the persistent volume)
             if (file_exists($presetsFile)) {
                 $backupFile = __DIR__ . '/../data/presets.backup.' . date('Y-m-d_H-i-s') . '.json';
                 copy($presetsFile, $backupFile);
