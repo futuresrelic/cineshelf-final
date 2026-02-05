@@ -2392,6 +2392,101 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'admin_export_user_csv':
+            // Export a user's collection and wishlist as CSV (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            // Get user info for filename
+            $stmt = $db->prepare("SELECT username, display_name FROM users WHERE id = ?");
+            $stmt->execute([$targetUserId]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                jsonResponse(false, null, 'User not found');
+            }
+
+            // Get collection items
+            $stmt = $db->prepare("
+                SELECT
+                    m.title,
+                    m.year,
+                    m.tmdb_id,
+                    c.format,
+                    c.edition,
+                    c.region,
+                    c.condition,
+                    c.notes,
+                    c.barcode
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.user_id = ?
+                ORDER BY m.title ASC
+            ");
+            $stmt->execute([$targetUserId]);
+            $collectionItems = $stmt->fetchAll();
+
+            // Get wishlist items
+            $stmt = $db->prepare("
+                SELECT
+                    m.title,
+                    m.year,
+                    m.tmdb_id
+                FROM wishlist w
+                JOIN movies m ON w.movie_id = m.id
+                WHERE w.user_id = ?
+                ORDER BY m.title ASC
+            ");
+            $stmt->execute([$targetUserId]);
+            $wishlistItems = $stmt->fetchAll();
+
+            // Build CSV
+            $csv = "title,year,tmdb_id,status,format,edition,region,condition,notes,barcode\n";
+
+            // Add collection items
+            foreach ($collectionItems as $item) {
+                $csv .= sprintf(
+                    '"%s",%s,%s,"collection","%s","%s","%s","%s","%s","%s"' . "\n",
+                    str_replace('"', '""', $item['title'] ?? ''),
+                    $item['year'] ?? '',
+                    $item['tmdb_id'] ?? '',
+                    str_replace('"', '""', $item['format'] ?? 'DVD'),
+                    str_replace('"', '""', $item['edition'] ?? ''),
+                    str_replace('"', '""', $item['region'] ?? ''),
+                    str_replace('"', '""', $item['condition'] ?? 'Good'),
+                    str_replace('"', '""', $item['notes'] ?? ''),
+                    str_replace('"', '""', $item['barcode'] ?? '')
+                );
+            }
+
+            // Add wishlist items
+            foreach ($wishlistItems as $item) {
+                $csv .= sprintf(
+                    '"%s",%s,%s,"wishlist","","","","","",""' . "\n",
+                    str_replace('"', '""', $item['title'] ?? ''),
+                    $item['year'] ?? '',
+                    $item['tmdb_id'] ?? ''
+                );
+            }
+
+            $filename = 'cineshelf_' . ($user['display_name'] ?? $user['username']) . '_' . date('Y-m-d') . '.csv';
+
+            jsonResponse(true, [
+                'csv' => $csv,
+                'filename' => $filename,
+                'username' => $user['display_name'] ?? $user['username'],
+                'collection_count' => count($collectionItems),
+                'wishlist_count' => count($wishlistItems)
+            ]);
+            break;
+
         case 'fetch_article':
             // Fetch article content from URL (admin only)
             if (!$currentUser['is_admin']) {

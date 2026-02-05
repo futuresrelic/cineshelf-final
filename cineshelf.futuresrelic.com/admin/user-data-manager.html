@@ -228,6 +228,17 @@
             box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
         }
 
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+
         .status {
             margin-top: 1rem;
             padding: 1rem;
@@ -443,6 +454,12 @@
 
                 <div class="actions">
                     <button
+                        class="btn btn-primary"
+                        onclick="exportUserCSV(${user.id})"
+                        ${collectionCount === 0 && wishlistCount === 0 ? 'disabled' : ''}>
+                        💾 Export CSV (${collectionCount + wishlistCount} items)
+                    </button>
+                    <button
                         class="btn btn-warning"
                         onclick="clearWishlist(${user.id})"
                         ${wishlistCount === 0 ? 'disabled' : ''}>
@@ -548,6 +565,53 @@
                     selectUser(userId);
                     loadUsers(); // Refresh counts in list
                 }, 2000);
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function exportUserCSV(userId) {
+            const user = selectedUser.user;
+            const collectionCount = selectedUser.collection_count;
+            const wishlistCount = selectedUser.wishlist_count;
+
+            try {
+                showStatus(`Exporting ${collectionCount + wishlistCount} items...`, 'info');
+
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'admin_export_user_csv',
+                        user_id: userId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to export CSV');
+                }
+
+                // Create and download the CSV file
+                const blob = new Blob([result.data.csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+
+                link.setAttribute('href', url);
+                link.setAttribute('download', result.data.filename);
+                link.style.visibility = 'hidden';
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showStatus(
+                    `✅ Exported ${result.data.collection_count} collection + ${result.data.wishlist_count} wishlist items for ${result.data.username}`,
+                    'success'
+                );
 
             } catch (error) {
                 showStatus('Error: ' + error.message, 'error');
