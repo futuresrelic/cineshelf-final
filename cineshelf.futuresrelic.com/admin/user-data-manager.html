@@ -239,6 +239,17 @@
             box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
         }
 
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
         .status {
             margin-top: 1rem;
             padding: 1rem;
@@ -454,6 +465,12 @@
 
                 <div class="actions">
                     <button
+                        class="btn btn-success"
+                        onclick="document.getElementById('csvFileInput_${user.id}').click()">
+                        📥 Import CSV
+                    </button>
+                    <input type="file" id="csvFileInput_${user.id}" accept=".csv" style="display: none;" onchange="importUserCSV(${user.id}, event)">
+                    <button
                         class="btn btn-primary"
                         onclick="exportUserCSV(${user.id})"
                         ${collectionCount === 0 && wishlistCount === 0 ? 'disabled' : ''}>
@@ -569,6 +586,76 @@
             } catch (error) {
                 showStatus('Error: ' + error.message, 'error');
             }
+        }
+
+        async function importUserCSV(userId, event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Reset file input
+            event.target.value = '';
+
+            if (!file.name.endsWith('.csv')) {
+                showStatus('Please upload a CSV file', 'error');
+                return;
+            }
+
+            const user = selectedUser.user;
+            const confirmMsg = `Import CSV for user "${user.display_name || user.username}"?\n\nThis will add movies to their collection. Existing movies will be skipped.`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const csvData = e.target.result;
+
+                    showStatus('Importing CSV... This may take a minute.', 'info');
+
+                    const response = await fetch('/api/api.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            action: 'admin_import_user_csv',
+                            user_id: userId,
+                            csv_data: csvData
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (!result.ok) {
+                        throw new Error(result.error || 'Failed to import CSV');
+                    }
+
+                    let message = `✅ Import complete!\n\n`;
+                    message += `Added: ${result.data.added} movies\n`;
+                    message += `Skipped: ${result.data.skipped} (duplicates or errors)`;
+
+                    if (result.data.errors && result.data.errors.length > 0) {
+                        message += `\n\nErrors:\n${result.data.errors.slice(0, 5).join('\n')}`;
+                        if (result.data.errors.length > 5) {
+                            message += `\n... and ${result.data.errors.length - 5} more`;
+                        }
+                    }
+
+                    showStatus(message, 'success');
+
+                    // Reload user data
+                    setTimeout(() => {
+                        selectUser(userId);
+                        loadUsers(); // Refresh counts in list
+                    }, 2000);
+
+                } catch (error) {
+                    showStatus('Error: ' + error.message, 'error');
+                }
+            };
+
+            reader.readAsText(file);
         }
 
         async function exportUserCSV(userId) {

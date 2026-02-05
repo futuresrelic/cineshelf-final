@@ -2487,6 +2487,203 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'admin_import_user_csv':
+            // Import CSV data for a specific user (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $targetUserId = intval($input['user_id'] ?? 0);
+            $csvData = $input['csv_data'] ?? '';
+
+            if (!$targetUserId) {
+                jsonResponse(false, null, 'User ID required');
+            }
+
+            if (!$csvData) {
+                jsonResponse(false, null, 'CSV data required');
+            }
+
+            // Parse CSV
+            $lines = explode("\n", $csvData);
+            $lines = array_filter(array_map('trim', $lines));
+
+            if (count($lines) < 2) {
+                jsonResponse(false, null, 'CSV file is empty or invalid');
+            }
+
+            // Parse header
+            $header = str_getcsv($lines[0]);
+            $header = array_map('strtolower', array_map('trim', $header));
+
+            // Find column indices
+            $titleIndex = array_search('title', $header);
+            if ($titleIndex === false) {
+                $titleIndex = array_search('name', $header);
+            }
+            if ($titleIndex === false) {
+                $titleIndex = array_search('movie', $header);
+            }
+
+            $yearIndex = array_search('year', $header);
+            $tmdbIdIndex = array_search('tmdb_id', $header);
+            $statusIndex = array_search('status', $header);
+            $formatIndex = array_search('format', $header);
+            $editionIndex = array_search('edition', $header);
+            $regionIndex = array_search('region', $header);
+            $conditionIndex = array_search('condition', $header);
+            $notesIndex = array_search('notes', $header);
+            $barcodeIndex = array_search('barcode', $header);
+
+            if ($titleIndex === false) {
+                jsonResponse(false, null, 'CSV must have a "title" column');
+            }
+
+            $added = 0;
+            $skipped = 0;
+            $errors = [];
+
+            for ($i = 1; $i < count($lines); $i++) {
+                $values = str_getcsv($lines[$i]);
+
+                if (!isset($values[$titleIndex]) || !trim($values[$titleIndex])) {
+                    continue;
+                }
+
+                $title = trim($values[$titleIndex]);
+                $year = ($yearIndex !== false && isset($values[$yearIndex])) ? trim($values[$yearIndex]) : null;
+                $tmdbId = ($tmdbIdIndex !== false && isset($values[$tmdbIdIndex])) ? trim($values[$tmdbIdIndex]) : null;
+                $status = ($statusIndex !== false && isset($values[$statusIndex])) ? strtolower(trim($values[$statusIndex])) : 'collection';
+                $format = ($formatIndex !== false && isset($values[$formatIndex])) ? trim($values[$formatIndex]) : 'DVD';
+                $edition = ($editionIndex !== false && isset($values[$editionIndex])) ? trim($values[$editionIndex]) : '';
+                $region = ($regionIndex !== false && isset($values[$regionIndex])) ? trim($values[$regionIndex]) : '';
+                $condition = ($conditionIndex !== false && isset($values[$conditionIndex])) ? trim($values[$conditionIndex]) : 'Good';
+                $notes = ($notesIndex !== false && isset($values[$notesIndex])) ? trim($values[$notesIndex]) : '';
+                $barcode = ($barcodeIndex !== false && isset($values[$barcodeIndex])) ? trim($values[$barcodeIndex]) : '';
+
+                try {
+                    // If no TMDB ID, search for the movie
+                    if (!$tmdbId) {
+                        $searchUrl = 'https://api.themoviedb.org/3/search/movie?' . http_build_query([
+                            'api_key' => TMDB_API_KEY,
+                            'query' => $title,
+                            'year' => $year ?: ''
+                        ]);
+
+                        $searchResponse = @file_get_contents($searchUrl);
+                        if ($searchResponse) {
+                            $searchData = json_decode($searchResponse, true);
+                            if (!empty($searchData['results'])) {
+                                $tmdbId = $searchData['results'][0]['id'];
+                            }
+                        }
+                    }
+
+                    if (!$tmdbId) {
+                        $errors[] = "Could not find TMDB ID for: $title ($year)";
+                        $skipped++;
+                        continue;
+                    }
+
+                    // Get full movie data
+                    $movieUrl = 'https://api.themoviedb.org/3/movie/' . $tmdbId . '?' . http_build_query([
+                        'api_key' => TMDB_API_KEY,
+                        'append_to_response' => 'credits,release_dates'
+                    ]);
+
+                    $movieResponse = @file_get_contents($movieUrl);
+                    if (!$movieResponse) {
+                        $errors[] = "Could not fetch movie data for: $title";
+                        $skipped++;
+                        continue;
+                    }
+
+                    $movieData = json_decode($movieResponse, true);
+
+                    // Check if movie exists in database
+                    $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
+                    $stmt->execute([$tmdbId]);
+                    $existingMovie = $stmt->fetch();
+
+                    if (!$existingMovie) {
+                        // Insert movie
+                        $director = '';
+                        if (!empty($movieData['credits']['crew'])) {
+                            foreach ($movieData['credits']['crew'] as $member) {
+                                if ($member['job'] === 'Director') {
+                                    $director = $member['name'];
+                                    break;
+                                }
+                            }
+                        }
+
+                        $genres = !empty($movieData['genres']) ? implode(', ', array_column($movieData['genres'], 'name')) : '';
+
+                        $stmt = $db->prepare("
+                            INSERT INTO movies (tmdb_id, title, year, poster_url, backdrop_url, overview, rating, runtime, director, genre, media_type)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'movie')
+                        ");
+                        $stmt->execute([
+                            $tmdbId,
+                            $movieData['title'] ?? $title,
+                            !empty($movieData['release_date']) ? intval(substr($movieData['release_date'], 0, 4)) : $year,
+                            !empty($movieData['poster_path']) ? 'https://image.tmdb.org/t/p/w500' . $movieData['poster_path'] : null,
+                            !empty($movieData['backdrop_path']) ? 'https://image.tmdb.org/t/p/original' . $movieData['backdrop_path'] : null,
+                            $movieData['overview'] ?? '',
+                            $movieData['vote_average'] ?? 0,
+                            $movieData['runtime'] ?? 0,
+                            $director,
+                            $genres
+                        ]);
+                        $movieId = $db->lastInsertId();
+                    } else {
+                        $movieId = $existingMovie['id'];
+                    }
+
+                    // Add to collection or wishlist
+                    if ($status === 'wishlist') {
+                        // Check if already in wishlist
+                        $stmt = $db->prepare("SELECT id FROM wishlist WHERE user_id = ? AND movie_id = ?");
+                        $stmt->execute([$targetUserId, $movieId]);
+                        if (!$stmt->fetch()) {
+                            $stmt = $db->prepare("INSERT INTO wishlist (user_id, movie_id) VALUES (?, ?)");
+                            $stmt->execute([$targetUserId, $movieId]);
+                            $added++;
+                        } else {
+                            $skipped++;
+                        }
+                    } else {
+                        // Add to collection
+                        $stmt = $db->prepare("
+                            INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([
+                            $targetUserId,
+                            $movieId,
+                            $format,
+                            $edition,
+                            $region,
+                            $condition,
+                            $notes,
+                            $barcode
+                        ]);
+                        $added++;
+                    }
+
+                } catch (Exception $e) {
+                    $errors[] = "Error importing $title: " . $e->getMessage();
+                    $skipped++;
+                }
+            }
+
+            jsonResponse(true, [
+                'added' => $added,
+                'skipped' => $skipped,
+                'errors' => $errors
+            ]);
+            break;
+
         case 'fetch_article':
             // Fetch article content from URL (admin only)
             if (!$currentUser['is_admin']) {
