@@ -79,6 +79,10 @@
                 <span class="tab-icon">👨‍👩‍👧‍👦</span>
                 <span class="tab-label">Groups</span>
             </button>
+            <button class="tab" data-tab="shelves" onclick="App.switchTab('shelves')">
+                <span class="tab-icon">📚</span>
+                <span class="tab-label">Shelves</span>
+            </button>
             <button class="tab" data-tab="add" onclick="App.switchTab('add')">
                 <span class="tab-icon">➕</span>
                 <span class="tab-label">Add Movie</span>
@@ -346,6 +350,41 @@
     </div>
 </section>
 
+        <!-- Shelves Tab -->
+        <section id="shelves" class="tab-content">
+            <div class="shelves-container">
+                <div class="section-header">
+                    <h2>📚 Shelf Layout Manager</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Organize your physical collection by creating custom shelves
+                    </p>
+                </div>
+
+                <!-- Shelves Actions -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center;">
+                    <button class="btn" onclick="App.showCreateShelfModal()">
+                        ➕ Create New Shelf
+                    </button>
+                    <button class="btn-secondary" onclick="App.viewUnassignedCopies()">
+                        📦 Unassigned Movies
+                    </button>
+                    <button class="btn-ghost" onclick="App.printShelfLayout()" style="margin-left: auto;">
+                        🖨️ Print Layout
+                    </button>
+                </div>
+
+                <!-- Shelves List -->
+                <div id="shelvesList" class="shelves-list"></div>
+
+                <!-- Empty State -->
+                <div id="emptyShelves" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📚</div>
+                    <h3>No shelves yet</h3>
+                    <p>Create your first shelf to organize your physical collection!</p>
+                    <button class="btn" onclick="App.showCreateShelfModal()">Create First Shelf</button>
+                </div>
+            </div>
+        </section>
 
         <!-- Resolve Tab -->
         <section id="resolve" class="tab-content admin-only">
@@ -831,6 +870,127 @@
     </div>
     <!-- Status Toast -->
     <div id="statusToast" class="toast"></div>
+
+    <!-- Create/Edit Shelf Modal -->
+    <div id="shelfModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="shelfModalTitle">Create New Shelf</h3>
+                <button class="modal-close" onclick="App.closeShelfModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Shelf Name *</label>
+                    <input type="text" id="shelfName" placeholder="e.g., Kubrick Collection" maxlength="100">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Capacity (optional)</label>
+                        <input type="number" id="shelfCapacity" placeholder="Max movies" min="1">
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.25rem;">
+                            Leave empty for unlimited
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="color" id="shelfColor" value="#667eea" style="width: 100%; height: 40px; cursor: pointer;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Theme/Category</label>
+                    <input type="text" id="shelfTheme" placeholder="e.g., Director, Genre, Awards" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="shelfDescription" placeholder="Notes about this shelf..." rows="3" maxlength="500"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button class="btn-ghost" onclick="App.closeShelfModal()">Cancel</button>
+                <button class="btn" id="saveShelfBtn" onclick="App.saveShelf()">Create Shelf</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unassigned Movies Modal -->
+    <div id="unassignedModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📦 Unassigned Movies</h3>
+                <button class="modal-close" onclick="App.closeUnassignedModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">
+                    These movies in your collection haven't been assigned to any shelf yet.
+                </p>
+                <div id="unassignedList" class="unassigned-grid"></div>
+                <div id="emptyUnassigned" class="empty-state" style="display: none;">
+                    <div class="empty-icon">✨</div>
+                    <h3>All movies assigned!</h3>
+                    <p>Every movie in your collection is on a shelf.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shelf Contents Modal -->
+    <div id="shelfContentsModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="shelfContentsTitle">Shelf Contents</h3>
+                <button class="modal-close" onclick="App.closeShelfContents()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="shelf-contents-actions" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+                    <button class="btn-secondary" onclick="App.addMoviesToShelf()">
+                        ➕ Add Movies
+                    </button>
+                    <button class="btn-ghost" onclick="App.reorderShelfContents()">
+                        ↕️ Reorder
+                    </button>
+                </div>
+                <div id="shelfContentsList" class="shelf-contents-grid"></div>
+                <div id="emptyShelfContents" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📚</div>
+                    <h3>Shelf is empty</h3>
+                    <p>Add movies to this shelf to get started!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign to Shelf Modal -->
+    <div id="assignToShelfModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Assign to Shelf</h3>
+                <button class="modal-close" onclick="App.closeAssignToShelf()">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="assignMovieTitle" style="color: rgba(255,255,255,0.9); margin-bottom: 1rem; font-weight: 500;"></p>
+
+                <div class="form-group">
+                    <label>Select Shelf *</label>
+                    <select id="assignShelfSelect" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                        <option value="">Choose a shelf...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <textarea id="assignNotes" placeholder="Any notes about this assignment..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button class="btn-ghost" onclick="App.closeAssignToShelf()">Cancel</button>
+                <button class="btn" onclick="App.confirmAssignToShelf()">Assign</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts - Loaded dynamically with cache busting -->
     <script>

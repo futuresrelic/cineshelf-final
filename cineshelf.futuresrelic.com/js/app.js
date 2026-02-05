@@ -1694,6 +1694,11 @@ function getCertColor(cert) {
         if (tabName === 'resolve') {
             loadUnresolved();
         }
+
+        // Load shelves when switching to shelves tab
+        if (tabName === 'shelves') {
+            loadShelves();
+        }
     }
     
     function setView(viewType) {
@@ -4192,6 +4197,326 @@ async function getCurrentUserId() {
     }
 
     // ========================================
+    // SHELF MANAGEMENT
+    // ========================================
+
+    let shelves = [];
+    let currentShelf = null;
+    let assignCopyId = null;
+
+    async function loadShelves() {
+        try {
+            shelves = await apiCall('list_shelves');
+            renderShelves();
+        } catch (error) {
+            console.error('Failed to load shelves:', error);
+            showToast('Failed to load shelves', 'error');
+        }
+    }
+
+    function renderShelves() {
+        const container = document.getElementById('shelvesList');
+        const emptyState = document.getElementById('emptyShelves');
+
+        if (!shelves || shelves.length === 0) {
+            container.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        container.innerHTML = shelves.map(shelf => {
+            const capacityText = shelf.capacity ? `${shelf.assigned_count || 0}/${shelf.capacity}` : `${shelf.assigned_count || 0} movies`;
+            const capacityPercent = shelf.capacity ? ((shelf.assigned_count || 0) / shelf.capacity * 100) : 0;
+            const isFull = shelf.capacity && (shelf.assigned_count >= shelf.capacity);
+
+            return `
+                <div class="shelf-card" style="border-left: 4px solid ${shelf.color || '#667eea'}">
+                    <div class="shelf-header">
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.25rem;">${shelf.name}</h3>
+                            ${shelf.theme ? `<span class="shelf-theme">${shelf.theme}</span>` : ''}
+                        </div>
+                        <div class="shelf-actions">
+                            <button class="btn-icon" onclick="App.viewShelfContents(${shelf.id})" title="View contents">
+                                👁️
+                            </button>
+                            <button class="btn-icon" onclick="App.editShelf(${shelf.id})" title="Edit shelf">
+                                ✏️
+                            </button>
+                            <button class="btn-icon" onclick="App.deleteShelf(${shelf.id})" title="Delete shelf">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+
+                    ${shelf.description ? `<p class="shelf-description">${shelf.description}</p>` : ''}
+
+                    <div class="shelf-stats">
+                        <div class="shelf-capacity">
+                            <span class="capacity-label">${capacityText}</span>
+                            ${shelf.capacity ? `
+                                <div class="capacity-bar">
+                                    <div class="capacity-fill" style="width: ${capacityPercent}%; background: ${isFull ? '#ef4444' : shelf.color || '#667eea'}"></div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function showCreateShelfModal() {
+        currentShelf = null;
+        document.getElementById('shelfModalTitle').textContent = 'Create New Shelf';
+        document.getElementById('shelfName').value = '';
+        document.getElementById('shelfCapacity').value = '';
+        document.getElementById('shelfTheme').value = '';
+        document.getElementById('shelfDescription').value = '';
+        document.getElementById('shelfColor').value = '#667eea';
+        document.getElementById('saveShelfBtn').textContent = 'Create Shelf';
+        document.getElementById('shelfModal').classList.add('show');
+    }
+
+    async function editShelf(shelfId) {
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (!shelf) return;
+
+        currentShelf = shelf;
+        document.getElementById('shelfModalTitle').textContent = 'Edit Shelf';
+        document.getElementById('shelfName').value = shelf.name;
+        document.getElementById('shelfCapacity').value = shelf.capacity || '';
+        document.getElementById('shelfTheme').value = shelf.theme || '';
+        document.getElementById('shelfDescription').value = shelf.description || '';
+        document.getElementById('shelfColor').value = shelf.color || '#667eea';
+        document.getElementById('saveShelfBtn').textContent = 'Save Changes';
+        document.getElementById('shelfModal').classList.add('show');
+    }
+
+    async function saveShelf() {
+        const name = document.getElementById('shelfName').value.trim();
+        if (!name) {
+            showToast('Please enter a shelf name', 'error');
+            return;
+        }
+
+        const shelfData = {
+            name: name,
+            capacity: parseInt(document.getElementById('shelfCapacity').value) || null,
+            theme: document.getElementById('shelfTheme').value.trim() || null,
+            description: document.getElementById('shelfDescription').value.trim() || null,
+            color: document.getElementById('shelfColor').value || '#667eea'
+        };
+
+        try {
+            if (currentShelf) {
+                // Update existing shelf
+                await apiCall('update_shelf', { shelf_id: currentShelf.id, ...shelfData });
+                showToast('Shelf updated successfully!', 'success');
+            } else {
+                // Create new shelf
+                await apiCall('create_shelf', shelfData);
+                showToast('Shelf created successfully!', 'success');
+            }
+
+            closeShelfModal();
+            loadShelves();
+        } catch (error) {
+            console.error('Failed to save shelf:', error);
+            showToast('Failed to save shelf', 'error');
+        }
+    }
+
+    function closeShelfModal() {
+        document.getElementById('shelfModal').classList.remove('show');
+        currentShelf = null;
+    }
+
+    async function deleteShelf(shelfId) {
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (!shelf) return;
+
+        if (!confirm(`Delete shelf "${shelf.name}"? Movies will be unassigned but not deleted.`)) {
+            return;
+        }
+
+        try {
+            await apiCall('delete_shelf', { shelf_id: shelfId });
+            showToast('Shelf deleted successfully!', 'success');
+            loadShelves();
+        } catch (error) {
+            console.error('Failed to delete shelf:', error);
+            showToast('Failed to delete shelf', 'error');
+        }
+    }
+
+    async function viewShelfContents(shelfId) {
+        const shelf = shelves.find(s => s.id === shelfId);
+        if (!shelf) return;
+
+        currentShelf = shelf;
+
+        try {
+            const contents = await apiCall('get_shelf_contents', { shelf_id: shelfId });
+
+            document.getElementById('shelfContentsTitle').textContent = `📚 ${shelf.name}`;
+
+            const container = document.getElementById('shelfContentsList');
+            const emptyState = document.getElementById('emptyShelfContents');
+
+            if (!contents || contents.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.style.display = 'block';
+            } else {
+                if (emptyState) emptyState.style.display = 'none';
+
+                container.innerHTML = contents.map(item => `
+                    <div class="shelf-movie-card">
+                        <img src="${item.poster_url || '/placeholder.png'}"
+                             alt="${item.title}"
+                             class="shelf-movie-poster">
+                        <div class="shelf-movie-info">
+                            <h4>${item.display_title || item.title}</h4>
+                            <p>${item.year || 'N/A'}</p>
+                            <div class="shelf-movie-format">${item.format}</div>
+                        </div>
+                        <button class="btn-remove" onclick="App.removeFromShelf(${item.copy_id})" title="Remove from shelf">
+                            ×
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('shelfContentsModal').classList.add('show');
+        } catch (error) {
+            console.error('Failed to load shelf contents:', error);
+            showToast('Failed to load shelf contents', 'error');
+        }
+    }
+
+    function closeShelfContents() {
+        document.getElementById('shelfContentsModal').classList.remove('show');
+        currentShelf = null;
+    }
+
+    async function removeFromShelf(copyId) {
+        if (!confirm('Remove this movie from the shelf?')) {
+            return;
+        }
+
+        try {
+            await apiCall('remove_from_shelf', { copy_id: copyId });
+            showToast('Movie removed from shelf', 'success');
+
+            // Reload shelf contents and shelf list
+            if (currentShelf) {
+                viewShelfContents(currentShelf.id);
+            }
+            loadShelves();
+        } catch (error) {
+            console.error('Failed to remove from shelf:', error);
+            showToast('Failed to remove from shelf', 'error');
+        }
+    }
+
+    async function viewUnassignedCopies() {
+        try {
+            const unassigned = await apiCall('get_unassigned_copies');
+
+            const container = document.getElementById('unassignedList');
+            const emptyState = document.getElementById('emptyUnassigned');
+
+            if (!unassigned || unassigned.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.style.display = 'block';
+            } else {
+                if (emptyState) emptyState.style.display = 'none';
+
+                container.innerHTML = unassigned.map(item => `
+                    <div class="unassigned-movie-card">
+                        <img src="${item.poster_url || '/placeholder.png'}"
+                             alt="${item.title}"
+                             class="unassigned-movie-poster">
+                        <div class="unassigned-movie-info">
+                            <h4>${item.display_title || item.title}</h4>
+                            <p>${item.year || 'N/A'}</p>
+                            <div class="unassigned-movie-format">${item.format}</div>
+                        </div>
+                        <button class="btn" onclick="App.openAssignToShelf(${item.copy_id}, '${(item.display_title || item.title).replace(/'/g, "\\'")}')">
+                            Assign to Shelf
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('unassignedModal').classList.add('show');
+        } catch (error) {
+            console.error('Failed to load unassigned copies:', error);
+            showToast('Failed to load unassigned movies', 'error');
+        }
+    }
+
+    function closeUnassignedModal() {
+        document.getElementById('unassignedModal').classList.remove('show');
+    }
+
+    function openAssignToShelf(copyId, movieTitle) {
+        assignCopyId = copyId;
+        document.getElementById('assignMovieTitle').textContent = `Assign "${movieTitle}" to shelf:`;
+
+        // Populate shelf dropdown
+        const select = document.getElementById('assignShelfSelect');
+        select.innerHTML = '<option value="">Choose a shelf...</option>' +
+            shelves.map(shelf => `<option value="${shelf.id}">${shelf.name}</option>`).join('');
+
+        document.getElementById('assignNotes').value = '';
+        document.getElementById('assignToShelfModal').classList.add('show');
+    }
+
+    async function confirmAssignToShelf() {
+        const shelfId = parseInt(document.getElementById('assignShelfSelect').value);
+        if (!shelfId) {
+            showToast('Please select a shelf', 'error');
+            return;
+        }
+
+        const notes = document.getElementById('assignNotes').value.trim();
+
+        try {
+            await apiCall('assign_to_shelf', {
+                shelf_id: shelfId,
+                copy_id: assignCopyId,
+                notes: notes || null
+            });
+
+            showToast('Movie assigned to shelf!', 'success');
+            closeAssignToShelf();
+            closeUnassignedModal();
+            loadShelves();
+        } catch (error) {
+            console.error('Failed to assign to shelf:', error);
+            showToast('Failed to assign to shelf', 'error');
+        }
+    }
+
+    function closeAssignToShelf() {
+        document.getElementById('assignToShelfModal').classList.remove('show');
+        assignCopyId = null;
+    }
+
+    async function addMoviesToShelf() {
+        if (!currentShelf) return;
+        closeShelfContents();
+        viewUnassignedCopies();
+    }
+
+    function printShelfLayout() {
+        window.print();
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
 
@@ -4286,7 +4611,27 @@ return {
     viewTriviaHistory,
     viewTriviaStats,
     switchLeaderboardTab,
-    loadGroupLeaderboard
+    loadGroupLeaderboard,
+
+    // ========================================
+    // SHELF MANAGEMENT PUBLIC API
+    // ========================================
+    loadShelves,
+    showCreateShelfModal,
+    editShelf,
+    saveShelf,
+    closeShelfModal,
+    deleteShelf,
+    viewShelfContents,
+    closeShelfContents,
+    removeFromShelf,
+    viewUnassignedCopies,
+    closeUnassignedModal,
+    openAssignToShelf,
+    confirmAssignToShelf,
+    closeAssignToShelf,
+    addMoviesToShelf,
+    printShelfLayout
 };
 
 })();
