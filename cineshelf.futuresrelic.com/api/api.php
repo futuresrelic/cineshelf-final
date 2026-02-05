@@ -2729,6 +2729,295 @@ case 'resolve_movie':
             ]);
             break;
 
+        // ========================================
+        // SHELF LAYOUT SYSTEM
+        // ========================================
+
+        case 'list_shelves':
+            // Get all shelves for current user with counts
+            $stmt = $db->prepare("
+                SELECT
+                    s.*,
+                    COUNT(sa.id) as assigned_count
+                FROM shelves s
+                LEFT JOIN shelf_assignments sa ON s.id = sa.shelf_id
+                WHERE s.user_id = ?
+                GROUP BY s.id
+                ORDER BY s.position ASC
+            ");
+            $stmt->execute([$userId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'create_shelf':
+            $name = sanitize($input['name'] ?? '', 100);
+            $capacity = intval($input['capacity'] ?? 0);
+            $description = sanitize($input['description'] ?? '', 500);
+            $theme = sanitize($input['theme'] ?? '', 100);
+            $color = sanitize($input['color'] ?? '#667eea', 20);
+
+            if (empty($name)) {
+                jsonResponse(false, null, 'Shelf name required');
+            }
+
+            // Get max position
+            $stmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 as next_pos FROM shelves WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $position = $stmt->fetchColumn();
+
+            $stmt = $db->prepare("
+                INSERT INTO shelves (user_id, name, position, capacity, description, theme, color)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$userId, $name, $position, $capacity, $description, $theme, $color]);
+
+            jsonResponse(true, ['shelf_id' => $db->lastInsertId()]);
+            break;
+
+        case 'update_shelf':
+            $shelfId = intval($input['shelf_id'] ?? 0);
+            $name = sanitize($input['name'] ?? '', 100);
+            $capacity = intval($input['capacity'] ?? 0);
+            $description = sanitize($input['description'] ?? '', 500);
+            $theme = sanitize($input['theme'] ?? '', 100);
+            $color = sanitize($input['color'] ?? '#667eea', 20);
+
+            if (!$shelfId || empty($name)) {
+                jsonResponse(false, null, 'Shelf ID and name required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            $stmt = $db->prepare("
+                UPDATE shelves
+                SET name = ?, capacity = ?, description = ?, theme = ?, color = ?
+                WHERE id = ? AND user_id = ?
+            ");
+            $stmt->execute([$name, $capacity, $description, $theme, $color, $shelfId, $userId]);
+
+            jsonResponse(true, ['shelf_id' => $shelfId]);
+            break;
+
+        case 'delete_shelf':
+            $shelfId = intval($input['shelf_id'] ?? 0);
+
+            if (!$shelfId) {
+                jsonResponse(false, null, 'Shelf ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            // Delete shelf (assignments will be cascade deleted)
+            $stmt = $db->prepare("DELETE FROM shelves WHERE id = ? AND user_id = ?");
+            $stmt->execute([$shelfId, $userId]);
+
+            jsonResponse(true, ['deleted' => true]);
+            break;
+
+        case 'reorder_shelves':
+            $shelfOrder = $input['shelf_order'] ?? [];
+
+            if (!is_array($shelfOrder)) {
+                jsonResponse(false, null, 'Invalid shelf order');
+            }
+
+            $db->beginTransaction();
+
+            foreach ($shelfOrder as $index => $shelfId) {
+                $stmt = $db->prepare("UPDATE shelves SET position = ? WHERE id = ? AND user_id = ?");
+                $stmt->execute([$index, intval($shelfId), $userId]);
+            }
+
+            $db->commit();
+
+            jsonResponse(true, ['updated' => count($shelfOrder)]);
+            break;
+
+        case 'get_shelf_contents':
+            $shelfId = intval($input['shelf_id'] ?? 0);
+
+            if (!$shelfId) {
+                jsonResponse(false, null, 'Shelf ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            // Get assigned movies
+            $stmt = $db->prepare("
+                SELECT
+                    sa.id as assignment_id,
+                    sa.position_in_shelf,
+                    sa.notes as assignment_notes,
+                    c.id as copy_id,
+                    c.format,
+                    c.edition,
+                    c.region,
+                    c.condition,
+                    m.id as movie_id,
+                    m.tmdb_id,
+                    m.title,
+                    m.display_title,
+                    m.year,
+                    m.poster_url,
+                    m.director,
+                    m.runtime
+                FROM shelf_assignments sa
+                JOIN copies c ON sa.copy_id = c.id
+                JOIN movies m ON c.movie_id = m.id
+                WHERE sa.shelf_id = ?
+                ORDER BY sa.position_in_shelf ASC
+            ");
+            $stmt->execute([$shelfId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'get_unassigned_copies':
+            // Get copies not assigned to any shelf
+            $stmt = $db->prepare("
+                SELECT
+                    c.id as copy_id,
+                    c.format,
+                    c.edition,
+                    m.id as movie_id,
+                    m.tmdb_id,
+                    m.title,
+                    m.display_title,
+                    m.year,
+                    m.poster_url,
+                    m.director
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN shelf_assignments sa ON c.id = sa.copy_id
+                WHERE c.user_id = ? AND sa.id IS NULL
+                ORDER BY COALESCE(m.display_title, m.title) ASC
+            ");
+            $stmt->execute([$userId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'assign_to_shelf':
+            $shelfId = intval($input['shelf_id'] ?? 0);
+            $copyId = intval($input['copy_id'] ?? 0);
+            $position = intval($input['position'] ?? -1);
+
+            if (!$shelfId || !$copyId) {
+                jsonResponse(false, null, 'Shelf ID and copy ID required');
+            }
+
+            // Verify shelf ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            // Verify copy ownership
+            $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Copy not found or access denied');
+            }
+
+            // If position not specified, add to end
+            if ($position < 0) {
+                $stmt = $db->prepare("SELECT COALESCE(MAX(position_in_shelf), -1) + 1 as next_pos FROM shelf_assignments WHERE shelf_id = ?");
+                $stmt->execute([$shelfId]);
+                $position = $stmt->fetchColumn();
+            }
+
+            // Insert or update assignment
+            $stmt = $db->prepare("
+                INSERT INTO shelf_assignments (shelf_id, copy_id, position_in_shelf)
+                VALUES (?, ?, ?)
+                ON CONFLICT(copy_id) DO UPDATE SET shelf_id = ?, position_in_shelf = ?
+            ");
+            $stmt->execute([$shelfId, $copyId, $position, $shelfId, $position]);
+
+            jsonResponse(true, ['assignment_id' => $db->lastInsertId()]);
+            break;
+
+        case 'remove_from_shelf':
+            $copyId = intval($input['copy_id'] ?? 0);
+
+            if (!$copyId) {
+                jsonResponse(false, null, 'Copy ID required');
+            }
+
+            // Verify ownership through shelf
+            $stmt = $db->prepare("
+                SELECT sa.id
+                FROM shelf_assignments sa
+                JOIN shelves s ON sa.shelf_id = s.id
+                WHERE sa.copy_id = ? AND s.user_id = ?
+            ");
+            $stmt->execute([$copyId, $userId]);
+
+            if (!$stmt->fetch()) {
+                jsonResponse(false, null, 'Assignment not found or access denied');
+            }
+
+            $stmt = $db->prepare("DELETE FROM shelf_assignments WHERE copy_id = ?");
+            $stmt->execute([$copyId]);
+
+            jsonResponse(true, ['removed' => true]);
+            break;
+
+        case 'reorder_shelf_contents':
+            $shelfId = intval($input['shelf_id'] ?? 0);
+            $copyOrder = $input['copy_order'] ?? [];
+
+            if (!$shelfId || !is_array($copyOrder)) {
+                jsonResponse(false, null, 'Shelf ID and copy order required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            $db->beginTransaction();
+
+            foreach ($copyOrder as $index => $copyId) {
+                $stmt = $db->prepare("UPDATE shelf_assignments SET position_in_shelf = ? WHERE shelf_id = ? AND copy_id = ?");
+                $stmt->execute([$index, $shelfId, intval($copyId)]);
+            }
+
+            $db->commit();
+
+            jsonResponse(true, ['updated' => count($copyOrder)]);
+            break;
+
         case 'fetch_article':
             // Fetch article content from URL (admin only)
             if (!$currentUser['is_admin']) {
