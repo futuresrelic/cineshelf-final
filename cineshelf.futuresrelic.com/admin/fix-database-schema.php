@@ -137,8 +137,14 @@
                 echo "✓ Added display_name column\n";
             }
             if (in_array('updated_at', $missingColumns)) {
-                $db->exec("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+                // SQLite doesn't allow CURRENT_TIMESTAMP as default in ALTER TABLE
+                // Add column without default, then update existing rows
+                $db->exec("ALTER TABLE users ADD COLUMN updated_at DATETIME");
                 echo "✓ Added updated_at column\n";
+
+                // Set current timestamp for existing users
+                $db->exec("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL");
+                echo "✓ Set timestamps for existing users\n";
             }
 
             // Create indexes on new columns
