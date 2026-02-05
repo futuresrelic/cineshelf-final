@@ -259,22 +259,22 @@
         <div class="section">
             <div class="section-title">⚙️ Configuration</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='config-editor.html'">
+                <div class="tool-card" onclick="location.href='/admin/config-editor.html'">
                     <h3>Configuration Editor</h3>
                     <p>Edit app settings, API keys, and admin users</p>
                     <span class="badge config">Config</span>
                 </div>
-                <div class="tool-card" onclick="location.href='version-manager.html'">
+                <div class="tool-card" onclick="location.href='/admin/version-manager.html'">
                     <h3>Version Manager</h3>
                     <p>Manage app version and force cache refresh</p>
                     <span class="badge config">Config</span>
                 </div>
-                <div class="tool-card" onclick="location.href='bump-version.php'">
+                <div class="tool-card" onclick="location.href='/admin/bump-version.php'">
                     <h3>Bump Version</h3>
                     <p>Increment version number automatically</p>
                     <span class="badge config">Config</span>
                 </div>
-                <div class="tool-card" onclick="location.href='group-manager.html'">
+                <div class="tool-card" onclick="location.href='/admin/group-manager.html'">
                     <h3>Group Manager</h3>
                     <p>Manage groups, members, and permissions</p>
                     <span class="badge config">Groups</span>
@@ -286,27 +286,27 @@
         <div class="section">
             <div class="section-title">🗄️ Database Tools</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='database-tools/view-database.php'">
+                <div class="tool-card" onclick="location.href='/admin/database-tools/view-database.php'">
                     <h3>View Database</h3>
                     <p>Browse and inspect database tables and records</p>
                     <span class="badge database">Database</span>
                 </div>
-                <div class="tool-card" onclick="location.href='database-tools/check-schema.php'">
+                <div class="tool-card" onclick="location.href='/admin/database-tools/check-schema.php'">
                     <h3>Check Schema</h3>
                     <p>Verify database schema integrity</p>
                     <span class="badge database">Database</span>
                 </div>
-                <div class="tool-card" onclick="location.href='database-tools/clean-database.php'">
+                <div class="tool-card" onclick="location.href='/admin/database-tools/clean-database.php'">
                     <h3>Clean Database</h3>
                     <p>Remove duplicates and optimize database</p>
                     <span class="badge database">Database</span>
                 </div>
-                <div class="tool-card" onclick="location.href='database-tools/remove-duplicates.php'">
+                <div class="tool-card" onclick="location.href='/admin/database-tools/remove-duplicates.php'">
                     <h3>Remove Duplicates</h3>
                     <p>Find and remove duplicate movie entries</p>
                     <span class="badge database">Database</span>
                 </div>
-                <div class="tool-card" onclick="location.href='database-tools/check-movie-data.php'">
+                <div class="tool-card" onclick="location.href='/admin/database-tools/check-movie-data.php'">
                     <h3>Check Movie Data</h3>
                     <p>Validate movie metadata completeness</p>
                     <span class="badge database">Database</span>
@@ -318,27 +318,27 @@
         <div class="section">
             <div class="section-title">📊 Data Tools</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='data-tools/fill-directors-AUTO.php'">
+                <div class="tool-card" onclick="location.href='/admin/data-tools/fill-directors-AUTO.php'">
                     <h3>Auto-Fill Directors</h3>
                     <p>Automatically fetch missing director information</p>
                     <span class="badge data">Data</span>
                 </div>
-                <div class="tool-card" onclick="location.href='data-tools/fill-directors-certs.php'">
+                <div class="tool-card" onclick="location.href='/admin/data-tools/fill-directors-certs.php'">
                     <h3>Fill Certifications</h3>
                     <p>Add missing movie certifications</p>
                     <span class="badge data">Data</span>
                 </div>
-                <div class="tool-card" onclick="location.href='data-tools/fix-corrupted-titles.php'">
+                <div class="tool-card" onclick="location.href='/admin/data-tools/fix-corrupted-titles.php'">
                     <h3>Fix Corrupted Titles</h3>
                     <p>Repair damaged or malformed movie titles</p>
                     <span class="badge data">Data</span>
                 </div>
-                <div class="tool-card" onclick="location.href='data-tools/fix-unknown-titles-v2.php'">
+                <div class="tool-card" onclick="location.href='/admin/data-tools/fix-unknown-titles-v2.php'">
                     <h3>Fix Unknown Titles</h3>
                     <p>Resolve movies with unknown or missing titles</p>
                     <span class="badge data">Data</span>
                 </div>
-                <div class="tool-card" onclick="location.href='data-tools/add-movie-metadata-columns.php'">
+                <div class="tool-card" onclick="location.href='/admin/data-tools/add-movie-metadata-columns.php'">
                     <h3>Add Metadata Columns</h3>
                     <p>Upgrade schema with new metadata fields</p>
                     <span class="badge data">Data</span>
@@ -353,42 +353,42 @@
                 <strong>⚠️ Warning:</strong> Migration tools modify database structure. Always backup before running.
             </div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='migration-tools/migrate-v1-to-v2.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/migrate-v1-to-v2.php'">
                     <h3>Migrate V1 to V2</h3>
                     <p>Upgrade database from version 1 to version 2</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/migrate-simple-batch.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/migrate-simple-batch.php'">
                     <h3>Batch Migration</h3>
                     <p>Alternative batch processing migration</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/migrate-add-groups.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/migrate-add-groups.php'">
                     <h3>Add Groups Support</h3>
                     <p>Add group functionality to existing database</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/migrate-add-group-invites.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/migrate-add-group-invites.php'">
                     <h3>Add Group Invites</h3>
                     <p>Add group invite system to existing database</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/add-display-name.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/add-display-name.php'">
                     <h3>Add Display Name</h3>
                     <p>Add display_name field to users table</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/allow-null-invited-email.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/allow-null-invited-email.php'">
                     <h3>Allow Null Invited Email</h3>
                     <p>Update group_invites schema to allow null emails</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/grant-admin-access.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/grant-admin-access.php'">
                     <h3>Grant Admin Access</h3>
                     <p>Give admin privileges to a user account</p>
                     <span class="badge migration">Migration</span>
                 </div>
-                <div class="tool-card" onclick="location.href='migration-tools/make-user-admin.php'">
+                <div class="tool-card" onclick="location.href='/admin/migration-tools/make-user-admin.php'">
                     <h3>Make User Admin</h3>
                     <p>Promote user to admin role via CLI</p>
                     <span class="badge migration">Migration</span>
@@ -400,12 +400,12 @@
         <div class="section">
             <div class="section-title">🔍 Diagnostics</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='diagnostics/status-check.php'">
+                <div class="tool-card" onclick="location.href='/admin/diagnostics/status-check.php'">
                     <h3>Status Check</h3>
                     <p>Comprehensive system health check</p>
                     <span class="badge diagnostic">Diagnostic</span>
                 </div>
-                <div class="tool-card" onclick="location.href='test-tools/cache-diagnostic.html'">
+                <div class="tool-card" onclick="location.href='/admin/test-tools/cache-diagnostic.html'">
                     <h3>Cache Diagnostic</h3>
                     <p>Inspect service worker and cache status</p>
                     <span class="badge diagnostic">Diagnostic</span>
@@ -417,27 +417,27 @@
         <div class="section">
             <div class="section-title">🛠️ Utilities</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='list-extractor.html'">
+                <div class="tool-card" onclick="location.href='/admin/list-extractor.html'">
                     <h3>Movie List Extractor</h3>
                     <p>Extract and export movie lists in various formats</p>
                     <span class="badge config">Utility</span>
                 </div>
-                <div class="tool-card" onclick="location.href='preset-manager.html'">
+                <div class="tool-card" onclick="location.href='/admin/preset-manager.html'">
                     <h3>Preset Manager</h3>
                     <p>Manage collection filter and view presets</p>
                     <span class="badge config">Utility</span>
                 </div>
-                <div class="tool-card" onclick="location.href='json-to-csv.html'">
+                <div class="tool-card" onclick="location.href='/admin/json-to-csv.html'">
                     <h3>JSON to CSV Converter</h3>
                     <p>Convert JSON data to CSV format</p>
                     <span class="badge config">Utility</span>
                 </div>
-                <div class="tool-card" onclick="location.href='user-data-manager.html'">
+                <div class="tool-card" onclick="location.href='/admin/user-data-manager.html'">
                     <h3>User Data Manager</h3>
                     <p>Manage user data, exports, and backups</p>
                     <span class="badge config">Utility</span>
                 </div>
-                <div class="tool-card" onclick="location.href='icon-manager.html'">
+                <div class="tool-card" onclick="location.href='/admin/icon-manager.html'">
                     <h3>Icon Manager</h3>
                     <p>Customize app icons with advanced image effects</p>
                     <span class="badge config">Utility</span>
@@ -449,17 +449,17 @@
         <div class="section">
             <div class="section-title">🧪 Test & Development Tools</div>
             <div class="tool-grid">
-                <div class="tool-card" onclick="location.href='test-tools/clear-cache.html'">
+                <div class="tool-card" onclick="location.href='/admin/test-tools/clear-cache.html'">
                     <h3>Clear Cache</h3>
                     <p>Manually clear service worker cache</p>
                     <span class="badge test">Test</span>
                 </div>
-                <div class="tool-card" onclick="location.href='test-tools/icon-editor.html'">
+                <div class="tool-card" onclick="location.href='/admin/test-tools/icon-editor.html'">
                     <h3>Icon Editor</h3>
                     <p>Edit and preview PWA icons</p>
                     <span class="badge test">Test</span>
                 </div>
-                <div class="tool-card" onclick="location.href='test-tools/icon-generator.html'">
+                <div class="tool-card" onclick="location.href='/admin/test-tools/icon-generator.html'">
                     <h3>Icon Generator</h3>
                     <p>Generate PWA icons in multiple sizes</p>
                     <span class="badge test">Test</span>
