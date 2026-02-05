@@ -311,6 +311,11 @@
                     <p>Validate movie metadata completeness</p>
                     <span class="badge database">Database</span>
                 </div>
+                <div class="tool-card" onclick="location.href='/admin/fix-database-schema.php'">
+                    <h3>🔧 Fix Database Schema</h3>
+                    <p>Automatically detect and add missing columns/tables (shelves, actors, etc.)</p>
+                    <span class="badge database">Database</span>
+                </div>
             </div>
         </div>
 
@@ -341,6 +346,11 @@
                 <div class="tool-card" onclick="location.href='/admin/data-tools/add-movie-metadata-columns.php'">
                     <h3>Add Metadata Columns</h3>
                     <p>Upgrade schema with new metadata fields</p>
+                    <span class="badge data">Data</span>
+                </div>
+                <div class="tool-card" onclick="location.href='/admin/backfill-metadata.php'">
+                    <h3>🔄 Backfill Metadata</h3>
+                    <p>Fetch missing actors, studios & directors from TMDB for all movies</p>
                     <span class="badge data">Data</span>
                 </div>
             </div>
