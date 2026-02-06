@@ -2662,11 +2662,24 @@ case 'resolve_movie':
                             }
                         }
 
+                        // Extract top 5 actors
+                        $actors = '';
+                        if (!empty($movieData['credits']['cast'])) {
+                            $topActors = array_slice($movieData['credits']['cast'], 0, 5);
+                            $actors = implode(', ', array_column($topActors, 'name'));
+                        }
+
+                        // Extract studio
+                        $studio = '';
+                        if (!empty($movieData['production_companies'])) {
+                            $studio = $movieData['production_companies'][0]['name'] ?? '';
+                        }
+
                         $genres = !empty($movieData['genres']) ? implode(', ', array_column($movieData['genres'], 'name')) : '';
 
                         $stmt = $db->prepare("
-                            INSERT INTO movies (tmdb_id, title, year, poster_url, backdrop_url, overview, rating, runtime, director, genre, media_type)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'movie')
+                            INSERT INTO movies (tmdb_id, title, year, poster_url, backdrop_url, overview, rating, runtime, director, actors, studio, genre, media_type)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'movie')
                         ");
                         $stmt->execute([
                             $tmdbId,
@@ -2678,6 +2691,8 @@ case 'resolve_movie':
                             $movieData['vote_average'] ?? 0,
                             $movieData['runtime'] ?? 0,
                             $director,
+                            $actors,
+                            $studio,
                             $genres
                         ]);
                         $movieId = $db->lastInsertId();
