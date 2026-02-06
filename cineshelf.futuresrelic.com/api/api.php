@@ -2896,6 +2896,9 @@ case 'resolve_movie':
                     m.year,
                     m.poster_url,
                     m.director,
+                    m.genre,
+                    m.studio,
+                    m.actors,
                     m.runtime
                 FROM shelf_assignments sa
                 JOIN copies c ON sa.copy_id = c.id
@@ -2921,7 +2924,10 @@ case 'resolve_movie':
                     m.display_title,
                     m.year,
                     m.poster_url,
-                    m.director
+                    m.director,
+                    m.genre,
+                    m.studio,
+                    m.actors
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id
                 LEFT JOIN shelf_assignments sa ON c.id = sa.copy_id
