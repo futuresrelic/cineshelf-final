@@ -361,20 +361,37 @@
                 </div>
 
                 <!-- Shelves Actions -->
-                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center;">
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap;">
                     <button class="btn" onclick="App.showCreateShelfModal()">
                         ➕ Create New Shelf
                     </button>
                     <button class="btn-secondary" onclick="App.viewUnassignedCopies()">
                         📦 Unassigned Movies
                     </button>
-                    <button class="btn-ghost" onclick="App.printShelfLayout()" style="margin-left: auto;">
-                        🖨️ Print Layout
-                    </button>
+
+                    <!-- View Toggle -->
+                    <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+                        <button class="btn-ghost shelf-view-btn active" data-view="list" onclick="App.setShelfView('list')">
+                            📋 List
+                        </button>
+                        <button class="btn-ghost shelf-view-btn" data-view="visual" onclick="App.setShelfView('visual')">
+                            👁️ Visual
+                        </button>
+                        <button class="btn-ghost" onclick="App.printShelfLayout()">
+                            🖨️ Print
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Shelves List -->
-                <div id="shelvesList" class="shelves-list"></div>
+                <!-- List View (default) -->
+                <div id="shelvesListView">
+                    <div id="shelvesList" class="shelves-list"></div>
+                </div>
+
+                <!-- Visual View -->
+                <div id="shelvesVisualView" style="display: none;">
+                    <div id="shelvesVisual" class="shelves-visual"></div>
+                </div>
 
                 <!-- Empty State -->
                 <div id="emptyShelves" class="empty-state" style="display: none;">
@@ -920,13 +937,45 @@
     <div id="unassignedModal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📦 Unassigned Movies</h3>
+                <h3>📦 Unassigned Movies <span id="unassignedSelectionCount" style="font-size: 0.9rem; font-weight: normal; color: #667eea;"></span></h3>
                 <button class="modal-close" onclick="App.closeUnassignedModal()">×</button>
             </div>
             <div class="modal-body">
-                <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">
-                    These movies in your collection haven't been assigned to any shelf yet.
-                </p>
+                <!-- Filter Controls -->
+                <div class="unassigned-controls" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <input type="text"
+                           id="unassignedSearch"
+                           placeholder="🔍 Search movies..."
+                           oninput="App.onUnassignedFilterChange('search', this.value)"
+                           style="flex: 1; min-width: 200px; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+
+                    <select id="unassignedSortFilter" onchange="App.onUnassignedFilterChange('sort', this.value)"
+                            style="padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                        <option value="title">Sort by Title</option>
+                        <option value="year">Sort by Year</option>
+                        <option value="director">Sort by Director</option>
+                    </select>
+
+                    <select id="unassignedDirectorFilter" onchange="App.onUnassignedFilterChange('director', this.value)"
+                            style="padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                        <option value="all">All Directors</option>
+                    </select>
+
+                    <select id="unassignedGenreFilter" onchange="App.onUnassignedFilterChange('genre', this.value)"
+                            style="padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                        <option value="all">All Genres</option>
+                    </select>
+                </div>
+
+                <!-- Selection Controls -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                    <button class="btn-secondary" onclick="App.selectAllUnassigned()">✓ Select All</button>
+                    <button class="btn-secondary" onclick="App.deselectAllUnassigned()">✕ Deselect All</button>
+                    <button class="btn" onclick="App.openAssignToShelf()" style="margin-left: auto;">
+                        📚 Assign Selected to Shelf
+                    </button>
+                </div>
+
                 <div id="unassignedList" class="unassigned-grid"></div>
                 <div id="emptyUnassigned" class="empty-state" style="display: none;">
                     <div class="empty-icon">✨</div>

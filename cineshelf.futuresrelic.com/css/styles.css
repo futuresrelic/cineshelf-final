@@ -3158,45 +3158,67 @@ body {
 /* Unassigned Movies Modal */
 .unassigned-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 1.5rem;
 }
 
 .unassigned-movie-card {
+    position: relative;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     transition: all 0.3s;
+    cursor: pointer;
+    border: 2px solid transparent;
 }
 
 .unassigned-movie-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.unassigned-movie-card.selected {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.unassigned-movie-card .movie-checkbox {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    z-index: 10;
+    accent-color: #667eea;
 }
 
 .unassigned-movie-poster {
     width: 100%;
     aspect-ratio: 2/3;
     object-fit: cover;
+    cursor: pointer;
 }
 
 .unassigned-movie-info {
     padding: 1rem;
     flex: 1;
+    cursor: pointer;
 }
 
 .unassigned-movie-info h4 {
     margin: 0 0 0.5rem 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
     line-height: 1.3;
 }
 
 .unassigned-movie-info p {
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.25rem 0;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .unassigned-movie-format {
@@ -3204,13 +3226,13 @@ body {
     padding: 0.25rem 0.75rem;
     background: rgba(102, 126, 234, 0.3);
     border-radius: 12px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
+    margin-top: 0.5rem;
 }
 
-.unassigned-movie-card .btn {
-    margin: 1rem;
-    margin-top: 0;
+.unassigned-controls input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Shelf Actions */
@@ -3218,6 +3240,118 @@ body {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
+}
+
+/* Visual Shelf View */
+.shelves-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.visual-shelf {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border-left: 4px solid #667eea;
+}
+
+.visual-shelf-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.visual-shelf-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.visual-shelf-theme {
+    padding: 0.25rem 0.75rem;
+    background: rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.visual-shelf-count {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+.visual-shelf-spines {
+    display: flex;
+    gap: 2px;
+    min-height: 200px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    align-items: flex-end;
+}
+
+.visual-shelf-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+.movie-spine {
+    min-width: 40px;
+    width: 40px;
+    height: 180px;
+    background: #667eea;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.movie-spine:hover {
+    transform: translateY(-8px);
+    box-shadow: 2px 8px 16px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.spine-title {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    text-align: center;
+    padding: 0.5rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-height: 160px;
+}
+
+.visual-shelf-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+}
+
+.shelf-view-btn {
+    opacity: 0.7;
+}
+
+.shelf-view-btn.active {
+    opacity: 1;
+    background: rgba(102, 126, 234, 0.2);
 }
 
 /* Print Styles */

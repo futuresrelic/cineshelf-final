@@ -4203,6 +4203,15 @@ async function getCurrentUserId() {
     let shelves = [];
     let currentShelf = null;
     let assignCopyId = null;
+    let unassignedMovies = [];
+    let selectedCopyIds = new Set();
+    let shelfView = 'list';
+    let unassignedFilter = {
+        search: '',
+        sort: 'title',
+        director: 'all',
+        genre: 'all'
+    };
 
     async function loadShelves() {
         try {
@@ -4211,6 +4220,28 @@ async function getCurrentUserId() {
         } catch (error) {
             console.error('Failed to load shelves:', error);
             showToast('Failed to load shelves', 'error');
+        }
+    }
+
+    function setShelfView(view) {
+        shelfView = view;
+
+        // Update view buttons
+        document.querySelectorAll('.shelf-view-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.view === view) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Toggle views
+        if (view === 'list') {
+            document.getElementById('shelvesListView').style.display = 'block';
+            document.getElementById('shelvesVisualView').style.display = 'none';
+        } else {
+            document.getElementById('shelvesListView').style.display = 'none';
+            document.getElementById('shelvesVisualView').style.display = 'block';
+            renderShelvesVisual();
         }
     }
 
@@ -4266,6 +4297,58 @@ async function getCurrentUserId() {
                 </div>
             `;
         }).join('');
+    }
+
+    async function renderShelvesVisual() {
+        const container = document.getElementById('shelvesVisual');
+
+        if (!shelves || shelves.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.6);">No shelves to display</p>';
+            return;
+        }
+
+        // Fetch all shelf contents
+        const shelvesWithMovies = await Promise.all(
+            shelves.map(async (shelf) => {
+                try {
+                    const contents = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                    return { ...shelf, movies: contents || [] };
+                } catch (e) {
+                    return { ...shelf, movies: [] };
+                }
+            })
+        );
+
+        container.innerHTML = shelvesWithMovies.map(shelf => `
+            <div class="visual-shelf" style="border-color: ${shelf.color || '#667eea'}">
+                <div class="visual-shelf-header">
+                    <h3>${shelf.name}</h3>
+                    ${shelf.theme ? `<span class="visual-shelf-theme">${shelf.theme}</span>` : ''}
+                    <span class="visual-shelf-count">${shelf.movies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
+                </div>
+                <div class="visual-shelf-spines">
+                    ${shelf.movies.length === 0
+                        ? '<div class="visual-shelf-empty">Empty shelf - click to add movies</div>'
+                        : shelf.movies.map(movie => `
+                            <div class="movie-spine"
+                                 style="background: ${shelf.color || '#667eea'}"
+                                 title="${movie.display_title || movie.title} (${movie.year})"
+                                 onclick="App.viewShelfContents(${shelf.id})">
+                                <span class="spine-title">${movie.display_title || movie.title}</span>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+                <div class="visual-shelf-actions">
+                    <button class="btn-icon" onclick="App.viewShelfContents(${shelf.id})" title="Manage movies">
+                        📝
+                    </button>
+                    <button class="btn-icon" onclick="App.editShelf(${shelf.id})" title="Edit shelf">
+                        ✏️
+                    </button>
+                </div>
+            </div>
+        `).join('');
     }
 
     function showCreateShelfModal() {
@@ -4423,34 +4506,9 @@ async function getCurrentUserId() {
 
     async function viewUnassignedCopies() {
         try {
-            const unassigned = await apiCall('get_unassigned_copies');
-
-            const container = document.getElementById('unassignedList');
-            const emptyState = document.getElementById('emptyUnassigned');
-
-            if (!unassigned || unassigned.length === 0) {
-                container.innerHTML = '';
-                if (emptyState) emptyState.style.display = 'block';
-            } else {
-                if (emptyState) emptyState.style.display = 'none';
-
-                container.innerHTML = unassigned.map(item => `
-                    <div class="unassigned-movie-card">
-                        <img src="${item.poster_url || '/placeholder.png'}"
-                             alt="${item.title}"
-                             class="unassigned-movie-poster">
-                        <div class="unassigned-movie-info">
-                            <h4>${item.display_title || item.title}</h4>
-                            <p>${item.year || 'N/A'}</p>
-                            <div class="unassigned-movie-format">${item.format}</div>
-                        </div>
-                        <button class="btn" onclick="App.openAssignToShelf(${item.copy_id}, '${(item.display_title || item.title).replace(/'/g, "\\'")}')">
-                            Assign to Shelf
-                        </button>
-                    </div>
-                `).join('');
-            }
-
+            unassignedMovies = await apiCall('get_unassigned_copies');
+            selectedCopyIds.clear();
+            renderUnassignedMovies();
             document.getElementById('unassignedModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load unassigned copies:', error);
@@ -4458,13 +4516,168 @@ async function getCurrentUserId() {
         }
     }
 
+    function renderUnassignedMovies() {
+        let filtered = [...unassignedMovies];
+
+        // Apply search filter
+        if (unassignedFilter.search) {
+            const search = unassignedFilter.search.toLowerCase();
+            filtered = filtered.filter(item =>
+                (item.title || '').toLowerCase().includes(search) ||
+                (item.display_title || '').toLowerCase().includes(search)
+            );
+        }
+
+        // Apply director filter
+        if (unassignedFilter.director !== 'all') {
+            filtered = filtered.filter(item => item.director === unassignedFilter.director);
+        }
+
+        // Apply genre filter
+        if (unassignedFilter.genre !== 'all') {
+            filtered = filtered.filter(item =>
+                item.genre && item.genre.includes(unassignedFilter.genre)
+            );
+        }
+
+        // Apply sort
+        filtered.sort((a, b) => {
+            const titleA = a.display_title || a.title || '';
+            const titleB = b.display_title || b.title || '';
+
+            switch (unassignedFilter.sort) {
+                case 'title':
+                    return titleA.localeCompare(titleB);
+                case 'year':
+                    return (b.year || 0) - (a.year || 0);
+                case 'director':
+                    return (a.director || '').localeCompare(b.director || '');
+                default:
+                    return 0;
+            }
+        });
+
+        const container = document.getElementById('unassignedList');
+        const emptyState = document.getElementById('emptyUnassigned');
+
+        // Update selection count
+        const selectionCount = document.getElementById('unassignedSelectionCount');
+        if (selectionCount) {
+            selectionCount.textContent = selectedCopyIds.size > 0 ? `${selectedCopyIds.size} selected` : '';
+        }
+
+        if (!filtered || filtered.length === 0) {
+            container.innerHTML = unassignedMovies.length === 0
+                ? ''
+                : '<div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.6);">No movies match your filters</div>';
+            if (emptyState && unassignedMovies.length === 0) emptyState.style.display = 'block';
+        } else {
+            if (emptyState) emptyState.style.display = 'none';
+
+            container.innerHTML = filtered.map(item => {
+                const isSelected = selectedCopyIds.has(item.copy_id);
+                return `
+                    <div class="unassigned-movie-card ${isSelected ? 'selected' : ''}" data-copy-id="${item.copy_id}">
+                        <input type="checkbox"
+                               class="movie-checkbox"
+                               ${isSelected ? 'checked' : ''}
+                               onchange="App.toggleMovieSelection(${item.copy_id})"
+                               onclick="event.stopPropagation()">
+                        <img src="${item.poster_url || '/placeholder.png'}"
+                             alt="${item.title}"
+                             class="unassigned-movie-poster"
+                             onclick="App.toggleMovieSelection(${item.copy_id})">
+                        <div class="unassigned-movie-info" onclick="App.toggleMovieSelection(${item.copy_id})">
+                            <h4>${item.display_title || item.title}</h4>
+                            <p>${item.year || 'N/A'}</p>
+                            ${item.director ? `<p style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${item.director}</p>` : ''}
+                            <div class="unassigned-movie-format">${item.format}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update filter dropdowns with unique values
+        updateUnassignedFilters();
+    }
+
+    function updateUnassignedFilters() {
+        // Get unique directors
+        const directors = new Set();
+        unassignedMovies.forEach(item => {
+            if (item.director) directors.add(item.director);
+        });
+
+        const directorSelect = document.getElementById('unassignedDirectorFilter');
+        if (directorSelect) {
+            directorSelect.innerHTML = '<option value="all">All Directors</option>' +
+                Array.from(directors).sort().map(d =>
+                    `<option value="${d}" ${unassignedFilter.director === d ? 'selected' : ''}>${d}</option>`
+                ).join('');
+        }
+
+        // Get unique genres
+        const genres = new Set();
+        unassignedMovies.forEach(item => {
+            if (item.genre) {
+                item.genre.split(',').forEach(g => genres.add(g.trim()));
+            }
+        });
+
+        const genreSelect = document.getElementById('unassignedGenreFilter');
+        if (genreSelect) {
+            genreSelect.innerHTML = '<option value="all">All Genres</option>' +
+                Array.from(genres).sort().map(g =>
+                    `<option value="${g}" ${unassignedFilter.genre === g ? 'selected' : ''}>${g}</option>`
+                ).join('');
+        }
+    }
+
+    function toggleMovieSelection(copyId) {
+        if (selectedCopyIds.has(copyId)) {
+            selectedCopyIds.delete(copyId);
+        } else {
+            selectedCopyIds.add(copyId);
+        }
+        renderUnassignedMovies();
+    }
+
+    function selectAllUnassigned() {
+        unassignedMovies.forEach(item => selectedCopyIds.add(item.copy_id));
+        renderUnassignedMovies();
+    }
+
+    function deselectAllUnassigned() {
+        selectedCopyIds.clear();
+        renderUnassignedMovies();
+    }
+
+    function onUnassignedFilterChange(filterType, value) {
+        unassignedFilter[filterType] = value;
+        renderUnassignedMovies();
+    }
+
     function closeUnassignedModal() {
         document.getElementById('unassignedModal').classList.remove('active');
     }
 
     function openAssignToShelf(copyId, movieTitle) {
-        assignCopyId = copyId;
-        document.getElementById('assignMovieTitle').textContent = `Assign "${movieTitle}" to shelf:`;
+        // If called with specific movie, use that; otherwise use selected movies
+        if (copyId) {
+            selectedCopyIds.clear();
+            selectedCopyIds.add(copyId);
+        }
+
+        if (selectedCopyIds.size === 0) {
+            showToast('Please select at least one movie', 'error');
+            return;
+        }
+
+        const count = selectedCopyIds.size;
+        document.getElementById('assignMovieTitle').textContent = count === 1
+            ? `Assign "${movieTitle || 'movie'}" to shelf:`
+            : `Assign ${count} movies to shelf:`;
 
         // Populate shelf dropdown
         const select = document.getElementById('assignShelfSelect');
@@ -4483,17 +4696,42 @@ async function getCurrentUserId() {
         }
 
         const notes = document.getElementById('assignNotes').value.trim();
+        const copyIds = Array.from(selectedCopyIds);
 
         try {
-            await apiCall('assign_to_shelf', {
-                shelf_id: shelfId,
-                copy_id: assignCopyId,
-                notes: notes || null
-            });
+            let successCount = 0;
+            let errorCount = 0;
 
-            showToast('Movie assigned to shelf!', 'success');
+            // Assign each selected movie
+            for (const copyId of copyIds) {
+                try {
+                    await apiCall('assign_to_shelf', {
+                        shelf_id: shelfId,
+                        copy_id: copyId,
+                        notes: notes || null
+                    });
+                    successCount++;
+                } catch (e) {
+                    errorCount++;
+                    console.error('Failed to assign copy', copyId, e);
+                }
+            }
+
+            if (successCount > 0) {
+                showToast(`${successCount} movie${successCount > 1 ? 's' : ''} assigned to shelf!`, 'success');
+            }
+            if (errorCount > 0) {
+                showToast(`${errorCount} movie${errorCount > 1 ? 's' : ''} failed to assign`, 'error');
+            }
+
             closeAssignToShelf();
-            closeUnassignedModal();
+            selectedCopyIds.clear();
+
+            // Reload unassigned movies
+            const unassigned = await apiCall('get_unassigned_copies');
+            unassignedMovies = unassigned;
+            renderUnassignedMovies();
+
             loadShelves();
         } catch (error) {
             console.error('Failed to assign to shelf:', error);
@@ -4617,6 +4855,7 @@ return {
     // SHELF MANAGEMENT PUBLIC API
     // ========================================
     loadShelves,
+    setShelfView,
     showCreateShelfModal,
     editShelf,
     saveShelf,
@@ -4631,7 +4870,11 @@ return {
     confirmAssignToShelf,
     closeAssignToShelf,
     addMoviesToShelf,
-    printShelfLayout
+    printShelfLayout,
+    toggleMovieSelection,
+    selectAllUnassigned,
+    deselectAllUnassigned,
+    onUnassignedFilterChange
 };
 
 })();
