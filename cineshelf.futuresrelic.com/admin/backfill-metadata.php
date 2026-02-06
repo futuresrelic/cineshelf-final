@@ -4,18 +4,54 @@
 
 session_start();
 
-// Check admin access
-require_once __DIR__ . '/../api/api.php';
-$currentUser = getCurrentUser();
-if (!$currentUser || !$currentUser['is_admin']) {
-    die('Admin access required');
+// Database connection
+function getDB() {
+    $dbPath = __DIR__ . '/../data/cineshelf.sqlite';
+    try {
+        $db = new PDO('sqlite:' . $dbPath);
+        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $db;
+    } catch (PDOException $e) {
+        die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
+    }
 }
+
+// Check if user is admin (simple session check)
+function isAdmin() {
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+
+    $db = getDB();
+    $stmt = $db->prepare("SELECT is_admin FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $user && $user['is_admin'] == 1;
+}
+
+// TMDB API Configuration
+define('TMDB_API_KEY', getenv('TMDB_API_KEY') ?: '3c278a1f8d50d2ac3a36b7774545b3e1');
+define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 
 // Get action
 $action = $_GET['action'] ?? 'show_form';
 
+// For AJAX requests, check admin and return JSON
+if ($action !== 'show_form') {
+    header('Content-Type: application/json');
+
+    if (!isAdmin()) {
+        echo json_encode(['error' => 'Admin access required']);
+        exit;
+    }
+}
+
 if ($action === 'show_form') {
-    // Show the form/UI
+    // For form display, just check if logged in
+    if (!isAdmin()) {
+        die('<h1>Admin Access Required</h1><p>Please <a href="/">login to CineShelf</a> first, then return to this page.</p>');
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -258,6 +294,11 @@ if ($action === 'show_form') {
                 const response = await fetch('?action=get_stats');
                 const data = await response.json();
 
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
                 document.getElementById('totalMovies').textContent = data.total;
                 document.getElementById('missingMetadata').textContent = data.missing;
                 document.getElementById('estimatedTime').textContent = data.estimated_time;
@@ -265,6 +306,7 @@ if ($action === 'show_form') {
                 totalToProcess = data.missing;
             } catch (error) {
                 console.error('Failed to load stats:', error);
+                alert('Failed to load stats: ' + error.message);
             }
         }
 
@@ -286,6 +328,11 @@ if ($action === 'show_form') {
                     const response = await fetch(`?action=process_batch&offset=${offset}&limit=${batchSize}`);
                     const result = await response.json();
 
+                    if (result.error) {
+                        addLog('Error: ' + result.error, 'error');
+                        break;
+                    }
+
                     if (result.success) {
                         processed += result.processed;
                         updated += result.updated;
@@ -306,9 +353,6 @@ if ($action === 'show_form') {
 
                         // Small delay to avoid rate limits
                         await new Promise(resolve => setTimeout(resolve, 500));
-                    } else {
-                        addLog('Error: ' + result.error, 'error');
-                        break;
                     }
 
                     if (result.completed) {
@@ -358,10 +402,8 @@ if ($action === 'show_form') {
 
 // Get stats about movies needing metadata
 if ($action === 'get_stats') {
-    header('Content-Type: application/json');
-
     try {
-        $db = getDatabase();
+        $db = getDB();
 
         // Count total movies
         $stmt = $db->query("SELECT COUNT(*) as total FROM movies");
@@ -395,13 +437,11 @@ if ($action === 'get_stats') {
 
 // Process a batch of movies
 if ($action === 'process_batch') {
-    header('Content-Type: application/json');
-
     $offset = intval($_GET['offset'] ?? 0);
     $limit = intval($_GET['limit'] ?? 10);
 
     try {
-        $db = getDatabase();
+        $db = getDB();
 
         // Get movies missing metadata
         $stmt = $db->prepare("
