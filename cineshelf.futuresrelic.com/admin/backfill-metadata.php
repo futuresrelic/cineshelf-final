@@ -233,7 +233,7 @@ if ($action === 'show_form') {
 
         <h1>🔄 Backfill Movie Metadata</h1>
         <p class="subtitle">
-            This tool will fetch missing metadata (actors, studio, director) from TMDB for all movies in your collection.
+            This tool will fetch missing metadata (actors, studio, director, genre) from TMDB for all movies in your collection.
             This process may take several minutes depending on how many movies need updating.
         </p>
 
@@ -255,7 +255,7 @@ if ($action === 'show_form') {
         <div class="warning">
             <div class="warning-title">⚠️ Important Notes:</div>
             <ul style="margin-left: 1.5rem; line-height: 1.8;">
-                <li>This will update all movies missing actors, studio, or director information</li>
+                <li>This will update all movies missing actors, studio, director, or genre information</li>
                 <li>It makes API calls to TMDB (rate limited to 40 requests/10 seconds)</li>
                 <li>The process runs in batches to avoid timeouts</li>
                 <li>You can safely close this page - the process will continue</li>
@@ -409,13 +409,14 @@ if ($action === 'get_stats') {
         $stmt = $db->query("SELECT COUNT(*) as total FROM movies");
         $total = $stmt->fetchColumn();
 
-        // Count movies missing actors OR studio OR director
+        // Count movies missing actors OR studio OR director OR genre
         $stmt = $db->query("
             SELECT COUNT(*) as missing
             FROM movies
             WHERE actors IS NULL OR actors = ''
                OR studio IS NULL OR studio = ''
                OR director IS NULL OR director = ''
+               OR genre IS NULL OR genre = ''
         ");
         $missing = $stmt->fetchColumn();
 
@@ -445,11 +446,12 @@ if ($action === 'process_batch') {
 
         // Get movies missing metadata
         $stmt = $db->prepare("
-            SELECT id, tmdb_id, title, year, media_type, actors, studio, director
+            SELECT id, tmdb_id, title, year, media_type, actors, studio, director, genre
             FROM movies
             WHERE actors IS NULL OR actors = ''
                OR studio IS NULL OR studio = ''
                OR director IS NULL OR director = ''
+               OR genre IS NULL OR genre = ''
             LIMIT ? OFFSET ?
         ");
         $stmt->execute([$limit, $offset]);
@@ -463,7 +465,7 @@ if ($action === 'process_batch') {
         foreach ($movies as $movie) {
             try {
                 // Check if this movie actually needs updating
-                $needsUpdate = empty($movie['actors']) || empty($movie['studio']) || empty($movie['director']);
+                $needsUpdate = empty($movie['actors']) || empty($movie['studio']) || empty($movie['director']) || empty($movie['genre']);
 
                 if (!$needsUpdate) {
                     $skipped++;
@@ -485,8 +487,8 @@ if ($action === 'process_batch') {
                     // For 404s, mark the movie as processed so we don't retry it
                     if ($httpCode === 404) {
                         // Set metadata to "N/A" so it won't be counted as missing anymore
-                        $stmt = $db->prepare("UPDATE movies SET actors = ?, studio = ?, director = ? WHERE id = ?");
-                        $stmt->execute(['N/A', 'N/A', $movie['director'] ?: 'N/A', $movie['id']]);
+                        $stmt = $db->prepare("UPDATE movies SET actors = ?, studio = ?, director = ?, genre = ? WHERE id = ?");
+                        $stmt->execute(['N/A', 'N/A', $movie['director'] ?: 'N/A', $movie['genre'] ?: 'N/A', $movie['id']]);
                         $skipped++;
                         $logs[] = ['message' => "Skipped: {$movie['title']} (not found in TMDB)", 'type' => 'info'];
                     } else {
@@ -523,6 +525,12 @@ if ($action === 'process_batch') {
                     $updateData['studio'] = $data['production_companies'][0]['name'];
                 }
 
+                // Genre (only if missing)
+                if (empty($movie['genre']) && !empty($data['genres'])) {
+                    $genreNames = array_column($data['genres'], 'name');
+                    $updateData['genre'] = implode(', ', $genreNames);
+                }
+
                 // Update database if we got any new data
                 if (!empty($updateData)) {
                     $setParts = [];
@@ -557,6 +565,7 @@ if ($action === 'process_batch') {
             WHERE actors IS NULL OR actors = ''
                OR studio IS NULL OR studio = ''
                OR director IS NULL OR director = ''
+               OR genre IS NULL OR genre = ''
         ");
         $remaining = $stmt->fetchColumn();
 

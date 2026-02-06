@@ -4211,7 +4211,8 @@ async function getCurrentUserId() {
         search: '',
         sort: 'title',
         director: 'all',
-        genre: 'all'
+        genre: 'all',
+        studio: 'all'
     };
 
     async function loadShelves() {
@@ -4551,6 +4552,13 @@ async function getCurrentUserId() {
             );
         }
 
+        // Apply studio filter
+        if (unassignedFilter.studio !== 'all') {
+            filtered = filtered.filter(item =>
+                item.studio && item.studio.includes(unassignedFilter.studio)
+            );
+        }
+
         // Apply sort
         filtered.sort((a, b) => {
             const titleA = a.display_title || a.title || '';
@@ -4644,6 +4652,22 @@ async function getCurrentUserId() {
             genreSelect.innerHTML = '<option value="all">All Genres</option>' +
                 Array.from(genres).sort().map(g =>
                     `<option value="${g}" ${unassignedFilter.genre === g ? 'selected' : ''}>${g}</option>`
+                ).join('');
+        }
+
+        // Get unique studios
+        const studios = new Set();
+        unassignedMovies.forEach(item => {
+            if (item.studio && item.studio !== 'N/A') {
+                studios.add(item.studio);
+            }
+        });
+
+        const studioSelect = document.getElementById('unassignedStudioFilter');
+        if (studioSelect) {
+            studioSelect.innerHTML = '<option value="all">All Studios</option>' +
+                Array.from(studios).sort().map(s =>
+                    `<option value="${s}" ${unassignedFilter.studio === s ? 'selected' : ''}>${s}</option>`
                 ).join('');
         }
     }
@@ -4751,7 +4775,8 @@ async function getCurrentUserId() {
                 search: '',
                 sort: 'title',
                 director: 'all',
-                genre: 'all'
+                genre: 'all',
+                studio: 'all'
             };
 
             // Reset filter UI controls
@@ -4766,6 +4791,9 @@ async function getCurrentUserId() {
 
             const genreSelect = document.getElementById('unassignedGenreFilter');
             if (genreSelect) genreSelect.value = 'all';
+
+            const studioSelect = document.getElementById('unassignedStudioFilter');
+            if (studioSelect) studioSelect.value = 'all';
 
             renderUnassignedMovies();
 
