@@ -4204,6 +4204,7 @@ async function getCurrentUserId() {
     let currentShelf = null;
     let assignCopyId = null;
     let unassignedMovies = [];
+    let filteredUnassignedMovies = []; // Track filtered results for "Select All"
     let selectedCopyIds = new Set();
     let shelfView = 'list';
     let unassignedFilter = {
@@ -4405,7 +4406,12 @@ async function getCurrentUserId() {
             }
 
             closeShelfModal();
-            loadShelves();
+
+            // Reload and re-render based on current view
+            await loadShelves();
+            if (shelfView === 'visual') {
+                await renderShelvesVisual();
+            }
         } catch (error) {
             console.error('Failed to save shelf:', error);
             showToast('Failed to save shelf', 'error');
@@ -4428,7 +4434,12 @@ async function getCurrentUserId() {
         try {
             await apiCall('delete_shelf', { shelf_id: shelfId });
             showToast('Shelf deleted successfully!', 'success');
-            loadShelves();
+
+            // Reload and re-render based on current view
+            await loadShelves();
+            if (shelfView === 'visual') {
+                await renderShelvesVisual();
+            }
         } catch (error) {
             console.error('Failed to delete shelf:', error);
             showToast('Failed to delete shelf', 'error');
@@ -4557,6 +4568,9 @@ async function getCurrentUserId() {
             }
         });
 
+        // Store filtered results for "Select All"
+        filteredUnassignedMovies = filtered;
+
         const container = document.getElementById('unassignedList');
         const emptyState = document.getElementById('emptyUnassigned');
 
@@ -4644,7 +4658,8 @@ async function getCurrentUserId() {
     }
 
     function selectAllUnassigned() {
-        unassignedMovies.forEach(item => selectedCopyIds.add(item.copy_id));
+        // Only select the currently filtered/visible movies
+        filteredUnassignedMovies.forEach(item => selectedCopyIds.add(item.copy_id));
         renderUnassignedMovies();
     }
 
@@ -4727,12 +4742,38 @@ async function getCurrentUserId() {
             closeAssignToShelf();
             selectedCopyIds.clear();
 
-            // Reload unassigned movies
+            // Reload unassigned movies and refresh the list
             const unassigned = await apiCall('get_unassigned_copies');
             unassignedMovies = unassigned;
+
+            // Reset filters to show all movies
+            unassignedFilter = {
+                search: '',
+                sort: 'title',
+                director: 'all',
+                genre: 'all'
+            };
+
+            // Reset filter UI controls
+            const searchInput = document.getElementById('unassignedSearch');
+            if (searchInput) searchInput.value = '';
+
+            const sortSelect = document.getElementById('unassignedSortFilter');
+            if (sortSelect) sortSelect.value = 'title';
+
+            const directorSelect = document.getElementById('unassignedDirectorFilter');
+            if (directorSelect) directorSelect.value = 'all';
+
+            const genreSelect = document.getElementById('unassignedGenreFilter');
+            if (genreSelect) genreSelect.value = 'all';
+
             renderUnassignedMovies();
 
-            loadShelves();
+            // Reload shelves to update counts
+            await loadShelves();
+            if (shelfView === 'visual') {
+                await renderShelvesVisual();
+            }
         } catch (error) {
             console.error('Failed to assign to shelf:', error);
             showToast('Failed to assign to shelf', 'error');
