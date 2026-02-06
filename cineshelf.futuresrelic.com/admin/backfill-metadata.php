@@ -482,8 +482,17 @@ if ($action === 'process_batch') {
                 curl_close($ch);
 
                 if ($httpCode !== 200) {
-                    $errors++;
-                    $logs[] = ['message' => "Failed to fetch: {$movie['title']} (HTTP $httpCode)", 'type' => 'error'];
+                    // For 404s, mark the movie as processed so we don't retry it
+                    if ($httpCode === 404) {
+                        // Set metadata to "N/A" so it won't be counted as missing anymore
+                        $stmt = $db->prepare("UPDATE movies SET actors = ?, studio = ?, director = ? WHERE id = ?");
+                        $stmt->execute(['N/A', 'N/A', $movie['director'] ?: 'N/A', $movie['id']]);
+                        $skipped++;
+                        $logs[] = ['message' => "Skipped: {$movie['title']} (not found in TMDB)", 'type' => 'info'];
+                    } else {
+                        $errors++;
+                        $logs[] = ['message' => "Failed to fetch: {$movie['title']} (HTTP $httpCode)", 'type' => 'error'];
+                    }
                     continue;
                 }
 
