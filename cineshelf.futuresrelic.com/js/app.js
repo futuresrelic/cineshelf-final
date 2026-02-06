@@ -4277,7 +4277,7 @@ async function getCurrentUserId() {
         document.getElementById('shelfDescription').value = '';
         document.getElementById('shelfColor').value = '#667eea';
         document.getElementById('saveShelfBtn').textContent = 'Create Shelf';
-        document.getElementById('shelfModal').classList.add('show');
+        document.getElementById('shelfModal').classList.add('active');
     }
 
     async function editShelf(shelfId) {
@@ -4292,7 +4292,7 @@ async function getCurrentUserId() {
         document.getElementById('shelfDescription').value = shelf.description || '';
         document.getElementById('shelfColor').value = shelf.color || '#667eea';
         document.getElementById('saveShelfBtn').textContent = 'Save Changes';
-        document.getElementById('shelfModal').classList.add('show');
+        document.getElementById('shelfModal').classList.add('active');
     }
 
     async function saveShelf() {
@@ -4330,7 +4330,7 @@ async function getCurrentUserId() {
     }
 
     function closeShelfModal() {
-        document.getElementById('shelfModal').classList.remove('show');
+        document.getElementById('shelfModal').classList.remove('active');
         currentShelf = null;
     }
 
@@ -4389,7 +4389,7 @@ async function getCurrentUserId() {
                 `).join('');
             }
 
-            document.getElementById('shelfContentsModal').classList.add('show');
+            document.getElementById('shelfContentsModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load shelf contents:', error);
             showToast('Failed to load shelf contents', 'error');
@@ -4397,7 +4397,7 @@ async function getCurrentUserId() {
     }
 
     function closeShelfContents() {
-        document.getElementById('shelfContentsModal').classList.remove('show');
+        document.getElementById('shelfContentsModal').classList.remove('active');
         currentShelf = null;
     }
 
@@ -4451,7 +4451,7 @@ async function getCurrentUserId() {
                 `).join('');
             }
 
-            document.getElementById('unassignedModal').classList.add('show');
+            document.getElementById('unassignedModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load unassigned copies:', error);
             showToast('Failed to load unassigned movies', 'error');
@@ -4459,7 +4459,7 @@ async function getCurrentUserId() {
     }
 
     function closeUnassignedModal() {
-        document.getElementById('unassignedModal').classList.remove('show');
+        document.getElementById('unassignedModal').classList.remove('active');
     }
 
     function openAssignToShelf(copyId, movieTitle) {
@@ -4472,7 +4472,7 @@ async function getCurrentUserId() {
             shelves.map(shelf => `<option value="${shelf.id}">${shelf.name}</option>`).join('');
 
         document.getElementById('assignNotes').value = '';
-        document.getElementById('assignToShelfModal').classList.add('show');
+        document.getElementById('assignToShelfModal').classList.add('active');
     }
 
     async function confirmAssignToShelf() {
@@ -4502,7 +4502,7 @@ async function getCurrentUserId() {
     }
 
     function closeAssignToShelf() {
-        document.getElementById('assignToShelfModal').classList.remove('show');
+        document.getElementById('assignToShelfModal').classList.remove('active');
         assignCopyId = null;
     }
 
