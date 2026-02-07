@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CineShelf Admin Panel</title>
+
+    <!-- PWA Manifest for Admin App -->
+    <link rel="manifest" href="/admin/manifest-admin.php">
+    <meta name="theme-color" content="#4a9eff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CineShelf Admin">
+    <link rel="apple-touch-icon" href="/admin/admin-icon-192.png">
     <style>
         :root {
             --bg-primary: #1a1a1a;
@@ -231,8 +239,15 @@
 </head>
 <body>
     <div class="header">
-        <h1>🎬 CineShelf Admin Panel</h1>
-        <div class="subtitle">Centralized administration and configuration</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h1>🎬 CineShelf Admin Panel</h1>
+                <div class="subtitle">Centralized administration and configuration</div>
+            </div>
+            <button id="installAppBtn" class="btn" style="display: none;">
+                📱 Install Admin App
+            </button>
+        </div>
     </div>
 
     <div class="container">
@@ -511,6 +526,46 @@
         }
 
         loadStats();
+
+        // PWA Installation
+        let deferredPrompt;
+        const installBtn = document.getElementById('installAppBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show the install button
+            installBtn.style.display = 'inline-block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) {
+                alert('Admin app is already installed or cannot be installed on this device');
+                return;
+            }
+
+            // Show the install prompt
+            deferredPrompt.prompt();
+
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+
+            if (outcome === 'accepted') {
+                console.log('Admin app installed successfully');
+            }
+
+            // Clear the deferredPrompt
+            deferredPrompt = null;
+            installBtn.style.display = 'none';
+        });
+
+        // Check if already installed
+        window.addEventListener('appinstalled', () => {
+            console.log('Admin app has been installed');
+            installBtn.style.display = 'none';
+        });
     </script>
 </body>
 </html>

@@ -431,6 +431,24 @@
                     </div>
                 </div>
 
+                <!-- Target Selection -->
+                <div class="control-group" style="margin-bottom: 1rem;">
+                    <h3>🎯 Save Target</h3>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="iconTarget" value="main" checked onchange="updateTargetUI()">
+                            <span>Main App (CineShelf)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="iconTarget" value="admin" onchange="updateTargetUI()">
+                            <span>Admin Panel</span>
+                        </label>
+                    </div>
+                    <p id="targetInfo" style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                        Will save as: <strong>/app-icon.png</strong> and <strong>/app-icon-192.png</strong>
+                    </p>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="buttons">
                     <button class="btn-secondary" onclick="resetAll()">🔄 Reset All</button>
@@ -771,6 +789,9 @@
             const icon192 = document.getElementById('icon192');
             const icon512 = document.getElementById('icon512');
 
+            // Get selected target (main or admin)
+            const target = document.querySelector('input[name="iconTarget"]:checked').value;
+
             try {
                 const response = await fetch('/api/api.php', {
                     method: 'POST',
@@ -780,6 +801,7 @@
                     body: JSON.stringify({
                         action: 'save_icon',
                         type: 'app',
+                        target: target,
                         data192: icon192.toDataURL('image/png'),
                         data512: icon512.toDataURL('image/png')
                     })
@@ -787,12 +809,24 @@
 
                 const result = await response.json();
                 if (result.ok) {
-                    showToast('App icons saved successfully!');
+                    const appName = target === 'admin' ? 'Admin' : 'Main';
+                    showToast(`${appName} app icons saved successfully!`);
                 } else {
                     showToast('Failed to save app icons: ' + result.error, 'error');
                 }
             } catch (error) {
                 showToast('Error saving app icons: ' + error.message, 'error');
+            }
+        }
+
+        function updateTargetUI() {
+            const target = document.querySelector('input[name="iconTarget"]:checked').value;
+            const targetInfo = document.getElementById('targetInfo');
+
+            if (target === 'admin') {
+                targetInfo.innerHTML = 'Will save as: <strong>/admin/admin-icon.png</strong> and <strong>/admin/admin-icon-192.png</strong>';
+            } else {
+                targetInfo.innerHTML = 'Will save as: <strong>/app-icon.png</strong> and <strong>/app-icon-192.png</strong>';
             }
         }
 

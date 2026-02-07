@@ -3262,10 +3262,12 @@ case 'resolve_movie':
             break;
 
         case 'save_icon':
-            // Save app icons to ROOT directory
-            // App uses: /app-icon.png (512x512), /app-icon-192.png, /favicon.ico
+            // Save app icons to ROOT directory or /admin/ directory
+            // Main app uses: /app-icon.png (512x512), /app-icon-192.png, /favicon.ico
+            // Admin app uses: /admin/admin-icon.png (512x512), /admin/admin-icon-192.png
 
             $type = $input['type'] ?? '';
+            $target = $input['target'] ?? 'main'; // 'main' or 'admin'
 
             if ($type === 'favicon') {
                 $data = $input['data'] ?? '';
@@ -3316,9 +3318,18 @@ case 'resolve_movie':
                     jsonResponse(false, null, 'Invalid 512x512 icon data');
                 }
 
-                // Save both icons to ROOT directory (not /icons/)
-                $icon192Path = __DIR__ . '/../app-icon-192.png';
-                $icon512Path = __DIR__ . '/../app-icon.png';
+                // Determine save paths based on target
+                if ($target === 'admin') {
+                    // Save to /admin/ directory with admin-icon prefix
+                    $icon192Path = __DIR__ . '/../admin/admin-icon-192.png';
+                    $icon512Path = __DIR__ . '/../admin/admin-icon.png';
+                    $successMsg = 'Admin app icons saved successfully';
+                } else {
+                    // Save to ROOT directory (main app)
+                    $icon192Path = __DIR__ . '/../app-icon-192.png';
+                    $icon512Path = __DIR__ . '/../app-icon.png';
+                    $successMsg = 'App icons saved successfully';
+                }
 
                 $result192 = file_put_contents($icon192Path, $imageData192);
                 $result512 = file_put_contents($icon512Path, $imageData512);
@@ -3327,7 +3338,7 @@ case 'resolve_movie':
                     jsonResponse(false, null, 'Failed to write app icon files');
                 }
 
-                jsonResponse(true, ['message' => 'App icons saved successfully']);
+                jsonResponse(true, ['message' => $successMsg]);
 
             } else {
                 jsonResponse(false, null, 'Invalid icon type. Must be "favicon" or "app"');
