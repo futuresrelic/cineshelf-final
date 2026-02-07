@@ -3351,11 +3351,16 @@ case 'resolve_movie':
 
         case 'get_current_user':
             // Return current user info for access control
-            jsonResponse(true, [
-                'email' => $_SESSION['user_email'] ?? null,
-                'username' => $_SESSION['username'] ?? null,
-                'is_admin' => $_SESSION['is_admin'] ?? false
-            ]);
+            try {
+                $user = authenticateRequest();
+                jsonResponse(true, [
+                    'email' => $user['email'] ?? null,
+                    'username' => $user['username'] ?? null,
+                    'is_admin' => $user['is_admin'] ?? false
+                ]);
+            } catch (Exception $e) {
+                jsonResponse(false, null, 'Not logged in');
+            }
             break;
 
         case 'get_documentation':
@@ -3366,8 +3371,10 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Document name required');
             }
 
-            // Check if user is logged in
-            if (!isset($_SESSION['user_email'])) {
+            // Check if user is logged in using token-based auth
+            try {
+                $user = authenticateRequest();
+            } catch (Exception $e) {
                 jsonResponse(false, null, 'You must be logged in to view documentation.');
             }
 
@@ -3391,10 +3398,10 @@ case 'resolve_movie':
 
             // Access control: Admin and Dev guides restricted to admin users only
             $restrictedDocs = ['admin', 'dev'];
-            $isAdmin = $_SESSION['is_admin'] ?? false;
+            $isAdmin = $user['is_admin'] ?? false;
 
             if (in_array($docName, $restrictedDocs)) {
-                // Must be logged in and have admin privileges
+                // Must have admin privileges
                 if (!$isAdmin) {
                     jsonResponse(false, null, 'Access denied. This document is restricted to admin users only.');
                 }
