@@ -3459,9 +3459,14 @@ case 'resolve_movie':
         case 'save_css_styles':
             // Save CSS style adjustments from live editor
             try {
-                $user = requireAuth();
-                requireAdmin($user);
+                $user = authenticateRequest();
             } catch (Exception $e) {
+                jsonResponse(false, null, 'You must be logged in');
+            }
+
+            // Check if user is admin
+            $isAdmin = $user['is_admin'] ?? false;
+            if (!$isAdmin) {
                 jsonResponse(false, null, 'Admin access required');
             }
 
