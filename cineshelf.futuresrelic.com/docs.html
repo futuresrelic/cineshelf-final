@@ -259,6 +259,7 @@
                 const response = await fetch('/api/api.php', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'include', // Send cookies for session
                     body: JSON.stringify({action: 'get_current_user'})
                 });
                 const result = await response.json();
@@ -276,6 +277,7 @@
                 const response = await fetch('/api/api.php', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'include', // Send cookies for session
                     body: JSON.stringify({
                         action: 'get_documentation',
                         doc_name: name
