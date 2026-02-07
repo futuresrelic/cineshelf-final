@@ -3456,6 +3456,129 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'save_css_styles':
+            // Save CSS style adjustments from live editor
+            try {
+                $user = requireAuth();
+                requireAdmin($user);
+            } catch (Exception $e) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $cssData = $input['css'] ?? null;
+
+            if (!$cssData) {
+                jsonResponse(false, null, 'CSS data required');
+            }
+
+            // Read current styles.css
+            $cssFile = __DIR__ . '/../css/styles.css';
+            $cssContent = file_get_contents($cssFile);
+
+            if ($cssContent === false) {
+                jsonResponse(false, null, 'Failed to read styles.css');
+            }
+
+            // Update Grid View styles
+            $cssContent = preg_replace(
+                '/\.movie-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\([^)]+\)/',
+                '.movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(' . $cssData['grid']['minWidth'] . 'px',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\s*\{[^}]*gap:\s*)[^;]+/',
+                '$1' . $cssData['grid']['gap'] . 'rem',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\s+\.movie-title\s*\{[^}]*font-size:\s*)[^;]+/',
+                '$1' . $cssData['grid']['titleSize'] . 'rem',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\s+\.movie-title\s*\{[^}]*line-height:\s*)[^;]+/',
+                '$1' . $cssData['grid']['titleLineHeight'],
+                $cssContent
+            );
+
+            // Update List View styles
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-card\s*\{[^}]*min-height:\s*)[^;]+/',
+                '$1' . $cssData['list']['minHeight'] . 'px',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-card\s*\{[^}]*max-height:\s*)[^;]+/',
+                '$1' . $cssData['list']['maxHeight'] . 'px',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-poster-container\s*\{[^}]*width:\s*)[^;]+/',
+                '$1' . $cssData['list']['posterWidth'] . 'px',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-title\s*\{[^}]*font-size:\s*)[^;]+/',
+                '$1' . $cssData['list']['titleSize'] . 'rem',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-title\s*\{[^}]*line-height:\s*)[^;]+/',
+                '$1' . $cssData['list']['titleLineHeight'],
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.list-view\s+\.movie-info\s*\{[^}]*padding:\s*)[^;]+/',
+                '$1' . $cssData['list']['infoPadding'] . 'rem',
+                $cssContent
+            );
+
+            // Update Compact View styles
+            $cssContent = preg_replace(
+                '/\.movie-grid\.compact-view\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\([^)]+\)/',
+                '.movie-grid.compact-view {
+    grid-template-columns: repeat(auto-fill, minmax(' . $cssData['compact']['minWidth'] . 'px',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.compact-view\s*\{[^}]*gap:\s*)[^;]+/',
+                '$1' . $cssData['compact']['gap'] . 'rem',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.compact-view\s+\.movie-title\s*\{[^}]*font-size:\s*)[^;]+/',
+                '$1' . $cssData['compact']['titleSize'] . 'rem',
+                $cssContent
+            );
+
+            $cssContent = preg_replace(
+                '/(\.movie-grid\.compact-view\s+\.movie-title\s*\{[^}]*-webkit-line-clamp:\s*)[^;]+/',
+                '$1' . $cssData['compact']['titleLines'],
+                $cssContent
+            );
+
+            // Write updated CSS back to file
+            $result = file_put_contents($cssFile, $cssContent);
+
+            if ($result === false) {
+                jsonResponse(false, null, 'Failed to write styles.css');
+            }
+
+            jsonResponse(true, ['message' => 'Styles saved successfully', 'bytes_written' => $result]);
+            break;
+
         // ========================================
         // DEFAULT
         // ========================================

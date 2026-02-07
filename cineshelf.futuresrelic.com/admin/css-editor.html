@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live CSS Editor - CineShelf</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0f0f0f;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .controls-panel {
+            background: #1a1a1a;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .preview-panel {
+            overflow-y: auto;
+            padding: 2rem;
+        }
+
+        .panel-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .panel-header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+            color: #667eea;
+        }
+
+        .panel-header p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .control-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-section h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.1rem;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .control-group input[type="number"],
+        .control-group input[type="text"],
+        .control-group select {
+            width: 100%;
+            padding: 0.5rem;
+            background: #2a2a2a;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .control-row .control-group {
+            flex: 1;
+        }
+
+        .value-display {
+            font-family: monospace;
+            color: #667eea;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .view-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .view-tabs button {
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .view-tabs button.active {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
+        .view-tabs button:hover {
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .preview-container {
+            background: #0f0f0f;
+            border-radius: 8px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+
+        @media (max-width: 1200px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .controls-panel {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-layout">
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <div class="panel-header">
+                <h1>🎨 Live CSS Editor</h1>
+                <p>Adjust styles in real-time and save when you're happy</p>
+            </div>
+
+            <!-- Grid View Controls -->
+            <div class="control-section">
+                <h3>🎬 Grid View</h3>
+
+                <div class="control-group">
+                    <label>Minimum Card Width</label>
+                    <input type="number" id="gridMinWidth" value="180" min="100" max="300" step="10">
+                    <div class="value-display">min-width: <span id="gridMinWidthDisplay">180px</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Gap Between Cards</label>
+                    <input type="number" id="gridGap" value="1.5" min="0.5" max="3" step="0.25">
+                    <div class="value-display">gap: <span id="gridGapDisplay">1.5rem</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Font Size</label>
+                    <input type="number" id="gridTitleSize" value="1" min="0.75" max="1.5" step="0.05">
+                    <div class="value-display">font-size: <span id="gridTitleSizeDisplay">1rem</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Line Height</label>
+                    <input type="number" id="gridTitleLineHeight" value="1.4" min="1" max="2" step="0.1">
+                    <div class="value-display">line-height: <span id="gridTitleLineHeightDisplay">1.4</span></div>
+                </div>
+            </div>
+
+            <!-- List View Controls -->
+            <div class="control-section">
+                <h3>📋 List View</h3>
+
+                <div class="control-group">
+                    <label>Card Min Height</label>
+                    <input type="number" id="listMinHeight" value="100" min="80" max="150" step="10">
+                    <div class="value-display">min-height: <span id="listMinHeightDisplay">100px</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Card Max Height</label>
+                    <input type="number" id="listMaxHeight" value="120" min="100" max="180" step="10">
+                    <div class="value-display">max-height: <span id="listMaxHeightDisplay">120px</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Poster Width</label>
+                    <input type="number" id="listPosterWidth" value="80" min="60" max="120" step="10">
+                    <div class="value-display">width: <span id="listPosterWidthDisplay">80px</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Font Size</label>
+                    <input type="number" id="listTitleSize" value="1" min="0.75" max="1.5" step="0.05">
+                    <div class="value-display">font-size: <span id="listTitleSizeDisplay">1rem</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Line Height</label>
+                    <input type="number" id="listTitleLineHeight" value="1.5" min="1" max="2" step="0.1">
+                    <div class="value-display">line-height: <span id="listTitleLineHeightDisplay">1.5</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Info Padding</label>
+                    <input type="number" id="listInfoPadding" value="0.75" min="0.25" max="2" step="0.25">
+                    <div class="value-display">padding: <span id="listInfoPaddingDisplay">0.75rem</span></div>
+                </div>
+            </div>
+
+            <!-- Compact View Controls -->
+            <div class="control-section">
+                <h3>🗂️ Compact View</h3>
+
+                <div class="control-group">
+                    <label>Minimum Card Width</label>
+                    <input type="number" id="compactMinWidth" value="110" min="80" max="150" step="10">
+                    <div class="value-display">min-width: <span id="compactMinWidthDisplay">110px</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Gap Between Cards</label>
+                    <input type="number" id="compactGap" value="0.75" min="0.25" max="2" step="0.25">
+                    <div class="value-display">gap: <span id="compactGapDisplay">0.75rem</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Font Size</label>
+                    <input type="number" id="compactTitleSize" value="0.85" min="0.6" max="1.2" step="0.05">
+                    <div class="value-display">font-size: <span id="compactTitleSizeDisplay">0.85rem</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Title Max Lines</label>
+                    <input type="number" id="compactTitleLines" value="2" min="1" max="3" step="1">
+                    <div class="value-display">-webkit-line-clamp: <span id="compactTitleLinesDisplay">2</span></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="saveStyles()">💾 Save Styles</button>
+                <button class="btn btn-secondary" onclick="resetStyles()">🔄 Reset</button>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+            <div class="view-tabs">
+                <button class="active" onclick="switchView('grid')" id="gridViewBtn">Grid View</button>
+                <button onclick="switchView('list')" id="listViewBtn">List View</button>
+                <button onclick="switchView('compact')" id="compactViewBtn">Compact View</button>
+            </div>
+
+            <div class="preview-container">
+                <div id="previewGrid" class="movie-grid">
+                    <!-- Sample movie cards will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentView = 'grid';
+
+        // Sample movie data for preview
+        const sampleMovies = [
+            { title: 'The Shawshank Redemption', year: 1994, poster: 'https://image.tmdb.org/t/p/w500/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg', rating: 9.3 },
+            { title: 'The Godfather', year: 1972, poster: 'https://image.tmdb.org/t/p/w500/3bhkrj58Vtu7enYsRolD1fZdja1.jpg', rating: 9.2 },
+            { title: 'Pulp Fiction', year: 1994, poster: 'https://image.tmdb.org/t/p/w500/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg', rating: 8.9 },
+            { title: 'Inception', year: 2010, poster: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg', rating: 8.8 },
+            { title: 'The Dark Knight', year: 2008, poster: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg', rating: 9.0 },
+            { title: 'Fight Club', year: 1999, poster: 'https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', rating: 8.8 }
+        ];
+
+        // Initialize preview
+        function renderPreview() {
+            const grid = document.getElementById('previewGrid');
+            grid.innerHTML = sampleMovies.map(movie => `
+                <div class="movie-card">
+                    <div class="movie-poster-container">
+                        <img src="${movie.poster}" alt="${movie.title}" class="movie-poster">
+                        <div class="copy-badge">DVD</div>
+                    </div>
+                    <div class="movie-info">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="hover-overlay">
+                            <div class="hover-meta">
+                                <span>⭐ ${movie.rating}</span>
+                                <span>📅 ${movie.year}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Switch view
+        function switchView(view) {
+            currentView = view;
+            const grid = document.getElementById('previewGrid');
+            grid.className = `movie-grid ${view === 'grid' ? '' : view + '-view'}`;
+
+            // Update button states
+            document.querySelectorAll('.view-tabs button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(view + 'ViewBtn').classList.add('active');
+        }
+
+        // Update CSS in real-time
+        function updateLiveCSS() {
+            const style = document.createElement('style');
+            style.id = 'liveStyles';
+
+            // Remove old live styles
+            const oldStyle = document.getElementById('liveStyles');
+            if (oldStyle) oldStyle.remove();
+
+            // Grid View
+            const gridMinWidth = document.getElementById('gridMinWidth').value;
+            const gridGap = document.getElementById('gridGap').value;
+            const gridTitleSize = document.getElementById('gridTitleSize').value;
+            const gridTitleLineHeight = document.getElementById('gridTitleLineHeight').value;
+
+            // List View
+            const listMinHeight = document.getElementById('listMinHeight').value;
+            const listMaxHeight = document.getElementById('listMaxHeight').value;
+            const listPosterWidth = document.getElementById('listPosterWidth').value;
+            const listTitleSize = document.getElementById('listTitleSize').value;
+            const listTitleLineHeight = document.getElementById('listTitleLineHeight').value;
+            const listInfoPadding = document.getElementById('listInfoPadding').value;
+
+            // Compact View
+            const compactMinWidth = document.getElementById('compactMinWidth').value;
+            const compactGap = document.getElementById('compactGap').value;
+            const compactTitleSize = document.getElementById('compactTitleSize').value;
+            const compactTitleLines = document.getElementById('compactTitleLines').value;
+
+            style.textContent = `
+                /* Grid View */
+                .movie-grid {
+                    grid-template-columns: repeat(auto-fill, minmax(${gridMinWidth}px, 1fr));
+                    gap: ${gridGap}rem;
+                }
+                .movie-grid .movie-title {
+                    font-size: ${gridTitleSize}rem;
+                    line-height: ${gridTitleLineHeight};
+                }
+
+                /* List View */
+                .movie-grid.list-view .movie-card {
+                    min-height: ${listMinHeight}px;
+                    max-height: ${listMaxHeight}px;
+                }
+                .movie-grid.list-view .movie-poster-container {
+                    width: ${listPosterWidth}px;
+                }
+                .movie-grid.list-view .movie-title {
+                    font-size: ${listTitleSize}rem;
+                    line-height: ${listTitleLineHeight};
+                }
+                .movie-grid.list-view .movie-info {
+                    padding: ${listInfoPadding}rem;
+                }
+
+                /* Compact View */
+                .movie-grid.compact-view {
+                    grid-template-columns: repeat(auto-fill, minmax(${compactMinWidth}px, 1fr));
+                    gap: ${compactGap}rem;
+                }
+                .movie-grid.compact-view .movie-title {
+                    font-size: ${compactTitleSize}rem;
+                    -webkit-line-clamp: ${compactTitleLines};
+                }
+            `;
+
+            document.head.appendChild(style);
+        }
+
+        // Update display values
+        function updateDisplayValues() {
+            document.getElementById('gridMinWidthDisplay').textContent = document.getElementById('gridMinWidth').value + 'px';
+            document.getElementById('gridGapDisplay').textContent = document.getElementById('gridGap').value + 'rem';
+            document.getElementById('gridTitleSizeDisplay').textContent = document.getElementById('gridTitleSize').value + 'rem';
+            document.getElementById('gridTitleLineHeightDisplay').textContent = document.getElementById('gridTitleLineHeight').value;
+
+            document.getElementById('listMinHeightDisplay').textContent = document.getElementById('listMinHeight').value + 'px';
+            document.getElementById('listMaxHeightDisplay').textContent = document.getElementById('listMaxHeight').value + 'px';
+            document.getElementById('listPosterWidthDisplay').textContent = document.getElementById('listPosterWidth').value + 'px';
+            document.getElementById('listTitleSizeDisplay').textContent = document.getElementById('listTitleSize').value + 'rem';
+            document.getElementById('listTitleLineHeightDisplay').textContent = document.getElementById('listTitleLineHeight').value;
+            document.getElementById('listInfoPaddingDisplay').textContent = document.getElementById('listInfoPadding').value + 'rem';
+
+            document.getElementById('compactMinWidthDisplay').textContent = document.getElementById('compactMinWidth').value + 'px';
+            document.getElementById('compactGapDisplay').textContent = document.getElementById('compactGap').value + 'rem';
+            document.getElementById('compactTitleSizeDisplay').textContent = document.getElementById('compactTitleSize').value + 'rem';
+            document.getElementById('compactTitleLinesDisplay').textContent = document.getElementById('compactTitleLines').value;
+
+            updateLiveCSS();
+        }
+
+        // Save styles to server
+        async function saveStyles() {
+            const statusMsg = document.getElementById('statusMessage');
+
+            try {
+                // Generate CSS content
+                const cssContent = generateCSSContent();
+
+                // Send to API
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'save_css_styles',
+                        css: cssContent
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusMsg.textContent = '✅ Styles saved successfully! Refresh your main app to see changes.';
+                    statusMsg.className = 'status-message success';
+                    statusMsg.style.display = 'block';
+
+                    setTimeout(() => {
+                        statusMsg.style.display = 'none';
+                    }, 5000);
+                } else {
+                    throw new Error(result.error || 'Failed to save styles');
+                }
+            } catch (error) {
+                statusMsg.textContent = '❌ Error: ' + error.message;
+                statusMsg.className = 'status-message error';
+                statusMsg.style.display = 'block';
+            }
+        }
+
+        // Generate CSS content
+        function generateCSSContent() {
+            const gridMinWidth = document.getElementById('gridMinWidth').value;
+            const gridGap = document.getElementById('gridGap').value;
+            const gridTitleSize = document.getElementById('gridTitleSize').value;
+            const gridTitleLineHeight = document.getElementById('gridTitleLineHeight').value;
+
+            const listMinHeight = document.getElementById('listMinHeight').value;
+            const listMaxHeight = document.getElementById('listMaxHeight').value;
+            const listPosterWidth = document.getElementById('listPosterWidth').value;
+            const listTitleSize = document.getElementById('listTitleSize').value;
+            const listTitleLineHeight = document.getElementById('listTitleLineHeight').value;
+            const listInfoPadding = document.getElementById('listInfoPadding').value;
+
+            const compactMinWidth = document.getElementById('compactMinWidth').value;
+            const compactGap = document.getElementById('compactGap').value;
+            const compactTitleSize = document.getElementById('compactTitleSize').value;
+            const compactTitleLines = document.getElementById('compactTitleLines').value;
+
+            return {
+                grid: {
+                    minWidth: gridMinWidth,
+                    gap: gridGap,
+                    titleSize: gridTitleSize,
+                    titleLineHeight: gridTitleLineHeight
+                },
+                list: {
+                    minHeight: listMinHeight,
+                    maxHeight: listMaxHeight,
+                    posterWidth: listPosterWidth,
+                    titleSize: listTitleSize,
+                    titleLineHeight: listTitleLineHeight,
+                    infoPadding: listInfoPadding
+                },
+                compact: {
+                    minWidth: compactMinWidth,
+                    gap: compactGap,
+                    titleSize: compactTitleSize,
+                    titleLines: compactTitleLines
+                }
+            };
+        }
+
+        // Reset to defaults
+        function resetStyles() {
+            // Grid defaults
+            document.getElementById('gridMinWidth').value = 180;
+            document.getElementById('gridGap').value = 1.5;
+            document.getElementById('gridTitleSize').value = 1;
+            document.getElementById('gridTitleLineHeight').value = 1.4;
+
+            // List defaults
+            document.getElementById('listMinHeight').value = 100;
+            document.getElementById('listMaxHeight').value = 120;
+            document.getElementById('listPosterWidth').value = 80;
+            document.getElementById('listTitleSize').value = 1;
+            document.getElementById('listTitleLineHeight').value = 1.5;
+            document.getElementById('listInfoPadding').value = 0.75;
+
+            // Compact defaults
+            document.getElementById('compactMinWidth').value = 110;
+            document.getElementById('compactGap').value = 0.75;
+            document.getElementById('compactTitleSize').value = 0.85;
+            document.getElementById('compactTitleLines').value = 2;
+
+            updateDisplayValues();
+        }
+
+        // Attach input listeners
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateDisplayValues);
+        });
+
+        // Initialize
+        renderPreview();
+        updateDisplayValues();
+    </script>
+</body>
+</html>
