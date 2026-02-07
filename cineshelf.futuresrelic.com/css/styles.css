@@ -3372,6 +3372,59 @@ select option {
     border-left: 4px solid #667eea;
 }
 
+/* Parent shelf styling */
+.visual-shelf.parent-shelf {
+    background: rgba(102, 126, 234, 0.08);
+    border-left-width: 6px;
+}
+
+/* Child shelf styling - indented and slightly smaller */
+.visual-shelf.child-shelf {
+    background: rgba(255, 255, 255, 0.03);
+    border-left-width: 3px;
+    padding: 1rem;
+    margin-left: 2rem;
+}
+
+/* Container for child shelves */
+.child-shelves-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Expand/collapse button for parent shelves */
+.expand-btn {
+    background: rgba(102, 126, 234, 0.2);
+    border: none;
+    color: white;
+    font-size: 0.8rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.expand-btn:hover {
+    background: rgba(102, 126, 234, 0.4);
+    transform: scale(1.1);
+}
+
+/* Child count badge */
+.child-count-badge {
+    padding: 0.2rem 0.6rem;
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+}
+
 .visual-shelf-header {
     display: flex;
     align-items: center;
@@ -3383,6 +3436,10 @@ select option {
 .visual-shelf-header h3 {
     margin: 0;
     font-size: 1.25rem;
+}
+
+.child-shelf .visual-shelf-header h3 {
+    font-size: 1.1rem;
 }
 
 .visual-shelf-theme {

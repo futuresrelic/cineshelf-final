@@ -4309,8 +4309,21 @@ async function getCurrentUserId() {
             return;
         }
 
-        // Fetch all shelf contents
-        const shelvesWithMovies = await Promise.all(
+        // Organize shelves into hierarchy: parent shelves with their children
+        const topLevelShelves = shelves.filter(s => !s.parent_shelf_id);
+        const childShelvesByParent = {};
+
+        shelves.forEach(shelf => {
+            if (shelf.parent_shelf_id) {
+                if (!childShelvesByParent[shelf.parent_shelf_id]) {
+                    childShelvesByParent[shelf.parent_shelf_id] = [];
+                }
+                childShelvesByParent[shelf.parent_shelf_id].push(shelf);
+            }
+        });
+
+        // Fetch contents for ALL shelves (both parents and children)
+        const allShelvesWithMovies = await Promise.all(
             shelves.map(async (shelf) => {
                 try {
                     const contents = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
@@ -4321,36 +4334,87 @@ async function getCurrentUserId() {
             })
         );
 
-        container.innerHTML = shelvesWithMovies.map(shelf => `
-            <div class="visual-shelf" style="border-color: ${shelf.color || '#667eea'}">
-                <div class="visual-shelf-header">
-                    <h3>${shelf.name}</h3>
-                    ${shelf.theme ? `<span class="visual-shelf-theme">${shelf.theme}</span>` : ''}
-                    <span class="visual-shelf-count">${shelf.movies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
+        // Create lookup map for quick access
+        const shelfMoviesMap = {};
+        allShelvesWithMovies.forEach(shelf => {
+            shelfMoviesMap[shelf.id] = shelf.movies;
+        });
+
+        // Helper function to render a single shelf
+        const renderShelfCard = (shelf, isChild = false) => {
+            const movies = shelfMoviesMap[shelf.id] || [];
+            const hasChildren = childShelvesByParent[shelf.id]?.length > 0;
+            const childCount = childShelvesByParent[shelf.id]?.length || 0;
+
+            return `
+                <div class="visual-shelf ${isChild ? 'child-shelf' : ''} ${hasChildren ? 'parent-shelf' : ''}"
+                     style="border-color: ${shelf.color || '#667eea'}"
+                     data-shelf-id="${shelf.id}">
+                    <div class="visual-shelf-header">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                            ${hasChildren ? `<button class="expand-btn" onclick="App.toggleShelfChildren(${shelf.id})" title="Toggle child shelves">▼</button>` : ''}
+                            <h3>${shelf.name}</h3>
+                            ${shelf.theme ? `<span class="visual-shelf-theme">${shelf.theme}</span>` : ''}
+                            ${hasChildren ? `<span class="child-count-badge">${childCount} shelf${childCount !== 1 ? 'ves' : ''}</span>` : ''}
+                        </div>
+                        <span class="visual-shelf-count">${movies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
+                    </div>
+                    <div class="visual-shelf-spines">
+                        ${movies.length === 0
+                            ? '<div class="visual-shelf-empty">Empty shelf - click to add movies</div>'
+                            : movies.map(movie => `
+                                <div class="movie-spine"
+                                     style="background: ${shelf.color || '#667eea'}"
+                                     title="${movie.display_title || movie.title} (${movie.year})"
+                                     onclick="App.viewShelfContents(${shelf.id})">
+                                    <span class="spine-title">${movie.display_title || movie.title}</span>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                    <div class="visual-shelf-actions">
+                        <button class="btn-icon" onclick="App.viewShelfContents(${shelf.id})" title="Manage movies">
+                            📝
+                        </button>
+                        <button class="btn-icon" onclick="App.editShelf(${shelf.id})" title="Edit shelf">
+                            ✏️
+                        </button>
+                    </div>
                 </div>
-                <div class="visual-shelf-spines">
-                    ${shelf.movies.length === 0
-                        ? '<div class="visual-shelf-empty">Empty shelf - click to add movies</div>'
-                        : shelf.movies.map(movie => `
-                            <div class="movie-spine"
-                                 style="background: ${shelf.color || '#667eea'}"
-                                 title="${movie.display_title || movie.title} (${movie.year})"
-                                 onclick="App.viewShelfContents(${shelf.id})">
-                                <span class="spine-title">${movie.display_title || movie.title}</span>
-                            </div>
-                        `).join('')
-                    }
-                </div>
-                <div class="visual-shelf-actions">
-                    <button class="btn-icon" onclick="App.viewShelfContents(${shelf.id})" title="Manage movies">
-                        📝
-                    </button>
-                    <button class="btn-icon" onclick="App.editShelf(${shelf.id})" title="Edit shelf">
-                        ✏️
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        };
+
+        // Render hierarchy: top-level shelves followed by their children
+        let html = '';
+
+        topLevelShelves.forEach(parentShelf => {
+            // Render parent shelf
+            html += renderShelfCard(parentShelf, false);
+
+            // Render child shelves if any
+            const children = childShelvesByParent[parentShelf.id] || [];
+            if (children.length > 0) {
+                html += `<div class="child-shelves-container" id="children-${parentShelf.id}">`;
+                children.forEach(childShelf => {
+                    html += renderShelfCard(childShelf, true);
+                });
+                html += '</div>';
+            }
+        });
+
+        container.innerHTML = html;
+    }
+
+    // New function to toggle child shelf visibility
+    function toggleShelfChildren(shelfId) {
+        const container = document.getElementById(`children-${shelfId}`);
+        const button = document.querySelector(`[data-shelf-id="${shelfId}"] .expand-btn`);
+
+        if (container) {
+            const isCollapsed = container.style.display === 'none';
+            container.style.display = isCollapsed ? 'block' : 'none';
+            button.textContent = isCollapsed ? '▼' : '▶';
+        }
     }
 
     function showCreateShelfModal() {
@@ -4951,6 +5015,7 @@ return {
     saveShelf,
     closeShelfModal,
     deleteShelf,
+    toggleShelfChildren,
     viewShelfContents,
     closeShelfContents,
     removeFromShelf,
