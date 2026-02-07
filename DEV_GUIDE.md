@@ -16,10 +16,11 @@
 6. [Movie Matching System](#6-movie-matching-system)
 7. [Shelf Management](#7-shelf-management)
 8. [Core Features](#8-core-features)
-9. [Development Setup](#9-development-setup)
-10. [Deployment](#10-deployment)
-11. [API Reference](#11-api-reference)
-12. [Troubleshooting](#12-troubleshooting)
+9. [Version Management & Cache Busting](#85-version-management--cache-busting)
+10. [Development Setup](#9-development-setup)
+11. [Deployment](#10-deployment)
+12. [API Reference](#11-api-reference)
+13. [Troubleshooting](#12-troubleshooting)
 
 ---
 
@@ -1487,6 +1488,368 @@ The Matrix,1999,4K,,,New
 3. Store questions in `trivia_questions` table
 4. Present one-by-one to user
 5. Track score in `trivia_sessions`
+
+---
+
+## 8.5. Version Management & Cache Busting
+
+CineShelf uses a sophisticated version management and cache busting system to ensure users always get the latest version of the app, especially important for PWA installations.
+
+### Overview
+
+The system addresses a common PWA challenge: **How to force updates when the app changes?**
+
+**Key Components:**
+1. **version.json** - Single source of truth for version number
+2. **Dynamic manifest** - Icons versioned with ?v= query params
+3. **Service Worker** - Network-first strategy to avoid stale cache
+4. **Script loader** - JS/CSS files loaded with version params
+5. **Force update button** - Manual cache clearing when needed
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Version Flow                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  version.json ──┬──> manifest.php?v=2.2.14                  │
+│  (2.2.14)       ├──> app-icon.png?v=2.2.14                  │
+│                 ├──> index.html (loads scripts with ?v)      │
+│                 └──> get-version.php (API endpoint)          │
+│                                                               │
+│  Service Worker: Network-first (never caches API/admin)     │
+│  Force Update: Clear caches + reload                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1. version.json
+
+**Location:** `/version.json`
+
+**Structure:**
+```json
+{
+    "version": "2.2.14",
+    "updated": "2025-11-22T21:52:07-08:00"
+}
+```
+
+**Purpose:**
+- Single source of truth for current version
+- Updated automatically by bump-version.php
+- Read by manifest.php, get-version.php, and index.html
+
+### 2. Version API Endpoint
+
+**File:** `/get-version.php`
+
+**Purpose:** Returns current version to client-side code
+
+**Usage:**
+```javascript
+const response = await fetch('/get-version.php');
+const data = await response.json();
+console.log(data.version); // "2.2.14"
+```
+
+**Headers:**
+```php
+header('Cache-Control: no-cache, no-store, must-revalidate');
+```
+Ensures version check always hits server, never cached.
+
+### 3. Dynamic Manifest Cache Busting
+
+**File:** `/manifest.php`
+
+**Problem:** PWAs cache the manifest.json, which includes icon URLs. When you update app icons, users might still see old icons even after months.
+
+**Solution:** Append version to icon URLs:
+
+```php
+$manifest = [
+    "icons" => [
+        [
+            "src" => "/app-icon.png?v=" . $version,
+            "sizes" => "512x512",
+            "type" => "image/png",
+            "purpose" => "any maskable"
+        ],
+        [
+            "src" => "/app-icon-192.png?v=" . $version,
+            "sizes" => "192x192",
+            "type" => "image/png",
+            "purpose" => "any"
+        ]
+    ]
+];
+```
+
+**How It Works:**
+1. When version bumps (2.2.14 → 2.2.15), icon URLs change
+2. Browser sees `/app-icon.png?v=2.2.15` as different from `/app-icon.png?v=2.2.14`
+3. Forces icon re-download
+4. PWA home screen icon updates
+
+**Admin PWA Manifest:** `/admin/manifest-admin.php` uses same technique for admin icons.
+
+### 4. Script & CSS Cache Busting
+
+**File:** `/index.html` (lines 1056-1078)
+
+**Problem:** Browsers aggressively cache JS/CSS files. Users might see outdated UI.
+
+**Solution:** Load scripts with version parameter:
+
+```javascript
+// Fetch version and load scripts
+fetch('/get-version.php?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+        const v = data.version;
+        console.log('[ScriptLoader] Loading scripts with version:', v);
+
+        // Load each script with version
+        const scripts = [
+            `/js/app.js?v=${v}`,
+            `/js/trivia.js?v=${v}`,
+            `/js/cover-scanner.js?v=${v}`
+        ];
+
+        scripts.forEach(src => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; // Maintain order
+            document.body.appendChild(script);
+        });
+    });
+```
+
+**CSS:**
+```html
+<link rel="stylesheet" href="/css/styles.css?v=2.2.14">
+```
+
+### 5. Service Worker Strategy
+
+**File:** `/service-worker.js`
+
+**Strategy:** Network-first (when online)
+
+**Why Not Cache-First?**
+- Cache-first means users see stale content
+- PWAs default to showing cached files even when online
+- Hard to force updates without aggressive cache clearing
+
+**Implementation:**
+```javascript
+const CACHE_NAME = 'cineshelf-offline-v2';
+
+// NEVER cache these paths
+const neverCache = [
+    '/api/',
+    '/data/',
+    '/admin/',
+    'get-version.php',
+    'bump-version.php',
+    '/manifest.php',
+    '/app-icon.png',
+    'icon-',
+    '/favicon.ico'
+];
+
+// Network-first fetch strategy
+event.respondWith(
+    fetch(request)
+        .then(response => {
+            // Update cache in background for offline use
+            if (response.status === 200) {
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(request, response.clone());
+                });
+            }
+            return response;
+        })
+        .catch(() => {
+            // Fallback to cache when offline
+            return caches.match(request);
+        })
+);
+```
+
+**Key Points:**
+- **Online:** Always fetch from network, update cache in background
+- **Offline:** Use cache as fallback
+- **Admin/API:** Never cached at all
+- **Icons/Manifest:** Never cached (always fresh)
+
+### 6. Version Bumping
+
+**Manual Method:**
+
+Visit `/admin/bump-version.php` in browser:
+
+**Response:**
+```json
+{
+    "success": true,
+    "oldVersion": "2.2.14",
+    "newVersion": "2.2.15",
+    "message": "Version bumped from 2.2.14 to 2.2.15"
+}
+```
+
+**Automatic Method:**
+
+Use Version Manager UI at `/admin/version-manager.html`:
+
+**Features:**
+- Display current version
+- Bump button (increments patch)
+- Force update (clears all caches)
+- Version history
+
+**Versioning Scheme:** Semantic Versioning (MAJOR.MINOR.PATCH)
+- MAJOR: Breaking changes (manual)
+- MINOR: New features (manual)
+- PATCH: Bug fixes (auto-incremented)
+
+### 7. Force Update Mechanism
+
+**Location:** Bottom-right of index.html (floating button)
+
+**When It Appears:**
+- On page load, app checks `localStorage.getItem('cineshelf-version')`
+- Compares to server version via `/get-version.php`
+- If mismatch detected, shows 🔄 button
+
+**What It Does:**
+```javascript
+async function forceUpdate() {
+    // 1. Unregister all service workers
+    if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (let reg of regs) {
+            await reg.unregister();
+        }
+    }
+
+    // 2. Clear all caches
+    if ('caches' in window) {
+        const names = await caches.keys();
+        for (let name of names) {
+            await caches.delete(name);
+        }
+    }
+
+    // 3. Clear localStorage (preserves auth)
+    localStorage.removeItem('cineshelf-version');
+
+    // 4. Hard reload from server
+    window.location.reload(true);
+}
+```
+
+**User Flow:**
+1. Developer bumps version (2.2.14 → 2.2.15)
+2. User visits app
+3. App detects version mismatch
+4. Shows 🔄 button
+5. User clicks → full cache clear → fresh reload
+
+### 8. Best Practices
+
+**When Deploying Changes:**
+
+1. **For UI/JS changes:**
+   ```bash
+   # Visit admin panel
+   http://yourdomain.com/admin/bump-version.php
+   ```
+   - Increments patch version
+   - Forces browser to re-download scripts
+
+2. **For icon changes:**
+   - Update icons via Icon Manager
+   - Bump version
+   - Manifest will reference new ?v= param
+   - Users will see new icon within 24-48 hours
+
+3. **For database schema changes:**
+   - Run migration script FIRST
+   - Then bump version
+   - Schema changes don't need cache busting
+
+4. **For major releases:**
+   - Manually edit version.json
+   - Change MAJOR or MINOR number
+   - Update CHANGELOG.md
+
+**Testing Updates:**
+
+```bash
+# 1. Clear your own cache
+# Use Force Update button
+
+# 2. Test in incognito
+# Fresh session, no cache
+
+# 3. Check network tab
+# Verify ?v= params are current
+# Verify no 304 (cached) responses
+
+# 4. Check PWA icon
+# Uninstall → reinstall app
+# Verify new icon appears
+```
+
+### 9. Troubleshooting
+
+**Problem:** Users report seeing old UI
+
+**Solution:**
+1. Check version.json was updated
+2. Verify manifest.php returns correct ?v= params
+3. Ask user to force update (🔄 button)
+4. Check service worker not caching excessively
+
+**Problem:** Icons not updating on home screen
+
+**Solution:**
+1. PWA icon updates are controlled by OS
+2. Android: Can take 24-48 hours
+3. iOS: Must reinstall app (Settings → Remove from Home Screen)
+4. Verify manifest.php has correct version
+
+**Problem:** Scripts loaded without ?v=
+
+**Solution:**
+1. Check index.html script loader
+2. Verify get-version.php is accessible
+3. Check browser console for errors
+4. Fallback loads scripts without version
+
+**Problem:** Force update button doesn't appear
+
+**Solution:**
+1. Check localStorage has 'cineshelf-version'
+2. Verify get-version.php returns different version
+3. Look for JS errors in console
+
+### 10. Files Reference
+
+| File | Purpose |
+|------|---------|
+| `/version.json` | Version number storage |
+| `/get-version.php` | Version API endpoint |
+| `/manifest.php` | Dynamic manifest with versioned icons |
+| `/admin/manifest-admin.php` | Admin PWA manifest |
+| `/admin/bump-version.php` | Increment version script |
+| `/admin/version-manager.html` | UI for version management |
+| `/service-worker.js` | Network-first caching strategy |
+| `/index.html` (lines 1056-1078) | Script loader with cache busting |
+| `/index.html` (lines 1148-1210) | Force update button |
 
 ---
 
