@@ -4340,22 +4340,24 @@ async function getCurrentUserId() {
             shelfMoviesMap[shelf.id] = shelf.movies;
         });
 
-        // Helper function to render a single shelf
-        const renderShelfCard = (shelf, isChild = false) => {
+        // Recursive function to render shelves with INFINITE nesting levels
+        const renderShelfWithChildren = (shelf, level = 0) => {
             const movies = shelfMoviesMap[shelf.id] || [];
-            const hasChildren = childShelvesByParent[shelf.id]?.length > 0;
-            const childCount = childShelvesByParent[shelf.id]?.length || 0;
+            const children = childShelvesByParent[shelf.id] || [];
+            const hasChildren = children.length > 0;
+            const isChild = level > 0;
 
-            return `
+            let html = `
                 <div class="visual-shelf ${isChild ? 'child-shelf' : ''} ${hasChildren ? 'parent-shelf' : ''}"
-                     style="border-color: ${shelf.color || '#667eea'}"
-                     data-shelf-id="${shelf.id}">
+                     style="border-color: ${shelf.color || '#667eea'}; margin-left: ${level * 2}rem;"
+                     data-shelf-id="${shelf.id}"
+                     data-level="${level}">
                     <div class="visual-shelf-header">
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
                             ${hasChildren ? `<button class="expand-btn" onclick="App.toggleShelfChildren(${shelf.id})" title="Toggle child shelves">▼</button>` : ''}
                             <h3>${shelf.name}</h3>
                             ${shelf.theme ? `<span class="visual-shelf-theme">${shelf.theme}</span>` : ''}
-                            ${hasChildren ? `<span class="child-count-badge">${childCount} shelf${childCount !== 1 ? 'ves' : ''}</span>` : ''}
+                            ${hasChildren ? `<span class="child-count-badge">${children.length} shelf${children.length !== 1 ? 'ves' : ''}</span>` : ''}
                         </div>
                         <span class="visual-shelf-count">${movies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
                     </div>
@@ -4382,24 +4384,23 @@ async function getCurrentUserId() {
                     </div>
                 </div>
             `;
-        };
 
-        // Render hierarchy: top-level shelves followed by their children
-        let html = '';
-
-        topLevelShelves.forEach(parentShelf => {
-            // Render parent shelf
-            html += renderShelfCard(parentShelf, false);
-
-            // Render child shelves if any
-            const children = childShelvesByParent[parentShelf.id] || [];
-            if (children.length > 0) {
-                html += `<div class="child-shelves-container" id="children-${parentShelf.id}">`;
+            // Recursively render children if any
+            if (hasChildren) {
+                html += `<div class="child-shelves-container" id="children-${shelf.id}">`;
                 children.forEach(childShelf => {
-                    html += renderShelfCard(childShelf, true);
+                    html += renderShelfWithChildren(childShelf, level + 1); // RECURSIVE CALL for multi-level!
                 });
                 html += '</div>';
             }
+
+            return html;
+        };
+
+        // Start rendering from top-level shelves
+        let html = '';
+        topLevelShelves.forEach(shelf => {
+            html += renderShelfWithChildren(shelf, 0);
         });
 
         container.innerHTML = html;
@@ -4435,15 +4436,31 @@ async function getCurrentUserId() {
         const dropdown = document.getElementById('shelfParent');
         dropdown.innerHTML = '<option value="">None (Top-level shelf)</option>';
 
-        // Get top-level shelves only (no parent)
-        const topLevelShelves = shelves.filter(s => !s.parent_shelf_id && s.id !== excludeShelfId);
+        // Build hierarchy recursively to show ALL shelves with proper indentation
+        function buildShelfHierarchy(parentId, level = 0) {
+            const children = shelves.filter(s => {
+                // Match shelves with this parent (or null for top-level)
+                const matchesParent = (parentId === null) ? !s.parent_shelf_id : s.parent_shelf_id === parentId;
+                // Exclude the shelf we're editing (can't be its own parent)
+                return matchesParent && s.id !== excludeShelfId;
+            });
 
-        topLevelShelves.forEach(shelf => {
-            const option = document.createElement('option');
-            option.value = shelf.id;
-            option.textContent = shelf.name;
-            dropdown.appendChild(option);
-        });
+            children.forEach(shelf => {
+                const option = document.createElement('option');
+                option.value = shelf.id;
+                // Add visual indentation based on nesting level
+                const indent = '\u00A0\u00A0\u00A0\u00A0'.repeat(level); // Non-breaking spaces
+                const prefix = level > 0 ? '└─ ' : '';
+                option.textContent = indent + prefix + shelf.name;
+                dropdown.appendChild(option);
+
+                // Recursively add children of this shelf (multi-level support!)
+                buildShelfHierarchy(shelf.id, level + 1);
+            });
+        }
+
+        // Start with top-level shelves (those with no parent)
+        buildShelfHierarchy(null, 0);
     }
 
     async function editShelf(shelfId) {
