@@ -292,11 +292,8 @@ select option {
 /* Movie Grid */
 .movie-grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 1.5rem;
-}
-
-.movie-grid.grid-view {
-    grid-template-columns: var(--grid-columns, repeat(auto-fill, minmax(180px, 1fr)));
 }
 
 /* Compact grid view - denser layout with smaller posters */
