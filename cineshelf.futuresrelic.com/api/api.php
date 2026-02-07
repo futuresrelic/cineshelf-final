@@ -3335,6 +3335,69 @@ case 'resolve_movie':
             break;
 
         // ========================================
+        // DOCUMENTATION
+        // ========================================
+
+        case 'get_current_user':
+            // Return current user info for access control
+            jsonResponse(true, [
+                'email' => $_SESSION['user_email'] ?? null,
+                'username' => $_SESSION['username'] ?? null,
+                'is_admin' => $_SESSION['is_admin'] ?? false
+            ]);
+            break;
+
+        case 'get_documentation':
+            // Serve documentation files with access control
+            $docName = $input['doc_name'] ?? '';
+
+            if (empty($docName)) {
+                jsonResponse(false, null, 'Document name required');
+            }
+
+            // Map doc names to files
+            $docFiles = [
+                'user' => __DIR__ . '/../../USER_GUIDE.md',
+                'admin' => __DIR__ . '/../../ADMIN_GUIDE.md',
+                'dev' => __DIR__ . '/../../DEV_GUIDE.md',
+                'changelog' => __DIR__ . '/../../CHANGELOG.md'
+            ];
+
+            if (!isset($docFiles[$docName])) {
+                jsonResponse(false, null, 'Invalid document name');
+            }
+
+            $filePath = $docFiles[$docName];
+
+            if (!file_exists($filePath)) {
+                jsonResponse(false, null, 'Document not found');
+            }
+
+            // Access control: Admin and Dev guides restricted to futuresrelic@gmail.com
+            $restrictedDocs = ['admin', 'dev'];
+            $allowedEmail = 'futuresrelic@gmail.com';
+            $userEmail = $_SESSION['user_email'] ?? '';
+
+            if (in_array($docName, $restrictedDocs)) {
+                if ($userEmail !== $allowedEmail) {
+                    jsonResponse(false, null, 'Access denied. This document is restricted to authorized users only.');
+                }
+            }
+
+            // Read and return the documentation
+            $content = file_get_contents($filePath);
+
+            if ($content === false) {
+                jsonResponse(false, null, 'Failed to read document');
+            }
+
+            jsonResponse(true, [
+                'content' => $content,
+                'name' => $docName
+            ]);
+            break;
+
+        // ========================================
         // DEFAULT
         // ========================================
 
