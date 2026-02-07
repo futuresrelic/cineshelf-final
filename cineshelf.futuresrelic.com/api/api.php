@@ -2753,9 +2753,13 @@ case 'resolve_movie':
             $stmt = $db->prepare("
                 SELECT
                     s.*,
-                    COUNT(sa.id) as assigned_count
+                    COUNT(DISTINCT sa.id) as assigned_count,
+                    COUNT(DISTINCT child.id) as child_count,
+                    parent.name as parent_name
                 FROM shelves s
                 LEFT JOIN shelf_assignments sa ON s.id = sa.shelf_id
+                LEFT JOIN shelves child ON child.parent_shelf_id = s.id
+                LEFT JOIN shelves parent ON s.parent_shelf_id = parent.id
                 WHERE s.user_id = ?
                 GROUP BY s.id
                 ORDER BY s.position ASC
@@ -2770,9 +2774,19 @@ case 'resolve_movie':
             $description = sanitize($input['description'] ?? '', 500);
             $theme = sanitize($input['theme'] ?? '', 100);
             $color = sanitize($input['color'] ?? '#667eea', 20);
+            $parentShelfId = isset($input['parent_shelf_id']) && $input['parent_shelf_id'] !== '' ? intval($input['parent_shelf_id']) : null;
 
             if (empty($name)) {
                 jsonResponse(false, null, 'Shelf name required');
+            }
+
+            // If parent shelf specified, verify it exists and belongs to user
+            if ($parentShelfId !== null) {
+                $stmt = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+                $stmt->execute([$parentShelfId, $userId]);
+                if (!$stmt->fetch()) {
+                    jsonResponse(false, null, 'Invalid parent shelf');
+                }
             }
 
             // Get max position
@@ -2781,10 +2795,10 @@ case 'resolve_movie':
             $position = $stmt->fetchColumn();
 
             $stmt = $db->prepare("
-                INSERT INTO shelves (user_id, name, position, capacity, description, theme, color)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO shelves (user_id, name, position, capacity, description, theme, color, parent_shelf_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$userId, $name, $position, $capacity, $description, $theme, $color]);
+            $stmt->execute([$userId, $name, $position, $capacity, $description, $theme, $color, $parentShelfId]);
 
             jsonResponse(true, ['shelf_id' => $db->lastInsertId()]);
             break;
@@ -2796,6 +2810,7 @@ case 'resolve_movie':
             $description = sanitize($input['description'] ?? '', 500);
             $theme = sanitize($input['theme'] ?? '', 100);
             $color = sanitize($input['color'] ?? '#667eea', 20);
+            $parentShelfId = isset($input['parent_shelf_id']) && $input['parent_shelf_id'] !== '' ? intval($input['parent_shelf_id']) : null;
 
             if (!$shelfId || empty($name)) {
                 jsonResponse(false, null, 'Shelf ID and name required');
@@ -2810,12 +2825,33 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Shelf not found or access denied');
             }
 
+            // If parent shelf specified, verify it exists, belongs to user, and prevent circular reference
+            if ($parentShelfId !== null) {
+                if ($parentShelfId === $shelfId) {
+                    jsonResponse(false, null, 'A shelf cannot be its own parent');
+                }
+
+                $stmt = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+                $stmt->execute([$parentShelfId, $userId]);
+                if (!$stmt->fetch()) {
+                    jsonResponse(false, null, 'Invalid parent shelf');
+                }
+
+                // Check for circular reference (prevent setting parent to one of this shelf's children)
+                $stmt = $db->prepare("SELECT id FROM shelves WHERE parent_shelf_id = ? AND user_id = ?");
+                $stmt->execute([$shelfId, $userId]);
+                $children = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (in_array($parentShelfId, $children)) {
+                    jsonResponse(false, null, 'Cannot set parent to a child shelf (circular reference)');
+                }
+            }
+
             $stmt = $db->prepare("
                 UPDATE shelves
-                SET name = ?, capacity = ?, description = ?, theme = ?, color = ?
+                SET name = ?, capacity = ?, description = ?, theme = ?, color = ?, parent_shelf_id = ?
                 WHERE id = ? AND user_id = ?
             ");
-            $stmt->execute([$name, $capacity, $description, $theme, $color, $shelfId, $userId]);
+            $stmt->execute([$name, $capacity, $description, $theme, $color, $parentShelfId, $shelfId, $userId]);
 
             jsonResponse(true, ['shelf_id' => $shelfId]);
             break;

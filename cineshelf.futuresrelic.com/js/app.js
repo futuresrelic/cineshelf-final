@@ -4361,8 +4361,25 @@ async function getCurrentUserId() {
         document.getElementById('shelfTheme').value = '';
         document.getElementById('shelfDescription').value = '';
         document.getElementById('shelfColor').value = '#667eea';
+        populateParentShelfDropdown();
+        document.getElementById('shelfParent').value = '';
         document.getElementById('saveShelfBtn').textContent = 'Create Shelf';
         document.getElementById('shelfModal').classList.add('active');
+    }
+
+    function populateParentShelfDropdown(excludeShelfId = null) {
+        const dropdown = document.getElementById('shelfParent');
+        dropdown.innerHTML = '<option value="">None (Top-level shelf)</option>';
+
+        // Get top-level shelves only (no parent)
+        const topLevelShelves = shelves.filter(s => !s.parent_shelf_id && s.id !== excludeShelfId);
+
+        topLevelShelves.forEach(shelf => {
+            const option = document.createElement('option');
+            option.value = shelf.id;
+            option.textContent = shelf.name;
+            dropdown.appendChild(option);
+        });
     }
 
     async function editShelf(shelfId) {
@@ -4376,6 +4393,8 @@ async function getCurrentUserId() {
         document.getElementById('shelfTheme').value = shelf.theme || '';
         document.getElementById('shelfDescription').value = shelf.description || '';
         document.getElementById('shelfColor').value = shelf.color || '#667eea';
+        populateParentShelfDropdown(shelfId); // Exclude current shelf from parent options
+        document.getElementById('shelfParent').value = shelf.parent_shelf_id || '';
         document.getElementById('saveShelfBtn').textContent = 'Save Changes';
         document.getElementById('shelfModal').classList.add('active');
     }
@@ -4387,12 +4406,14 @@ async function getCurrentUserId() {
             return;
         }
 
+        const parentShelfValue = document.getElementById('shelfParent').value;
         const shelfData = {
             name: name,
             capacity: parseInt(document.getElementById('shelfCapacity').value) || null,
             theme: document.getElementById('shelfTheme').value.trim() || null,
             description: document.getElementById('shelfDescription').value.trim() || null,
-            color: document.getElementById('shelfColor').value || '#667eea'
+            color: document.getElementById('shelfColor').value || '#667eea',
+            parent_shelf_id: parentShelfValue ? parseInt(parentShelfValue) : null
         };
 
         try {
