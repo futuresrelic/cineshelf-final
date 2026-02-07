@@ -3366,6 +3366,11 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Document name required');
             }
 
+            // Check if user is logged in
+            if (!isset($_SESSION['user_email'])) {
+                jsonResponse(false, null, 'You must be logged in to view documentation.');
+            }
+
             // Map doc names to files
             $docFiles = [
                 'user' => __DIR__ . '/../../USER_GUIDE.md',
@@ -3384,14 +3389,14 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Document not found');
             }
 
-            // Access control: Admin and Dev guides restricted to futuresrelic@gmail.com
+            // Access control: Admin and Dev guides restricted to admin users only
             $restrictedDocs = ['admin', 'dev'];
-            $allowedEmail = 'futuresrelic@gmail.com';
-            $userEmail = $_SESSION['user_email'] ?? '';
+            $isAdmin = $_SESSION['is_admin'] ?? false;
 
             if (in_array($docName, $restrictedDocs)) {
-                if ($userEmail !== $allowedEmail) {
-                    jsonResponse(false, null, 'Access denied. This document is restricted to authorized users only.');
+                // Must be logged in and have admin privileges
+                if (!$isAdmin) {
+                    jsonResponse(false, null, 'Access denied. This document is restricted to admin users only.');
                 }
             }
 
