@@ -428,19 +428,40 @@
         <!-- Add Movie Tab -->
         <section id="add" class="tab-content">
             <div class="add-movie-container">
-                <h2>Add Movie to Collection</h2>
-                
+                <h2>Add to Collection</h2>
+
+                <!-- Choice: Single Movie or Box Set -->
+                <div id="addTypeChoice" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                    <button class="btn" onclick="App.showAddSingleMovie()" style="padding: 1.5rem; font-size: 1rem;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📀</div>
+                        <div>Add Single Movie</div>
+                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">Add one movie to your collection</small>
+                    </button>
+                    <button class="btn" onclick="App.showAddBoxSet()" style="padding: 1.5rem; font-size: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📦</div>
+                        <div>Add Box Set</div>
+                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">Multi-movie case (trilogy, double feature, etc.)</small>
+                    </button>
+                </div>
+
+                <!-- Single Movie Section (existing functionality) -->
+                <div id="addSingleMovieSection" style="display: none;">
+                    <div style="display: flex; align-items: center; margin-bottom: 1.5rem;">
+                        <button class="btn-ghost" onclick="App.showAddTypeChoice()" style="margin-right: 1rem;">← Back</button>
+                        <h3 style="margin: 0;">Add Single Movie</h3>
+                    </div>
+
                 <!-- Search by Title -->
                 <div class="search-box">
                     <input type="text" id="movieSearch" placeholder="Search for a movie..." onkeypress="if(event.key==='Enter') App.searchMovies()">
                     <button class="btn" onclick="App.searchMovies()">🔍 Search</button>
                 </div>
-                
+
                 <!-- OR Divider -->
                 <div style="text-align: center; margin: 1.5rem 0; color: rgba(255,255,255,0.5); font-weight: 600;">
                     — OR —
                 </div>
-                
+
 <!-- Search by IMDb ID (clean style) -->
 <div style="margin-bottom: 2rem;">
     <label for="imdbId" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: white;">
@@ -448,26 +469,26 @@
     </label>
 
     <div class="search-box">
-    <input type="text" 
-           id="imdbId" 
-           placeholder="Enter IMDb ID (e.g., tt0287457)" 
+    <input type="text"
+           id="imdbId"
+           placeholder="Enter IMDb ID (e.g., tt0287457)"
            onkeypress="if(event.key==='Enter') App.lookupByImdbId()">
     <button id="imdbBtn" class="btn" onclick="App.lookupByImdbId()">🔍 Lookup</button>
 </div>
 
     <small style="display: block; margin-top: 0.5rem; color: rgba(255,255,255,0.6);">
-        💡 Use this for movies not found on TMDB. Find IMDb IDs at 
+        💡 Use this for movies not found on TMDB. Find IMDb IDs at
         <a href="https://www.imdb.com" target="_blank" style="color: #ffc107;">imdb.com</a>
     </small>
 </div>
 
-                
+
                 <div id="searchResults" class="search-results"></div>
-                
+
                 <div id="addMovieForm" class="add-form" style="display: none;">
                     <h3 id="selectedMovieTitle"></h3>
                     <img id="selectedMoviePoster" class="form-poster" alt="">
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label>Format *</label>
@@ -479,7 +500,7 @@
                                 <option value="Digital">Digital</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label>Edition</label>
                             <select id="copyEdition">
@@ -492,7 +513,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label>Region</label>
@@ -505,7 +526,7 @@
                                 <option value="Region Free">Region Free</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label>Condition</label>
                             <select id="copyCondition">
@@ -517,18 +538,162 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label>Notes</label>
                         <textarea id="copyNotes" placeholder="Any additional notes..."></textarea>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button class="btn" onclick="App.addToCollection()">📚 Add to Collection</button>
                         <button class="btn btn-secondary" onclick="App.addToWishlist()">❤️ Add to Wishlist</button>
                         <button class="btn btn-ghost" onclick="App.cancelAdd()">Cancel</button>
                     </div>
                 </div>
+
+                <!-- Close Single Movie Section -->
+                </div>
+
+                <!-- Box Set Section (NEW v2.3.0) -->
+                <div id="addBoxSetSection" style="display: none;">
+                    <div style="display: flex; align-items: center; margin-bottom: 1.5rem;">
+                        <button class="btn-ghost" onclick="App.showAddTypeChoice()" style="margin-right: 1rem;">← Back</button>
+                        <h3 style="margin: 0;">Add Box Set / Multi-Movie Case</h3>
+                    </div>
+
+                    <!-- Step 1: Box Set Details -->
+                    <div id="boxSetStep1" class="add-form">
+                        <div style="background: rgba(102, 126, 234, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <p style="margin: 0; font-size: 0.95rem;">
+                                📦 Create a container for movies that share the same physical case
+                                (trilogy packs, double features, box sets, etc.)
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Box Set Name *</label>
+                            <input type="text" id="boxSetName" placeholder="e.g., The Matrix Trilogy" maxlength="200">
+                            <small style="color: rgba(255,255,255,0.6);">What you call this collection</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Spine Label</label>
+                            <input type="text" id="boxSetSpineLabel" placeholder="e.g., THE MATRIX TRILOGY" maxlength="200">
+                            <small style="color: rgba(255,255,255,0.6);">What shows on the spine (leave blank to use name)</small>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Format *</label>
+                                <select id="boxSetFormat">
+                                    <option value="Blu-ray Box Set">Blu-ray Box Set</option>
+                                    <option value="DVD Box Set">DVD Box Set</option>
+                                    <option value="4K UHD Box Set">4K UHD Box Set</option>
+                                    <option value="Double Feature">Double Feature</option>
+                                    <option value="Triple Feature">Triple Feature</option>
+                                    <option value="Collection">Collection</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Edition</label>
+                                <select id="boxSetEdition">
+                                    <option value="">Standard</option>
+                                    <option value="Ultimate Collection">Ultimate Collection</option>
+                                    <option value="Limited Edition">Limited Edition</option>
+                                    <option value="Collector's Edition">Collector's Edition</option>
+                                    <option value="Anniversary Edition">Anniversary Edition</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Region</label>
+                                <select id="boxSetRegion">
+                                    <option value="Region Free">Region Free</option>
+                                    <option value="Region 1">Region 1 (US/Canada)</option>
+                                    <option value="Region 2">Region 2 (Europe)</option>
+                                    <option value="Region A">Region A (Blu-ray Americas)</option>
+                                    <option value="Region B">Region B (Blu-ray Europe)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Condition</label>
+                                <select id="boxSetCondition">
+                                    <option value="Mint">Mint</option>
+                                    <option value="Like New">Like New</option>
+                                    <option value="Good">Good</option>
+                                    <option value="Fair">Fair</option>
+                                    <option value="Poor">Poor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Spine Appearance</label>
+                            <select id="boxSetSpineType" onchange="App.updateBoxSetSpinePreview()">
+                                <option value="color">Plain Colored Spine</option>
+                                <option value="first_movie">First Movie Poster</option>
+                                <option value="custom">Custom Spine Image (upload later)</option>
+                            </select>
+                        </div>
+
+                        <div id="boxSetSpineColorPicker" class="form-group">
+                            <label>Spine Color</label>
+                            <input type="color" id="boxSetSpineColor" value="#667eea" style="width: 100%; height: 50px; cursor: pointer;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="boxSetNotes" placeholder="Any additional notes about this box set..." rows="3"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn" onclick="App.createBoxSetAndAddMovies()">Next: Add Movies →</button>
+                            <button class="btn btn-ghost" onclick="App.showAddTypeChoice()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Add Movies (shown after container created) -->
+                    <div id="boxSetStep2" style="display: none;">
+                        <div style="background: rgba(76, 175, 80, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #4caf50;">
+                            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">✓ Box Set Created!</div>
+                            <div id="boxSetCreatedName" style="color: rgba(255,255,255,0.8);"></div>
+                        </div>
+
+                        <h4>Add Movies to Box Set</h4>
+                        <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">
+                            Search for and add each movie in this box set. You can add them in any order and reorder later.
+                        </p>
+
+                        <!-- Movie search for box set -->
+                        <div class="search-box" style="margin-bottom: 1rem;">
+                            <input type="text" id="boxSetMovieSearch" placeholder="Search for a movie to add..." onkeypress="if(event.key==='Enter') App.searchMoviesForBoxSet()">
+                            <button class="btn" onclick="App.searchMoviesForBoxSet()">🔍 Search</button>
+                        </div>
+
+                        <div id="boxSetSearchResults" class="search-results"></div>
+
+                        <!-- Movies added to box set -->
+                        <div id="boxSetMoviesList">
+                            <h4>Movies in Box Set (<span id="boxSetMovieCount">0</span>)</h4>
+                            <div id="boxSetMoviesContainer" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                                <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">
+                                    No movies added yet. Search above to add movies.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions" style="margin-top: 2rem;">
+                            <button class="btn" onclick="App.finishBoxSetCreation()">✓ Finish & View Collection</button>
+                            <button class="btn btn-secondary" onclick="App.viewBoxSetDetails()">View Box Set Details</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Scan Section -->
                 <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(102, 126, 234, 0.1); border: 1px solid #667eea; border-radius: 8px;">
                     <h3 style="margin-bottom: 0.5rem;">📸 Quick Scan Mode</h3>
                     <p style="color: #a0a0a0; margin-bottom: 1rem; font-size: 0.9rem;">

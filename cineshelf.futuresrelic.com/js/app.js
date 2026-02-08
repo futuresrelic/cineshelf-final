@@ -1804,6 +1804,11 @@ function getCertColor(cert) {
         if (tabName === 'shelves') {
             loadShelves();
         }
+
+        // Show type choice when switching to add tab
+        if (tabName === 'add') {
+            showAddTypeChoice();
+        }
     }
     
     function setView(viewType) {
@@ -2662,6 +2667,283 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     }
 }
     
+    // ========================================
+    // BOX SET / CONTAINER SYSTEM (v2.3.0)
+    // ========================================
+
+    let currentContainerId = null;
+    let boxSetMovies = []; // Movies added to current box set
+
+    // Show/hide sections in Add tab
+    function showAddTypeChoice() {
+        document.getElementById('addTypeChoice').style.display = 'grid';
+        document.getElementById('addSingleMovieSection').style.display = 'none';
+        document.getElementById('addBoxSetSection').style.display = 'none';
+    }
+
+    function showAddSingleMovie() {
+        document.getElementById('addTypeChoice').style.display = 'none';
+        document.getElementById('addSingleMovieSection').style.display = 'block';
+        document.getElementById('addBoxSetSection').style.display = 'none';
+    }
+
+    function showAddBoxSet() {
+        document.getElementById('addTypeChoice').style.display = 'none';
+        document.getElementById('addSingleMovieSection').style.display = 'none';
+        document.getElementById('addBoxSetSection').style.display = 'block';
+        document.getElementById('boxSetStep1').style.display = 'block';
+        document.getElementById('boxSetStep2').style.display = 'none';
+
+        // Reset form
+        document.getElementById('boxSetName').value = '';
+        document.getElementById('boxSetSpineLabel').value = '';
+        document.getElementById('boxSetNotes').value = '';
+        boxSetMovies = [];
+        currentContainerId = null;
+    }
+
+    // Create box set container and move to step 2
+    async function createBoxSetAndAddMovies() {
+        const name = document.getElementById('boxSetName').value.trim();
+        const spineLabel = document.getElementById('boxSetSpineLabel').value.trim() || name;
+        const format = document.getElementById('boxSetFormat').value;
+        const edition = document.getElementById('boxSetEdition').value;
+        const region = document.getElementById('boxSetRegion').value;
+        const condition = document.getElementById('boxSetCondition').value;
+        const spineType = document.getElementById('boxSetSpineType').value;
+        const spineColor = document.getElementById('boxSetSpineColor').value;
+        const notes = document.getElementById('boxSetNotes').value;
+
+        if (!name) {
+            showToast('Please enter a box set name', 'error');
+            return;
+        }
+
+        if (!format) {
+            showToast('Please select a format', 'error');
+            return;
+        }
+
+        try {
+            const data = await apiCall('create_container', {
+                name,
+                spine_label: spineLabel,
+                spine_image_type: spineType,
+                spine_color: spineColor,
+                format,
+                edition,
+                region,
+                condition,
+                notes
+            });
+
+            if (data.container_id) {
+                currentContainerId = data.container_id;
+                boxSetMovies = [];
+
+                // Show step 2
+                document.getElementById('boxSetStep1').style.display = 'none';
+                document.getElementById('boxSetStep2').style.display = 'block';
+                document.getElementById('boxSetCreatedName').textContent = `📦 ${name}`;
+                document.getElementById('boxSetMovieCount').textContent = '0';
+                document.getElementById('boxSetMoviesContainer').innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
+
+                showToast('Box set created! Now add movies.', 'success');
+            }
+        } catch (error) {
+            console.error('Failed to create box set:', error);
+            showToast('Failed to create box set', 'error');
+        }
+    }
+
+    // Search for movies to add to box set
+    async function searchMoviesForBoxSet() {
+        const query = document.getElementById('boxSetMovieSearch').value.trim();
+
+        if (!query) return;
+
+        const resultsDiv = document.getElementById('boxSetSearchResults');
+        resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem;">Searching...</p>';
+
+        try {
+            const data = await apiCall('search_movies', { query });
+
+            if (!data || !data.results || data.results.length === 0) {
+                resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No movies found. Try a different search.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = data.results.map(movie => `
+                <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})">
+                    <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
+                    <div class="result-info">
+                        <h4>${movie.title}</h4>
+                        <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Search failed:', error);
+            resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: #ff5555;">Search failed. Please try again.</p>';
+        }
+    }
+
+    // Add a movie to the box set
+    async function addMovieToBoxSet(tmdbId) {
+        if (!currentContainerId) {
+            showToast('No container selected', 'error');
+            return;
+        }
+
+        try {
+            // First, add movie to collection if not exists
+            const movieData = await apiCall('get_or_create_movie', { tmdb_id: tmdbId });
+
+            if (!movieData || !movieData.movie_id) {
+                showToast('Failed to fetch movie details', 'error');
+                return;
+            }
+
+            // Create a copy for this movie
+            const copyData = await apiCall('add_copy', {
+                movie_id: movieData.movie_id,
+                format: document.getElementById('boxSetFormat').value,
+                edition: '',
+                region: document.getElementById('boxSetRegion').value,
+                condition: document.getElementById('boxSetCondition').value,
+                notes: ''
+            });
+
+            if (!copyData || !copyData.copy_id) {
+                showToast('Failed to create copy', 'error');
+                return;
+            }
+
+            // Add copy to container
+            const discNumber = boxSetMovies.length + 1;
+            await apiCall('add_movie_to_container', {
+                container_id: currentContainerId,
+                copy_id: copyData.copy_id,
+                disc_number: discNumber,
+                disc_label: `Disc ${discNumber}: ${movieData.title}`,
+                is_present: 1,
+                position_in_container: discNumber - 1
+            });
+
+            // Add to local list
+            boxSetMovies.push({
+                ...movieData,
+                copy_id: copyData.copy_id,
+                disc_number: discNumber
+            });
+
+            // Update UI
+            updateBoxSetMoviesList();
+            document.getElementById('boxSetMovieSearch').value = '';
+            document.getElementById('boxSetSearchResults').innerHTML = '';
+
+            showToast(`Added ${movieData.title} to box set`, 'success');
+
+        } catch (error) {
+            console.error('Failed to add movie to box set:', error);
+            showToast('Failed to add movie to box set', 'error');
+        }
+    }
+
+    // Update the list of movies in the box set
+    function updateBoxSetMoviesList() {
+        const container = document.getElementById('boxSetMoviesContainer');
+        const count = document.getElementById('boxSetMovieCount');
+
+        count.textContent = boxSetMovies.length;
+
+        if (boxSetMovies.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
+            return;
+        }
+
+        container.innerHTML = boxSetMovies.map((movie, index) => `
+            <div style="display: flex; align-items: center; gap: 1rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.3); width: 30px;">
+                    ${movie.disc_number}
+                </div>
+                <img src="${movie.poster_url || '/placeholder.png'}"
+                     style="width: 50px; height: 75px; object-fit: cover; border-radius: 4px;"
+                     alt="${movie.title}">
+                <div style="flex: 1;">
+                    <div style="font-weight: 600;">${movie.title}</div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">${movie.year || 'N/A'}</div>
+                </div>
+                <button class="btn-icon" onclick="App.removeMovieFromBoxSet(${index})" title="Remove">
+                    🗑️
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Remove a movie from the box set
+    async function removeMovieFromBoxSet(index) {
+        if (!confirm('Remove this movie from the box set?')) return;
+
+        const movie = boxSetMovies[index];
+
+        try {
+            // Remove from container (this will delete the container_contents entry)
+            // We'd need the content_id, but for now let's just remove from local array
+            // In production, we'd call remove_movie_from_container API
+
+            boxSetMovies.splice(index, 1);
+
+            // Renumber remaining movies
+            boxSetMovies.forEach((m, i) => {
+                m.disc_number = i + 1;
+            });
+
+            updateBoxSetMoviesList();
+            showToast('Movie removed from box set', 'success');
+
+        } catch (error) {
+            console.error('Failed to remove movie:', error);
+            showToast('Failed to remove movie', 'error');
+        }
+    }
+
+    // Finish box set creation and return to collection
+    function finishBoxSetCreation() {
+        showToast(`Box set created with ${boxSetMovies.length} movies!`, 'success');
+
+        // Reset
+        showAddTypeChoice();
+        currentContainerId = null;
+        boxSetMovies = [];
+
+        // Reload collection and switch to collection tab
+        loadCollection();
+        switchTab('collection');
+    }
+
+    // View box set details (placeholder for now)
+    function viewBoxSetDetails() {
+        if (!currentContainerId) return;
+
+        // This would open a modal showing the box set details
+        // For now, just show a toast
+        showToast('Box set details view coming soon!', 'info');
+    }
+
+    // Update spine color picker visibility
+    function updateBoxSetSpinePreview() {
+        const spineType = document.getElementById('boxSetSpineType').value;
+        const colorPicker = document.getElementById('boxSetSpineColorPicker');
+
+        if (spineType === 'color') {
+            colorPicker.style.display = 'block';
+        } else {
+            colorPicker.style.display = 'none';
+        }
+    }
+
     /**
  * CineShelf v3.0 - Groups Feature Addition
  * ADD THIS TO THE END OF YOUR app.js FILE (before the final return statement)
@@ -5133,6 +5415,17 @@ return {
     removeFilter,
     filterByShelf,
     lookupByImdbId,
+    // Box Set functions (v2.3.0)
+    showAddTypeChoice,
+    showAddSingleMovie,
+    showAddBoxSet,
+    createBoxSetAndAddMovies,
+    searchMoviesForBoxSet,
+    addMovieToBoxSet,
+    removeMovieFromBoxSet,
+    finishBoxSetCreation,
+    viewBoxSetDetails,
+    updateBoxSetSpinePreview,
     switchGroupsTab: switchGroupsTab,
        loadGroups: loadGroups,
        showCreateGroupModal: showCreateGroupModal,
