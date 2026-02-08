@@ -180,8 +180,14 @@
             </ul>
         </div>
 
+        <div class="info-box" style="background: #d4edda; border-color: #28a745;">
+            <h3>✅ First-Time Setup:</h3>
+            <p>If you're the first user running this, you'll automatically be granted admin privileges.</p>
+            <p style="margin-top: 0.5rem;">Just make sure you're <strong>logged in to CineShelf</strong> first!</p>
+        </div>
+
         <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
-            <h3>⚠️ Important:</h3>
+            <h3>⚠️ Safe to Run:</h3>
             <p>This migration is <strong>safe to run multiple times</strong>. If tables already exist, it will skip them.</p>
             <p style="margin-top: 0.5rem;">No existing data will be affected.</p>
         </div>
@@ -255,10 +261,13 @@
                 output.classList.add('error');
                 output.textContent = '❌ ERROR:\n\n';
                 output.textContent += error.message || error.toString();
-                output.textContent += '\n\n📋 Debugging Info:\n';
-                output.textContent += '- Make sure you are logged in to CineShelf\n';
-                output.textContent += '- Your account must have admin privileges\n';
-                output.textContent += '- Check browser console for more details\n';
+                output.textContent += '\n\n📋 Troubleshooting:\n';
+                output.textContent += '1. Make sure you are LOGGED IN to CineShelf first\n';
+                output.textContent += '   → Go to the main CineShelf page and log in\n';
+                output.textContent += '   → Then come back and retry\n\n';
+                output.textContent += '2. If already logged in and still failing:\n';
+                output.textContent += '   → Check browser console for details\n';
+                output.textContent += '   → Try refreshing this page\n';
 
                 statusContainer.innerHTML = '<div class="status error">❌ Migration Failed</div>';
                 btn.disabled = false;

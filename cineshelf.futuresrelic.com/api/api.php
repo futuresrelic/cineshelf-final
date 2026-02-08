@@ -2751,15 +2751,28 @@ case 'resolve_movie':
 
         case 'run_box_set_migration':
             // Admin-only endpoint to run box set migration
+            // SPECIAL CASE: If no admins exist, grant admin to current user (first-time setup)
             try {
-                $admin = authenticateRequest();
+                $user = authenticateRequest();
             } catch (Exception $e) {
-                jsonResponse(false, null, 'Authentication required');
+                jsonResponse(false, null, 'Authentication required. Please log in to CineShelf first.');
             }
 
-            $isAdmin = $admin['is_admin'] ?? false;
+            $currentUserId = $user['user_id'] ?? $user['id'];
+            $isAdmin = $user['is_admin'] ?? false;
+
+            // Check if ANY admins exist in the system
+            $adminCount = $db->query("SELECT COUNT(*) as count FROM users WHERE is_admin = 1")->fetch()['count'];
+
             if (!$isAdmin) {
-                jsonResponse(false, null, 'Admin access required');
+                if ($adminCount === 0) {
+                    // First-time setup: No admins exist, make this user an admin
+                    $db->prepare("UPDATE users SET is_admin = 1 WHERE id = ?")->execute([$currentUserId]);
+                    $isAdmin = true;
+                    error_log("CineShelf: Granted admin privileges to user $currentUserId during first-time migration");
+                } else {
+                    jsonResponse(false, null, 'Admin access required. Contact your administrator.');
+                }
             }
 
             try {
