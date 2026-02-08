@@ -221,12 +221,16 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Include cookies for authentication
                     body: JSON.stringify({
                         action: 'run_box_set_migration'
                     })
                 });
 
                 const data = await response.json();
+
+                // Log full response for debugging
+                console.log('API Response:', data);
 
                 if (data.ok) {
                     output.classList.add('success');
@@ -251,6 +255,10 @@
                 output.classList.add('error');
                 output.textContent = '❌ ERROR:\n\n';
                 output.textContent += error.message || error.toString();
+                output.textContent += '\n\n📋 Debugging Info:\n';
+                output.textContent += '- Make sure you are logged in to CineShelf\n';
+                output.textContent += '- Your account must have admin privileges\n';
+                output.textContent += '- Check browser console for more details\n';
 
                 statusContainer.innerHTML = '<div class="status error">❌ Migration Failed</div>';
                 btn.disabled = false;
