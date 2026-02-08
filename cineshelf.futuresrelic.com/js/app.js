@@ -4306,7 +4306,6 @@ async function getCurrentUserId() {
     // SHELF MANAGEMENT
     // ========================================
 
-    let shelves = [];
     let currentShelf = null;
     let assignCopyId = null;
     let unassignedMovies = [];
