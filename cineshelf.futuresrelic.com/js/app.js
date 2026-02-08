@@ -4345,13 +4345,23 @@ async function getCurrentUserId() {
             const directMovies = shelfMoviesMap[shelfId] || [];
             const children = childShelvesByParent[shelfId] || [];
 
+            // Debug logging
+            const currentShelf = shelves.find(s => s.id === shelfId);
+            console.log(`[Shelf Aggregation] Processing "${currentShelf?.name}" (ID: ${shelfId})`);
+            console.log(`  - Direct movies: ${directMovies.length}`);
+            console.log(`  - Child shelves: ${children.length}`, children.map(c => c.name));
+
             // Combine this shelf's movies with all child shelves' movies
             let allMovies = [...directMovies];
 
             children.forEach(child => {
+                console.log(`  - Recursing into child: ${child.name} (ID: ${child.id})`);
                 const childMovies = getAllMoviesRecursive(child.id);
+                console.log(`  - Got ${childMovies.length} movies from ${child.name}`);
                 allMovies = allMovies.concat(childMovies);
             });
+
+            console.log(`  - Total movies before dedup: ${allMovies.length}`);
 
             // Remove duplicates based on movie ID
             const uniqueMovies = [];
@@ -4362,6 +4372,9 @@ async function getCurrentUserId() {
                     uniqueMovies.push(movie);
                 }
             });
+
+            console.log(`  - Unique movies after dedup: ${uniqueMovies.length}`);
+            console.log(`  - Returning movies:`, uniqueMovies.map(m => m.title));
 
             return uniqueMovies;
         };
