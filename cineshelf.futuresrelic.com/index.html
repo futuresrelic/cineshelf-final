@@ -111,6 +111,10 @@
             <div class="section-header">
                 <h2 id="collectionHeader">Your Collection</h2>
                 <div class="view-controls">
+                    <select id="shelfFilter" onchange="App.filterByShelf()">
+                        <option value="">All Movies</option>
+                    </select>
+
                     <select id="sortBy" onchange="App.sortCollection()">
                         <option value="title">Sort by Title</option>
                         <option value="year">Sort by Year</option>

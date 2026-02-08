@@ -70,7 +70,9 @@ const App = (function() {
     let currentTab = 'collection';
     let currentView = 'grid';
     let collection = [];
+    let originalCollection = []; // Store full collection for filtering
     let wishlist = [];
+    let shelves = []; // Store shelves for filtering
     let settings = {};
     let selectedMovie = null;
     
@@ -210,11 +212,12 @@ const App = (function() {
         });
         
         collection = Object.values(grouped);
+        originalCollection = [...collection]; // Store original for shelf filtering
 
         // Apply default sort after loading data
         const defaultSort = settings.defaultSort || 'title';
         sortMovies('collection', defaultSort);
-        
+
         // Initialize filter UI if visible
         if (document.getElementById('filterControls')?.style.display !== 'none') {
             updateFilterUI();
@@ -616,7 +619,110 @@ function renderCollection() {
         }
     }).join('');
 }
-    
+
+    // ========================================
+    // SHELF FILTERING
+    // ========================================
+
+    async function filterByShelf() {
+        const shelfFilter = document.getElementById('shelfFilter');
+        const selectedShelfId = shelfFilter.value;
+
+        if (!selectedShelfId) {
+            // Show all movies
+            collection = [...originalCollection];
+            renderCollection();
+            return;
+        }
+
+        try {
+            // Get shelf contents with hierarchical aggregation
+            const shelfId = parseInt(selectedShelfId);
+            const shelfContents = await apiCall('get_shelf_contents', { shelf_id: shelfId });
+
+            // Get all child shelves recursively
+            const getAllChildShelves = (parentId) => {
+                const children = shelves.filter(s => s.parent_shelf_id === parentId);
+                let allChildren = [...children];
+                children.forEach(child => {
+                    allChildren = allChildren.concat(getAllChildShelves(child.id));
+                });
+                return allChildren;
+            };
+
+            const childShelves = getAllChildShelves(shelfId);
+            const childShelfIds = childShelves.map(s => s.id);
+
+            // Get contents for all child shelves
+            const childContents = await Promise.all(
+                childShelfIds.map(id => apiCall('get_shelf_contents', { shelf_id: id }).catch(() => []))
+            );
+
+            // Combine all movies
+            let allMovies = [...shelfContents];
+            childContents.forEach(contents => {
+                allMovies = allMovies.concat(contents);
+            });
+
+            // Deduplicate by movie_id
+            const uniqueMovieIds = new Set();
+            const uniqueMovies = [];
+            allMovies.forEach(movie => {
+                if (!uniqueMovieIds.has(movie.movie_id)) {
+                    uniqueMovieIds.add(movie.movie_id);
+                    uniqueMovies.push(movie);
+                }
+            });
+
+            // Filter original collection to only show movies in this shelf
+            collection = originalCollection.filter(group =>
+                uniqueMovieIds.has(group.movie.movie_id)
+            );
+
+            renderCollection();
+
+        } catch (error) {
+            console.error('Failed to filter by shelf:', error);
+            showToast('Failed to filter by shelf', 'error');
+        }
+    }
+
+    function populateShelfDropdown() {
+        const shelfFilter = document.getElementById('shelfFilter');
+        if (!shelfFilter) return;
+
+        // Build hierarchical shelf structure
+        const topLevelShelves = shelves.filter(s => !s.parent_shelf_id);
+        const childShelvesByParent = {};
+
+        shelves.forEach(shelf => {
+            if (shelf.parent_shelf_id) {
+                if (!childShelvesByParent[shelf.parent_shelf_id]) {
+                    childShelvesByParent[shelf.parent_shelf_id] = [];
+                }
+                childShelvesByParent[shelf.parent_shelf_id].push(shelf);
+            }
+        });
+
+        // Recursive function to build options with indentation
+        const buildOptions = (shelfList, level = 0) => {
+            let html = '';
+            shelfList.forEach(shelf => {
+                const indent = '&nbsp;&nbsp;'.repeat(level);
+                html += `<option value="${shelf.id}">${indent}${shelf.name}</option>`;
+
+                // Add children
+                const children = childShelvesByParent[shelf.id] || [];
+                if (children.length > 0) {
+                    html += buildOptions(children, level + 1);
+                }
+            });
+            return html;
+        };
+
+        shelfFilter.innerHTML = '<option value="">All Movies</option>' + buildOptions(topLevelShelves);
+    }
+
     function sortMovies(type, sortBy) {
         console.log(`sortMovies called: type=${type}, sortBy=${sortBy}`);
 
@@ -4219,6 +4325,7 @@ async function getCurrentUserId() {
         try {
             shelves = await apiCall('list_shelves');
             renderShelves();
+            populateShelfDropdown(); // Populate Collection tab dropdown
         } catch (error) {
             console.error('Failed to load shelves:', error);
             showToast('Failed to load shelves', 'error');
@@ -5026,6 +5133,7 @@ return {
     onFilterChange,
     updateActiveFilters,
     removeFilter,
+    filterByShelf,
     lookupByImdbId,
     switchGroupsTab: switchGroupsTab,
        loadGroups: loadGroups,
