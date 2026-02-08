@@ -4340,9 +4340,36 @@ async function getCurrentUserId() {
             shelfMoviesMap[shelf.id] = shelf.movies;
         });
 
+        // Recursive function to get ALL movies from a shelf and its descendants
+        const getAllMoviesRecursive = (shelfId) => {
+            const directMovies = shelfMoviesMap[shelfId] || [];
+            const children = childShelvesByParent[shelfId] || [];
+
+            // Combine this shelf's movies with all child shelves' movies
+            let allMovies = [...directMovies];
+
+            children.forEach(child => {
+                const childMovies = getAllMoviesRecursive(child.id);
+                allMovies = allMovies.concat(childMovies);
+            });
+
+            // Remove duplicates based on movie ID
+            const uniqueMovies = [];
+            const seenIds = new Set();
+            allMovies.forEach(movie => {
+                if (!seenIds.has(movie.id)) {
+                    seenIds.add(movie.id);
+                    uniqueMovies.push(movie);
+                }
+            });
+
+            return uniqueMovies;
+        };
+
         // Recursive function to render shelves with INFINITE nesting levels
         const renderShelfWithChildren = (shelf, level = 0) => {
-            const movies = shelfMoviesMap[shelf.id] || [];
+            const directMovies = shelfMoviesMap[shelf.id] || [];
+            const allMovies = getAllMoviesRecursive(shelf.id); // Include child movies!
             const children = childShelvesByParent[shelf.id] || [];
             const hasChildren = children.length > 0;
             const isChild = level > 0;
@@ -4357,14 +4384,14 @@ async function getCurrentUserId() {
                             ${hasChildren ? `<button class="expand-btn" onclick="App.toggleShelfChildren(${shelf.id})" title="Toggle child shelves">▼</button>` : ''}
                             <h3>${shelf.name}</h3>
                             ${shelf.theme ? `<span class="visual-shelf-theme">${shelf.theme}</span>` : ''}
-                            ${hasChildren ? `<span class="child-count-badge">${children.length} shelf${children.length !== 1 ? 'ves' : ''}</span>` : ''}
+                            ${hasChildren ? `<span class="child-count-badge">${children.length} ${children.length !== 1 ? 'shelves' : 'shelf'}</span>` : ''}
                         </div>
-                        <span class="visual-shelf-count">${movies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
+                        <span class="visual-shelf-count">${allMovies.length} ${shelf.capacity ? `/ ${shelf.capacity}` : ''} movies</span>
                     </div>
                     <div class="visual-shelf-spines">
-                        ${movies.length === 0
+                        ${allMovies.length === 0
                             ? '<div class="visual-shelf-empty">Empty shelf - click to add movies</div>'
-                            : movies.map(movie => `
+                            : allMovies.map(movie => `
                                 <div class="movie-spine"
                                      style="background: ${shelf.color || '#667eea'}"
                                      title="${movie.display_title || movie.title} (${movie.year})"
