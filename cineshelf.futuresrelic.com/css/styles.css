@@ -1861,24 +1861,6 @@ select option {
    TAB ICON-ONLY FIX - ADD TO END OF styles.css
    Critical: Must be AFTER all other tab styles
    ======================================== */
-
-/* Ensure tab icon always shows */
-.tabs .tab .tab-icon {
-    display: inline !important;
-    font-size: 1.2rem;
-}
-
-/* Adjust tab padding for icon-only */
-.tabs .tab {
-    padding: 0.75rem 1rem !important;
-    min-width: 50px;
-}
-
-/* Active tab gets more padding for label */
-.tabs .tab.active {
-    padding: 0.75rem 1.5rem !important;
-}
-
 /* ========================================
    COVER SCANNER STYLES
    ======================================== */
@@ -2548,12 +2530,6 @@ select option {
 #familyCollectionGrid.list-view .genre-emojis {
   display: none;
 }
-
-
-.tabs .badge {
-    display: none !important;
-}
-
 /* ========================================
    POSTER SELECTOR
    ======================================== */
