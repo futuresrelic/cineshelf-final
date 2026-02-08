@@ -2745,6 +2745,418 @@ case 'resolve_movie':
             break;
 
         // ========================================
+        // BOX SET / CONTAINER SYSTEM (v2.3.0)
+        // Multi-movie physical cases (box sets, double features, etc.)
+        // ========================================
+
+        case 'run_box_set_migration':
+            // Admin-only endpoint to run box set migration
+            try {
+                $admin = authenticateRequest();
+            } catch (Exception $e) {
+                jsonResponse(false, null, 'Authentication required');
+            }
+
+            $isAdmin = $admin['is_admin'] ?? false;
+            if (!$isAdmin) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            try {
+                $db->beginTransaction();
+
+                // Check if tables already exist
+                $tablesExist = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='containers'")->fetch();
+
+                if ($tablesExist) {
+                    jsonResponse(true, ['message' => 'Box set tables already exist', 'skipped' => true]);
+                }
+
+                // Read and execute migration SQL
+                $migrationPath = __DIR__ . '/../migrations/add_box_sets.sql';
+                if (!file_exists($migrationPath)) {
+                    throw new Exception('Migration file not found');
+                }
+
+                $sql = file_get_contents($migrationPath);
+                $statements = array_filter(
+                    array_map('trim', explode(';', $sql)),
+                    function($stmt) {
+                        return !empty($stmt) && !str_starts_with($stmt, '--');
+                    }
+                );
+
+                foreach ($statements as $statement) {
+                    if (!empty(trim($statement))) {
+                        $db->exec($statement . ';');
+                    }
+                }
+
+                $db->commit();
+                jsonResponse(true, ['message' => 'Box set migration completed successfully']);
+
+            } catch (Exception $e) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Migration failed: ' . $e->getMessage());
+            }
+            break;
+
+        case 'create_container':
+            // Create a new box set/container
+            $name = sanitize($input['name'] ?? '', 200);
+            $spineLabel = sanitize($input['spine_label'] ?? $name, 200);
+            $spineImageType = sanitize($input['spine_image_type'] ?? 'color', 20);
+            $spineColor = sanitize($input['spine_color'] ?? '#667eea', 20);
+            $format = sanitize($input['format'] ?? '', 100);
+            $edition = sanitize($input['edition'] ?? '', 100);
+            $region = sanitize($input['region'] ?? '', 20);
+            $condition = sanitize($input['condition'] ?? 'Mint', 20);
+            $purchaseDate = sanitize($input['purchase_date'] ?? '', 20);
+            $purchasePrice = floatval($input['purchase_price'] ?? 0);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (empty($name)) {
+                jsonResponse(false, null, 'Container name required');
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO containers (
+                    user_id, name, spine_label, spine_image_type, spine_color,
+                    format, edition, region, condition, purchase_date, purchase_price, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $userId, $name, $spineLabel, $spineImageType, $spineColor,
+                $format, $edition, $region, $condition, $purchaseDate ?: null, $purchasePrice, $notes
+            ]);
+
+            $containerId = $db->lastInsertId();
+            logAction($db, $userId, 'container_created', 'container', $containerId);
+
+            jsonResponse(true, ['container_id' => $containerId, 'message' => 'Container created successfully']);
+            break;
+
+        case 'list_containers':
+            // List all containers for current user with stats
+            $stmt = $db->prepare("
+                SELECT * FROM containers_with_counts
+                WHERE user_id = ?
+                ORDER BY name ASC
+            ");
+            $stmt->execute([$userId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'get_container_contents':
+            // Get container details with all movies
+            $containerId = intval($input['container_id'] ?? 0);
+
+            if (!$containerId) {
+                jsonResponse(false, null, 'Container ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT * FROM containers_with_counts WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+            $container = $stmt->fetch();
+
+            if (!$container) {
+                jsonResponse(false, null, 'Container not found');
+            }
+
+            // Get all movies in container
+            $stmt = $db->prepare("
+                SELECT
+                    cc.id as content_id,
+                    cc.disc_number,
+                    cc.disc_label,
+                    cc.is_present,
+                    cc.missing_since,
+                    cc.missing_notes,
+                    cc.position_in_container,
+                    c.id as copy_id,
+                    c.format,
+                    c.edition,
+                    c.condition,
+                    m.id as movie_id,
+                    m.tmdb_id,
+                    m.title,
+                    m.display_title,
+                    m.year,
+                    m.poster_url,
+                    m.rating,
+                    m.runtime,
+                    m.genre,
+                    m.director,
+                    m.certification
+                FROM container_contents cc
+                JOIN copies c ON cc.copy_id = c.id
+                JOIN movies m ON c.movie_id = m.id
+                WHERE cc.container_id = ?
+                ORDER BY cc.position_in_container ASC, cc.disc_number ASC
+            ");
+            $stmt->execute([$containerId]);
+            $movies = $stmt->fetchAll();
+
+            jsonResponse(true, ['container' => $container, 'movies' => $movies]);
+            break;
+
+        case 'add_movie_to_container':
+            // Add a movie (copy) to a container
+            $containerId = intval($input['container_id'] ?? 0);
+            $copyId = intval($input['copy_id'] ?? 0);
+            $discNumber = intval($input['disc_number'] ?? 1);
+            $discLabel = sanitize($input['disc_label'] ?? '', 200);
+            $isPresent = intval($input['is_present'] ?? 1);
+            $position = intval($input['position_in_container'] ?? 0);
+
+            if (!$containerId || !$copyId) {
+                jsonResponse(false, null, 'Container ID and Copy ID required');
+            }
+
+            // Verify container ownership
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $container = $stmt->fetch();
+
+            if (!$container || $container['user_id'] != $userId) {
+                jsonResponse(false, null, 'Container not found or access denied');
+            }
+
+            // Verify copy ownership
+            $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Copy not found or access denied');
+            }
+
+            // Check if already in container
+            $stmt = $db->prepare("SELECT id FROM container_contents WHERE container_id = ? AND copy_id = ?");
+            $stmt->execute([$containerId, $copyId]);
+            if ($stmt->fetch()) {
+                jsonResponse(false, null, 'Movie already in this container');
+            }
+
+            // Add to container
+            $stmt = $db->prepare("
+                INSERT INTO container_contents (
+                    container_id, copy_id, disc_number, disc_label, is_present, position_in_container
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$containerId, $copyId, $discNumber, $discLabel, $isPresent, $position]);
+
+            $contentId = $db->lastInsertId();
+            logAction($db, $userId, 'movie_added_to_container', 'container_content', $contentId);
+
+            jsonResponse(true, ['content_id' => $contentId, 'message' => 'Movie added to container']);
+            break;
+
+        case 'remove_movie_from_container':
+            // Remove a movie from container (keeps the copy in collection)
+            $contentId = intval($input['content_id'] ?? 0);
+
+            if (!$contentId) {
+                jsonResponse(false, null, 'Content ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("
+                SELECT cc.id, c.user_id
+                FROM container_contents cc
+                JOIN containers c ON cc.container_id = c.id
+                WHERE cc.id = ?
+            ");
+            $stmt->execute([$contentId]);
+            $content = $stmt->fetch();
+
+            if (!$content || $content['user_id'] != $userId) {
+                jsonResponse(false, null, 'Content not found or access denied');
+            }
+
+            $stmt = $db->prepare("DELETE FROM container_contents WHERE id = ?");
+            $stmt->execute([$contentId]);
+
+            logAction($db, $userId, 'movie_removed_from_container', 'container_content', $contentId);
+
+            jsonResponse(true, ['message' => 'Movie removed from container']);
+            break;
+
+        case 'update_container':
+            // Edit container details
+            $containerId = intval($input['container_id'] ?? 0);
+            $name = sanitize($input['name'] ?? '', 200);
+            $spineLabel = sanitize($input['spine_label'] ?? '', 200);
+            $spineImageType = sanitize($input['spine_image_type'] ?? '', 20);
+            $spineColor = sanitize($input['spine_color'] ?? '', 20);
+            $format = sanitize($input['format'] ?? '', 100);
+            $edition = sanitize($input['edition'] ?? '', 100);
+            $condition = sanitize($input['condition'] ?? '', 20);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (!$containerId) {
+                jsonResponse(false, null, 'Container ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $container = $stmt->fetch();
+
+            if (!$container || $container['user_id'] != $userId) {
+                jsonResponse(false, null, 'Container not found or access denied');
+            }
+
+            // Build dynamic UPDATE query
+            $updates = [];
+            $params = [];
+
+            if (!empty($name)) {
+                $updates[] = "name = ?";
+                $params[] = $name;
+            }
+            if (!empty($spineLabel)) {
+                $updates[] = "spine_label = ?";
+                $params[] = $spineLabel;
+            }
+            if (!empty($spineImageType)) {
+                $updates[] = "spine_image_type = ?";
+                $params[] = $spineImageType;
+            }
+            if (!empty($spineColor)) {
+                $updates[] = "spine_color = ?";
+                $params[] = $spineColor;
+            }
+            if (!empty($format)) {
+                $updates[] = "format = ?";
+                $params[] = $format;
+            }
+            if (!empty($edition)) {
+                $updates[] = "edition = ?";
+                $params[] = $edition;
+            }
+            if (!empty($condition)) {
+                $updates[] = "condition = ?";
+                $params[] = $condition;
+            }
+            if (isset($input['notes'])) {
+                $updates[] = "notes = ?";
+                $params[] = $notes;
+            }
+
+            if (empty($updates)) {
+                jsonResponse(false, null, 'No fields to update');
+            }
+
+            $updates[] = "updated_at = CURRENT_TIMESTAMP";
+            $params[] = $containerId;
+            $params[] = $userId;
+
+            $sql = "UPDATE containers SET " . implode(', ', $updates) . " WHERE id = ? AND user_id = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+
+            logAction($db, $userId, 'container_updated', 'container', $containerId);
+
+            jsonResponse(true, ['message' => 'Container updated successfully']);
+            break;
+
+        case 'delete_container':
+            // Delete container (keeps movies in collection)
+            $containerId = intval($input['container_id'] ?? 0);
+
+            if (!$containerId) {
+                jsonResponse(false, null, 'Container ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $container = $stmt->fetch();
+
+            if (!$container || $container['user_id'] != $userId) {
+                jsonResponse(false, null, 'Container not found or access denied');
+            }
+
+            // Delete container (cascade will delete contents and shelf assignments)
+            $stmt = $db->prepare("DELETE FROM containers WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+
+            logAction($db, $userId, 'container_deleted', 'container', $containerId);
+
+            jsonResponse(true, ['message' => 'Container deleted successfully']);
+            break;
+
+        case 'mark_disc_status':
+            // Mark a disc as missing or present
+            $contentId = intval($input['content_id'] ?? 0);
+            $isPresent = intval($input['is_present'] ?? 1);
+            $missingNotes = sanitize($input['missing_notes'] ?? '', 500);
+
+            if (!$contentId) {
+                jsonResponse(false, null, 'Content ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("
+                SELECT cc.id, c.user_id
+                FROM container_contents cc
+                JOIN containers c ON cc.container_id = c.id
+                WHERE cc.id = ?
+            ");
+            $stmt->execute([$contentId]);
+            $content = $stmt->fetch();
+
+            if (!$content || $content['user_id'] != $userId) {
+                jsonResponse(false, null, 'Content not found or access denied');
+            }
+
+            // Update status
+            $missingSince = $isPresent ? null : date('Y-m-d');
+            $stmt = $db->prepare("
+                UPDATE container_contents
+                SET is_present = ?, missing_since = ?, missing_notes = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$isPresent, $missingSince, $missingNotes, $contentId]);
+
+            logAction($db, $userId, 'disc_status_updated', 'container_content', $contentId);
+
+            jsonResponse(true, ['message' => 'Disc status updated']);
+            break;
+
+        case 'get_movie_container':
+            // Check if a movie (copy) is in a container
+            $copyId = intval($input['copy_id'] ?? 0);
+
+            if (!$copyId) {
+                jsonResponse(false, null, 'Copy ID required');
+            }
+
+            $stmt = $db->prepare("
+                SELECT
+                    c.id as container_id,
+                    c.name as container_name,
+                    cc.disc_number,
+                    cc.disc_label,
+                    cc.is_present
+                FROM container_contents cc
+                JOIN containers c ON cc.container_id = c.id
+                WHERE cc.copy_id = ? AND c.user_id = ?
+            ");
+            $stmt->execute([$copyId, $userId]);
+            $container = $stmt->fetch();
+
+            if ($container) {
+                jsonResponse(true, $container);
+            } else {
+                jsonResponse(true, null); // Not in any container
+            }
+            break;
+
+        // ========================================
         // SHELF LAYOUT SYSTEM
         // ========================================
 
