@@ -2776,11 +2776,21 @@ case 'resolve_movie':
             }
 
             try {
-                // Check if tables already exist
-                $tablesExist = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='containers'")->fetch();
+                // Check if migration is already complete
+                $containersExists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='containers'")->fetch();
+                $contentsExists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='container_contents'")->fetch();
 
-                if ($tablesExist) {
-                    jsonResponse(true, ['message' => 'Box set tables already exist', 'skipped' => true]);
+                // Check if columns exist in shelf_assignments
+                $shelfColumns = $db->query("PRAGMA table_info(shelf_assignments)")->fetchAll(PDO::FETCH_ASSOC);
+                $hasContainerId = false;
+                $hasIsContainer = false;
+                foreach ($shelfColumns as $col) {
+                    if ($col['name'] === 'container_id') $hasContainerId = true;
+                    if ($col['name'] === 'is_container') $hasIsContainer = true;
+                }
+
+                if ($containersExists && $contentsExists && $hasContainerId && $hasIsContainer) {
+                    jsonResponse(true, ['message' => 'Box set migration already complete', 'skipped' => true]);
                 }
 
                 // Read and execute migration SQL
@@ -2790,24 +2800,35 @@ case 'resolve_movie':
                 }
 
                 $sql = file_get_contents($migrationPath);
-                $statements = array_filter(
-                    array_map('trim', explode(';', $sql)),
-                    function($stmt) {
-                        return !empty($stmt) && !str_starts_with($stmt, '--');
+                // Split on semicolons but handle multi-line statements better
+                $statements = [];
+                $currentStmt = '';
+                $lines = explode("\n", $sql);
+
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    // Skip comments and empty lines
+                    if (empty($line) || str_starts_with($line, '--')) continue;
+
+                    $currentStmt .= ' ' . $line;
+
+                    if (str_ends_with($line, ';')) {
+                        $statements[] = trim(rtrim($currentStmt, ';'));
+                        $currentStmt = '';
                     }
-                );
+                }
 
                 $errors = [];
                 $executed = 0;
+                $skipped = 0;
 
                 foreach ($statements as $statement) {
                     $stmt = trim($statement);
                     if (empty($stmt)) continue;
 
                     try {
-                        // Check if this is an ALTER TABLE statement for existing column
-                        if (stripos($stmt, 'ALTER TABLE') === 0) {
-                            // Extract table and column name
+                        // Check if this is an ALTER TABLE statement
+                        if (stripos($stmt, 'ALTER TABLE') !== false) {
                             if (preg_match('/ALTER TABLE (\w+) ADD COLUMN (\w+)/i', $stmt, $matches)) {
                                 $table = $matches[1];
                                 $column = $matches[2];
@@ -2823,27 +2844,35 @@ case 'resolve_movie':
                                 }
 
                                 if ($columnExists) {
-                                    continue; // Skip if column already exists
+                                    $skipped++;
+                                    continue;
                                 }
                             }
                         }
 
-                        $db->exec($stmt . ';');
+                        $db->exec($stmt);
                         $executed++;
                     } catch (Exception $e) {
-                        // Log error but continue with other statements
-                        $errors[] = $e->getMessage();
+                        $errorMsg = $e->getMessage();
+
+                        // Don't count "already exists" as real errors
+                        if (strpos($errorMsg, 'already exists') !== false) {
+                            $skipped++;
+                        } else {
+                            $errors[] = substr($stmt, 0, 50) . '... => ' . $errorMsg;
+                        }
                     }
                 }
 
-                if ($executed > 0) {
+                if ($executed > 0 || $skipped > 0) {
                     jsonResponse(true, [
-                        'message' => 'Box set migration completed successfully',
+                        'message' => 'Box set migration completed',
                         'executed' => $executed,
-                        'errors' => $errors
+                        'skipped' => $skipped,
+                        'errors' => empty($errors) ? [] : $errors
                     ]);
                 } else {
-                    throw new Exception('No statements executed. Errors: ' . implode(', ', $errors));
+                    throw new Exception('Migration failed. Errors: ' . implode(' | ', $errors));
                 }
 
             } catch (Exception $e) {
