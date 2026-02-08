@@ -1,7 +1,7 @@
 # CineShelf Administrator Guide
 
 **Version:** 2.2.14
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-08
 **Target Audience:** System administrators, maintainers, power users
 
 ---

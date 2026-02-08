@@ -147,6 +147,7 @@ const App = (function() {
     loadCollection();
     loadWishlist();
     loadGroups();
+    loadShelves(); // Load shelves to populate dropdown
 
         // Apply saved view preferences
         if (settings.defaultView) {

@@ -1408,6 +1408,132 @@ async function confirmAssignToShelf() {
 6. Chooses "Disney Animation"
 7. All 25 movies assigned instantly!
 
+### Hierarchical Shelves (v2.2.14+)
+
+**NEW:** Shelves now support unlimited nesting levels for complex organization.
+
+**Database Schema:**
+```sql
+CREATE TABLE shelves (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    name TEXT,
+    description TEXT,
+    color TEXT,
+    icon TEXT,
+    parent_shelf_id INTEGER DEFAULT NULL,  -- NEW: References parent shelf
+    FOREIGN KEY (parent_shelf_id) REFERENCES shelves(id) ON DELETE CASCADE
+);
+```
+
+**Example Hierarchical Structure:**
+```
+📚 Shelves (parent)
+├── 🎬 Directors (parent)
+│   ├── 🎥 Kubrick Collection (5 movies)
+│   ├── 🎞️ Tarantino Films (8 movies)
+│   └── 🌟 Spielberg Classics (12 movies)
+└── 🏰 Animation (parent)
+    ├── 🦁 Disney Collection (25 movies)
+    └── 🎨 Pixar Films (15 movies)
+```
+
+**Key Features:**
+1. **Infinite Nesting** - No depth limit
+2. **Recursive Aggregation** - Parent shelves show all movies from children
+3. **Automatic Deduplication** - Same movie in multiple children shown once
+4. **Visual Indentation** - UI shows hierarchy clearly
+
+**Implementation:**
+```javascript
+// Recursive function to get all movies from shelf + descendants
+const getAllMoviesRecursive = (shelfId) => {
+    const directMovies = shelfMoviesMap[shelfId] || [];
+    const children = childShelvesByParent[shelfId] || [];
+
+    let allMovies = [...directMovies];
+
+    // Recursively collect from children
+    children.forEach(child => {
+        const childMovies = getAllMoviesRecursive(child.id);
+        allMovies = allMovies.concat(childMovies);
+    });
+
+    // Deduplicate by movie_id
+    const uniqueMovies = [];
+    const seenIds = new Set();
+    allMovies.forEach(movie => {
+        if (!seenIds.has(movie.movie_id)) {
+            seenIds.add(movie.movie_id);
+            uniqueMovies.push(movie);
+        }
+    });
+
+    return uniqueMovies;
+};
+```
+
+### Collection Tab Shelf Filtering (v2.2.14+)
+
+**NEW:** Filter Collection view by any shelf with full hierarchical support.
+
+**UI Location:** Collection tab → Shelf dropdown (before Sort dropdown)
+
+**Features:**
+- **"All Movies"** - Default, shows full collection
+- **Hierarchical Dropdown** - Indented list showing shelf structure
+- **Recursive Filtering** - Parent shelves show all descendant movies
+- **Maintains Sort/View** - Sorting and view modes preserved when filtering
+
+**Implementation:**
+```javascript
+async function filterByShelf() {
+    const shelfFilter = document.getElementById('shelfFilter');
+    const selectedShelfId = shelfFilter.value;
+
+    if (!selectedShelfId) {
+        // Show all movies
+        collection = [...originalCollection];
+        renderCollection();
+        return;
+    }
+
+    // Get shelf contents with hierarchical aggregation
+    const shelfContents = await apiCall('get_shelf_contents', {
+        shelf_id: parseInt(selectedShelfId)
+    });
+
+    // Get all child shelves recursively
+    const childShelves = getAllChildShelves(selectedShelfId);
+
+    // Fetch contents for all children
+    const childContents = await Promise.all(
+        childShelves.map(id => apiCall('get_shelf_contents', { shelf_id: id }))
+    );
+
+    // Combine and deduplicate
+    let allMovies = [...shelfContents];
+    childContents.forEach(contents => {
+        allMovies = allMovies.concat(contents);
+    });
+
+    // Filter collection to matched movies only
+    const uniqueMovieIds = new Set(allMovies.map(m => m.movie_id));
+    collection = originalCollection.filter(group =>
+        uniqueMovieIds.has(group.movie.movie_id)
+    );
+
+    renderCollection();
+}
+```
+
+**User Experience:**
+1. User selects "Directors" from dropdown
+2. Collection view shows all movies from Kubrick + Tarantino + Spielberg shelves
+3. Duplicates automatically removed
+4. Sorting still works (sort by title, year, etc.)
+5. View modes still work (grid, list, compact)
+
 ---
 
 ## 8. Core Features

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.14] - 2026-02-08
+
+### Added
+- **Hierarchical Shelves** - Unlimited nesting levels for complex organization
+  - Parent/child shelf relationships via `parent_shelf_id` foreign key
+  - Recursive aggregation - parent shelves show all movies from descendants
+  - Visual indentation in UI to show hierarchy
+  - Example: "Directors" → "Kubrick" → "2001 Films"
+- **Collection Tab Shelf Filtering** - Filter collection view by shelf
+  - Dropdown in Collection tab (before Sort dropdown)
+  - Shows "All Movies" by default
+  - Select any shelf to filter collection to that shelf's movies
+  - Hierarchical support - parent shelves show all child movies
+  - Automatic deduplication when same movie in multiple children
+  - Maintains sort order and view mode when filtering
+- **Icon-Only Navigation Tabs** - Cleaner, more spacious UI
+  - Tab labels hidden, icons only shown
+  - Active tab name appears as page heading
+  - Responsive sizing for mobile/tablet/desktop
+  - Badge notifications positioned absolutely
+  - Larger icons (1.5rem) for better touch targets
+
+### Fixed
+- **Shelf Deduplication Bug** - Fixed critical bug causing movie loss
+  - Was using `movie.id` (undefined) instead of `movie.movie_id`
+  - Caused 8 movies to become 1 movie after deduplication
+  - All parent shelves now show correct movie counts
+- **Shelf Dropdown Empty on Load** - Shelves now load on app initialization
+  - Added `loadShelves()` to init() function
+  - Dropdown populates immediately on page load
+  - No longer requires visiting Shelves tab first
+- **List View Layout Issues** - Improved spacing and readability
+  - Removed director and genre emojis (too cluttered)
+  - Fixed title cutoff at top of cards
+  - Better vertical alignment (`align-items: center`)
+  - Increased font size to 1.05rem
+  - Improved padding and gap spacing
+  - Action buttons stack vertically on right side
+- **Tab Text Overlapping** - Fixed tabs overflowing on small screens
+  - Removed text labels (icon-only design)
+  - Responsive padding adjustments at 768px and 480px breakpoints
+  - Tabs no longer overlap regardless of screen size
+
+### Changed
+- **List View Simplified** - Essential metadata only
+  - Removed: Director name, Genre emojis
+  - Kept: Title, Year, Rating, Runtime, Certification
+  - Cleaner, more scannable layout
+  - Easier to find specific information quickly
+- **Tab Design** - Icon-centric navigation
+  - Padding reduced from 0.75rem 1.5rem to 0.75rem
+  - Min-width: 50px for consistent sizing
+  - Font-size increased to 1.5rem for icons
+  - Badge positioning absolute (top-right corner)
+- **Documentation Updates**
+  - DEV_GUIDE.md: Added hierarchical shelves + filtering sections
+  - USER_GUIDE.md: Added shelf filtering + icon navigation sections
+  - ADMIN_GUIDE.md: Updated last modified date
+  - All guides now reflect v2.2.14 features
+
+---
+
 ## [2.2.14] - 2026-02-07
 
 ### Added

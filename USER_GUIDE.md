@@ -1,7 +1,7 @@
 # CineShelf User Guide
 
 **Version:** 2.2.14
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-08
 **Welcome to CineShelf!** Your personal movie collection manager.
 
 ---
@@ -74,6 +74,29 @@ CineShelf is a Progressive Web App (PWA), which means you can install it on your
 - Faster loading
 - App icon on your device
 - Full-screen experience
+
+### Understanding the Interface
+
+**Navigation Tabs (NEW in v2.2.14):**
+- Tabs now show **icons only** for a cleaner look
+- Hover over any tab to see what it does
+- The active tab's name appears as the page heading
+- Badge numbers show on Collection, Wishlist, and Resolve tabs
+
+**Available Tabs:**
+- 📚 **Collection** - Your movie library
+- ❤️ **Wishlist** - Movies you want to buy
+- 👨‍👩‍👧‍👦 **Groups** - Family collections and borrowing
+- 📚 **Shelves** - Physical shelf organization
+- ➕ **Add Movie** - Search and add new movies
+- 🎮 **Trivia** - Play movie trivia games
+- 🔍 **Resolve** - (Admins only) Match unidentified movies
+- ⚙️ **Settings** - Preferences and account
+
+**Finding Your Way:**
+- Active tab is highlighted
+- Page heading shows current section name
+- Tabs work on all screen sizes (mobile, tablet, desktop)
 
 ---
 
@@ -188,6 +211,23 @@ Use filters to show only specific movies:
 **By Director:**
 - See all movies by your favorite directors
 - Quick director filter from movie card
+
+**By Shelf (NEW in v2.2.14):**
+- Filter collection by physical shelf location
+- Located in dropdown before Sort dropdown
+- Shows "All Movies" by default
+- Select any shelf to see only movies on that shelf
+- **Hierarchical Support** - Parent shelves show all movies from child shelves
+  - Example: "Directors" shelf shows all movies from "Kubrick", "Tarantino", and "Spielberg" child shelves
+- Duplicates automatically removed
+- Sorting and view modes still work while filtered
+
+**How to Use Shelf Filtering:**
+1. Go to Collection tab
+2. Click the first dropdown (shows "All Movies")
+3. Select a shelf (e.g., "Disney Collection")
+4. Collection view updates to show only movies on that shelf
+5. Select "All Movies" to see full collection again
 
 ### Editing a Movie
 
