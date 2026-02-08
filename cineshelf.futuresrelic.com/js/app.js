@@ -4362,6 +4362,14 @@ async function getCurrentUserId() {
             });
 
             console.log(`  - Total movies before dedup: ${allMovies.length}`);
+            if (allMovies.length > 0) {
+                console.log(`  - Sample movie object:`, allMovies[0]);
+                console.log(`  - Movie IDs check:`, allMovies.map(m => ({
+                    title: m.title,
+                    id: m.id,
+                    movie_id: m.movie_id
+                })));
+            }
 
             // Remove duplicates based on movie ID
             const uniqueMovies = [];
