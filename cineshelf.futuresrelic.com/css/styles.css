@@ -196,8 +196,8 @@ select option {
     color: white;
 }
 
-.tab-label {
-    display: none; /* Hide text labels, show only icons */
+.tab .tab-label {
+    display: none !important; /* Hide text labels, show only icons */
 }
 
 .tab-icon {
