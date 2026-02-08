@@ -316,21 +316,23 @@ try {
         // ========================================
         
         case 'search_movie':
+        case 'search_movies':  // Alias for box set functionality
             $query = sanitize($input['query'] ?? '', 100);
-            
+
             if (empty($query)) {
                 jsonResponse(false, null, 'Search query required');
             }
-            
+
             $url = TMDB_BASE_URL . '/search/movie?api_key=' . TMDB_API_KEY . '&query=' . urlencode($query);
             $response = file_get_contents($url);
-            
+
             if ($response === false) {
                 jsonResponse(false, null, 'TMDB API request failed');
             }
-            
+
             $data = json_decode($response, true);
-            jsonResponse(true, $data['results'] ?? []);
+            // Return full TMDB response with results array
+            jsonResponse(true, ['results' => $data['results'] ?? []]);
             break;
             
         case 'search_multi':
