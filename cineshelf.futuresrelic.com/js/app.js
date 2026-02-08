@@ -4375,8 +4375,8 @@ async function getCurrentUserId() {
             const uniqueMovies = [];
             const seenIds = new Set();
             allMovies.forEach(movie => {
-                if (!seenIds.has(movie.id)) {
-                    seenIds.add(movie.id);
+                if (!seenIds.has(movie.movie_id)) {
+                    seenIds.add(movie.movie_id);
                     uniqueMovies.push(movie);
                 }
             });
