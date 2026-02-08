@@ -555,7 +555,7 @@ function renderCollection() {
 
         // Conditional rendering based on currentView
         if (currentView === 'list') {
-            // Wishlist-style for list view (always-visible metadata)
+            // Simplified list view - essential metadata only
             return `
             <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
                 <div class="movie-poster-container">
@@ -570,8 +570,6 @@ function renderCollection() {
                         ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
                         ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
                     </div>
-                    ${movie.director ? `<div class="movie-director">🎬 ${movie.director}</div>` : ''}
-                    ${genreEmojis ? `<div class="movie-genres">${genreEmojis}</div>` : ''}
                 </div>
                 <div class="movie-actions">
                     <button class="btn-icon" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
