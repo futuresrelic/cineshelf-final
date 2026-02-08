@@ -2800,20 +2800,33 @@ case 'resolve_movie':
                 }
 
                 $sql = file_get_contents($migrationPath);
-                // Split on semicolons but handle multi-line statements better
+                // Split on semicolons but handle multi-line statements properly
                 $statements = [];
                 $currentStmt = '';
                 $lines = explode("\n", $sql);
 
                 foreach ($lines as $line) {
                     $line = trim($line);
-                    // Skip comments and empty lines
+
+                    // Skip full-line comments and empty lines
                     if (empty($line) || str_starts_with($line, '--')) continue;
+
+                    // Remove inline comments (everything after --)
+                    $commentPos = strpos($line, '--');
+                    if ($commentPos !== false) {
+                        $line = trim(substr($line, 0, $commentPos));
+                    }
+
+                    // Skip if line is now empty after removing comment
+                    if (empty($line)) continue;
 
                     $currentStmt .= ' ' . $line;
 
                     if (str_ends_with($line, ';')) {
-                        $statements[] = trim(rtrim($currentStmt, ';'));
+                        $stmt = trim(rtrim($currentStmt, ';'));
+                        if (!empty($stmt)) {
+                            $statements[] = $stmt;
+                        }
                         $currentStmt = '';
                     }
                 }
@@ -2850,7 +2863,7 @@ case 'resolve_movie':
                             }
                         }
 
-                        $db->exec($stmt);
+                        $db->exec($stmt . ';');
                         $executed++;
                     } catch (Exception $e) {
                         $errorMsg = $e->getMessage();
