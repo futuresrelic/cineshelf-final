@@ -1879,15 +1879,7 @@ select option {
     padding: 0.75rem 1.5rem !important;
 }
 
-.tabs .tab .tab-label,
-   .tabs .tab .badge {
-       display: none !important;
-   }
-   .tabs .tab.active .tab-label{
-       display: inline !important;
-   }
-
-   /* ========================================
+/* ========================================
    COVER SCANNER STYLES
    ======================================== */
 
