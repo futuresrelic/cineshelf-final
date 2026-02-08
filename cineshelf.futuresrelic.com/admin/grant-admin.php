@@ -5,7 +5,16 @@
  * For security, it only works if NO admins exist yet
  */
 
-require_once __DIR__ . '/../api/db.php';
+// Try multiple paths for Railway compatibility
+$dbPath = __DIR__ . '/../api/db.php';
+if (!file_exists($dbPath)) {
+    $dbPath = '/app/cineshelf.futuresrelic.com/api/db.php';
+}
+if (!file_exists($dbPath)) {
+    $dbPath = $_SERVER['DOCUMENT_ROOT'] . '/api/db.php';
+}
+
+require_once $dbPath;
 
 // Security: Only allow if no admins exist
 $db = getDb();

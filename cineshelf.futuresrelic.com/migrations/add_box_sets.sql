@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS container_contents (
 
 -- Update shelf_assignments to support containers
 -- Add container_id column (either copy_id OR container_id is set, not both)
-ALTER TABLE shelf_assignments ADD COLUMN container_id INTEGER
-    REFERENCES containers(id) ON DELETE CASCADE;
+-- Note: Foreign key constraint handled at application level for ALTER TABLE compatibility
+ALTER TABLE shelf_assignments ADD COLUMN container_id INTEGER DEFAULT NULL;
 
 -- Add is_container flag to shelf_assignments for easier querying
 ALTER TABLE shelf_assignments ADD COLUMN is_container BOOLEAN DEFAULT 0;

@@ -2763,8 +2763,6 @@ case 'resolve_movie':
             }
 
             try {
-                $db->beginTransaction();
-
                 // Check if tables already exist
                 $tablesExist = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='containers'")->fetch();
 
@@ -2786,17 +2784,56 @@ case 'resolve_movie':
                     }
                 );
 
+                $errors = [];
+                $executed = 0;
+
                 foreach ($statements as $statement) {
-                    if (!empty(trim($statement))) {
-                        $db->exec($statement . ';');
+                    $stmt = trim($statement);
+                    if (empty($stmt)) continue;
+
+                    try {
+                        // Check if this is an ALTER TABLE statement for existing column
+                        if (stripos($stmt, 'ALTER TABLE') === 0) {
+                            // Extract table and column name
+                            if (preg_match('/ALTER TABLE (\w+) ADD COLUMN (\w+)/i', $stmt, $matches)) {
+                                $table = $matches[1];
+                                $column = $matches[2];
+
+                                // Check if column already exists
+                                $tableInfo = $db->query("PRAGMA table_info($table)")->fetchAll(PDO::FETCH_ASSOC);
+                                $columnExists = false;
+                                foreach ($tableInfo as $col) {
+                                    if ($col['name'] === $column) {
+                                        $columnExists = true;
+                                        break;
+                                    }
+                                }
+
+                                if ($columnExists) {
+                                    continue; // Skip if column already exists
+                                }
+                            }
+                        }
+
+                        $db->exec($stmt . ';');
+                        $executed++;
+                    } catch (Exception $e) {
+                        // Log error but continue with other statements
+                        $errors[] = $e->getMessage();
                     }
                 }
 
-                $db->commit();
-                jsonResponse(true, ['message' => 'Box set migration completed successfully']);
+                if ($executed > 0) {
+                    jsonResponse(true, [
+                        'message' => 'Box set migration completed successfully',
+                        'executed' => $executed,
+                        'errors' => $errors
+                    ]);
+                } else {
+                    throw new Exception('No statements executed. Errors: ' . implode(', ', $errors));
+                }
 
             } catch (Exception $e) {
-                $db->rollBack();
                 jsonResponse(false, null, 'Migration failed: ' . $e->getMessage());
             }
             break;
