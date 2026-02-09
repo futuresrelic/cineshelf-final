@@ -3077,12 +3077,24 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             if (!movies || movies.length === 0) {
                 moviesList.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center;">No movies in this box set yet.</p>';
             } else {
+                console.log('[Box Set Details] Rendering movies:', movies.map(m => ({
+                    title: m.title || m.display_title,
+                    poster: m.poster_url,
+                    year: m.year
+                })));
+
                 moviesList.innerHTML = movies.map(movie => `
                     <div class="box-set-movie-item">
-                        <img src="${movie.poster_url || '/placeholder.png'}"
-                             alt="${movie.display_title || movie.title}"
-                             class="box-set-movie-poster"
-                             onerror="this.src='/api/placeholder-poster.png'">
+                        ${movie.poster_url ? `
+                            <img src="${movie.poster_url}"
+                                 alt="${movie.display_title || movie.title}"
+                                 class="box-set-movie-poster"
+                                 onerror="this.style.display='none'; this.parentElement.classList.add('no-poster')">
+                        ` : `
+                            <div class="box-set-movie-poster" style="background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 2rem;">
+                                🎬
+                            </div>
+                        `}
                         <div class="box-set-movie-info">
                             <h5>${movie.display_title || movie.title}</h5>
                             <p>${movie.year || 'N/A'}${movie.director ? ` • ${movie.director}` : ''}</p>
