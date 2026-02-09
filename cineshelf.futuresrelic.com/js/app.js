@@ -3083,6 +3083,16 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             const { container, movies } = data;
             console.log('[Box Set Details] Container:', container);
             console.log('[Box Set Details] Movies:', movies);
+            console.log('[Box Set Details] FULL MOVIE DATA:', movies.map(m => ({
+                content_id: m.content_id,
+                container_id: m.container_id,
+                cc_copy_id: m.cc_copy_id,
+                copy_id: m.copy_id,
+                c_movie_id: m.c_movie_id,
+                movie_id: m.movie_id,
+                tmdb_id: m.tmdb_id,
+                title: m.title
+            })));
 
             if (!container) {
                 showToast('Box set not found', 'error');
