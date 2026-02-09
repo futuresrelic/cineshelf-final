@@ -2677,6 +2677,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // ========================================
 
     let currentContainerId = null;
+    let currentContainer = null; // Current box set container data
     let boxSetMovies = []; // Movies added to current box set
 
     // Show/hide sections in Add tab
@@ -2892,7 +2893,15 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         const container = document.getElementById('boxSetMoviesContainer');
         const count = document.getElementById('boxSetMovieCount');
 
-        count.textContent = boxSetMovies.length;
+        // Only update count if element exists (may not exist in quick-create flow)
+        if (count) {
+            count.textContent = boxSetMovies.length;
+        }
+
+        // Only update container if element exists (may not exist in quick-create flow)
+        if (!container) {
+            return;
+        }
 
         if (boxSetMovies.length === 0) {
             container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
@@ -3100,6 +3109,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             }
 
             currentContainerId = containerId;
+            currentContainer = container; // Store full container data for editing
 
             // Update modal title and info
             document.getElementById('boxSetDetailsTitle').textContent = container.name;
@@ -3160,6 +3170,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     function closeBoxSetDetails() {
         document.getElementById('boxSetDetailsModal').classList.remove('active');
         currentContainerId = null;
+        currentContainer = null;
     }
 
     // Show create box set modal (redirect to add tab)
@@ -3168,10 +3179,35 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         showAddBoxSet();
     }
 
-    // Edit box set (placeholder for future enhancement)
-    function editBoxSet() {
-        if (!currentContainerId) return;
-        showToast('Box set editing coming soon!', 'info');
+    // Edit box set
+    async function editBoxSet() {
+        if (!currentContainerId || !currentContainer) return;
+
+        const newName = prompt('Enter new box set name:', currentContainer.name);
+        if (!newName || newName === currentContainer.name) return;
+
+        try {
+            await apiCall('update_container', {
+                container_id: currentContainerId,
+                name: newName,
+                spine_label: currentContainer.spine_label || newName,
+                format: currentContainer.format,
+                edition: currentContainer.edition || '',
+                condition: currentContainer.condition || '',
+                notes: currentContainer.notes || ''
+            });
+
+            showToast('Box set updated successfully', 'success');
+
+            // Refresh the box set details
+            await showBoxSetDetails(currentContainerId);
+
+            // Refresh the box sets list
+            await loadBoxSets();
+        } catch (error) {
+            console.error('Failed to update box set:', error);
+            showToast('Failed to update box set', 'error');
+        }
     }
 
     // Delete box set
