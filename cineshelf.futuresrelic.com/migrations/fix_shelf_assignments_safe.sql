@@ -1,14 +1,14 @@
 -- ============================================
 -- Fix shelf_assignments to properly support containers
 -- Make copy_id nullable so containers can be assigned without a copy_id
--- SAFE VERSION: Only copies core columns that must exist
+-- SAFE VERSION: Copies all existing columns including container fields
 -- ============================================
 
 -- Step 1: Create new table with correct schema
 CREATE TABLE IF NOT EXISTS shelf_assignments_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     shelf_id INTEGER NOT NULL,
-    copy_id INTEGER DEFAULT NULL,  -- NOW NULLABLE for container support
+    copy_id INTEGER DEFAULT NULL,
     container_id INTEGER DEFAULT NULL,
     is_container BOOLEAN DEFAULT 0,
     position_in_shelf INTEGER NOT NULL DEFAULT 0,
@@ -22,14 +22,14 @@ CREATE TABLE IF NOT EXISTS shelf_assignments_new (
            (is_container = 1 AND container_id IS NOT NULL AND copy_id IS NULL))
 );
 
--- Step 2: Copy existing data - ONLY core columns that definitely exist
--- These columns are from the original shelf_assignments table:
--- id, shelf_id, copy_id, position_in_shelf, assigned_at
-INSERT INTO shelf_assignments_new (id, shelf_id, copy_id, position_in_shelf, assigned_at)
+-- Step 2: Copy existing data - include container_id and is_container if they exist
+INSERT INTO shelf_assignments_new (id, shelf_id, copy_id, container_id, is_container, position_in_shelf, assigned_at)
 SELECT
     id,
     shelf_id,
     copy_id,
+    COALESCE(container_id, NULL) as container_id,
+    COALESCE(is_container, 0) as is_container,
     COALESCE(position_in_shelf, 0) as position_in_shelf,
     COALESCE(assigned_at, CURRENT_TIMESTAMP) as assigned_at
 FROM shelf_assignments;
