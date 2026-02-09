@@ -2970,31 +2970,72 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             container.style.display = 'grid';
             emptyState.style.display = 'none';
 
-            container.innerHTML = boxSets.map(boxSet => `
-                <div class="box-set-card" onclick="App.showBoxSetDetails(${boxSet.id})">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                        <div>
-                            <h3 style="margin: 0 0 0.5rem 0;">${boxSet.name}</h3>
-                            <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">
-                                ${boxSet.format || 'Box Set'} ${boxSet.edition ? `• ${boxSet.edition}` : ''}
+            // Fetch movie posters for each box set
+            const boxSetsWithMovies = await Promise.all(
+                boxSets.map(async (boxSet) => {
+                    try {
+                        const data = await apiCall('get_container_contents', { container_id: boxSet.id });
+                        return { ...boxSet, movies: data.movies || [] };
+                    } catch (e) {
+                        console.error(`Failed to load movies for box set ${boxSet.id}:`, e);
+                        return { ...boxSet, movies: [] };
+                    }
+                })
+            );
+
+            container.innerHTML = boxSetsWithMovies.map(boxSet => {
+                // Get first 4 movie posters for grid display
+                const posterMovies = boxSet.movies.slice(0, 4);
+                const hasPosters = posterMovies.length > 0;
+
+                return `
+                    <div class="box-set-card" onclick="App.showBoxSetDetails(${boxSet.id})">
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                            ${hasPosters ? `
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 120px; height: 160px; flex-shrink: 0; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden;">
+                                    ${posterMovies.map(movie => `
+                                        <div style="position: relative; overflow: hidden; background: rgba(0,0,0,0.5);">
+                                            <img src="${movie.poster_url || '/placeholder.png'}"
+                                                 alt="${movie.title}"
+                                                 style="width: 100%; height: 100%; object-fit: cover;"
+                                                 onerror="this.style.display='none'">
+                                        </div>
+                                    `).join('')}
+                                    ${posterMovies.length < 4 ? `
+                                        ${Array(4 - posterMovies.length).fill('').map(() => `
+                                            <div style="background: rgba(0,0,0,0.3);"></div>
+                                        `).join('')}
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div style="width: 120px; height: 160px; flex-shrink: 0; background: ${boxSet.spine_color || '#667eea'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                                    📦
+                                </div>
+                            `}
+                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <h3 style="margin: 0 0 0.5rem 0;">${boxSet.name}</h3>
+                                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">
+                                        ${boxSet.format || 'Box Set'} ${boxSet.edition ? `• ${boxSet.edition}` : ''}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 1.5rem; margin-top: 1rem;">
+                                    <div class="box-set-stat">
+                                        <strong>${boxSet.total_movies || 0}</strong>
+                                        <span>Movie${boxSet.total_movies !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    ${boxSet.spine_color ? `
+                                        <div class="box-set-stat">
+                                            <div style="width: 20px; height: 20px; background: ${boxSet.spine_color}; border-radius: 4px; margin: 0 auto;"></div>
+                                            <span style="font-size: 0.75rem;">Spine</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
-                        <div style="font-size: 2rem;">📦</div>
                     </div>
-                    <div style="display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                        <div class="box-set-stat">
-                            <strong>${boxSet.total_movies || 0}</strong>
-                            <span>Movie${boxSet.total_movies !== 1 ? 's' : ''}</span>
-                        </div>
-                        ${boxSet.spine_color ? `
-                            <div class="box-set-stat">
-                                <div style="width: 20px; height: 20px; background: ${boxSet.spine_color}; border-radius: 4px; margin: 0 auto;"></div>
-                                <span style="font-size: 0.75rem;">Spine</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (error) {
             console.error('Failed to load box sets:', error);
             showToast('Failed to load box sets', 'error');
@@ -3004,8 +3045,18 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Show box set details modal
     async function showBoxSetDetails(containerId) {
         try {
+            console.log('[Box Set Details] Fetching container ID:', containerId);
             const data = await apiCall('get_container_contents', { container_id: containerId });
+            console.log('[Box Set Details] API response:', data);
+
             const { container, movies } = data;
+            console.log('[Box Set Details] Container:', container);
+            console.log('[Box Set Details] Movies:', movies);
+
+            if (!container) {
+                showToast('Box set not found', 'error');
+                return;
+            }
 
             currentContainerId = containerId;
 
@@ -3019,18 +3070,19 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             `;
 
             // Update movie count badge
-            document.getElementById('movieCount').textContent = movies.length;
+            document.getElementById('movieCount').textContent = movies ? movies.length : 0;
 
             // Render movies list
             const moviesList = document.getElementById('boxSetMoviesList');
-            if (movies.length === 0) {
+            if (!movies || movies.length === 0) {
                 moviesList.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center;">No movies in this box set yet.</p>';
             } else {
                 moviesList.innerHTML = movies.map(movie => `
                     <div class="box-set-movie-item">
                         <img src="${movie.poster_url || '/placeholder.png'}"
                              alt="${movie.display_title || movie.title}"
-                             class="box-set-movie-poster">
+                             class="box-set-movie-poster"
+                             onerror="this.src='/api/placeholder-poster.png'">
                         <div class="box-set-movie-info">
                             <h5>${movie.display_title || movie.title}</h5>
                             <p>${movie.year || 'N/A'}${movie.director ? ` • ${movie.director}` : ''}</p>
