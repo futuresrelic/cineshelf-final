@@ -452,10 +452,14 @@ try {
         // ========================================
         
         case 'add_copy':
-            error_log("[add_copy] START - Input: " . json_encode($input));
+            $debugLog = "[add_copy] START - Input: " . json_encode($input) . "\n";
+            file_put_contents('php://stderr', $debugLog);
+
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
             $movieId = intval($input['movie_id'] ?? 0);
-            error_log("[add_copy] Parsed: tmdbId=$tmdbId, movieId=$movieId");
+
+            $debugLog = "[add_copy] Parsed: tmdbId=$tmdbId, movieId=$movieId\n";
+            file_put_contents('php://stderr', $debugLog);
 
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
             $format = sanitize($input['format'] ?? 'DVD', 50);
@@ -467,25 +471,25 @@ try {
 
             // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
             if (empty($tmdbId) && empty($movieId)) {
-                error_log("[add_copy] ERROR: Neither TMDB ID nor Movie ID provided");
+                file_put_contents('php://stderr', "[add_copy] ERROR: Neither TMDB ID nor Movie ID provided\n");
                 jsonResponse(false, null, 'Either TMDB ID or Movie ID required');
             }
 
             // Get or create movie
             if ($movieId) {
-                error_log("[add_copy] Looking up movie with ID: $movieId");
+                file_put_contents('php://stderr', "[add_copy] Looking up movie with ID: $movieId\n");
                 // Movie already exists, use the provided movie_id
                 $stmt = $db->prepare("SELECT id FROM movies WHERE id = ?");
                 $stmt->execute([$movieId]);
                 $movie = $stmt->fetch();
-                error_log("[add_copy] Movie lookup result: " . json_encode($movie));
+                file_put_contents('php://stderr', "[add_copy] Movie lookup result: " . json_encode($movie) . "\n");
 
                 if (!$movie) {
-                    error_log("[add_copy] ERROR: Movie $movieId not found");
+                    file_put_contents('php://stderr', "[add_copy] ERROR: Movie $movieId not found\n");
                     jsonResponse(false, null, 'Movie not found');
                 }
                 $movieId = $movie['id'];
-                error_log("[add_copy] Using movie_id: $movieId");
+                file_put_contents('php://stderr', "[add_copy] Using movie_id: $movieId\n");
             } else {
                 // Legacy path: look up or create movie using TMDB ID
                 $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
@@ -577,7 +581,7 @@ try {
             }
 
             // Add copy
-            error_log("[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format");
+            file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format\n");
             $stmt = $db->prepare("
                 INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -586,13 +590,13 @@ try {
             $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode]);
 
             $newCopyId = $db->lastInsertId();
-            error_log("[add_copy] Copy created with ID: $newCopyId");
+            file_put_contents('php://stderr', "[add_copy] Copy created with ID: $newCopyId\n");
 
             // Verify what was actually inserted
             $verifyStmt = $db->prepare("SELECT id, movie_id FROM copies WHERE id = ?");
             $verifyStmt->execute([$newCopyId]);
             $verifyResult = $verifyStmt->fetch();
-            error_log("[add_copy] VERIFICATION: copy_id={$verifyResult['id']}, movie_id={$verifyResult['movie_id']}");
+            file_put_contents('php://stderr', "[add_copy] VERIFICATION: copy_id={$verifyResult['id']}, movie_id={$verifyResult['movie_id']}\n");
 
             logAction($db, $userId, 'copy_added', 'copy', $newCopyId);
 
