@@ -2764,6 +2764,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Search for movies to add to box set
     async function searchMoviesForBoxSet() {
         const query = document.getElementById('boxSetMovieSearch').value.trim();
+        console.log('[Search Movies] Searching for:', query);
 
         if (!query) return;
 
@@ -2772,69 +2773,98 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
         try {
             const data = await apiCall('search_movies', { query });
+            console.log('[Search Movies] Search results:', data);
 
             if (!data || !data.results || data.results.length === 0) {
                 resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No movies found. Try a different search.</p>';
                 return;
             }
 
-            resultsDiv.innerHTML = data.results.map(movie => `
-                <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})">
-                    <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
-                    <div class="result-info">
-                        <h4>${movie.title}</h4>
-                        <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
+            console.log('[Search Movies] Found movies:', data.results.map(m => ({
+                id: m.id,
+                title: m.title,
+                year: m.release_date ? m.release_date.split('-')[0] : 'N/A'
+            })));
+
+            resultsDiv.innerHTML = data.results.map(movie => {
+                console.log('[Search Movies] Rendering movie with ID:', movie.id, 'Title:', movie.title);
+                return `
+                    <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})">
+                        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
+                        <div class="result-info">
+                            <h4>${movie.title}</h4>
+                            <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
         } catch (error) {
-            console.error('Search failed:', error);
+            console.error('[Search Movies] ERROR:', error);
             resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: #ff5555;">Search failed. Please try again.</p>';
         }
     }
 
     // Add a movie to the box set
     async function addMovieToBoxSet(tmdbId) {
+        console.log('[Add Movie to Box Set] Starting with TMDB ID:', tmdbId);
+
         if (!currentContainerId) {
             showToast('No container selected', 'error');
             return;
         }
+        console.log('[Add Movie to Box Set] Container ID:', currentContainerId);
 
         try {
             // First, add movie to collection if not exists
+            console.log('[Add Movie to Box Set] Step 1: Calling get_or_create_movie with tmdb_id:', tmdbId);
             const movieData = await apiCall('get_or_create_movie', { tmdb_id: tmdbId });
+            console.log('[Add Movie to Box Set] Step 1 Response:', movieData);
 
             if (!movieData || !movieData.movie_id) {
                 showToast('Failed to fetch movie details', 'error');
                 return;
             }
+            console.log('[Add Movie to Box Set] Movie created/found:', {
+                movie_id: movieData.movie_id,
+                title: movieData.title,
+                tmdb_id: movieData.tmdb_id
+            });
 
             // Create a copy for this movie
-            const copyData = await apiCall('add_copy', {
+            const copyParams = {
                 movie_id: movieData.movie_id,
                 format: document.getElementById('boxSetFormat').value,
                 edition: '',
                 region: document.getElementById('boxSetRegion').value,
                 condition: document.getElementById('boxSetCondition').value,
                 notes: ''
-            });
+            };
+            console.log('[Add Movie to Box Set] Step 2: Calling add_copy with params:', copyParams);
+            const copyData = await apiCall('add_copy', copyParams);
+            console.log('[Add Movie to Box Set] Step 2 Response:', copyData);
 
             if (!copyData || !copyData.copy_id) {
                 showToast('Failed to create copy', 'error');
                 return;
             }
+            console.log('[Add Movie to Box Set] Copy created:', {
+                copy_id: copyData.copy_id
+            });
 
             // Add copy to container
             const discNumber = boxSetMovies.length + 1;
-            await apiCall('add_movie_to_container', {
+            const containerParams = {
                 container_id: currentContainerId,
                 copy_id: copyData.copy_id,
                 disc_number: discNumber,
                 disc_label: `Disc ${discNumber}: ${movieData.title}`,
                 is_present: 1,
                 position_in_container: discNumber - 1
-            });
+            };
+            console.log('[Add Movie to Box Set] Step 3: Calling add_movie_to_container with params:', containerParams);
+            const containerResponse = await apiCall('add_movie_to_container', containerParams);
+            console.log('[Add Movie to Box Set] Step 3 Response:', containerResponse);
 
             // Add to local list
             boxSetMovies.push({
@@ -2848,10 +2878,11 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             document.getElementById('boxSetMovieSearch').value = '';
             document.getElementById('boxSetSearchResults').innerHTML = '';
 
+            console.log('[Add Movie to Box Set] SUCCESS: Added movie to box set:', movieData.title);
             showToast(`Added ${movieData.title} to box set`, 'success');
 
         } catch (error) {
-            console.error('Failed to add movie to box set:', error);
+            console.error('[Add Movie to Box Set] ERROR:', error);
             showToast('Failed to add movie to box set', 'error');
         }
     }
