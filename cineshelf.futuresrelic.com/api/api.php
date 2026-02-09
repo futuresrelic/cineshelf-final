@@ -3543,12 +3543,14 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Shelf not found or access denied');
             }
 
-            // Get assigned movies
+            // Get assigned items (movies and containers/box sets)
             $stmt = $db->prepare("
                 SELECT
                     sa.id as assignment_id,
                     sa.position_in_shelf,
                     sa.notes as assignment_notes,
+                    sa.is_container,
+                    sa.container_id,
                     c.id as copy_id,
                     c.format,
                     c.edition,
@@ -3564,10 +3566,18 @@ case 'resolve_movie':
                     m.genre,
                     m.studio,
                     m.actors,
-                    m.runtime
+                    m.runtime,
+                    -- Container info
+                    cont.name as container_name,
+                    cont.spine_label as container_spine_label,
+                    cont.spine_color as container_spine_color,
+                    cont.spine_image_url as container_spine_image_url,
+                    cont.format as container_format,
+                    (SELECT COUNT(*) FROM container_contents cc WHERE cc.container_id = cont.id) as container_movie_count
                 FROM shelf_assignments sa
-                JOIN copies c ON sa.copy_id = c.id
-                JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN copies c ON sa.copy_id = c.id AND sa.is_container = 0
+                LEFT JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN containers cont ON sa.container_id = cont.id AND sa.is_container = 1
                 WHERE sa.shelf_id = ?
                 ORDER BY sa.position_in_shelf ASC
             ");
@@ -3675,9 +3685,10 @@ case 'resolve_movie':
             }
 
             // Assign to shelf
+            // Note: copy_id is set to 0 for container assignments (NOT NULL constraint workaround)
             $stmt = $db->prepare("
-                INSERT INTO shelf_assignments (shelf_id, container_id, is_container, position_in_shelf)
-                VALUES (?, ?, 1, ?)
+                INSERT INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
+                VALUES (?, 0, ?, 1, ?)
             ");
             $stmt->execute([$shelfId, $containerId, $position]);
 
