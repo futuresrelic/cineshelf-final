@@ -2983,8 +2983,8 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                     </div>
                     <div style="display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
                         <div class="box-set-stat">
-                            <strong>${boxSet.movie_count || 0}</strong>
-                            <span>Movie${boxSet.movie_count !== 1 ? 's' : ''}</span>
+                            <strong>${boxSet.total_movies || 0}</strong>
+                            <span>Movie${boxSet.total_movies !== 1 ? 's' : ''}</span>
                         </div>
                         ${boxSet.spine_color ? `
                             <div class="box-set-stat">
