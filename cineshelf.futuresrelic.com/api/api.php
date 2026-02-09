@@ -2895,6 +2895,112 @@ case 'resolve_movie':
             }
             break;
 
+        case 'get_or_create_movie':
+            // Get existing movie or create from TMDB (used by box set creation)
+            $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
+            $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
+
+            if (empty($tmdbId)) {
+                jsonResponse(false, null, 'TMDB ID required');
+            }
+
+            // Check if movie already exists
+            $stmt = $db->prepare("SELECT * FROM movies WHERE tmdb_id = ?");
+            $stmt->execute([$tmdbId]);
+            $movie = $stmt->fetch();
+
+            if ($movie) {
+                // Movie exists, return it
+                jsonResponse(true, $movie);
+            } else {
+                // Movie doesn't exist, fetch from TMDB and create it
+                $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
+                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=credits,release_dates';
+                $response = file_get_contents($url);
+
+                if ($response === false) {
+                    jsonResponse(false, null, 'Failed to fetch movie from TMDB');
+                }
+
+                $data = json_decode($response, true);
+                $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
+
+                // Extract director
+                $director = '';
+                if (!empty($data['credits']['crew'])) {
+                    foreach ($data['credits']['crew'] as $person) {
+                        if ($person['job'] === 'Director') {
+                            $director = $person['name'];
+                            break;
+                        }
+                    }
+                }
+
+                // Extract top 5 actors
+                $actors = '';
+                if (!empty($data['credits']['cast'])) {
+                    $topActors = array_slice($data['credits']['cast'], 0, 5);
+                    $actors = implode(', ', array_column($topActors, 'name'));
+                }
+
+                // Extract studio (first production company)
+                $studio = '';
+                if (!empty($data['production_companies'])) {
+                    $studio = $data['production_companies'][0]['name'] ?? '';
+                }
+
+                // Extract certification
+                $certification = '';
+                if (!empty($data['release_dates']['results'])) {
+                    foreach ($data['release_dates']['results'] as $country) {
+                        if ($country['iso_3166_1'] === 'US') {
+                            foreach ($country['release_dates'] as $release) {
+                                if (!empty($release['certification'])) {
+                                    $certification = $release['certification'];
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Insert movie with all metadata
+                $stmt = $db->prepare("
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+
+                $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
+                $releaseDate = $mediaType === 'tv' ? ($data['first_air_date'] ?? null) : ($data['release_date'] ?? null);
+                $year = $releaseDate ? intval(substr($releaseDate, 0, 4)) : null;
+
+                $stmt->execute([
+                    $tmdbId,
+                    $title,
+                    $year,
+                    isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    $data['overview'] ?? null,
+                    $data['vote_average'] ?? null,
+                    $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
+                    $genres,
+                    $director,
+                    $actors,
+                    $studio,
+                    $certification,
+                    $mediaType
+                ]);
+
+                $movieId = $db->lastInsertId();
+
+                // Fetch the created movie to return
+                $stmt = $db->prepare("SELECT * FROM movies WHERE id = ?");
+                $stmt->execute([$movieId]);
+                $movie = $stmt->fetch();
+
+                jsonResponse(true, $movie);
+            }
+            break;
+
         case 'create_container':
             // Create a new box set/container
             $name = sanitize($input['name'] ?? '', 200);
