@@ -479,17 +479,22 @@ try {
             if ($movieId) {
                 file_put_contents('php://stderr', "[add_copy] Looking up movie with ID: $movieId\n");
                 // Movie already exists, use the provided movie_id
-                $stmt = $db->prepare("SELECT id FROM movies WHERE id = ?");
+                $stmt = $db->prepare("SELECT * FROM movies WHERE id = ?");
                 $stmt->execute([$movieId]);
                 $movie = $stmt->fetch();
-                file_put_contents('php://stderr', "[add_copy] Movie lookup result: " . json_encode($movie) . "\n");
+
+                if ($movie) {
+                    file_put_contents('php://stderr', "[add_copy] Movie FOUND: id={$movie['id']}, tmdb_id={$movie['tmdb_id']}, title={$movie['title']}\n");
+                } else {
+                    file_put_contents('php://stderr', "[add_copy] Movie NOT FOUND with id=$movieId\n");
+                }
 
                 if (!$movie) {
-                    file_put_contents('php://stderr', "[add_copy] ERROR: Movie $movieId not found\n");
+                    file_put_contents('php://stderr', "[add_copy] ERROR: Movie $movieId not found - returning error\n");
                     jsonResponse(false, null, 'Movie not found');
                 }
                 $movieId = $movie['id'];
-                file_put_contents('php://stderr', "[add_copy] Using movie_id: $movieId\n");
+                file_put_contents('php://stderr', "[add_copy] Using movie_id: $movieId from movie: {$movie['title']}\n");
             } else {
                 // Legacy path: look up or create movie using TMDB ID
                 $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
@@ -592,11 +597,16 @@ try {
             $newCopyId = $db->lastInsertId();
             file_put_contents('php://stderr', "[add_copy] Copy created with ID: $newCopyId\n");
 
-            // Verify what was actually inserted
-            $verifyStmt = $db->prepare("SELECT id, movie_id FROM copies WHERE id = ?");
+            // Verify what was actually inserted with full movie details
+            $verifyStmt = $db->prepare("
+                SELECT c.id as copy_id, c.movie_id, m.tmdb_id, m.title
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.id = ?
+            ");
             $verifyStmt->execute([$newCopyId]);
             $verifyResult = $verifyStmt->fetch();
-            file_put_contents('php://stderr', "[add_copy] VERIFICATION: copy_id={$verifyResult['id']}, movie_id={$verifyResult['movie_id']}\n");
+            file_put_contents('php://stderr', "[add_copy] VERIFICATION: copy_id={$verifyResult['copy_id']}, movie_id={$verifyResult['movie_id']}, tmdb_id={$verifyResult['tmdb_id']}, title={$verifyResult['title']}\n");
 
             logAction($db, $userId, 'copy_added', 'copy', $newCopyId);
 
@@ -2937,6 +2947,8 @@ case 'resolve_movie':
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
 
+            file_put_contents('php://stderr', "[get_or_create_movie] START - tmdb_id: $tmdbId\n");
+
             if (empty($tmdbId)) {
                 jsonResponse(false, null, 'TMDB ID required');
             }
@@ -2946,9 +2958,12 @@ case 'resolve_movie':
             $stmt->execute([$tmdbId]);
             $movie = $stmt->fetch();
 
+            file_put_contents('php://stderr', "[get_or_create_movie] Query result: " . json_encode($movie) . "\n");
+
             if ($movie) {
                 // Movie exists, return it with movie_id alias for compatibility
                 $movie['movie_id'] = $movie['id'];
+                file_put_contents('php://stderr', "[get_or_create_movie] RETURNING EXISTING: movie_id={$movie['movie_id']}, tmdb_id={$movie['tmdb_id']}, title={$movie['title']}\n");
                 jsonResponse(true, $movie);
             } else {
                 // Movie doesn't exist, fetch from TMDB and create it
@@ -3029,11 +3044,14 @@ case 'resolve_movie':
                 ]);
 
                 $movieId = $db->lastInsertId();
+                file_put_contents('php://stderr', "[get_or_create_movie] Created new movie with ID: $movieId\n");
 
                 // Fetch the created movie to return
                 $stmt = $db->prepare("SELECT * FROM movies WHERE id = ?");
                 $stmt->execute([$movieId]);
                 $movie = $stmt->fetch();
+
+                file_put_contents('php://stderr', "[get_or_create_movie] RETURNING NEW: movie_id={$movieId}, tmdb_id={$movie['tmdb_id']}, title={$movie['title']}\n");
 
                 // Add movie_id alias for frontend compatibility
                 $movie['movie_id'] = $movie['id'];
@@ -3161,8 +3179,25 @@ case 'resolve_movie':
             $isPresent = intval($input['is_present'] ?? 1);
             $position = intval($input['position_in_container'] ?? 0);
 
+            file_put_contents('php://stderr', "[add_movie_to_container] START - container_id: $containerId, copy_id: $copyId\n");
+
             if (!$containerId || !$copyId) {
                 jsonResponse(false, null, 'Container ID and Copy ID required');
+            }
+
+            // Log what copy we're adding
+            $copyInfoStmt = $db->prepare("
+                SELECT c.id as copy_id, c.movie_id, m.tmdb_id, m.title
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.id = ?
+            ");
+            $copyInfoStmt->execute([$copyId]);
+            $copyInfo = $copyInfoStmt->fetch();
+            if ($copyInfo) {
+                file_put_contents('php://stderr', "[add_movie_to_container] Copy details: copy_id={$copyInfo['copy_id']}, movie_id={$copyInfo['movie_id']}, tmdb_id={$copyInfo['tmdb_id']}, title={$copyInfo['title']}\n");
+            } else {
+                file_put_contents('php://stderr', "[add_movie_to_container] WARNING: Copy $copyId not found in database!\n");
             }
 
             // Verify container ownership
@@ -3199,6 +3234,8 @@ case 'resolve_movie':
             $stmt->execute([$containerId, $copyId, $discNumber, $discLabel, $isPresent, $position]);
 
             $contentId = $db->lastInsertId();
+            file_put_contents('php://stderr', "[add_movie_to_container] SUCCESS - content_id: $contentId created linking container $containerId to copy $copyId\n");
+
             logAction($db, $userId, 'movie_added_to_container', 'container_content', $contentId);
 
             jsonResponse(true, ['content_id' => $contentId, 'message' => 'Movie added to container']);
