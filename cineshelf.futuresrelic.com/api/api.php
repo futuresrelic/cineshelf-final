@@ -3637,7 +3637,6 @@ case 'resolve_movie':
             $shelfId = intval($input['shelf_id'] ?? 0);
             $containerId = intval($input['container_id'] ?? 0);
             $position = intval($input['position'] ?? -1);
-            $notes = sanitize($input['notes'] ?? '', 500);
 
             if (!$shelfId || !$containerId) {
                 jsonResponse(false, null, 'Shelf ID and container ID required');
@@ -3668,12 +3667,19 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Container already assigned to a shelf');
             }
 
+            // If position not specified, add to end
+            if ($position < 0) {
+                $stmt = $db->prepare("SELECT COALESCE(MAX(position_in_shelf), -1) + 1 as next_pos FROM shelf_assignments WHERE shelf_id = ?");
+                $stmt->execute([$shelfId]);
+                $position = $stmt->fetchColumn();
+            }
+
             // Assign to shelf
             $stmt = $db->prepare("
-                INSERT INTO shelf_assignments (shelf_id, container_id, is_container, position_in_shelf, assignment_notes)
-                VALUES (?, ?, 1, ?, ?)
+                INSERT INTO shelf_assignments (shelf_id, container_id, is_container, position_in_shelf)
+                VALUES (?, ?, 1, ?)
             ");
-            $stmt->execute([$shelfId, $containerId, $position, $notes ?: null]);
+            $stmt->execute([$shelfId, $containerId, $position]);
 
             $assignmentId = $db->lastInsertId();
             logAction($db, $userId, 'container_assigned_to_shelf', 'shelf_assignment', $assignmentId);

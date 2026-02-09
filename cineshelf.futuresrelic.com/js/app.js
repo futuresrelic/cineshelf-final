@@ -5332,15 +5332,13 @@ async function getCurrentUserId() {
                         const containerId = parseInt(itemId.replace('container_', ''));
                         await apiCall('assign_container_to_shelf', {
                             shelf_id: shelfId,
-                            container_id: containerId,
-                            notes: notes || null
+                            container_id: containerId
                         });
                     } else {
                         // It's a regular copy
                         await apiCall('assign_to_shelf', {
                             shelf_id: shelfId,
-                            copy_id: itemId,
-                            notes: notes || null
+                            copy_id: itemId
                         });
                     }
                     successCount++;
