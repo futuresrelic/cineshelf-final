@@ -2760,6 +2760,12 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 document.getElementById('boxSetStep1').style.display = 'none';
                 document.getElementById('boxSetStep2').style.display = 'block';
 
+                // Clear search input and results from previous session
+                const searchInput = document.getElementById('boxSetMovieSearch');
+                const searchResults = document.getElementById('boxSetSearchResults');
+                if (searchInput) searchInput.value = '';
+                if (searchResults) searchResults.innerHTML = '';
+
                 // Update UI elements if they exist
                 const createdNameEl = document.getElementById('boxSetCreatedName');
                 const movieCountEl = document.getElementById('boxSetMovieCount');
