@@ -3083,9 +3083,13 @@ case 'resolve_movie':
             }
 
             // Get all movies in container
+            error_log("[get_container_contents] Fetching movies for container ID: $containerId");
+
             $stmt = $db->prepare("
                 SELECT
                     cc.id as content_id,
+                    cc.container_id,
+                    cc.copy_id as cc_copy_id,
                     cc.disc_number,
                     cc.disc_label,
                     cc.is_present,
@@ -3093,6 +3097,7 @@ case 'resolve_movie':
                     cc.missing_notes,
                     cc.position_in_container,
                     c.id as copy_id,
+                    c.movie_id as c_movie_id,
                     c.format,
                     c.edition,
                     c.condition,
@@ -3115,6 +3120,11 @@ case 'resolve_movie':
             ");
             $stmt->execute([$containerId]);
             $movies = $stmt->fetchAll();
+
+            error_log("[get_container_contents] Found " . count($movies) . " movies");
+            foreach ($movies as $movie) {
+                error_log("[get_container_contents] Movie: container_id={$movie['container_id']}, cc_copy_id={$movie['cc_copy_id']}, copy_id={$movie['copy_id']}, c_movie_id={$movie['c_movie_id']}, movie_id={$movie['movie_id']}, tmdb_id={$movie['tmdb_id']}, title={$movie['title']}");
+            }
 
             jsonResponse(true, ['container' => $container, 'movies' => $movies]);
             break;
