@@ -4308,6 +4308,32 @@ case 'resolve_movie':
             break;
 
         // ========================================
+        // DATABASE MIGRATION
+        // ========================================
+
+        case 'run_migration':
+            // Run a database migration SQL script
+            // SECURITY: Only allow when user is logged in
+            $sql = $input['sql'] ?? '';
+
+            if (empty($sql)) {
+                jsonResponse(false, null, 'SQL is required');
+            }
+
+            try {
+                // Execute the migration SQL
+                // Note: SQLite allows multiple statements separated by semicolons
+                $db->exec($sql);
+
+                logAction($db, $userId, 'migration_executed', 'system', 0);
+                jsonResponse(true, ['message' => 'Migration executed successfully']);
+            } catch (PDOException $e) {
+                error_log('Migration error: ' . $e->getMessage());
+                jsonResponse(false, null, 'Migration failed: ' . $e->getMessage());
+            }
+            break;
+
+        // ========================================
         // DEFAULT
         // ========================================
 
