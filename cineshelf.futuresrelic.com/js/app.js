@@ -4758,18 +4758,21 @@ async function getCurrentUserId() {
                 })));
             }
 
-            // Remove duplicates based on movie ID
+            // Remove duplicates based on movie ID or container ID
             const uniqueMovies = [];
             const seenIds = new Set();
             allMovies.forEach(movie => {
-                if (!seenIds.has(movie.movie_id)) {
-                    seenIds.add(movie.movie_id);
+                // For containers, use container_id; for movies, use movie_id
+                const uniqueId = movie.is_container ? `container_${movie.container_id}` : `movie_${movie.movie_id}`;
+
+                if (!seenIds.has(uniqueId)) {
+                    seenIds.add(uniqueId);
                     uniqueMovies.push(movie);
                 }
             });
 
             console.log(`  - Unique movies after dedup: ${uniqueMovies.length}`);
-            console.log(`  - Returning movies:`, uniqueMovies.map(m => m.title));
+            console.log(`  - Returning movies:`, uniqueMovies.map(m => m.is_container ? m.container_name : m.title));
 
             return uniqueMovies;
         };
@@ -4799,14 +4802,23 @@ async function getCurrentUserId() {
                     <div class="visual-shelf-spines">
                         ${allMovies.length === 0
                             ? '<div class="visual-shelf-empty">Empty shelf - click to add movies</div>'
-                            : allMovies.map(movie => `
-                                <div class="movie-spine"
-                                     style="background: ${shelf.color || '#667eea'}"
-                                     title="${movie.display_title || movie.title} (${movie.year})"
-                                     onclick="App.viewShelfContents(${shelf.id})">
-                                    <span class="spine-title">${movie.display_title || movie.title}</span>
-                                </div>
-                            `).join('')
+                            : allMovies.map(movie => {
+                                // Handle both containers and regular movies
+                                const title = movie.is_container
+                                    ? movie.container_name
+                                    : (movie.display_title || movie.title);
+                                const year = movie.is_container ? '' : ` (${movie.year})`;
+                                const icon = movie.is_container ? '📦 ' : '';
+
+                                return `
+                                    <div class="movie-spine ${movie.is_container ? 'container-spine' : ''}"
+                                         style="background: ${movie.is_container ? (movie.container_spine_color || '#764ba2') : (shelf.color || '#667eea')}"
+                                         title="${icon}${title}${year}"
+                                         onclick="App.viewShelfContents(${shelf.id})">
+                                        <span class="spine-title">${icon}${title}</span>
+                                    </div>
+                                `;
+                            }).join('')
                         }
                     </div>
                     <div class="visual-shelf-actions">
