@@ -2704,8 +2704,17 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         document.getElementById('boxSetName').value = '';
         document.getElementById('boxSetSpineLabel').value = '';
         document.getElementById('boxSetNotes').value = '';
+
+        // Clear movie search
+        const searchInput = document.getElementById('boxSetMovieSearch');
+        const searchResults = document.getElementById('boxSetSearchResults');
+        if (searchInput) searchInput.value = '';
+        if (searchResults) searchResults.innerHTML = '';
+
+        // Reset box set data
         boxSetMovies = [];
         currentContainerId = null;
+        currentContainer = null;
     }
 
     // Create box set container and move to step 2
@@ -2750,9 +2759,21 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 // Show step 2
                 document.getElementById('boxSetStep1').style.display = 'none';
                 document.getElementById('boxSetStep2').style.display = 'block';
-                document.getElementById('boxSetCreatedName').textContent = `📦 ${name}`;
-                document.getElementById('boxSetMovieCount').textContent = '0';
-                document.getElementById('boxSetMoviesContainer').innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
+
+                // Update UI elements if they exist
+                const createdNameEl = document.getElementById('boxSetCreatedName');
+                const movieCountEl = document.getElementById('boxSetMovieCount');
+                const moviesContainerEl = document.getElementById('boxSetMoviesContainer');
+
+                if (createdNameEl) {
+                    createdNameEl.textContent = `📦 ${name}`;
+                }
+                if (movieCountEl) {
+                    movieCountEl.textContent = '0';
+                }
+                if (moviesContainerEl) {
+                    moviesContainerEl.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
+                }
 
                 showToast('Box set created! Now add movies.', 'success');
             }
@@ -2958,9 +2979,16 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     function finishBoxSetCreation() {
         showToast(`Box set created with ${boxSetMovies.length} movies!`, 'success');
 
+        // Clear search
+        const searchInput = document.getElementById('boxSetMovieSearch');
+        const searchResults = document.getElementById('boxSetSearchResults');
+        if (searchInput) searchInput.value = '';
+        if (searchResults) searchResults.innerHTML = '';
+
         // Reset
         showAddTypeChoice();
         currentContainerId = null;
+        currentContainer = null;
         boxSetMovies = [];
 
         // Reload collection and switch to collection tab
