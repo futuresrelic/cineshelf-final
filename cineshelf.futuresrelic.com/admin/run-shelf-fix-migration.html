@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Shelf Assignments Schema - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            color: #856404;
+        }
+
+        .warning strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            color: #0c5460;
+        }
+
+        .info ul {
+            margin-top: 0.5rem;
+            margin-left: 1.5rem;
+        }
+
+        .info li {
+            margin: 0.25rem 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        #result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        #result.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Fix Shelf Assignments Schema</h1>
+
+        <p>This migration fixes the shelf_assignments table to properly support box sets/containers by making the copy_id column nullable.</p>
+
+        <div class="info">
+            <strong>This migration will:</strong>
+            <ul>
+                <li>Make copy_id nullable (currently NOT NULL)</li>
+                <li>Add CHECK constraint to ensure data integrity</li>
+                <li>Preserve all existing shelf assignments</li>
+                <li>Enable proper container assignment to shelves</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Important:</strong>
+            This will rebuild the shelf_assignments table. While existing data will be preserved, it's recommended to only run this once.
+        </div>
+
+        <button id="runMigration" onclick="runMigration()">Run Migration</button>
+
+        <div id="result"></div>
+
+        <a href="/" class="back-link">← Back to CineShelf</a>
+    </div>
+
+    <script>
+        async function runMigration() {
+            const button = document.getElementById('runMigration');
+            const result = document.getElementById('result');
+
+            button.disabled = true;
+            button.textContent = 'Running migration...';
+            result.style.display = 'none';
+
+            try {
+                // Fetch the migration SQL
+                const sqlResponse = await fetch('/migrations/fix_shelf_assignments_for_containers.sql');
+                if (!sqlResponse.ok) {
+                    throw new Error('Failed to load migration file');
+                }
+
+                let sql = await sqlResponse.text();
+
+                // Strip out comments
+                sql = sql.split('\n')
+                    .filter(line => !line.trim().startsWith('--'))
+                    .join('\n');
+
+                // Run the migration
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'run_migration',
+                        sql: sql
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    result.className = 'success';
+                    result.innerHTML = '<strong>✓ Success!</strong><br>' +
+                                      'The shelf_assignments table has been fixed. You can now assign box sets to shelves!';
+                    button.textContent = 'Migration Complete';
+                } else {
+                    throw new Error(data.error || 'Migration failed');
+                }
+            } catch (error) {
+                result.className = 'error';
+                result.innerHTML = '<strong>✗ Error:</strong><br>' + error.message;
+                button.disabled = false;
+                button.textContent = 'Retry Migration';
+            }
+
+            result.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

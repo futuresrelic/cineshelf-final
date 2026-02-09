@@ -3685,10 +3685,10 @@ case 'resolve_movie':
             }
 
             // Assign to shelf
-            // Note: copy_id is set to 0 for container assignments (NOT NULL constraint workaround)
+            // Note: copy_id is NULL for container assignments (after migration)
             $stmt = $db->prepare("
                 INSERT INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
-                VALUES (?, 0, ?, 1, ?)
+                VALUES (?, NULL, ?, 1, ?)
             ");
             $stmt->execute([$shelfId, $containerId, $position]);
 
