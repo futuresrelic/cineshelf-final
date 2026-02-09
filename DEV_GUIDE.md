@@ -1473,6 +1473,139 @@ const getAllMoviesRecursive = (shelfId) => {
 };
 ```
 
+### Box Set System (v2.2.15+)
+
+**NEW:** Multi-movie containers for box sets, trilogies, and double features.
+
+**Overview:**
+The box set system allows users to represent physical media containing multiple movies in a single case. For example, "The Matrix Trilogy" box set contains 3 movies but occupies one physical spine on a shelf.
+
+**Database Tables:**
+
+```sql
+CREATE TABLE containers (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,                -- "The Matrix Trilogy"
+    spine_label TEXT,                  -- "THE MATRIX TRILOGY"
+    format TEXT,                       -- "Blu-ray Box Set"
+    edition TEXT,                      -- "Ultimate Collection"
+    condition TEXT,                    -- "Mint", "Like New", etc.
+    notes TEXT,
+    created_at TEXT
+);
+
+CREATE TABLE container_contents (
+    id INTEGER PRIMARY KEY,
+    container_id INTEGER NOT NULL,
+    copy_id INTEGER NOT NULL,          -- FK to copies table
+    disc_number INTEGER DEFAULT 1,     -- Disc 1, 2, 3, etc.
+    created_at TEXT
+);
+```
+
+**Key Relationships:**
+```
+containers (1) ──< (many) container_contents
+container_contents (many) >── (1) copies
+copies (many) >── (1) movies
+```
+
+**State Management:**
+
+The box set creation flow maintains state through three key variables in app.js:
+
+```javascript
+let currentContainerId = null;  // Active container being created/edited
+let currentContainer = null;    // Full container data object
+let boxSetMovies = [];         // Local array of movies added to box set
+```
+
+**Critical State Preservation Pattern:**
+
+```javascript
+function closeBoxSetDetails() {
+    document.getElementById('boxSetDetailsModal').classList.remove('active');
+
+    // DON'T clear state if we're in creation mode
+    const step2 = document.getElementById('boxSetStep2');
+    const isCreating = step2 && step2.style.display !== 'none';
+
+    if (!isCreating) {
+        currentContainerId = null;
+        currentContainer = null;
+    }
+}
+```
+
+This pattern prevents the "ERROR: No container selected" bug by checking if the user is mid-creation before clearing state.
+
+**Edit Mode Implementation:**
+
+```javascript
+async function editBoxSet() {
+    if (!currentContainerId || !currentContainer) return;
+
+    // Close details modal
+    document.getElementById('boxSetDetailsModal').classList.remove('active');
+
+    // Navigate to Add tab and show Step 2
+    switchTab('add');
+    document.getElementById('boxSetStep1').style.display = 'none';
+    document.getElementById('boxSetStep2').style.display = 'block';
+
+    // Fetch existing movies from backend
+    const data = await apiCall('get_container_contents', {
+        container_id: currentContainerId
+    });
+
+    // Populate local state
+    boxSetMovies = data.movies.map((m, index) => ({
+        movie_id: m.movie_id,
+        title: m.title,
+        year: m.year,
+        poster_url: m.poster_url,
+        tmdb_id: m.tmdb_id,
+        copy_id: m.copy_id,
+        disc_number: m.disc_number || (index + 1)
+    }));
+
+    // Update UI
+    updateBoxSetMoviesList();
+    showToast(`Continue adding movies to "${currentContainer.name}"`, 'info');
+}
+```
+
+**API Endpoints:**
+
+- `create_container` - Create new box set
+- `add_movie_to_container` - Add movie to box set
+- `get_container_contents` - Fetch all movies in box set
+- `update_container` - Edit box set details
+- `delete_container` - Remove box set (keeps movies)
+- `list_containers` - Get all user's box sets
+
+**Two-Step Creation Flow:**
+
+1. **Step 1:** Define box set
+   - Name, format, condition, notes
+   - Creates container record via `create_container`
+   - Returns `container_id`
+
+2. **Step 2:** Add movies
+   - Search TMDB for movies
+   - Click to add each movie
+   - Creates copy + links via `add_movie_to_container`
+   - Updates `boxSetMovies` array
+   - Real-time display of added movies
+
+**Common Pitfalls:**
+
+1. **Clearing state too early** - Always check if user is in creation mode
+2. **DOM element timing** - Elements in Step 2 don't exist until shown
+3. **Copy vs Movie IDs** - Box sets link to `copies`, not `movies` directly
+4. **Duplicate prevention** - Check if movie already added to current box set
+
 ### Collection Tab Shelf Filtering (v2.2.14+)
 
 **NEW:** Filter Collection view by any shelf with full hierarchical support.

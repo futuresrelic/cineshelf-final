@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.15] - 2026-02-09
+
+### Added
+- **Box Set System (Phase 1)** - Multi-movie containers for box sets and collections
+  - Create box sets that group multiple movies into a single physical unit
+  - Two-step creation: Define box set → Add movies by searching TMDB
+  - Supports any number of movies per box set
+  - Format selection (Blu-ray Box Set, DVD Box Set, 4K Box Set, etc.)
+  - Notes field for edition details
+  - Visual spine labels for shelf representation
+
+### Fixed
+- **Box Set State Management** - Critical fixes for creation and editing flow
+  - Fixed `closeBoxSetDetails()` clearing `currentContainerId` during creation
+  - Now checks if Step 2 (movie adding) is visible before clearing state
+  - Users can view box set details mid-creation and return to adding movies
+  - No more "ERROR: No container selected" when continuing creation
+- **Box Set Edit Functionality** - Complete rewrite for seamless editing
+  - Edit button now opens box set in Step 2 with existing movies loaded
+  - Pre-populates `boxSetMovies` array from `get_container_contents` API
+  - User can continue adding movies to existing box sets
+  - Eliminates need to delete and recreate box sets
+  - Shows "(Editing)" label in header to indicate edit mode
+- **View Box Set Details Button** - Implemented proper functionality
+  - Replaced placeholder "coming soon" with actual `showBoxSetDetails()` call
+  - Opens details modal showing box set name, format, movie count
+  - Displays all movies in the box set with posters
+  - Edit and delete buttons fully functional
+- **Box Set Search Results Persistence** - Fixed leftover results appearing
+  - Search input and results now clear when transitioning to Step 2
+  - Clean slate when creating new box sets
+  - No confusion from previous box set's search history
+- **Movie List Display During Creation** - Enhanced debugging
+  - Added comprehensive console logging to `updateBoxSetMoviesList()`
+  - Tracks when function is called and state of DOM elements
+  - Helps diagnose timing issues with element availability
+  - Logs `boxSetMovies` array contents and count
+
+### Changed
+- **Box Set Creation Flow** - Improved state preservation
+  - `currentContainerId` persists throughout entire creation workflow
+  - State only cleared when explicitly navigating away or completing
+  - Better separation between creation mode and viewing mode
+- **Box Set Edit Mode** - Enhanced user experience
+  - Fetches existing movies from backend on edit
+  - Shows movie count in real-time as you add more
+  - Maintains disc number sequence
+  - Clears search to prevent confusion
+
+---
+
 ## [2.2.14] - 2026-02-08
 
 ### Added

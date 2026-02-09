@@ -102,15 +102,28 @@ CineShelf is a Progressive Web App (PWA), which means you can install it on your
 
 ## Your Collection
 
+### Adding Movies: Single vs Box Set
+
+When adding to your collection, you have two options:
+
+**Single Movie** - For individual DVDs/Blu-rays
+**Box Set** - For multi-movie collections in one physical case
+
 ### Adding Your First Movie
 
-1. **Go to Collection Tab**
-   - Click "Collection" in the navigation
+1. **Go to Add Tab**
+   - Click the ➕ "Add" tab in navigation
 
-2. **Click "Add Movie"**
+2. **Choose Add Type**
+   - **Add Single Movie** - For individual discs
+   - **Add Box Set** - For multi-movie collections (trilogies, double features, etc.)
+
+#### Adding a Single Movie
+
+1. **Click "Add Single Movie"**
    - The search dialog opens
 
-3. **Search for Movie**
+2. **Search for Movie**
    - Type the movie title (e.g., "Inception")
    - Results appear as you type
    - Click the correct movie
@@ -278,6 +291,169 @@ Original title is preserved; only display changes.
    - Does NOT affect other users
 
 **Note:** This only removes YOUR copy. The movie data (poster, metadata) stays in the database for other users.
+
+---
+
+## Box Sets & Multi-Movie Collections
+
+### What are Box Sets?
+
+Box sets are physical cases containing multiple movies. Examples:
+- **Trilogy Box Sets** - Lord of the Rings Extended Edition (3 movies, 1 case)
+- **Double Features** - Alien / Aliens (2 movies, 1 case)
+- **Complete Collections** - James Bond Collection (25 movies, 1 box)
+- **Franchise Sets** - Marvel Phase 1 Collection (6 movies, 1 box)
+
+### Why Use Box Sets?
+
+**Benefits:**
+- ✅ Accurate shelf representation (shows as ONE spine, not 3+)
+- ✅ Track movies individually in your collection
+- ✅ Organize related movies together
+- ✅ Know what's in each physical case
+- ✅ Track missing discs if you lend one out
+
+### Creating a Box Set
+
+**Step 1: Define the Box Set**
+
+1. **Go to Add Tab** (➕)
+2. **Click "Add Box Set"**
+3. **Enter Box Set Details:**
+   - **Name**: Full name (e.g., "The Matrix Trilogy")
+   - **Spine Label**: What appears on physical spine (e.g., "THE MATRIX TRILOGY")
+   - **Format**:
+     - Blu-ray Box Set
+     - DVD Box Set
+     - 4K UHD Box Set
+     - Mixed Format
+   - **Condition**: Mint, Like New, Good, Fair, Poor
+   - **Notes**: Edition details (e.g., "Ultimate Collector's Edition")
+4. **Click "Create Box Set"**
+
+**Step 2: Add Movies**
+
+1. **Search for First Movie**
+   - Type movie title in search box
+   - Results appear from TMDB
+
+2. **Click Movie to Add**
+   - Movie added to box set
+   - Shows in list below with poster
+
+3. **Repeat for All Movies**
+   - Add all movies in the box set
+   - They appear in order as you add them
+
+4. **View Box Set Details**
+   - Click "View Box Set Details" to see what you've added
+   - Shows all movies with posters
+   - Can edit or delete from here
+
+5. **Finish**
+   - Click "Done" or navigate away
+   - Box set is saved automatically
+
+### Example: Creating The Matrix Trilogy Box Set
+
+```
+Step 1: Create Box Set
+├─ Name: The Matrix Trilogy
+├─ Spine Label: THE MATRIX TRILOGY
+├─ Format: Blu-ray Box Set
+└─ Condition: Mint
+
+Step 2: Add Movies
+├─ Search "The Matrix" → Add (1999)
+├─ Search "Matrix Reloaded" → Add (2003)
+├─ Search "Matrix Revolutions" → Add (2003)
+└─ Click "View Box Set Details" → Done!
+```
+
+### Viewing Box Sets in Your Collection
+
+**Collection Tab:**
+- Movies show individually with their posters
+- Each movie displays "📦 Part of [Box Set Name]"
+- Click box set name to see all movies in that box set
+
+**Example:**
+```
+┌─────────────────────┐
+│  [Matrix Poster]    │
+│  The Matrix         │
+│  1999 | ⭐ 8.7      │
+│  📦 The Matrix      │ ← Click to view box set
+│     Trilogy         │
+│  Disc 1 of 3        │
+└─────────────────────┘
+```
+
+### Editing a Box Set
+
+**Add More Movies:**
+
+1. **Find Box Set** in Collection tab
+   - Look for movies with 📦 badge
+   - Click box set name
+
+2. **Click "Edit" Button**
+   - Opens in Add tab
+   - Shows existing movies
+   - Labeled "(Editing)" at top
+
+3. **Add More Movies**
+   - Search and add just like creation
+   - New movies appear in list
+
+4. **Save Changes**
+   - Click "Done" or navigate away
+   - All movies saved automatically
+
+**Edit Box Set Details:**
+
+1. **Open Box Set Details Modal**
+   - Click 📦 badge on any movie in the set
+   - Or find in Collection and click "View Details"
+
+2. **Click "Edit Box Set"**
+3. **Change Details:**
+   - Name, format, condition, notes
+4. **Save**
+
+### Deleting a Box Set
+
+**Important:** Deleting a box set removes the container but KEEPS all movies in your collection as individual items.
+
+1. **Open Box Set Details**
+2. **Click "Delete Box Set"**
+3. **Confirm**
+   - Box set removed
+   - Movies remain in collection
+   - Movies no longer grouped
+
+### Box Set Tips
+
+**Organizing Large Collections:**
+- Create box sets for franchises (Star Wars, Marvel, etc.)
+- Use spine labels that match physical cases
+- Add notes about special features or editions
+
+**Tracking Borrowed Discs:**
+- When you lend Disc 2 to a friend, the movie stays in your collection
+- In future versions, you'll be able to mark individual discs as "borrowed"
+
+**Box Set + Shelves:**
+- Assign box set to a shelf as ONE unit
+- On visual shelf view, shows as single spine
+- Badge shows number of movies (e.g., "3 movies")
+
+**Common Use Cases:**
+1. **Trilogy**: 3 movies, 1 spine
+2. **Double Feature**: 2 movies, 1 spine
+3. **Complete Series**: All movies in franchise
+4. **Director Collections**: All films by one director
+5. **Genre Packs**: Horror collection, Comedy collection, etc.
 
 ### Collection Statistics
 
