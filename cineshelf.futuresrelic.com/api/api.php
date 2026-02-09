@@ -453,6 +453,7 @@ try {
         
         case 'add_copy':
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
+            $movieId = intval($input['movie_id'] ?? 0);
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
             $format = sanitize($input['format'] ?? 'DVD', 50);
             $edition = sanitize($input['edition'] ?? '', 100);
@@ -460,16 +461,29 @@ try {
             $condition = sanitize($input['condition'] ?? 'Good', 50);
             $notes = sanitize($input['notes'] ?? '', 500);
             $barcode = sanitize($input['barcode'] ?? '', 50);
-            
-            if (empty($tmdbId)) {
-                jsonResponse(false, null, 'TMDB ID required');
+
+            // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
+            if (empty($tmdbId) && empty($movieId)) {
+                jsonResponse(false, null, 'Either TMDB ID or Movie ID required');
             }
-            
+
             // Get or create movie
-            $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
-            $stmt->execute([$tmdbId]);
-            $movie = $stmt->fetch();
-            
+            if ($movieId) {
+                // Movie already exists, use the provided movie_id
+                $stmt = $db->prepare("SELECT id FROM movies WHERE id = ?");
+                $stmt->execute([$movieId]);
+                $movie = $stmt->fetch();
+
+                if (!$movie) {
+                    jsonResponse(false, null, 'Movie not found');
+                }
+            } else {
+                // Legacy path: look up or create movie using TMDB ID
+                $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
+                $stmt->execute([$tmdbId]);
+                $movie = $stmt->fetch();
+            }
+
             if (!$movie) {
                 // Fetch from TMDB first (with credits for actors/director/studio)
                 $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
