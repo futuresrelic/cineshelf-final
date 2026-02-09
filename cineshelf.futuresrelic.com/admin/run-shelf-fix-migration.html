@@ -194,7 +194,7 @@
                 const data = await response.json();
                 console.log('Response data:', data);
 
-                if (data.success) {
+                if (data.ok) {
                     result.className = 'success';
                     result.innerHTML = '<strong>✓ Success!</strong><br>' +
                                       'The shelf_assignments table has been fixed. You can now assign box sets to shelves!';
