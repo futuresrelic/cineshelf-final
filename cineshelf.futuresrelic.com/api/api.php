@@ -2910,7 +2910,8 @@ case 'resolve_movie':
             $movie = $stmt->fetch();
 
             if ($movie) {
-                // Movie exists, return it
+                // Movie exists, return it with movie_id alias for compatibility
+                $movie['movie_id'] = $movie['id'];
                 jsonResponse(true, $movie);
             } else {
                 // Movie doesn't exist, fetch from TMDB and create it
@@ -2997,6 +2998,8 @@ case 'resolve_movie':
                 $stmt->execute([$movieId]);
                 $movie = $stmt->fetch();
 
+                // Add movie_id alias for frontend compatibility
+                $movie['movie_id'] = $movie['id'];
                 jsonResponse(true, $movie);
             }
             break;
