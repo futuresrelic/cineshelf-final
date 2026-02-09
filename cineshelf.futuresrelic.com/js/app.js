@@ -2917,24 +2917,34 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
     // Update the list of movies in the box set
     function updateBoxSetMoviesList() {
+        console.log('[updateBoxSetMoviesList] Called with boxSetMovies.length:', boxSetMovies.length);
+        console.log('[updateBoxSetMoviesList] boxSetMovies:', boxSetMovies);
+
         const container = document.getElementById('boxSetMoviesContainer');
         const count = document.getElementById('boxSetMovieCount');
+
+        console.log('[updateBoxSetMoviesList] container element:', container);
+        console.log('[updateBoxSetMoviesList] count element:', count);
 
         // Only update count if element exists (may not exist in quick-create flow)
         if (count) {
             count.textContent = boxSetMovies.length;
+            console.log('[updateBoxSetMoviesList] Updated count to:', boxSetMovies.length);
         }
 
         // Only update container if element exists (may not exist in quick-create flow)
         if (!container) {
+            console.log('[updateBoxSetMoviesList] Container not found, returning');
             return;
         }
 
         if (boxSetMovies.length === 0) {
+            console.log('[updateBoxSetMoviesList] No movies, showing empty message');
             container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
             return;
         }
 
+        console.log('[updateBoxSetMoviesList] Rendering', boxSetMovies.length, 'movies');
         container.innerHTML = boxSetMovies.map((movie, index) => `
             <div style="display: flex; align-items: center; gap: 1rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
                 <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.3); width: 30px;">
@@ -3002,13 +3012,15 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         switchTab('collection');
     }
 
-    // View box set details (placeholder for now)
+    // View box set details
     function viewBoxSetDetails() {
-        if (!currentContainerId) return;
+        if (!currentContainerId) {
+            showToast('No box set selected', 'error');
+            return;
+        }
 
-        // This would open a modal showing the box set details
-        // For now, just show a toast
-        showToast('Box set details view coming soon!', 'info');
+        // Open the box set details modal
+        showBoxSetDetails(currentContainerId);
     }
 
     // Update spine color picker visibility
