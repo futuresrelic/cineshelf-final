@@ -3612,3 +3612,116 @@ select option {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
 }
+/* Box Sets Styles */
+.box-sets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.box-set-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+}
+
+.box-set-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: rgba(118, 75, 162, 0.5);
+    background: rgba(118, 75, 162, 0.1);
+}
+
+.box-set-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.box-set-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.box-set-card-info {
+    flex: 1;
+}
+
+.box-set-card-info h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.1rem;
+    color: white;
+}
+
+.box-set-card-info .format {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.box-set-card-stats {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.box-set-stat {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+.box-set-stat strong {
+    color: #764ba2;
+    font-weight: 600;
+}
+
+.box-set-movie-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.box-set-movie-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.box-set-movie-poster {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.box-set-movie-info {
+    flex: 1;
+}
+
+.box-set-movie-info h5 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.95rem;
+}
+
+.box-set-movie-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.box-set-movie-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.box-set-movie-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+}

@@ -83,6 +83,11 @@
                 <span class="tab-icon">📚</span>
                 <span class="tab-label">Shelves</span>
             </button>
+            <button class="tab" data-tab="boxsets" onclick="App.switchTab('boxsets')">
+                <span class="tab-icon">📦</span>
+                <span class="tab-label">Box Sets</span>
+                <span class="badge" id="boxsetsCount">0</span>
+            </button>
             <button class="tab" data-tab="add" onclick="App.switchTab('add')">
                 <span class="tab-icon">➕</span>
                 <span class="tab-label">Add Movie</span>
@@ -403,6 +408,36 @@
                     <h3>No shelves yet</h3>
                     <p>Create your first shelf to organize your physical collection!</p>
                     <button class="btn" onclick="App.showCreateShelfModal()">Create First Shelf</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Box Sets Tab -->
+        <section id="boxsets" class="tab-content">
+            <div class="boxsets-container">
+                <div class="section-header">
+                    <h2>📦 Box Set Manager</h2>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
+                        Manage your box sets, trilogy packs, and multi-movie collections
+                    </p>
+                </div>
+
+                <!-- Box Sets Actions -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="App.showCreateBoxSetModal()">
+                        ➕ Create New Box Set
+                    </button>
+                </div>
+
+                <!-- Box Sets List -->
+                <div id="boxSetsList" class="box-sets-grid"></div>
+
+                <!-- Empty State -->
+                <div id="emptyBoxSets" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📦</div>
+                    <h3>No box sets yet</h3>
+                    <p>Create your first box set to group movies that share the same physical case!</p>
+                    <button class="btn" onclick="App.showCreateBoxSetModal()">Create First Box Set</button>
                 </div>
             </div>
         </section>
@@ -1214,6 +1249,44 @@
             <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button class="btn-ghost" onclick="App.closeAssignToShelf()">Cancel</button>
                 <button class="btn" onclick="App.confirmAssignToShelf()">Assign</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Box Set Details Modal -->
+    <div id="boxSetDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="boxSetDetailsTitle">Box Set Details</h3>
+                <button class="modal-close" onclick="App.closeBoxSetDetails()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Box Set Info -->
+                <div id="boxSetInfo" style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div>
+                            <h4 id="boxSetName" style="margin: 0 0 0.5rem 0; font-size: 1.25rem;"></h4>
+                            <p id="boxSetFormat" style="color: rgba(255,255,255,0.7); margin: 0;"></p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-ghost" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
+                            <button class="btn-ghost" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="boxSetStats" style="color: rgba(255,255,255,0.8); font-size: 0.9rem;"></div>
+                </div>
+
+                <!-- Movies in Box Set -->
+                <div>
+                    <h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>Movies in Box Set</span>
+                        <span id="movieCount" class="badge" style="background: rgba(102, 126, 234, 0.3);"></span>
+                    </h4>
+                    <div id="boxSetMoviesList" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" onclick="App.closeBoxSetDetails()">Close</button>
             </div>
         </div>
     </div>
