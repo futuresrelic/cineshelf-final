@@ -4321,15 +4321,43 @@ case 'resolve_movie':
             }
 
             try {
-                // Execute the migration SQL
-                // Note: SQLite allows multiple statements separated by semicolons
-                $db->exec($sql);
+                // Begin transaction for atomic migration
+                $db->beginTransaction();
 
+                // Execute the migration SQL
+                // Note: exec() can handle multiple statements in SQLite
+                $result = $db->exec($sql);
+
+                // Commit transaction
+                $db->commit();
+
+                error_log('Migration executed successfully. Rows affected: ' . $result);
                 logAction($db, $userId, 'migration_executed', 'system', 0);
-                jsonResponse(true, ['message' => 'Migration executed successfully']);
+                jsonResponse(true, [
+                    'message' => 'Migration executed successfully',
+                    'rows_affected' => $result
+                ]);
             } catch (PDOException $e) {
-                error_log('Migration error: ' . $e->getMessage());
-                jsonResponse(false, null, 'Migration failed: ' . $e->getMessage());
+                // Rollback on error
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+
+                $errorMsg = $e->getMessage();
+                $errorCode = $e->getCode();
+                error_log('Migration error: ' . $errorMsg);
+                error_log('Error code: ' . $errorCode);
+                error_log('SQL was: ' . substr($sql, 0, 500));
+
+                jsonResponse(false, null, 'Migration failed: ' . $errorMsg . ' (Code: ' . $errorCode . ')');
+            } catch (Exception $e) {
+                // Handle other exceptions
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+
+                error_log('Unexpected migration error: ' . $e->getMessage());
+                jsonResponse(false, null, 'Unexpected error: ' . $e->getMessage());
             }
             break;
 

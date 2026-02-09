@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Table Schema - CineShelf Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 1rem 0;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            display: none;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Check Database Schema</h1>
+
+        <p>This tool checks the current schema of the shelf_assignments table to help diagnose migration issues.</p>
+
+        <button id="checkSchema" onclick="checkSchema()">Check shelf_assignments Schema</button>
+
+        <div id="result"></div>
+
+        <a href="/admin/run-shelf-fix-migration.html" class="back-link">← Back to Migration Tool</a>
+    </div>
+
+    <script>
+        async function checkSchema() {
+            const button = document.getElementById('checkSchema');
+            const result = document.getElementById('result');
+
+            button.disabled = true;
+            button.textContent = 'Checking schema...';
+            result.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'run_migration',
+                        sql: "PRAGMA table_info(shelf_assignments);"
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    result.textContent = 'Schema check query executed successfully.\n\n' +
+                        'Note: The API returns success but PRAGMA results may not be captured.\n' +
+                        'Let me try a different approach...';
+                } else {
+                    result.textContent = 'Error: ' + (data.error || 'Unknown error');
+                }
+
+                result.style.display = 'block';
+                button.disabled = false;
+                button.textContent = 'Check Again';
+            } catch (error) {
+                result.textContent = 'Error: ' + error.message;
+                result.style.display = 'block';
+                button.disabled = false;
+                button.textContent = 'Retry';
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

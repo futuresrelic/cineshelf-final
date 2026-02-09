@@ -162,8 +162,8 @@
             result.style.display = 'none';
 
             try {
-                // Fetch the migration SQL
-                const sqlResponse = await fetch('/migrations/fix_shelf_assignments_for_containers.sql');
+                // Fetch the migration SQL (safe version)
+                const sqlResponse = await fetch('/migrations/fix_shelf_assignments_safe.sql');
                 if (!sqlResponse.ok) {
                     throw new Error('Failed to load migration file');
                 }
@@ -174,6 +174,8 @@
                 sql = sql.split('\n')
                     .filter(line => !line.trim().startsWith('--'))
                     .join('\n');
+
+                console.log('Migration SQL:', sql);
 
                 // Run the migration
                 const response = await fetch('/api/api.php', {
@@ -188,7 +190,9 @@
                     })
                 });
 
+                console.log('Response status:', response.status);
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (data.success) {
                     result.className = 'success';
@@ -200,7 +204,9 @@
                 }
             } catch (error) {
                 result.className = 'error';
-                result.innerHTML = '<strong>✗ Error:</strong><br>' + error.message;
+                result.innerHTML = '<strong>✗ Error:</strong><br>' + error.message +
+                    '<br><br><small>Check browser console for more details</small>';
+                console.error('Full migration error:', error);
                 button.disabled = false;
                 button.textContent = 'Retry Migration';
             }
