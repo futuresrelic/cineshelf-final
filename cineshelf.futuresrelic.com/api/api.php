@@ -3577,7 +3577,7 @@ case 'resolve_movie':
             break;
 
         case 'get_unassigned_copies':
-            // Get copies not assigned to any shelf
+            // Get copies not assigned to any shelf AND not in any container
             $stmt = $db->prepare("
                 SELECT
                     c.id as copy_id,
@@ -3596,12 +3596,89 @@ case 'resolve_movie':
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id
                 LEFT JOIN shelf_assignments sa ON c.id = sa.copy_id
-                WHERE c.user_id = ? AND sa.id IS NULL
+                LEFT JOIN container_contents cc ON c.id = cc.copy_id
+                WHERE c.user_id = ?
+                    AND sa.id IS NULL
+                    AND cc.id IS NULL
                 ORDER BY COALESCE(m.display_title, m.title) ASC
             ");
             $stmt->execute([$userId]);
 
             jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'get_unassigned_containers':
+            // Get containers not assigned to any shelf
+            $stmt = $db->prepare("
+                SELECT
+                    c.id as container_id,
+                    c.name,
+                    c.spine_label,
+                    c.spine_image_type,
+                    c.spine_image_url,
+                    c.spine_color,
+                    c.format,
+                    c.edition,
+                    COUNT(cc.id) as movie_count
+                FROM containers c
+                LEFT JOIN container_contents cc ON c.id = cc.container_id
+                LEFT JOIN shelf_assignments sa ON c.id = sa.container_id AND sa.is_container = 1
+                WHERE c.user_id = ? AND sa.id IS NULL
+                GROUP BY c.id
+                ORDER BY c.name ASC
+            ");
+            $stmt->execute([$userId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'assign_container_to_shelf':
+            // Assign a container (box set) to a shelf
+            $shelfId = intval($input['shelf_id'] ?? 0);
+            $containerId = intval($input['container_id'] ?? 0);
+            $position = intval($input['position'] ?? -1);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (!$shelfId || !$containerId) {
+                jsonResponse(false, null, 'Shelf ID and container ID required');
+            }
+
+            // Verify shelf ownership
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $shelf = $stmt->fetch();
+
+            if (!$shelf || $shelf['user_id'] != $userId) {
+                jsonResponse(false, null, 'Shelf not found or access denied');
+            }
+
+            // Verify container ownership
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $container = $stmt->fetch();
+
+            if (!$container || $container['user_id'] != $userId) {
+                jsonResponse(false, null, 'Container not found or access denied');
+            }
+
+            // Check if already assigned
+            $stmt = $db->prepare("SELECT id FROM shelf_assignments WHERE container_id = ? AND is_container = 1");
+            $stmt->execute([$containerId]);
+            if ($stmt->fetch()) {
+                jsonResponse(false, null, 'Container already assigned to a shelf');
+            }
+
+            // Assign to shelf
+            $stmt = $db->prepare("
+                INSERT INTO shelf_assignments (shelf_id, container_id, is_container, position_in_shelf, assignment_notes)
+                VALUES (?, ?, 1, ?, ?)
+            ");
+            $stmt->execute([$shelfId, $containerId, $position, $notes ?: null]);
+
+            $assignmentId = $db->lastInsertId();
+            logAction($db, $userId, 'container_assigned_to_shelf', 'shelf_assignment', $assignmentId);
+
+            jsonResponse(true, ['assignment_id' => $assignmentId, 'message' => 'Container assigned to shelf']);
             break;
 
         case 'assign_to_shelf':

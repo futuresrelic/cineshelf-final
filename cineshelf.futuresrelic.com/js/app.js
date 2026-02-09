@@ -5055,7 +5055,23 @@ async function getCurrentUserId() {
 
     async function viewUnassignedCopies() {
         try {
-            unassignedMovies = await apiCall('get_unassigned_copies');
+            // Load both unassigned movies AND unassigned containers (box sets)
+            const [copies, containers] = await Promise.all([
+                apiCall('get_unassigned_copies'),
+                apiCall('get_unassigned_containers')
+            ]);
+
+            // Mark containers with is_container flag for rendering
+            const containersWithFlag = containers.map(c => ({
+                ...c,
+                is_container: true,
+                title: c.name, // Use container name as title for consistency
+                display_title: c.name
+            }));
+
+            // Combine both into unassignedMovies array
+            unassignedMovies = [...copies, ...containersWithFlag];
+
             selectedCopyIds.clear();
             renderUnassignedMovies();
             document.getElementById('unassignedModal').classList.add('active');
@@ -5134,26 +5150,52 @@ async function getCurrentUserId() {
             if (emptyState) emptyState.style.display = 'none';
 
             container.innerHTML = filtered.map(item => {
-                const isSelected = selectedCopyIds.has(item.copy_id);
-                return `
-                    <div class="unassigned-movie-card ${isSelected ? 'selected' : ''}" data-copy-id="${item.copy_id}">
-                        <input type="checkbox"
-                               class="movie-checkbox"
-                               ${isSelected ? 'checked' : ''}
-                               onchange="App.toggleMovieSelection(${item.copy_id})"
-                               onclick="event.stopPropagation()">
-                        <img src="${item.poster_url || '/placeholder.png'}"
-                             alt="${item.title}"
-                             class="unassigned-movie-poster"
-                             onclick="App.toggleMovieSelection(${item.copy_id})">
-                        <div class="unassigned-movie-info" onclick="App.toggleMovieSelection(${item.copy_id})">
-                            <h4>${item.display_title || item.title}</h4>
-                            <p>${item.year || 'N/A'}</p>
-                            ${item.director ? `<p style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${item.director}</p>` : ''}
-                            <div class="unassigned-movie-format">${item.format}</div>
+                // Handle both regular copies and containers (box sets)
+                const itemId = item.is_container ? `container_${item.container_id}` : item.copy_id;
+                const isSelected = selectedCopyIds.has(itemId);
+
+                if (item.is_container) {
+                    // Render box set / container
+                    return `
+                        <div class="unassigned-movie-card ${isSelected ? 'selected' : ''} container-card" data-item-id="${itemId}">
+                            <input type="checkbox"
+                                   class="movie-checkbox"
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="App.toggleMovieSelection('${itemId}')"
+                                   onclick="event.stopPropagation()">
+                            <div class="container-poster" style="background: ${item.spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;"
+                                 onclick="App.toggleMovieSelection('${itemId}')">
+                                📦
+                            </div>
+                            <div class="unassigned-movie-info" onclick="App.toggleMovieSelection('${itemId}')">
+                                <h4>${item.name}</h4>
+                                <p style="color: rgba(255,255,255,0.8);">${item.movie_count} movie${item.movie_count !== 1 ? 's' : ''}</p>
+                                <div class="unassigned-movie-format">${item.format || 'Box Set'}</div>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // Render regular movie copy
+                    return `
+                        <div class="unassigned-movie-card ${isSelected ? 'selected' : ''}" data-item-id="${itemId}">
+                            <input type="checkbox"
+                                   class="movie-checkbox"
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="App.toggleMovieSelection(${item.copy_id})"
+                                   onclick="event.stopPropagation()">
+                            <img src="${item.poster_url || '/placeholder.png'}"
+                                 alt="${item.title}"
+                                 class="unassigned-movie-poster"
+                                 onclick="App.toggleMovieSelection(${item.copy_id})">
+                            <div class="unassigned-movie-info" onclick="App.toggleMovieSelection(${item.copy_id})">
+                                <h4>${item.display_title || item.title}</h4>
+                                <p>${item.year || 'N/A'}</p>
+                                ${item.director ? `<p style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${item.director}</p>` : ''}
+                                <div class="unassigned-movie-format">${item.format}</div>
+                            </div>
+                        </div>
+                    `;
+                }
             }).join('');
         }
 
@@ -5219,8 +5261,11 @@ async function getCurrentUserId() {
     }
 
     function selectAllUnassigned() {
-        // Only select the currently filtered/visible movies
-        filteredUnassignedMovies.forEach(item => selectedCopyIds.add(item.copy_id));
+        // Only select the currently filtered/visible movies and containers
+        filteredUnassignedMovies.forEach(item => {
+            const itemId = item.is_container ? `container_${item.container_id}` : item.copy_id;
+            selectedCopyIds.add(itemId);
+        });
         renderUnassignedMovies();
     }
 
@@ -5272,40 +5317,63 @@ async function getCurrentUserId() {
         }
 
         const notes = document.getElementById('assignNotes').value.trim();
-        const copyIds = Array.from(selectedCopyIds);
+        const itemIds = Array.from(selectedCopyIds);
 
         try {
             let successCount = 0;
             let errorCount = 0;
 
-            // Assign each selected movie
-            for (const copyId of copyIds) {
+            // Assign each selected item (movie or container)
+            for (const itemId of itemIds) {
                 try {
-                    await apiCall('assign_to_shelf', {
-                        shelf_id: shelfId,
-                        copy_id: copyId,
-                        notes: notes || null
-                    });
+                    // Check if this is a container or a regular copy
+                    if (typeof itemId === 'string' && itemId.startsWith('container_')) {
+                        // It's a container - extract container_id and call container assignment endpoint
+                        const containerId = parseInt(itemId.replace('container_', ''));
+                        await apiCall('assign_container_to_shelf', {
+                            shelf_id: shelfId,
+                            container_id: containerId,
+                            notes: notes || null
+                        });
+                    } else {
+                        // It's a regular copy
+                        await apiCall('assign_to_shelf', {
+                            shelf_id: shelfId,
+                            copy_id: itemId,
+                            notes: notes || null
+                        });
+                    }
                     successCount++;
                 } catch (e) {
                     errorCount++;
-                    console.error('Failed to assign copy', copyId, e);
+                    console.error('Failed to assign item', itemId, e);
                 }
             }
 
             if (successCount > 0) {
-                showToast(`${successCount} movie${successCount > 1 ? 's' : ''} assigned to shelf!`, 'success');
+                showToast(`${successCount} item${successCount > 1 ? 's' : ''} assigned to shelf!`, 'success');
             }
             if (errorCount > 0) {
-                showToast(`${errorCount} movie${errorCount > 1 ? 's' : ''} failed to assign`, 'error');
+                showToast(`${errorCount} item${errorCount > 1 ? 's' : ''} failed to assign`, 'error');
             }
 
             closeAssignToShelf();
             selectedCopyIds.clear();
 
-            // Reload unassigned movies and refresh the list
-            const unassigned = await apiCall('get_unassigned_copies');
-            unassignedMovies = unassigned;
+            // Reload unassigned movies AND containers
+            const [copies, containers] = await Promise.all([
+                apiCall('get_unassigned_copies'),
+                apiCall('get_unassigned_containers')
+            ]);
+
+            const containersWithFlag = containers.map(c => ({
+                ...c,
+                is_container: true,
+                title: c.name,
+                display_title: c.name
+            }));
+
+            unassignedMovies = [...copies, ...containersWithFlag];
 
             // Reset filters to show all movies
             unassignedFilter = {

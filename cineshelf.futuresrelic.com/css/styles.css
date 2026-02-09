@@ -3345,6 +3345,30 @@ select option {
     cursor: pointer;
 }
 
+.container-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    cursor: pointer;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+}
+
+.unassigned-movie-card.container-card {
+    border-color: rgba(118, 75, 162, 0.3);
+}
+
+.unassigned-movie-card.container-card:hover {
+    border-color: rgba(118, 75, 162, 0.6);
+}
+
+.unassigned-movie-card.container-card.selected {
+    border-color: #764ba2;
+    background: rgba(118, 75, 162, 0.15);
+}
+
 .unassigned-movie-info {
     padding: 1rem;
     flex: 1;
