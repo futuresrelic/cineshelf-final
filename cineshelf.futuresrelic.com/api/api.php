@@ -3769,6 +3769,32 @@ case 'resolve_movie':
             jsonResponse(true, ['removed' => true]);
             break;
 
+        case 'remove_container_from_shelf':
+            $containerId = intval($input['container_id'] ?? 0);
+
+            if (!$containerId) {
+                jsonResponse(false, null, 'Container ID required');
+            }
+
+            // Verify ownership through shelf
+            $stmt = $db->prepare("
+                SELECT sa.id
+                FROM shelf_assignments sa
+                JOIN shelves s ON sa.shelf_id = s.id
+                WHERE sa.container_id = ? AND sa.is_container = 1 AND s.user_id = ?
+            ");
+            $stmt->execute([$containerId, $userId]);
+
+            if (!$stmt->fetch()) {
+                jsonResponse(false, null, 'Assignment not found or access denied');
+            }
+
+            $stmt = $db->prepare("DELETE FROM shelf_assignments WHERE container_id = ? AND is_container = 1");
+            $stmt->execute([$containerId]);
+
+            jsonResponse(true, ['removed' => true]);
+            break;
+
         case 'reorder_shelf_contents':
             $shelfId = intval($input['shelf_id'] ?? 0);
             $copyOrder = $input['copy_order'] ?? [];

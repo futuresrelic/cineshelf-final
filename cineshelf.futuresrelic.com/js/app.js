@@ -1805,6 +1805,11 @@ function getCertColor(cert) {
             loadShelves();
         }
 
+        // Load box sets when switching to box sets tab
+        if (tabName === 'boxsets') {
+            loadBoxSets();
+        }
+
         // Show type choice when switching to add tab
         if (tabName === 'add') {
             showAddTypeChoice();
@@ -2941,6 +2946,145 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             colorPicker.style.display = 'block';
         } else {
             colorPicker.style.display = 'none';
+        }
+    }
+
+    // ========================================
+    // BOX SET MANAGEMENT FUNCTIONS
+    // ========================================
+
+    // Load all box sets for the user
+    async function loadBoxSets() {
+        try {
+            const boxSets = await apiCall('list_containers');
+
+            const container = document.getElementById('boxSetsList');
+            const emptyState = document.getElementById('emptyBoxSets');
+
+            if (!boxSets || boxSets.length === 0) {
+                container.style.display = 'none';
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            container.style.display = 'grid';
+            emptyState.style.display = 'none';
+
+            container.innerHTML = boxSets.map(boxSet => `
+                <div class="box-set-card" onclick="App.showBoxSetDetails(${boxSet.id})">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0;">${boxSet.name}</h3>
+                            <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">
+                                ${boxSet.format || 'Box Set'} ${boxSet.edition ? `• ${boxSet.edition}` : ''}
+                            </div>
+                        </div>
+                        <div style="font-size: 2rem;">📦</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div class="box-set-stat">
+                            <strong>${boxSet.movie_count || 0}</strong>
+                            <span>Movie${boxSet.movie_count !== 1 ? 's' : ''}</span>
+                        </div>
+                        ${boxSet.spine_color ? `
+                            <div class="box-set-stat">
+                                <div style="width: 20px; height: 20px; background: ${boxSet.spine_color}; border-radius: 4px; margin: 0 auto;"></div>
+                                <span style="font-size: 0.75rem;">Spine</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Failed to load box sets:', error);
+            showToast('Failed to load box sets', 'error');
+        }
+    }
+
+    // Show box set details modal
+    async function showBoxSetDetails(containerId) {
+        try {
+            const data = await apiCall('get_container_contents', { container_id: containerId });
+            const { container, movies } = data;
+
+            currentContainerId = containerId;
+
+            // Update modal title and info
+            document.getElementById('boxSetDetailsTitle').textContent = container.name;
+            document.getElementById('boxSetName').textContent = container.name;
+            document.getElementById('boxSetFormat').textContent = `${container.format || 'Box Set'}${container.edition ? ` • ${container.edition}` : ''}`;
+            document.getElementById('boxSetStats').innerHTML = `
+                ${container.spine_label ? `<div><strong>Spine Label:</strong> ${container.spine_label}</div>` : ''}
+                ${container.condition ? `<div><strong>Condition:</strong> ${container.condition}</div>` : ''}
+            `;
+
+            // Update movie count badge
+            document.getElementById('movieCount').textContent = movies.length;
+
+            // Render movies list
+            const moviesList = document.getElementById('boxSetMoviesList');
+            if (movies.length === 0) {
+                moviesList.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center;">No movies in this box set yet.</p>';
+            } else {
+                moviesList.innerHTML = movies.map(movie => `
+                    <div class="box-set-movie-item">
+                        <img src="${movie.poster_url || '/placeholder.png'}"
+                             alt="${movie.display_title || movie.title}"
+                             class="box-set-movie-poster">
+                        <div class="box-set-movie-info">
+                            <h5>${movie.display_title || movie.title}</h5>
+                            <p>${movie.year || 'N/A'}${movie.director ? ` • ${movie.director}` : ''}</p>
+                            ${movie.disc_label ? `<p style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">Disc: ${movie.disc_label}</p>` : ''}
+                        </div>
+                        <div class="box-set-movie-actions">
+                            ${!movie.is_present ? '<span style="color: #ff6b6b; font-size: 0.85rem;">Missing</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Show modal
+            document.getElementById('boxSetDetailsModal').classList.add('active');
+        } catch (error) {
+            console.error('Failed to load box set details:', error);
+            showToast('Failed to load box set details', 'error');
+        }
+    }
+
+    // Close box set details modal
+    function closeBoxSetDetails() {
+        document.getElementById('boxSetDetailsModal').classList.remove('active');
+        currentContainerId = null;
+    }
+
+    // Show create box set modal (redirect to add tab)
+    function showCreateBoxSetModal() {
+        switchTab('add');
+        showAddBoxSet();
+    }
+
+    // Edit box set (placeholder for future enhancement)
+    function editBoxSet() {
+        if (!currentContainerId) return;
+        showToast('Box set editing coming soon!', 'info');
+    }
+
+    // Delete box set
+    async function deleteBoxSet() {
+        if (!currentContainerId) return;
+
+        if (!confirm('Are you sure you want to delete this box set? The movies inside will not be deleted.')) {
+            return;
+        }
+
+        try {
+            await apiCall('delete_container', { container_id: currentContainerId });
+            showToast('Box set deleted successfully', 'success');
+            closeBoxSetDetails();
+            loadBoxSets();
+        } catch (error) {
+            console.error('Failed to delete box set:', error);
+            showToast('Failed to delete box set', 'error');
         }
     }
 
@@ -5016,21 +5160,46 @@ async function getCurrentUserId() {
             } else {
                 if (emptyState) emptyState.style.display = 'none';
 
-                container.innerHTML = contents.map(item => `
-                    <div class="shelf-movie-card">
-                        <img src="${item.poster_url || '/placeholder.png'}"
-                             alt="${item.title}"
-                             class="shelf-movie-poster">
-                        <div class="shelf-movie-info">
-                            <h4>${item.display_title || item.title}</h4>
-                            <p>${item.year || 'N/A'}</p>
-                            <div class="shelf-movie-format">${item.format}</div>
-                        </div>
-                        <button class="btn-remove" onclick="App.removeFromShelf(${item.copy_id})" title="Remove from shelf">
-                            ×
-                        </button>
-                    </div>
-                `).join('');
+                container.innerHTML = contents.map(item => {
+                    // Handle both containers (box sets) and regular movies
+                    const isContainer = item.is_container === 1 || item.is_container === true;
+
+                    if (isContainer) {
+                        // Render container/box set
+                        return `
+                            <div class="shelf-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
+                                <div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                                    📦
+                                </div>
+                                <div class="shelf-movie-info">
+                                    <h4>${item.container_name || 'Box Set'}</h4>
+                                    <p>${item.container_movie_count || 0} movie${item.container_movie_count !== 1 ? 's' : ''}</p>
+                                    <div class="shelf-movie-format">${item.container_format || 'Box Set'}</div>
+                                </div>
+                                <button class="btn-remove" onclick="event.stopPropagation(); App.removeContainerFromShelf(${item.container_id});" title="Remove from shelf">
+                                    ×
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // Render regular movie
+                        return `
+                            <div class="shelf-movie-card">
+                                <img src="${item.poster_url || '/placeholder.png'}"
+                                     alt="${item.title}"
+                                     class="shelf-movie-poster">
+                                <div class="shelf-movie-info">
+                                    <h4>${item.display_title || item.title}</h4>
+                                    <p>${item.year || 'N/A'}</p>
+                                    <div class="shelf-movie-format">${item.format}</div>
+                                </div>
+                                <button class="btn-remove" onclick="App.removeFromShelf(${item.copy_id})" title="Remove from shelf">
+                                    ×
+                                </button>
+                            </div>
+                        `;
+                    }
+                }).join('');
             }
 
             document.getElementById('shelfContentsModal').classList.add('active');
@@ -5062,6 +5231,26 @@ async function getCurrentUserId() {
         } catch (error) {
             console.error('Failed to remove from shelf:', error);
             showToast('Failed to remove from shelf', 'error');
+        }
+    }
+
+    async function removeContainerFromShelf(containerId) {
+        if (!confirm('Remove this box set from the shelf?')) {
+            return;
+        }
+
+        try {
+            await apiCall('remove_container_from_shelf', { container_id: containerId });
+            showToast('Box set removed from shelf', 'success');
+
+            // Reload shelf contents and shelf list
+            if (currentShelf) {
+                viewShelfContents(currentShelf.id);
+            }
+            loadShelves();
+        } catch (error) {
+            console.error('Failed to remove container from shelf:', error);
+            showToast('Failed to remove container from shelf', 'error');
         }
     }
 
@@ -5504,6 +5693,12 @@ return {
     finishBoxSetCreation,
     viewBoxSetDetails,
     updateBoxSetSpinePreview,
+    loadBoxSets,
+    showBoxSetDetails,
+    closeBoxSetDetails,
+    showCreateBoxSetModal,
+    editBoxSet,
+    deleteBoxSet,
     switchGroupsTab: switchGroupsTab,
        loadGroups: loadGroups,
        showCreateGroupModal: showCreateGroupModal,
@@ -5561,6 +5756,7 @@ return {
     viewShelfContents,
     closeShelfContents,
     removeFromShelf,
+    removeContainerFromShelf,
     viewUnassignedCopies,
     closeUnassignedModal,
     openAssignToShelf,
