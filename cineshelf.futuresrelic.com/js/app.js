@@ -3215,8 +3215,17 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Close box set details modal
     function closeBoxSetDetails() {
         document.getElementById('boxSetDetailsModal').classList.remove('active');
-        currentContainerId = null;
-        currentContainer = null;
+
+        // DON'T clear currentContainerId if we're in the middle of box set creation
+        // (Check if boxSetStep2 is visible, which means we're adding movies)
+        const step2 = document.getElementById('boxSetStep2');
+        const isCreating = step2 && step2.style.display !== 'none';
+
+        if (!isCreating) {
+            // Only clear if we're NOT in creation mode
+            currentContainerId = null;
+            currentContainer = null;
+        }
     }
 
     // Show create box set modal (redirect to add tab)
@@ -3225,34 +3234,60 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         showAddBoxSet();
     }
 
-    // Edit box set
+    // Edit box set - opens interface to continue adding movies
     async function editBoxSet() {
         if (!currentContainerId || !currentContainer) return;
 
-        const newName = prompt('Enter new box set name:', currentContainer.name);
-        if (!newName || newName === currentContainer.name) return;
+        // Close the details modal
+        document.getElementById('boxSetDetailsModal').classList.remove('active');
 
+        // Switch to Add tab
+        switchTab('add');
+
+        // Show box set section
+        document.getElementById('addTypeChoice').style.display = 'none';
+        document.getElementById('addSingleMovieSection').style.display = 'none';
+        document.getElementById('addBoxSetSection').style.display = 'block';
+
+        // Show Step 2 (adding movies)
+        document.getElementById('boxSetStep1').style.display = 'none';
+        document.getElementById('boxSetStep2').style.display = 'block';
+
+        // Fetch current movies in this box set
         try {
-            await apiCall('update_container', {
-                container_id: currentContainerId,
-                name: newName,
-                spine_label: currentContainer.spine_label || newName,
-                format: currentContainer.format,
-                edition: currentContainer.edition || '',
-                condition: currentContainer.condition || '',
-                notes: currentContainer.notes || ''
-            });
+            const data = await apiCall('get_container_contents', { container_id: currentContainerId });
+            const { movies } = data;
 
-            showToast('Box set updated successfully', 'success');
+            // Populate boxSetMovies with existing movies
+            boxSetMovies = movies.map((m, index) => ({
+                movie_id: m.movie_id,
+                title: m.title,
+                year: m.year,
+                poster_url: m.poster_url,
+                tmdb_id: m.tmdb_id,
+                copy_id: m.copy_id,
+                disc_number: m.disc_number || (index + 1)
+            }));
 
-            // Refresh the box set details
-            await showBoxSetDetails(currentContainerId);
+            // Update UI
+            const createdNameEl = document.getElementById('boxSetCreatedName');
+            if (createdNameEl) {
+                createdNameEl.textContent = `📦 ${currentContainer.name} (Editing)`;
+            }
 
-            // Refresh the box sets list
-            await loadBoxSets();
+            // Clear search
+            const searchInput = document.getElementById('boxSetMovieSearch');
+            const searchResults = document.getElementById('boxSetSearchResults');
+            if (searchInput) searchInput.value = '';
+            if (searchResults) searchResults.innerHTML = '';
+
+            // Update the movie list
+            updateBoxSetMoviesList();
+
+            showToast(`Continue adding movies to "${currentContainer.name}"`, 'info');
         } catch (error) {
-            console.error('Failed to update box set:', error);
-            showToast('Failed to update box set', 'error');
+            console.error('Failed to load box set for editing:', error);
+            showToast('Failed to open box set for editing', 'error');
         }
     }
 
