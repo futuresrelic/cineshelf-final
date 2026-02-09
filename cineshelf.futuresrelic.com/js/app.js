@@ -3094,7 +3094,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             // Update modal title and info
             document.getElementById('boxSetDetailsTitle').textContent = container.name;
             document.getElementById('boxSetName').textContent = container.name;
-            document.getElementById('boxSetFormat').textContent = `${container.format || 'Box Set'}${container.edition ? ` • ${container.edition}` : ''}`;
+            document.getElementById('boxSetFormatDisplay').textContent = `${container.format || 'Box Set'}${container.edition ? ` • ${container.edition}` : ''}`;
             document.getElementById('boxSetStats').innerHTML = `
                 ${container.spine_label ? `<div><strong>Spine Label:</strong> ${container.spine_label}</div>` : ''}
                 ${container.condition ? `<div><strong>Condition:</strong> ${container.condition}</div>` : ''}
