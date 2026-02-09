@@ -1,6 +1,7 @@
 <?php
 /**
  * Get Current Version - Returns current app version
+ * Updated: 2026-02-09 - Box set system v2.3.0
  */
 
 header('Content-Type: application/json');
