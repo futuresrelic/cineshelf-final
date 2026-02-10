@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.1] - 2026-02-10
+
+### Added
+- **Spine view** for Shelf View parent/aggregate levels
+  - Each shelf section is shown as a row with a horizontal scrollable strip of spine labels
+  - Spines are narrow vertical strips, color-coded by format (4K gold, Blu-ray blue, DVD red, VHS green, etc.)
+  - Box set spines are wider with a purple gradient and film-count badge
+  - Hover any spine to expand it and reveal the title in horizontal readable text
+  - At the leaf (deepest) shelf level, switches to poster grid view
+
+### Changed
+- Shelf View now pre-fetches ALL shelf contents in parallel on entry (faster navigation, no per-level loading)
+- All movies from child shelves appear in the parent spine row (recursive aggregation) — "zoom in" effect
+
+### Fixed
+- Box set cards in Shelf View showed "0 films" — JS was reading `movie_count` but API returns `container_movie_count`
+
+---
+
 ## [2.4.0] - 2026-02-10
 
 ### Added

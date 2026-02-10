@@ -558,10 +558,21 @@ Shelf View lets you browse your collection the way you'd browse a real bookshelf
 - Click the **‹ Back** button to go up one level
 - Or click any item in the **breadcrumb trail** at the top (e.g. 🏠 All Shelves › Living Room) to jump directly to that level
 
-**What you see inside a shelf:**
-- **Sections** — any child shelves, shown as clickable cards with movie counts
-- **Movies** — poster grid of movies directly assigned to this shelf
-- **Box Sets** — shown with a 2×2 poster grid; click to open the box set details
+**What you see at a parent shelf (has sub-sections):**
+- Each sub-section shows as a **clickable header** + a **horizontal spine strip** below it
+- The spine strip shows **all movies** from that section and everything nested inside it
+- Spines are color-coded by format: 🟡 4K/UHD · 🔵 Blu-ray · 🔴 DVD · 🟢 VHS · 🟣 Box Set
+- **Hover** any spine to expand it and read the full title
+- Click a spine to open that movie or box set directly
+
+**What you see at the deepest shelf (no sub-sections):**
+- A poster grid of all movies directly on that shelf
+
+**The "zoom in" effect:**
+- At "All Shelves" you see every movie as spines, grouped by section
+- Click a section → zoom in, see only that section's movies as spines
+- Keep clicking deeper → fewer spines each time, more detail
+- At the innermost shelf → full poster grid
 
 ### Example: Browsing a Shelf Hierarchy
 

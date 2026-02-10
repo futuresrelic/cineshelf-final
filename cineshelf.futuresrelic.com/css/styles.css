@@ -338,7 +338,7 @@ select option {
 
 /* ========================================
    SHELF VIEW BROWSER (v2.4.0)
-   Hierarchical shelf navigation panel
+   Hierarchical shelf navigation + spine view
    ======================================== */
 
 /* Breadcrumb strip */
@@ -362,22 +362,16 @@ select option {
     transition: background 0.2s;
     margin-right: 0.5rem;
 }
-.shelf-view-back-btn:hover {
-    background: rgba(255,255,255,0.18);
-}
+.shelf-view-back-btn:hover { background: rgba(255,255,255,0.18); }
 
-.shelf-crumb {
-    color: rgba(255,255,255,0.55);
-    cursor: pointer;
-    transition: color 0.15s;
-}
+.shelf-crumb { color: rgba(255,255,255,0.55); cursor: pointer; transition: color 0.15s; }
 .shelf-crumb:hover { color: white; }
 .shelf-crumb-active { color: white; font-weight: 600; cursor: default; }
 .shelf-crumb-sep { color: rgba(255,255,255,0.3); }
 
-/* Section label */
+/* Section label (leaf view) */
 .shelf-view-section-label {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -385,50 +379,147 @@ select option {
     margin-bottom: 0.75rem;
 }
 
-/* Shelf cards grid */
-.shelf-view-shelves-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 0.5rem;
+/* ── SPINE VIEW (parent levels) ────────────────── */
+
+/* One row per shelf section */
+.shelf-row {
+    margin-bottom: 1.75rem;
 }
 
-.shelf-view-shelf-card {
+/* Clickable header above each spine row */
+.shelf-row-header {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: var(--radius);
-    padding: 0.85rem 1rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0;
     cursor: pointer;
-    transition: background 0.2s, transform 0.15s;
+    border-left: 4px solid var(--shelf-color, #667eea);
+    background: rgba(255,255,255,0.04);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transition: background 0.2s;
 }
-.shelf-view-shelf-card:hover {
-    background: rgba(255,255,255,0.1);
-    transform: translateX(4px);
+.shelf-row-header:hover { background: rgba(255,255,255,0.09); }
+.shelf-row-icon { font-size: 1.1rem; flex-shrink: 0; }
+.shelf-row-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+.shelf-row-meta { font-size: 0.78rem; color: rgba(255,255,255,0.45); }
+.shelf-row-arrow { font-size: 1.1rem; color: rgba(255,255,255,0.35); flex-shrink: 0; }
+
+/* Horizontal scrollable spine strip — like books standing on a shelf */
+.shelf-spine-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 2px;
+    overflow-x: auto;
+    padding: 0.6rem 0.5rem 0.5rem;
+    min-height: 150px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 0 0 var(--radius) var(--radius);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
-.shelf-view-shelf-icon { font-size: 1.5rem; flex-shrink: 0; }
-.shelf-view-shelf-info { flex: 1; min-width: 0; }
-.shelf-view-shelf-name {
+.shelf-spine-row::-webkit-scrollbar { height: 4px; }
+.shelf-spine-row::-webkit-scrollbar-track { background: transparent; }
+.shelf-spine-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+.spine-empty-msg {
+    color: rgba(255,255,255,0.25);
+    font-size: 0.82rem;
+    align-self: center;
+    padding: 0 0.75rem;
+}
+
+/* Individual spine (a single DVD/Blu-ray case standing upright) */
+.spine-item {
+    --spine-color: #667eea;
+    width: 22px;
+    min-width: 22px;
+    height: 130px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(to right,
+        color-mix(in srgb, var(--spine-color) 80%, black),
+        var(--spine-color),
+        color-mix(in srgb, var(--spine-color) 70%, white 20%),
+        var(--spine-color)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: width 0.18s ease, height 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 1px 0 3px rgba(0,0,0,0.5);
+}
+.spine-item:hover {
+    width: 90px;
+    height: 140px;
+    z-index: 10;
+    box-shadow: 4px 0 16px rgba(0,0,0,0.7);
+}
+
+/* Box set spine — wider, purple gradient */
+.spine-container {
+    width: 32px;
+    min-width: 32px;
+    height: 130px;
+    background: linear-gradient(to right, #4a1a6e, #7b2fbe, #9b59b6, #7b2fbe);
+}
+.spine-container:hover {
+    width: 110px;
+    height: 140px;
+}
+
+/* Spine title: vertical text that reads bottom→top */
+.spine-title {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.62rem;
     font-weight: 600;
-    font-size: 1rem;
+    color: rgba(255,255,255,0.92);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-.shelf-view-shelf-meta {
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.55);
-    margin-top: 0.15rem;
-}
-.shelf-view-drill-arrow {
-    font-size: 1.3rem;
-    color: rgba(255,255,255,0.4);
-    flex-shrink: 0;
+    max-height: 118px;
+    padding: 3px 1px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    transition: writing-mode 0.1s, transform 0.1s, white-space 0.1s, max-height 0.1s;
+    pointer-events: none;
 }
 
-/* Movies grid */
+/* On hover: switch to horizontal readable text */
+.spine-item:hover .spine-title {
+    writing-mode: horizontal-tb;
+    transform: none;
+    white-space: normal;
+    word-break: break-word;
+    max-height: none;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    text-align: center;
+    padding: 4px 6px;
+}
+
+/* Film count badge on box set spine */
+.spine-badge {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.28);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 1px 4px;
+    min-width: 14px;
+    text-align: center;
+    pointer-events: none;
+}
+
+/* ── POSTER GRID (leaf level) ──────────────────── */
 .shelf-view-movies-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -446,14 +537,12 @@ select option {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
-
 .shelf-view-poster {
     width: 100%;
     aspect-ratio: 2/3;
     object-fit: cover;
     display: block;
 }
-
 .shelf-view-poster-placeholder {
     width: 100%;
     aspect-ratio: 2/3;
@@ -464,22 +553,6 @@ select option {
     font-size: 2.5rem;
     color: rgba(255,255,255,0.3);
 }
-
-/* Box set card in shelf view */
-.shelf-view-movie-card.container-card .shelf-view-poster-wrap {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    aspect-ratio: 2/3;
-    overflow: hidden;
-    background: rgba(255,255,255,0.08);
-}
-.shelf-view-stack-poster {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
 .shelf-view-movie-title {
     font-size: 0.8rem;
     font-weight: 600;
@@ -499,6 +572,10 @@ select option {
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
         gap: 0.6rem;
     }
+    .spine-item { width: 18px; min-width: 18px; }
+    .spine-container { width: 26px; min-width: 26px; }
+    .spine-item:hover { width: 70px; }
+    .spine-container:hover { width: 90px; }
 }
 
 @keyframes fadeIn {

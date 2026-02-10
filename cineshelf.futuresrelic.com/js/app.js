@@ -1882,16 +1882,60 @@ function getCertColor(cert) {
     // ========================================
 
     let shelfViewStack = []; // [{id: null, name: 'All Shelves'}, {id:5, name:'Living Room'}, ...]
+    let shelfViewMoviesCache = {}; // keyed by shelf_id → array of items
+
+    // Format → spine color mapping
+    const SPINE_FORMAT_COLORS = {
+        '4k': '#c0a020', 'uhd': '#c0a020', 'blu-ray': '#1a6fd4', 'bluray': '#1a6fd4',
+        'blu_ray': '#1a6fd4', 'dvd': '#c0392b', 'vhs': '#27ae60', 'laserdisc': '#8e44ad',
+        '16mm': '#d35400', 'digital': '#2980b9'
+    };
+
+    function spineColorForItem(item, shelfColor) {
+        if (item.is_container) return null; // handled separately
+        const fmt = (item.format || '').toLowerCase();
+        for (const [key, val] of Object.entries(SPINE_FORMAT_COLORS)) {
+            if (fmt.includes(key)) return val;
+        }
+        return shelfColor || '#667eea';
+    }
+
+    // Recursively collect all items from shelfId and all descendants (deduped)
+    function getShelfMoviesRecursive(shelfId) {
+        const direct = shelfViewMoviesCache[shelfId] || [];
+        const children = shelves.filter(s => s.parent_shelf_id === shelfId);
+        let all = [...direct];
+        children.forEach(child => { all = all.concat(getShelfMoviesRecursive(child.id)); });
+        const seen = new Set();
+        return all.filter(item => {
+            const key = item.is_container ? `c_${item.container_id}` : `m_${item.copy_id}`;
+            if (seen.has(key)) return false;
+            seen.add(key); return true;
+        });
+    }
 
     async function loadShelfViewBrowse(reset = true) {
-        // Reset to root each time user clicks into Shelf View
         if (reset || shelfViewStack.length === 0) {
             shelfViewStack = [{ id: null, name: 'All Shelves' }];
         }
-        // Make sure shelves data is loaded
         if (!shelves || shelves.length === 0) {
             try { shelves = await apiCall('list_shelves'); } catch(e) {}
         }
+
+        // Pre-fetch ALL shelf contents in parallel and cache
+        const content = document.getElementById('shelfViewContent');
+        if (content) content.innerHTML = '<div style="text-align:center;padding:3rem;color:rgba(255,255,255,0.5)">Loading shelves…</div>';
+
+        shelfViewMoviesCache = {};
+        await Promise.all(shelves.map(async shelf => {
+            try {
+                const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                shelfViewMoviesCache[shelf.id] = items || [];
+            } catch(e) {
+                shelfViewMoviesCache[shelf.id] = [];
+            }
+        }));
+
         await renderShelfViewLevel();
     }
 
@@ -1907,6 +1951,57 @@ function getCertColor(cert) {
         }
     }
 
+    function renderSpineStrip(items, shelfColor) {
+        if (!items || items.length === 0) {
+            return `<span class="spine-empty-msg">Empty</span>`;
+        }
+        return items.map(item => {
+            if (item.is_container) {
+                const count = item.container_movie_count || 0;
+                const label = item.container_spine_label || item.container_name || 'Box Set';
+                return `<div class="spine-item spine-container"
+                             title="${(item.container_name || '').replace(/"/g,'&quot;')} · ${count} films"
+                             onclick="App.showBoxSetDetails(${item.container_id})">
+                            <span class="spine-title">${label}</span>
+                            ${count > 0 ? `<span class="spine-badge">${count}</span>` : ''}
+                        </div>`;
+            } else {
+                const color = spineColorForItem(item, shelfColor);
+                const title = (item.display_title || item.title || '').replace(/"/g,'&quot;');
+                return `<div class="spine-item"
+                             title="${title} (${item.year || '?'}) · ${item.format || ''}"
+                             onclick="App.viewMovieDetails(${item.copy_id})"
+                             style="--spine-color:${color}">
+                            <span class="spine-title">${item.display_title || item.title}</span>
+                        </div>`;
+            }
+        }).join('');
+    }
+
+    function renderPosterGrid(items) {
+        if (!items || items.length === 0) return '';
+        let html = `<div class="shelf-view-movies-grid">`;
+        items.forEach(item => {
+            if (item.is_container) {
+                html += `<div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
+                    <div class="shelf-view-poster-placeholder" style="font-size:2.5rem">📦</div>
+                    <div class="shelf-view-movie-title">${item.container_name}</div>
+                    <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
+                </div>`;
+            } else {
+                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.copy_id})">
+                    ${item.poster_url
+                        ? `<img src="${item.poster_url}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.parentElement.classList.add('no-poster');this.style.display='none'">`
+                        : `<div class="shelf-view-poster-placeholder">🎬</div>`}
+                    <div class="shelf-view-movie-title">${item.display_title || item.title}</div>
+                    <div class="shelf-view-movie-meta">${item.year || ''} · ${item.format || ''}</div>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+        return html;
+    }
+
     async function renderShelfViewLevel() {
         const content = document.getElementById('shelfViewContent');
         const breadcrumb = document.getElementById('shelfBreadcrumb');
@@ -1918,108 +2013,88 @@ function getCertColor(cert) {
         // Render breadcrumb trail
         breadcrumb.innerHTML = shelfViewStack.map((crumb, i) => {
             const isLast = i === shelfViewStack.length - 1;
-            if (isLast) {
-                return `<span class="shelf-crumb shelf-crumb-active">${i === 0 ? '🏠 ' : '📂 '}${crumb.name}</span>`;
-            }
-            return `<span class="shelf-crumb" onclick="App.shelfViewGoTo(${i})">` +
-                   `${i === 0 ? '🏠 ' : '📂 '}${crumb.name}</span>` +
+            const icon = i === 0 ? '🏠 ' : '📂 ';
+            if (isLast) return `<span class="shelf-crumb shelf-crumb-active">${icon}${crumb.name}</span>`;
+            return `<span class="shelf-crumb" onclick="App.shelfViewGoTo(${i})">${icon}${crumb.name}</span>` +
                    `<span class="shelf-crumb-sep">›</span>`;
         }).join('');
 
-        // Back button (shown unless at root)
         if (shelfViewStack.length > 1) {
             breadcrumb.innerHTML = `<button class="shelf-view-back-btn" onclick="App.shelfViewBack()">‹ Back</button> ` + breadcrumb.innerHTML;
         }
 
-        content.innerHTML = '<div style="text-align:center;padding:2rem;color:rgba(255,255,255,0.5)">Loading…</div>';
+        // Child shelves at this level
+        const childShelves = shelves.filter(s =>
+            parentId === null ? !s.parent_shelf_id : s.parent_shelf_id === parentId
+        );
 
-        try {
-            // Get child shelves at this level
-            const childShelves = shelves.filter(s =>
-                parentId === null ? !s.parent_shelf_id : s.parent_shelf_id === parentId
-            );
+        // Movies directly on this shelf (null = root, shows nothing direct)
+        const directItems = parentId !== null ? (shelfViewMoviesCache[parentId] || []) : [];
 
-            // Get movies directly on this shelf (if we're inside a shelf)
-            let directMovies = [];
-            if (parentId !== null) {
-                try {
-                    directMovies = await apiCall('get_shelf_contents', { shelf_id: parentId });
-                } catch (e) {
-                    directMovies = [];
-                }
-            }
+        // Leaf = no child shelves → show poster grid
+        const isLeaf = childShelves.length === 0;
 
-            let html = '';
+        let html = '';
 
-            // Render child shelves as clickable cards
-            if (childShelves.length > 0) {
-                html += `<div class="shelf-view-section-label">Sections</div>`;
-                html += `<div class="shelf-view-shelves-grid">`;
-                childShelves.forEach(shelf => {
-                    const childCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
-                    html += `
-                        <div class="shelf-view-shelf-card" onclick="App.shelfViewDrillIn(${shelf.id}, '${shelf.name.replace(/'/g, "\\'")}')"
-                             style="border-left: 4px solid ${shelf.color || '#667eea'}">
-                            <div class="shelf-view-shelf-icon">${shelf.icon || '📚'}</div>
-                            <div class="shelf-view-shelf-info">
-                                <div class="shelf-view-shelf-name">${shelf.name}</div>
-                                <div class="shelf-view-shelf-meta">
-                                    ${shelf.assigned_count || 0} movie${(shelf.assigned_count || 0) !== 1 ? 's' : ''}
-                                    ${childCount > 0 ? ` · ${childCount} section${childCount !== 1 ? 's' : ''}` : ''}
-                                </div>
-                            </div>
-                            <div class="shelf-view-drill-arrow">›</div>
-                        </div>`;
-                });
-                html += `</div>`;
-            }
-
-            // Render movies directly on this shelf
-            if (directMovies && directMovies.length > 0) {
-                html += `<div class="shelf-view-section-label" style="margin-top:${childShelves.length > 0 ? '1.5rem' : '0'}">
-                    Movies on this shelf (${directMovies.length})
+        if (isLeaf) {
+            // ── LEAF VIEW: poster grid ──────────────────────────────
+            if (directItems.length === 0) {
+                html = `<div class="empty-state" style="padding:3rem 0">
+                    <div class="empty-icon">📂</div><h3>Empty shelf</h3>
+                    <p>No movies assigned to this shelf yet.</p>
                 </div>`;
-                html += `<div class="shelf-view-movies-grid">`;
-                directMovies.forEach(item => {
-                    if (item.is_container) {
-                        html += `
-                            <div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
-                                <div class="shelf-view-poster-wrap">
-                                    ${item.poster_urls && item.poster_urls.length > 0
-                                        ? item.poster_urls.slice(0,4).map(url => `<img src="${url}" alt="" class="shelf-view-stack-poster" onerror="this.style.display='none'">`).join('')
-                                        : '<div class="shelf-view-poster-placeholder">📦</div>'}
-                                </div>
-                                <div class="shelf-view-movie-title">${item.container_name}</div>
-                                <div class="shelf-view-movie-meta">Box Set · ${item.movie_count || 0} films</div>
-                            </div>`;
-                    } else {
-                        html += `
-                            <div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.copy_id})">
-                                ${item.poster_url
-                                    ? `<img src="${item.poster_url}" alt="${item.title}" class="shelf-view-poster" onerror="this.src=''; this.parentElement.classList.add('no-poster')">`
-                                    : `<div class="shelf-view-poster-placeholder">🎬</div>`}
-                                <div class="shelf-view-movie-title">${item.title}</div>
-                                <div class="shelf-view-movie-meta">${item.year || ''} · ${item.format || ''}</div>
-                            </div>`;
-                    }
-                });
-                html += `</div>`;
+            } else {
+                html += `<div class="shelf-view-section-label">MOVIES ON THIS SHELF (${directItems.length})</div>`;
+                html += renderPosterGrid(directItems);
             }
+        } else {
+            // ── PARENT VIEW: one spine row per child shelf ──────────
+            childShelves.forEach(shelf => {
+                const shelfMovies = getShelfMoviesRecursive(shelf.id);
+                const subSectionCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
+                const safeName = shelf.name.replace(/'/g, "\\'");
+                html += `
+                <div class="shelf-row">
+                    <div class="shelf-row-header" onclick="App.shelfViewDrillIn(${shelf.id}, '${safeName}')"
+                         style="border-left-color:${shelf.color || '#667eea'}">
+                        <span class="shelf-row-icon">${shelf.icon || '📂'}</span>
+                        <span class="shelf-row-name">${shelf.name}</span>
+                        <span class="shelf-row-meta">
+                            ${shelfMovies.length} film${shelfMovies.length !== 1 ? 's' : ''}
+                            ${subSectionCount > 0 ? ` · ${subSectionCount} section${subSectionCount !== 1 ? 's' : ''}` : ''}
+                        </span>
+                        <span class="shelf-row-arrow">›</span>
+                    </div>
+                    <div class="shelf-spine-row" style="--shelf-color:${shelf.color || '#667eea'}">
+                        ${renderSpineStrip(shelfMovies, shelf.color || '#667eea')}
+                    </div>
+                </div>`;
+            });
 
-            if (childShelves.length === 0 && directMovies.length === 0) {
-                html = `<div class="empty-state" style="padding:3rem 0;">
-                    <div class="empty-icon">📂</div>
-                    <h3>Empty shelf</h3>
-                    <p>No sections or movies here yet.</p>
+            // Direct movies on this (non-root) shelf shown as its own spine row
+            if (directItems.length > 0) {
+                const shelfColor = shelves.find(s => s.id === parentId)?.color || '#667eea';
+                html += `
+                <div class="shelf-row">
+                    <div class="shelf-row-header" style="cursor:default;border-left-color:${shelfColor}">
+                        <span class="shelf-row-name">Directly on this shelf</span>
+                        <span class="shelf-row-meta">${directItems.length} film${directItems.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="shelf-spine-row">
+                        ${renderSpineStrip(directItems, shelfColor)}
+                    </div>
                 </div>`;
             }
 
-            content.innerHTML = html;
-
-        } catch (err) {
-            console.error('[ShelfView] Error:', err);
-            content.innerHTML = '<p style="color:#ef4444;padding:1rem;">Failed to load shelf contents.</p>';
+            if (childShelves.length === 0 && directItems.length === 0) {
+                html = `<div class="empty-state" style="padding:3rem 0">
+                    <div class="empty-icon">📂</div><h3>No shelves yet</h3>
+                    <p>Create a shelf to start organizing.</p>
+                </div>`;
+            }
         }
+
+        content.innerHTML = html;
     }
 
     function shelfViewGoTo(stackIndex) {
