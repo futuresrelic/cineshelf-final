@@ -1970,7 +1970,7 @@ function getCertColor(cert) {
                 const title = (item.display_title || item.title || '').replace(/"/g,'&quot;');
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
-                             onclick="App.viewMovieDetails(${item.copy_id})"
+                             onclick="App.viewMovieDetails(${item.movie_id})"
                              style="--spine-color:${color}">
                             <span class="spine-title">${item.display_title || item.title}</span>
                         </div>`;
@@ -1989,7 +1989,7 @@ function getCertColor(cert) {
                     <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
                 </div>`;
             } else {
-                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.copy_id})">
+                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.movie_id})">
                     ${item.poster_url
                         ? `<img src="${item.poster_url}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.parentElement.classList.add('no-poster');this.style.display='none'">`
                         : `<div class="shelf-view-poster-placeholder">🎬</div>`}
