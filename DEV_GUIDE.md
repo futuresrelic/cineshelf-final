@@ -1673,15 +1673,43 @@ async function filterByShelf() {
 
 ### 1. Collection Management
 
-**Main Tab:** Collection
+**Main Tab:** Collection (contains three sub-views as of v2.3.0)
 
-**Features:**
-- Grid/List view toggle
+**Sub-views** (switched via pill-style nav buttons inside the Collection tab):
+
+| Sub-view | State value | Content | Controls visible |
+|---|---|---|---|
+| Movies | `'movies'` | Collection grid | All filter/sort/view controls |
+| Wishlist | `'wishlist'` | Wishlist grid | Browse Lists button |
+| Physical Media | `'physical'` | Box sets list | Create Box Set button |
+
+**Key state:** `currentCollectionSubview` — tracks active sub-view (`'movies'` | `'wishlist'` | `'physical'`)
+
+**Key function:** `switchCollectionView(view)` — updates button active states, shows/hides sub-panels, controls filter visibility, updates section header, loads data
+
+**Legacy stubs:** `<section id="wishlist">` and `<section id="boxsets">` remain as empty DOM elements so `getElementById` calls never break. `switchTab('wishlist')` and `switchTab('boxsets')` both redirect to the appropriate sub-view inside Collection.
+
+**Features (Movies sub-view):**
+- Grid/List/Compact view toggle
 - Sort by: Title, Year, Format, Director
 - Search by title
+- Advanced filter bar (shelf, genre, format, decade)
 - Quick stats (total movies, formats)
 - Edit copy details (format, edition, condition)
 - Delete copies
+
+**Features (Wishlist sub-view):**
+- Priority levels (High, Medium, Low)
+- Target format (DVD, Blu-ray, 4K)
+- Notes field
+- Move to collection button
+- Browse preset lists button
+
+**Features (Physical Media sub-view):**
+- View owned box sets / containers (DVD, Blu-ray, VHS, 4K, 16mm, etc.)
+- Create new box set
+- Edit / delete box sets
+- Movies inside box sets are also reflected individually in the Movies sub-view
 
 **API Actions:**
 - `get_collection` - Fetch all user's copies
@@ -1691,7 +1719,7 @@ async function filterByShelf() {
 
 ### 2. Wishlist
 
-**Main Tab:** Wishlist
+**Location:** Collection tab → Wishlist sub-view (v2.3.0+; previously its own tab)
 
 **Features:**
 - Priority levels (High, Medium, Low)

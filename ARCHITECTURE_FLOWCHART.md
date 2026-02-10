@@ -998,8 +998,7 @@ index.html
 │   │   └── Logout button
 │   │
 │   ├── Navigation Tabs (icon-only)
-│   │   ├── 📚 Collection tab
-│   │   ├── ❤️ Wishlist tab
+│   │   ├── 📚 Collection tab  ← Wishlist & Physical Media now live here (v2.3.0)
 │   │   ├── 👨‍👩‍👧‍👦 Groups tab
 │   │   ├── 📚 Shelves tab
 │   │   ├── ➕ Add tab
@@ -1009,19 +1008,29 @@ index.html
 │   │
 │   ├── Tab Content Containers
 │   │   │
-│   │   ├── #collectionTab
-│   │   │   ├── Controls
+│   │   ├── #collection (tab-content)
+│   │   │   ├── .collection-subview-nav (pill buttons)
+│   │   │   │   ├── [🎬 Movies] ← currentCollectionSubview='movies'
+│   │   │   │   ├── [❤️ Wishlist] ← currentCollectionSubview='wishlist'
+│   │   │   │   └── [📦 Physical Media] ← currentCollectionSubview='physical'
+│   │   │   ├── Controls (hidden for wishlist/physical sub-views)
 │   │   │   │   ├── Search input
 │   │   │   │   ├── Shelf filter dropdown
 │   │   │   │   ├── Sort dropdown
 │   │   │   │   └── View toggle (grid/list)
-│   │   │   ├── Stats (count, formats)
-│   │   │   └── Movie Grid/List
-│   │   │       └── Movie Cards (dynamically rendered)
+│   │   │   ├── #subviewMovies (sub-panel)
+│   │   │   │   ├── Stats (count, formats)
+│   │   │   │   └── Movie Grid/List
+│   │   │   │       └── Movie Cards (dynamically rendered)
+│   │   │   ├── #subviewWishlist (sub-panel, hidden by default)
+│   │   │   │   ├── Browse Lists button
+│   │   │   │   └── Wishlist Items
+│   │   │   └── #subviewPhysical (sub-panel, hidden by default)
+│   │   │       ├── Create Box Set button
+│   │   │       └── Box Set / Container List
 │   │   │
-│   │   ├── #wishlistTab
-│   │   │   ├── Search/Filter
-│   │   │   └── Wishlist Items
+│   │   ├── #wishlist (empty legacy stub — keeps getElementById working)
+│   │   ├── #boxsets (empty legacy stub — keeps getElementById working)
 │   │   │
 │   │   ├── #groupsTab
 │   │   │   ├── Group list
@@ -1146,7 +1155,13 @@ let originalCollection = [];
 let wishlist = [];
   ├─ Structure: Array of { movie: {...}, priority, notes }
   ├─ Set on: loadWishlist()
-  └─ Used in: Wishlist tab rendering
+  └─ Used in: Collection tab → Wishlist sub-view (v2.3.0+)
+
+// Collection Sub-view State (v2.3.0+)
+let currentCollectionSubview = 'movies';
+  ├─ Values: 'movies' | 'wishlist' | 'physical'
+  ├─ Set on: switchCollectionView(view)
+  └─ Used in: updateBadges(), switchCollectionView()
 
 // Shelf Management
 let shelves = [];

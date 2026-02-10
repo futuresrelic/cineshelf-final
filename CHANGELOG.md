@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2026-02-10
+
+### Added
+- **Consolidated Collection tab** with three sub-views switchable by pill-style navigation buttons
+  - **Movies** sub-view: existing collection grid with all filter/sort/view controls
+  - **Wishlist** sub-view: wishlist grid with Browse Lists button
+  - **Physical Media** sub-view: box sets / containers list with Create Box Set button
+- `switchCollectionView(view)` function to switch between Movies | Wishlist | Physical Media
+- `currentCollectionSubview` state variable tracking the active sub-view
+- CSS pill-style sub-navigation (`.collection-subview-nav`, `.subview-btn`, `.subview-panel`, `.subview-toolbar`)
+- Badge counts on sub-navigation buttons (collection count on Movies, wishlist count on Wishlist)
+
+### Changed
+- Removed **Wishlist** and **Box Sets** tabs from main navigation bar — both now live inside the Collection tab
+- `switchTab('wishlist')` redirects to Collection → Wishlist sub-view
+- `switchTab('boxsets')` redirects to Collection → Physical Media sub-view
+- After adding a movie to wishlist, app now navigates to Collection → Wishlist sub-view
+- `updateBadges()` now updates the collection header based on the active sub-view
+- Shelf filter, sort dropdown, and filter bar are hidden when Wishlist or Physical Media sub-view is active
+
+### Fixed
+- `wishlistHeader` stale DOM reference in `updateBadges()` — replaced with context-aware header update
+
+---
+
 ## [2.2.15] - 2026-02-09
 
 ### Added

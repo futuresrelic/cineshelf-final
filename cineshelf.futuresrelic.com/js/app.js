@@ -69,6 +69,7 @@ const App = (function() {
     let currentUser = localStorage.getItem('cineshelf_user') || 'default';
     let currentTab = 'collection';
     let currentView = 'grid';
+    let currentCollectionSubview = 'movies'; // 'movies' | 'wishlist' | 'physical'
     let collection = [];
     let originalCollection = []; // Store full collection for filtering
     let wishlist = [];
@@ -1351,8 +1352,9 @@ function renderCollection() {
             // Reload wishlist
             loadWishlist();
             
-            // Switch to wishlist tab
-            switchTab('wishlist');
+            // Switch to wishlist sub-view inside Collection tab
+            switchTab('collection');
+            switchCollectionView('wishlist');
             
         } catch (error) {
             console.error('Failed to add to wishlist:', error);
@@ -1776,6 +1778,18 @@ function getCertColor(cert) {
     // ========================================
     
     function switchTab(tabName) {
+        // Redirect legacy wishlist/boxsets tabs to collection sub-views
+        if (tabName === 'wishlist') {
+            switchTab('collection');
+            switchCollectionView('wishlist');
+            return;
+        }
+        if (tabName === 'boxsets') {
+            switchTab('collection');
+            switchCollectionView('physical');
+            return;
+        }
+
         currentTab = tabName;
 
         // Hide all tabs
@@ -1805,14 +1819,56 @@ function getCertColor(cert) {
             loadShelves();
         }
 
-        // Load box sets when switching to box sets tab
-        if (tabName === 'boxsets') {
-            loadBoxSets();
+        // Restore collection sub-view when switching to collection tab
+        if (tabName === 'collection') {
+            switchCollectionView(currentCollectionSubview);
         }
 
         // Show type choice when switching to add tab
         if (tabName === 'add') {
             showAddTypeChoice();
+        }
+    }
+
+    function switchCollectionView(view) {
+        currentCollectionSubview = view;
+
+        // Update sub-nav button states
+        document.querySelectorAll('.subview-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.subview === view);
+        });
+
+        // Show/hide sub-panels
+        const panels = {
+            movies:   document.getElementById('subviewMovies'),
+            wishlist: document.getElementById('subviewWishlist'),
+            physical: document.getElementById('subviewPhysical')
+        };
+        Object.entries(panels).forEach(([key, el]) => {
+            if (el) el.style.display = key === view ? 'block' : 'none';
+        });
+
+        // Show shelf filter and main sort only for Movies sub-view
+        const shelfFilter = document.getElementById('shelfFilter');
+        const sortBy = document.getElementById('sortBy');
+        const filterBar = document.getElementById('filterBar');
+        if (shelfFilter) shelfFilter.style.display = view === 'movies' ? '' : 'none';
+        if (sortBy)      sortBy.style.display      = view === 'movies' ? '' : 'none';
+        if (filterBar)   filterBar.style.display    = view === 'movies' ? '' : 'none';
+
+        // Update the section heading
+        const header = document.getElementById('collectionHeader');
+        if (header) {
+            if (view === 'movies')   header.textContent = `Your Collection (${collection.length})`;
+            if (view === 'wishlist') header.textContent = `Your Wishlist (${wishlist.length})`;
+            if (view === 'physical') header.textContent = 'Physical Media';
+        }
+
+        // Load data for the selected sub-view
+        if (view === 'wishlist') {
+            loadWishlist();
+        } else if (view === 'physical') {
+            loadBoxSets();
         }
     }
     
@@ -1876,15 +1932,16 @@ function getCertColor(cert) {
     document.getElementById('collectionCount').textContent = collectionCount;
     document.getElementById('wishlistCount').textContent = wishlistCount;
     
-    // Update section headers (if they exist)
+    // Update section header based on active sub-view
     const collectionHeader = document.getElementById('collectionHeader');
     if (collectionHeader) {
-        collectionHeader.textContent = `Your Collection (${collectionCount})`;
-    }
-    
-    const wishlistHeader = document.getElementById('wishlistHeader');
-    if (wishlistHeader) {
-        wishlistHeader.textContent = `Your Wishlist (${wishlistCount})`;
+        if (currentCollectionSubview === 'wishlist') {
+            collectionHeader.textContent = `Your Wishlist (${wishlistCount})`;
+        } else if (currentCollectionSubview === 'physical') {
+            collectionHeader.textContent = 'Physical Media';
+        } else {
+            collectionHeader.textContent = `Your Collection (${collectionCount})`;
+        }
     }
 }
     
@@ -5856,6 +5913,7 @@ async function getCurrentUserId() {
 return {
     init,
     switchTab,
+    switchCollectionView,
     setView,
     searchMovies,
     selectMovie,

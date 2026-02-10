@@ -77,15 +77,14 @@ CineShelf is a Progressive Web App (PWA), which means you can install it on your
 
 ### Understanding the Interface
 
-**Navigation Tabs (NEW in v2.2.14):**
-- Tabs now show **icons only** for a cleaner look
+**Navigation Tabs (updated in v2.3.0):**
+- Tabs show **icons only** for a cleaner look
 - Hover over any tab to see what it does
 - The active tab's name appears as the page heading
-- Badge numbers show on Collection, Wishlist, and Resolve tabs
+- Badge numbers show movie counts on the Collection tab
 
 **Available Tabs:**
-- 📚 **Collection** - Your movie library
-- ❤️ **Wishlist** - Movies you want to buy
+- 📚 **Collection** - Your movie library, wishlist, and physical media (all in one!)
 - 👨‍👩‍👧‍👦 **Groups** - Family collections and borrowing
 - 📚 **Shelves** - Physical shelf organization
 - ➕ **Add Movie** - Search and add new movies
@@ -93,9 +92,19 @@ CineShelf is a Progressive Web App (PWA), which means you can install it on your
 - 🔍 **Resolve** - (Admins only) Match unidentified movies
 - ⚙️ **Settings** - Preferences and account
 
+**The Collection Tab — Three Views in One (v2.3.0+):**
+
+Inside the Collection tab, use the pill buttons at the top to switch views:
+
+| Button | What you see |
+|---|---|
+| 🎬 Movies | Your full movie collection (filter, sort, grid/list view) |
+| ❤️ Wishlist | Movies you want to buy |
+| 📦 Physical Media | Your owned box sets, DVD collections, multi-movie packages |
+
 **Finding Your Way:**
 - Active tab is highlighted
-- Page heading shows current section name
+- Active sub-view button is highlighted in the collection area
 - Tabs work on all screen sizes (mobile, tablet, desktop)
 
 ---
@@ -372,8 +381,13 @@ Step 2: Add Movies
 
 ### Viewing Box Sets in Your Collection
 
-**Collection Tab:**
-- Movies show individually with their posters
+**Collection Tab → Physical Media:**
+- Go to the Collection tab and click **📦 Physical Media**
+- Each box set shows as one item with its name, format, and movie count
+- Click "View Details" to see all movies inside that box set
+
+**Collection Tab → Movies:**
+- Movies inside box sets also appear individually in the Movies view
 - Each movie displays "📦 Part of [Box Set Name]"
 - Click box set name to see all movies in that box set
 
@@ -495,8 +509,9 @@ Movies you want to buy but don't own yet.
 
 ### Viewing Your Wishlist
 
-1. **Click "Wishlist" Tab**
-2. **See All Wishlisted Movies**
+1. **Click the "Collection" Tab**
+2. **Click the ❤️ Wishlist button** at the top of the collection area
+3. **See All Wishlisted Movies**
    - Sorted by priority (highest first)
    - Shows target format and max price
 

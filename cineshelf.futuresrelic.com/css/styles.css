@@ -258,6 +258,84 @@ select option {
     animation: fadeIn 0.3s;
 }
 
+/* ========================================
+   COLLECTION SUB-NAVIGATION (v2.3.0)
+   Pill-style switcher inside Collection tab
+   ======================================== */
+.collection-subview-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.subview-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    position: relative;
+    white-space: nowrap;
+}
+
+.subview-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.subview-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    font-weight: 600;
+}
+
+.subview-btn .badge {
+    position: static;
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.1rem 0.35rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 16px;
+    text-align: center;
+}
+
+.subview-btn.active .badge {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.subview-panel {
+    /* Each sub-panel is shown/hidden via JS inline style */
+}
+
+.subview-toolbar {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+@media (max-width: 480px) {
+    .collection-subview-nav {
+        gap: 0.4rem;
+    }
+    .subview-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.82rem;
+    }
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }

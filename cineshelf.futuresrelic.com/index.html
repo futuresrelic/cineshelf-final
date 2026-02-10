@@ -70,11 +70,6 @@
                 <span class="tab-label">Collection</span>
                 <span class="badge" id="collectionCount"></span>
             </button>
-            <button class="tab" data-tab="wishlist" onclick="App.switchTab('wishlist')">
-                <span class="tab-icon">❤️️</span>
-                <span class="tab-label">Wishlist</span>
-                <span class="badge" id="wishlistCount">0</span>
-            </button>
             <button class="tab" data-tab="groups" onclick="App.switchTab('groups')">
                 <span class="tab-icon">👨‍👩‍👧‍👦</span>
                 <span class="tab-label">Groups</span>
@@ -82,11 +77,6 @@
             <button class="tab" data-tab="shelves" onclick="App.switchTab('shelves')">
                 <span class="tab-icon">📚</span>
                 <span class="tab-label">Shelves</span>
-            </button>
-            <button class="tab" data-tab="boxsets" onclick="App.switchTab('boxsets')">
-                <span class="tab-icon">📦</span>
-                <span class="tab-label">Box Sets</span>
-                <span class="badge" id="boxsetsCount">0</span>
             </button>
             <button class="tab" data-tab="add" onclick="App.switchTab('add')">
                 <span class="tab-icon">➕</span>
@@ -111,8 +101,25 @@
     <!-- Main Content -->
     <main class="main-content">
         
-        <!-- Collection Tab -->
+        <!-- Collection Tab (Movies + Wishlist + Physical Media) -->
         <section id="collection" class="tab-content active">
+
+            <!-- Sub-navigation: switch between the three views -->
+            <div class="collection-subview-nav">
+                <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')">
+                    🎬 Movies
+                    <span class="badge" id="collectionCount"></span>
+                </button>
+                <button class="subview-btn" data-subview="wishlist" onclick="App.switchCollectionView('wishlist')">
+                    ❤️ Wishlist
+                    <span class="badge" id="wishlistCount">0</span>
+                </button>
+                <button class="subview-btn" data-subview="physical" onclick="App.switchCollectionView('physical')">
+                    📦 Physical Media
+                </button>
+            </div>
+
+            <!-- Shared top controls: sort, view toggle (shelf filter is movies-only) -->
             <div class="section-header">
                 <h2 id="collectionHeader">Your Collection</h2>
                 <div class="view-controls">
@@ -136,127 +143,146 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Netflix Filter Bar - Collection Only -->
-            <div class="filter-bar" id="filterBar">
-                <button class="btn-ghost" onclick="App.toggleFilters()" id="filterToggleBtn">
-                    🔍 Filters & Sort
-                </button>
-                
-                <div class="filter-controls" id="filterControls" style="display: none;">
-                    <div class="filter-group" style="grid-column: 1 / -1;">
-                        <label>Search by Name</label>
-                        <input type="text" id="filterSearch" placeholder="Search movies by title..."
-                               oninput="App.onFilterChange('search', this.value)"
-                               style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
-                    </div>
 
-                    <div class="filter-group">
-                        <label>Sort By</label>
-                        <select id="sortBySelect" onchange="App.sortMoviesEnhanced(this.value)">
-                            <option value="title">Title (A-Z)</option>
-                            <option value="title-desc">Title (Z-A)</option>
-                            <option value="year-desc">Year (Newest)</option>
-                            <option value="year">Year (Oldest)</option>
-                            <option value="rating-desc">Rating (High)</option>
-                            <option value="rating">Rating (Low)</option>
-                            <option value="director">Director (A-Z)</option>
-                            <option value="director-desc">Director (Z-A)</option>
-                            <option value="runtime-desc">Runtime (Long)</option>
-                            <option value="runtime">Runtime (Short)</option>
-                            <option value="certification">Rating (G-R)</option>
-                            <option value="added-desc">Recently Added</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>Director</label>
-                        <select id="filterDirector" onchange="App.onFilterChange('director', this.value)">
-                            <option value="all">All Directors</option>
-                        </select>
-                    </div>
+            <!-- ── SUB-PANEL: Movies ── -->
+            <div id="subviewMovies" class="subview-panel">
 
-                    <div class="filter-group">
-                        <label>Actor</label>
-                        <select id="filterActor" onchange="App.onFilterChange('actor', this.value)">
-                            <option value="all">All Actors</option>
-                        </select>
-                    </div>
+                <!-- Netflix Filter Bar -->
+                <div class="filter-bar" id="filterBar">
+                    <button class="btn-ghost" onclick="App.toggleFilters()" id="filterToggleBtn">
+                        🔍 Filters &amp; Sort
+                    </button>
 
-                    <div class="filter-group">
-                        <label>Studio</label>
-                        <select id="filterStudio" onchange="App.onFilterChange('studio', this.value)">
-                            <option value="all">All Studios</option>
-                        </select>
-                    </div>
+                    <div class="filter-controls" id="filterControls" style="display: none;">
+                        <div class="filter-group" style="grid-column: 1 / -1;">
+                            <label>Search by Name</label>
+                            <input type="text" id="filterSearch" placeholder="Search movies by title..."
+                                   oninput="App.onFilterChange('search', this.value)"
+                                   style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                        </div>
 
-                    <div class="filter-group">
-                        <label>Genre</label>
-                        <select id="filterGenre" onchange="App.onFilterChange('genre', this.value)">
-                            <option value="all">All Genres</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>Rating</label>
-                        <select id="filterCertification" onchange="App.onFilterChange('certification', this.value)">
-                            <option value="all">All Ratings</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>Year Range</label>
-                        <div class="year-range">
-                            <input type="number" id="filterYearMin" placeholder="From" min="1900" max="2025" 
-                                   onchange="App.onFilterChange('yearMin', this.value)">
-                            <span>to</span>
-                            <input type="number" id="filterYearMax" placeholder="To" min="1900" max="2025" 
-                                   onchange="App.onFilterChange('yearMax', this.value)">
+                        <div class="filter-group">
+                            <label>Sort By</label>
+                            <select id="sortBySelect" onchange="App.sortMoviesEnhanced(this.value)">
+                                <option value="title">Title (A-Z)</option>
+                                <option value="title-desc">Title (Z-A)</option>
+                                <option value="year-desc">Year (Newest)</option>
+                                <option value="year">Year (Oldest)</option>
+                                <option value="rating-desc">Rating (High)</option>
+                                <option value="rating">Rating (Low)</option>
+                                <option value="director">Director (A-Z)</option>
+                                <option value="director-desc">Director (Z-A)</option>
+                                <option value="runtime-desc">Runtime (Long)</option>
+                                <option value="runtime">Runtime (Short)</option>
+                                <option value="certification">Rating (G-R)</option>
+                                <option value="added-desc">Recently Added</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Director</label>
+                            <select id="filterDirector" onchange="App.onFilterChange('director', this.value)">
+                                <option value="all">All Directors</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Actor</label>
+                            <select id="filterActor" onchange="App.onFilterChange('actor', this.value)">
+                                <option value="all">All Actors</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Studio</label>
+                            <select id="filterStudio" onchange="App.onFilterChange('studio', this.value)">
+                                <option value="all">All Studios</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Genre</label>
+                            <select id="filterGenre" onchange="App.onFilterChange('genre', this.value)">
+                                <option value="all">All Genres</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Rating</label>
+                            <select id="filterCertification" onchange="App.onFilterChange('certification', this.value)">
+                                <option value="all">All Ratings</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Year Range</label>
+                            <div class="year-range">
+                                <input type="number" id="filterYearMin" placeholder="From" min="1900" max="2025"
+                                       onchange="App.onFilterChange('yearMin', this.value)">
+                                <span>to</span>
+                                <input type="number" id="filterYearMax" placeholder="To" min="1900" max="2025"
+                                       onchange="App.onFilterChange('yearMax', this.value)">
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <button class="btn-secondary" onclick="App.resetFilters()">🔄 Reset</button>
+                        </div>
+
+                        <div class="filter-group" id="activeFilters" style="display: none;">
+                            <div class="active-filter-tags"></div>
                         </div>
                     </div>
-                    
-                    <div class="filter-group">
-                        <button class="btn-secondary" onclick="App.resetFilters()">🔄 Reset</button>
-                    </div>
-                    
-                    <div class="filter-group" id="activeFilters" style="display: none;">
-                        <div class="active-filter-tags"></div>
-                    </div>
+                </div>
+
+                <div id="collectionGrid" class="movie-grid grid-view"></div>
+
+                <div id="emptyCollection" class="empty-state" style="display: none;">
+                    <div class="empty-icon">🎬</div>
+                    <h3>Your collection is empty</h3>
+                    <p>Add your first movie to get started!</p>
+                    <button class="btn" onclick="App.switchTab('add')">Add Movie</button>
                 </div>
             </div>
 
-            <div id="collectionGrid" class="movie-grid grid-view"></div>
-            
-            <div id="emptyCollection" class="empty-state" style="display: none;">
-                <div class="empty-icon">🎬</div>
-                <h3>Your collection is empty</h3>
-                <p>Add your first movie to get started!</p>
-                <button class="btn" onclick="App.switchTab('add')">Add Movie</button>
-            </div>
-        </section>
-
-        <!-- Wishlist Tab -->
-        <section id="wishlist" class="tab-content">
-            <div class="section-header">
-                <h2 id="wishlistHeader">Your Wishlist</h2>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <!-- ── SUB-PANEL: Wishlist ── -->
+            <div id="subviewWishlist" class="subview-panel" style="display:none">
+                <div class="subview-toolbar">
                     <button class="btn-ghost" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
-                    <div class="view-switcher">
-                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
-                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
-                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
-                    </div>
+                </div>
+
+                <div id="wishlistGrid" class="movie-grid grid-view"></div>
+
+                <div id="emptyWishlist" class="empty-state" style="display: none;">
+                    <div class="empty-icon">❤️</div>
+                    <h3>Your wishlist is empty</h3>
+                    <p>Add movies you want to collect!</p>
                 </div>
             </div>
 
-            <div id="wishlistGrid" class="movie-grid grid-view"></div>
-            
-            <div id="emptyWishlist" class="empty-state" style="display: none;">
-                <div class="empty-icon">❤️</div>
-                <h3>Your wishlist is empty</h3>
-                <p>Add movies you want to collect!</p>
+            <!-- ── SUB-PANEL: Physical Media ── -->
+            <div id="subviewPhysical" class="subview-panel" style="display:none">
+                <div class="subview-toolbar">
+                    <button class="btn" onclick="App.showCreateBoxSetModal()">➕ Create New Box Set</button>
+                </div>
+
+                <div id="boxSetsList" class="box-sets-grid"></div>
+
+                <div id="emptyBoxSets" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📦</div>
+                    <h3>No physical media yet</h3>
+                    <p>Create a box set to group movies that share the same physical case — trilogies, double features, collector's packs.</p>
+                    <button class="btn" onclick="App.showCreateBoxSetModal()">Create First Box Set</button>
+                </div>
             </div>
+
         </section>
+
+        <!-- Wishlist (legacy stub — content moved into Collection sub-panel above) -->
+        <section id="wishlist" class="tab-content"></section>
+
+        <!-- Box Sets (legacy stub — content moved into Collection sub-panel above) -->
+        <section id="boxsets" class="tab-content"></section>
 
         <!-- GROUPS TAB -->
 <section id="groups" class="tab-content">
