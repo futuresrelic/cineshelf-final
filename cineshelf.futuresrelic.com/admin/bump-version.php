@@ -5,14 +5,21 @@
 
 header('Content-Type: application/json');
 
-$versionFile = __DIR__ . '/../version.json';
+// Write/read from volume-persisted location so bumped version survives Railway deploys.
+// Falls back to reading from source version.json on the very first bump.
+$volumeVersionFile = __DIR__ . '/../data/version.json';
+$sourceVersionFile = __DIR__ . '/../version.json';
 
-if (!file_exists($versionFile)) {
+// Read from volume if it exists, otherwise seed from source
+$readFrom = file_exists($volumeVersionFile) ? $volumeVersionFile : $sourceVersionFile;
+$writeTo  = $volumeVersionFile; // Always write to volume
+
+if (!file_exists($readFrom)) {
     die(json_encode(['error' => 'version.json not found']));
 }
 
 // Read current version
-$data = json_decode(file_get_contents($versionFile), true);
+$data = json_decode(file_get_contents($readFrom), true);
 $currentVersion = $data['version'] ?? '2.0.0';
 
 // Parse version (e.g., "2.1.1" -> [2, 1, 1])
@@ -31,7 +38,7 @@ $newVersion = "$major.$minor.$patch";
 $data['version'] = $newVersion;
 $data['updated'] = date('c'); // ISO 8601 timestamp
 
-file_put_contents($versionFile, json_encode($data, JSON_PRETTY_PRINT));
+file_put_contents($writeTo, json_encode($data, JSON_PRETTY_PRINT));
 
 // Return result
 echo json_encode([

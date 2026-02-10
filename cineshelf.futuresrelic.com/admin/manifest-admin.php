@@ -7,8 +7,10 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
-// Read current version
-$versionFile = dirname(__DIR__) . '/version.json';
+// Read version from volume-persisted location first, then fall back to source
+$volumeVersionFile = dirname(__DIR__) . '/data/version.json';
+$sourceVersionFile = dirname(__DIR__) . '/version.json';
+$versionFile = file_exists($volumeVersionFile) ? $volumeVersionFile : $sourceVersionFile;
 $version = '2.1.0'; // Fallback
 
 if (file_exists($versionFile)) {

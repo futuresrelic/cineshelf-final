@@ -37,8 +37,10 @@ define('OPENAI_MODEL', 'gpt-4o-mini'); // Cost-effective model (~$0.01 per artic
 define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
 
 // App Configuration
-// Read version dynamically from version.json (managed by version-manager.html)
-$versionFile = __DIR__ . '/../version.json';
+// Read version from volume-persisted location first, then fall back to source
+$volumeVersionFile = __DIR__ . '/../data/version.json';
+$sourceVersionFile = __DIR__ . '/../version.json';
+$versionFile = file_exists($volumeVersionFile) ? $volumeVersionFile : $sourceVersionFile;
 $appVersion = '2.0.0'; // Fallback version
 if (file_exists($versionFile)) {
     $versionData = json_decode(file_get_contents($versionFile), true);

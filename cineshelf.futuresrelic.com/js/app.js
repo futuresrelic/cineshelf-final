@@ -1786,7 +1786,7 @@ function getCertColor(cert) {
         }
         if (tabName === 'boxsets') {
             switchTab('collection');
-            switchCollectionView('physical');
+            switchCollectionView('boxsets');
             return;
         }
 
@@ -1840,9 +1840,10 @@ function getCertColor(cert) {
 
         // Show/hide sub-panels
         const panels = {
-            movies:   document.getElementById('subviewMovies'),
-            wishlist: document.getElementById('subviewWishlist'),
-            physical: document.getElementById('subviewPhysical')
+            movies:    document.getElementById('subviewMovies'),
+            wishlist:  document.getElementById('subviewWishlist'),
+            boxsets:   document.getElementById('subviewBoxSets'),
+            shelfview: document.getElementById('subviewShelf')
         };
         Object.entries(panels).forEach(([key, el]) => {
             if (el) el.style.display = key === view ? 'block' : 'none';
@@ -1859,17 +1860,171 @@ function getCertColor(cert) {
         // Update the section heading
         const header = document.getElementById('collectionHeader');
         if (header) {
-            if (view === 'movies')   header.textContent = `Your Collection (${collection.length})`;
-            if (view === 'wishlist') header.textContent = `Your Wishlist (${wishlist.length})`;
-            if (view === 'physical') header.textContent = 'Physical Media';
+            if (view === 'movies')    header.textContent = `Your Collection (${collection.length})`;
+            if (view === 'wishlist')  header.textContent = `Your Wishlist (${wishlist.length})`;
+            if (view === 'boxsets')   header.textContent = 'Box Sets';
+            if (view === 'shelfview') header.textContent = 'Shelf View';
         }
 
         // Load data for the selected sub-view
         if (view === 'wishlist') {
             loadWishlist();
-        } else if (view === 'physical') {
+        } else if (view === 'boxsets') {
             loadBoxSets();
+        } else if (view === 'shelfview') {
+            loadShelfViewBrowse();
         }
+    }
+
+    // ========================================
+    // SHELF VIEW BROWSER (inside Collection tab)
+    // Hierarchical shelf navigation with back button
+    // ========================================
+
+    let shelfViewStack = []; // [{id: null, name: 'All Shelves'}, {id:5, name:'Living Room'}, ...]
+
+    async function loadShelfViewBrowse(reset = true) {
+        // Reset to root each time user clicks into Shelf View
+        if (reset || shelfViewStack.length === 0) {
+            shelfViewStack = [{ id: null, name: 'All Shelves' }];
+        }
+        // Make sure shelves data is loaded
+        if (!shelves || shelves.length === 0) {
+            try { shelves = await apiCall('list_shelves'); } catch(e) {}
+        }
+        await renderShelfViewLevel();
+    }
+
+    function shelfViewDrillIn(shelfId, shelfName) {
+        shelfViewStack.push({ id: shelfId, name: shelfName });
+        renderShelfViewLevel();
+    }
+
+    function shelfViewBack() {
+        if (shelfViewStack.length > 1) {
+            shelfViewStack.pop();
+            renderShelfViewLevel();
+        }
+    }
+
+    async function renderShelfViewLevel() {
+        const content = document.getElementById('shelfViewContent');
+        const breadcrumb = document.getElementById('shelfBreadcrumb');
+        if (!content || !breadcrumb) return;
+
+        const current = shelfViewStack[shelfViewStack.length - 1];
+        const parentId = current.id;
+
+        // Render breadcrumb trail
+        breadcrumb.innerHTML = shelfViewStack.map((crumb, i) => {
+            const isLast = i === shelfViewStack.length - 1;
+            if (isLast) {
+                return `<span class="shelf-crumb shelf-crumb-active">${i === 0 ? '🏠 ' : '📂 '}${crumb.name}</span>`;
+            }
+            return `<span class="shelf-crumb" onclick="App.shelfViewGoTo(${i})">` +
+                   `${i === 0 ? '🏠 ' : '📂 '}${crumb.name}</span>` +
+                   `<span class="shelf-crumb-sep">›</span>`;
+        }).join('');
+
+        // Back button (shown unless at root)
+        if (shelfViewStack.length > 1) {
+            breadcrumb.innerHTML = `<button class="shelf-view-back-btn" onclick="App.shelfViewBack()">‹ Back</button> ` + breadcrumb.innerHTML;
+        }
+
+        content.innerHTML = '<div style="text-align:center;padding:2rem;color:rgba(255,255,255,0.5)">Loading…</div>';
+
+        try {
+            // Get child shelves at this level
+            const childShelves = shelves.filter(s =>
+                parentId === null ? !s.parent_shelf_id : s.parent_shelf_id === parentId
+            );
+
+            // Get movies directly on this shelf (if we're inside a shelf)
+            let directMovies = [];
+            if (parentId !== null) {
+                try {
+                    directMovies = await apiCall('get_shelf_contents', { shelf_id: parentId });
+                } catch (e) {
+                    directMovies = [];
+                }
+            }
+
+            let html = '';
+
+            // Render child shelves as clickable cards
+            if (childShelves.length > 0) {
+                html += `<div class="shelf-view-section-label">Sections</div>`;
+                html += `<div class="shelf-view-shelves-grid">`;
+                childShelves.forEach(shelf => {
+                    const childCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
+                    html += `
+                        <div class="shelf-view-shelf-card" onclick="App.shelfViewDrillIn(${shelf.id}, '${shelf.name.replace(/'/g, "\\'")}')"
+                             style="border-left: 4px solid ${shelf.color || '#667eea'}">
+                            <div class="shelf-view-shelf-icon">${shelf.icon || '📚'}</div>
+                            <div class="shelf-view-shelf-info">
+                                <div class="shelf-view-shelf-name">${shelf.name}</div>
+                                <div class="shelf-view-shelf-meta">
+                                    ${shelf.assigned_count || 0} movie${(shelf.assigned_count || 0) !== 1 ? 's' : ''}
+                                    ${childCount > 0 ? ` · ${childCount} section${childCount !== 1 ? 's' : ''}` : ''}
+                                </div>
+                            </div>
+                            <div class="shelf-view-drill-arrow">›</div>
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Render movies directly on this shelf
+            if (directMovies && directMovies.length > 0) {
+                html += `<div class="shelf-view-section-label" style="margin-top:${childShelves.length > 0 ? '1.5rem' : '0'}">
+                    Movies on this shelf (${directMovies.length})
+                </div>`;
+                html += `<div class="shelf-view-movies-grid">`;
+                directMovies.forEach(item => {
+                    if (item.is_container) {
+                        html += `
+                            <div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
+                                <div class="shelf-view-poster-wrap">
+                                    ${item.poster_urls && item.poster_urls.length > 0
+                                        ? item.poster_urls.slice(0,4).map(url => `<img src="${url}" alt="" class="shelf-view-stack-poster" onerror="this.style.display='none'">`).join('')
+                                        : '<div class="shelf-view-poster-placeholder">📦</div>'}
+                                </div>
+                                <div class="shelf-view-movie-title">${item.container_name}</div>
+                                <div class="shelf-view-movie-meta">Box Set · ${item.movie_count || 0} films</div>
+                            </div>`;
+                    } else {
+                        html += `
+                            <div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.copy_id})">
+                                ${item.poster_url
+                                    ? `<img src="${item.poster_url}" alt="${item.title}" class="shelf-view-poster" onerror="this.src=''; this.parentElement.classList.add('no-poster')">`
+                                    : `<div class="shelf-view-poster-placeholder">🎬</div>`}
+                                <div class="shelf-view-movie-title">${item.title}</div>
+                                <div class="shelf-view-movie-meta">${item.year || ''} · ${item.format || ''}</div>
+                            </div>`;
+                    }
+                });
+                html += `</div>`;
+            }
+
+            if (childShelves.length === 0 && directMovies.length === 0) {
+                html = `<div class="empty-state" style="padding:3rem 0;">
+                    <div class="empty-icon">📂</div>
+                    <h3>Empty shelf</h3>
+                    <p>No sections or movies here yet.</p>
+                </div>`;
+            }
+
+            content.innerHTML = html;
+
+        } catch (err) {
+            console.error('[ShelfView] Error:', err);
+            content.innerHTML = '<p style="color:#ef4444;padding:1rem;">Failed to load shelf contents.</p>';
+        }
+    }
+
+    function shelfViewGoTo(stackIndex) {
+        shelfViewStack = shelfViewStack.slice(0, stackIndex + 1);
+        renderShelfViewLevel();
     }
     
     function setView(viewType) {
@@ -1937,8 +2092,10 @@ function getCertColor(cert) {
     if (collectionHeader) {
         if (currentCollectionSubview === 'wishlist') {
             collectionHeader.textContent = `Your Wishlist (${wishlistCount})`;
-        } else if (currentCollectionSubview === 'physical') {
-            collectionHeader.textContent = 'Physical Media';
+        } else if (currentCollectionSubview === 'boxsets') {
+            collectionHeader.textContent = 'Box Sets';
+        } else if (currentCollectionSubview === 'shelfview') {
+            collectionHeader.textContent = 'Shelf View';
         } else {
             collectionHeader.textContent = `Your Collection (${collectionCount})`;
         }
@@ -3226,8 +3383,8 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             // Update movie count badge
             document.getElementById('movieCount').textContent = movies ? movies.length : 0;
 
-            // Render movies list
-            const moviesList = document.getElementById('boxSetMoviesList');
+            // Render movies list (use boxSetDetailsMoviesList to avoid collision with creation panel)
+            const moviesList = document.getElementById('boxSetDetailsMoviesList');
             if (!movies || movies.length === 0) {
                 moviesList.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center;">No movies in this box set yet.</p>';
             } else {
@@ -5975,6 +6132,10 @@ return {
     updateBoxSetSpinePreview,
     loadBoxSets,
     showBoxSetDetails,
+    loadShelfViewBrowse,
+    shelfViewDrillIn,
+    shelfViewBack,
+    shelfViewGoTo,
     closeBoxSetDetails,
     showCreateBoxSetModal,
     editBoxSet,

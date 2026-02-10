@@ -7,10 +7,14 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
-$versionFile = __DIR__ . '/version.json';
+// Check volume-persisted version first (survives Railway deploys),
+// then fall back to the source-controlled version.json
+$volumeVersionFile = __DIR__ . '/data/version.json';
+$sourceVersionFile = __DIR__ . '/version.json';
+
+$versionFile = file_exists($volumeVersionFile) ? $volumeVersionFile : $sourceVersionFile;
 
 if (!file_exists($versionFile)) {
-    // Default version if file doesn't exist
     echo json_encode(['version' => '2.1.1']);
     exit;
 }

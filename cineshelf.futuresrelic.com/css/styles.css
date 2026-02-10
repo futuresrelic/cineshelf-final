@@ -336,6 +336,171 @@ select option {
     }
 }
 
+/* ========================================
+   SHELF VIEW BROWSER (v2.4.0)
+   Hierarchical shelf navigation panel
+   ======================================== */
+
+/* Breadcrumb strip */
+.shelf-view-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.shelf-view-back-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: background 0.2s;
+    margin-right: 0.5rem;
+}
+.shelf-view-back-btn:hover {
+    background: rgba(255,255,255,0.18);
+}
+
+.shelf-crumb {
+    color: rgba(255,255,255,0.55);
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.shelf-crumb:hover { color: white; }
+.shelf-crumb-active { color: white; font-weight: 600; cursor: default; }
+.shelf-crumb-sep { color: rgba(255,255,255,0.3); }
+
+/* Section label */
+.shelf-view-section-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 0.75rem;
+}
+
+/* Shelf cards grid */
+.shelf-view-shelves-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.shelf-view-shelf-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.shelf-view-shelf-card:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateX(4px);
+}
+.shelf-view-shelf-icon { font-size: 1.5rem; flex-shrink: 0; }
+.shelf-view-shelf-info { flex: 1; min-width: 0; }
+.shelf-view-shelf-name {
+    font-weight: 600;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.shelf-view-shelf-meta {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.55);
+    margin-top: 0.15rem;
+}
+.shelf-view-drill-arrow {
+    font-size: 1.3rem;
+    color: rgba(255,255,255,0.4);
+    flex-shrink: 0;
+}
+
+/* Movies grid */
+.shelf-view-movies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.shelf-view-movie-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.shelf-view-movie-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+
+.shelf-view-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+}
+
+.shelf-view-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.08);
+    font-size: 2.5rem;
+    color: rgba(255,255,255,0.3);
+}
+
+/* Box set card in shelf view */
+.shelf-view-movie-card.container-card .shelf-view-poster-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    aspect-ratio: 2/3;
+    overflow: hidden;
+    background: rgba(255,255,255,0.08);
+}
+.shelf-view-stack-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.shelf-view-movie-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.5rem 0.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.shelf-view-movie-meta {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    padding: 0 0.5rem 0.4rem;
+}
+
+@media (max-width: 480px) {
+    .shelf-view-movies-grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.6rem;
+    }
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }

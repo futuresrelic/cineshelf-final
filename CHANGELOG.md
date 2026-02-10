@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] - 2026-02-10
+
+### Added
+- **Shelf View** sub-panel inside Collection tab — hierarchical shelf browser
+  - Starts at "All Shelves" (top-level shelves listed as clickable cards)
+  - Click any shelf to drill in and see child sections + movies directly on that shelf
+  - Breadcrumb trail shows full navigation path; click any crumb to jump back
+  - Back button zooms out one level
+  - Movies shown as poster grid; box sets shown as 2×2 poster stack
+  - Clicking a movie opens the movie detail modal; clicking a box set opens the box set modal
+
+### Changed
+- Renamed **Physical Media** sub-view to **Box Sets** (cleaner, more accurate name)
+- `data-subview="physical"` → `data-subview="boxsets"`, panel ID `subviewPhysical` → `subviewBoxSets`
+
+### Fixed
+- **Box set modal not showing films** — Duplicate `id="boxSetMoviesList"` existed in both the creation panel and the details modal; `getElementById` was returning the wrong element. Fixed by renaming the modal's list element to `id="boxSetDetailsMoviesList"`.
+- **Version number reset after Railway deploy** — Bumped version was written to `version.json` (source-controlled, overwritten on every deploy). Now `bump-version.php` writes to `data/version.json` on the Railway persistent volume. All version-reading PHP files check the volume location first, then fall back to the source file.
+
+---
+
 ## [2.3.0] - 2026-02-10
 
 ### Added

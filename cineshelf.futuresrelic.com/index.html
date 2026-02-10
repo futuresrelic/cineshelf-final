@@ -104,7 +104,7 @@
         <!-- Collection Tab (Movies + Wishlist + Physical Media) -->
         <section id="collection" class="tab-content active">
 
-            <!-- Sub-navigation: switch between the three views -->
+            <!-- Sub-navigation: switch between the four views -->
             <div class="collection-subview-nav">
                 <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')">
                     🎬 Movies
@@ -114,8 +114,11 @@
                     ❤️ Wishlist
                     <span class="badge" id="wishlistCount">0</span>
                 </button>
-                <button class="subview-btn" data-subview="physical" onclick="App.switchCollectionView('physical')">
-                    📦 Physical Media
+                <button class="subview-btn" data-subview="boxsets" onclick="App.switchCollectionView('boxsets')">
+                    📦 Box Sets
+                </button>
+                <button class="subview-btn" data-subview="shelfview" onclick="App.switchCollectionView('shelfview')">
+                    🗂️ Shelf View
                 </button>
             </div>
 
@@ -260,8 +263,8 @@
                 </div>
             </div>
 
-            <!-- ── SUB-PANEL: Physical Media ── -->
-            <div id="subviewPhysical" class="subview-panel" style="display:none">
+            <!-- ── SUB-PANEL: Box Sets ── -->
+            <div id="subviewBoxSets" class="subview-panel" style="display:none">
                 <div class="subview-toolbar">
                     <button class="btn" onclick="App.showCreateBoxSetModal()">➕ Create New Box Set</button>
                 </div>
@@ -270,10 +273,20 @@
 
                 <div id="emptyBoxSets" class="empty-state" style="display: none;">
                     <div class="empty-icon">📦</div>
-                    <h3>No physical media yet</h3>
+                    <h3>No box sets yet</h3>
                     <p>Create a box set to group movies that share the same physical case — trilogies, double features, collector's packs.</p>
                     <button class="btn" onclick="App.showCreateBoxSetModal()">Create First Box Set</button>
                 </div>
+            </div>
+
+            <!-- ── SUB-PANEL: Shelf View ── -->
+            <div id="subviewShelf" class="subview-panel" style="display:none">
+                <!-- Breadcrumb / Back navigation -->
+                <div class="shelf-view-breadcrumb" id="shelfBreadcrumb">
+                    <span class="shelf-view-root">🏠 All Shelves</span>
+                </div>
+                <!-- Shelf grid: shows child shelves + movies at current level -->
+                <div id="shelfViewContent"></div>
             </div>
 
         </section>
@@ -1308,7 +1321,7 @@
                         <span>Movies in Box Set</span>
                         <span id="movieCount" class="badge" style="background: rgba(102, 126, 234, 0.3);"></span>
                     </h4>
-                    <div id="boxSetMoviesList" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                    <div id="boxSetDetailsMoviesList" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
                 </div>
             </div>
             <div class="modal-footer">

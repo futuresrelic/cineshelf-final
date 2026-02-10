@@ -1681,7 +1681,16 @@ async function filterByShelf() {
 |---|---|---|---|
 | Movies | `'movies'` | Collection grid | All filter/sort/view controls |
 | Wishlist | `'wishlist'` | Wishlist grid | Browse Lists button |
-| Physical Media | `'physical'` | Box sets list | Create Box Set button |
+| Box Sets | `'boxsets'` | Box sets list | Create Box Set button |
+| Shelf View | `'shelfview'` | Hierarchical shelf browser | Back button + breadcrumb |
+
+**Shelf View state:**
+- `shelfViewStack` — array of `{id, name}` representing the drill-in path; `id: null` = root
+- `loadShelfViewBrowse()` — resets stack to root and calls `renderShelfViewLevel()`
+- `renderShelfViewLevel()` — renders breadcrumb + child shelves + direct movies at current level
+- `shelfViewDrillIn(id, name)` — pushes a shelf onto the stack and re-renders
+- `shelfViewBack()` — pops from stack and re-renders
+- `shelfViewGoTo(index)` — truncates stack to given breadcrumb index and re-renders
 
 **Key state:** `currentCollectionSubview` — tracks active sub-view (`'movies'` | `'wishlist'` | `'physical'`)
 
@@ -1810,22 +1819,32 @@ The system addresses a common PWA challenge: **How to force updates when the app
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1. version.json
+### 1. version.json (+ persistent volume copy)
 
-**Location:** `/version.json`
+**Source file:** `/version.json` — committed to git, used as the baseline version on fresh deploys
+
+**Volume file:** `/data/version.json` — written by `bump-version.php`, lives on the Railway persistent volume. **This file survives redeploys.** All version-reading scripts check here first.
+
+**Priority:** `data/version.json` (volume) → `version.json` (source fallback)
 
 **Structure:**
 ```json
 {
-    "version": "2.2.14",
-    "updated": "2025-11-22T21:52:07-08:00"
+    "version": "2.4.0",
+    "updated": "2026-02-10T12:00:00+00:00"
 }
 ```
 
 **Purpose:**
-- Single source of truth for current version
-- Updated automatically by bump-version.php
-- Read by manifest.php, get-version.php, and index.html
+- `version.json` (source): baseline version shipped with the repo
+- `data/version.json` (volume): persisted bumped version — survives Railway deploys
+- Read by `manifest.php`, `get-version.php`, `config.php`, `manifest-admin.php`
+- Written by `admin/bump-version.php`
+
+**How it works on Railway:**
+1. First deploy: no `data/version.json` yet → falls back to `version.json`
+2. Admin bumps version → `bump-version.php` creates/updates `data/version.json` on the volume
+3. Subsequent deploys: `data/version.json` is still there → bumped version is preserved
 
 ### 2. Version API Endpoint
 

@@ -92,7 +92,7 @@ CineShelf is a Progressive Web App (PWA), which means you can install it on your
 - 🔍 **Resolve** - (Admins only) Match unidentified movies
 - ⚙️ **Settings** - Preferences and account
 
-**The Collection Tab — Three Views in One (v2.3.0+):**
+**The Collection Tab — Four Views in One (v2.4.0+):**
 
 Inside the Collection tab, use the pill buttons at the top to switch views:
 
@@ -100,7 +100,8 @@ Inside the Collection tab, use the pill buttons at the top to switch views:
 |---|---|
 | 🎬 Movies | Your full movie collection (filter, sort, grid/list view) |
 | ❤️ Wishlist | Movies you want to buy |
-| 📦 Physical Media | Your owned box sets, DVD collections, multi-movie packages |
+| 📦 Box Sets | Your owned box sets, DVD/Blu-ray collections, multi-movie packages |
+| 🗂️ Shelf View | Browse shelves hierarchically — click in to see sections and movies |
 
 **Finding Your Way:**
 - Active tab is highlighted
@@ -533,6 +534,44 @@ Changed your mind?
 1. **Click the Movie in Wishlist**
 2. **Click "Remove from Wishlist"**
 3. **Confirm**
+
+---
+
+## Browsing Shelves (Shelf View)
+
+### What is Shelf View?
+
+Shelf View lets you browse your collection the way you'd browse a real bookshelf — walking up to a unit, opening a section, and seeing what's inside.
+
+### How to Use Shelf View
+
+1. **Click the Collection tab**
+2. **Click the 🗂️ Shelf View button**
+3. You see all your top-level shelves listed as cards
+
+**Drilling In:**
+- Click any shelf card to enter it
+- You'll see its sub-sections (child shelves) AND any movies stored directly on that shelf
+- Keep clicking to go deeper
+
+**Navigating Back:**
+- Click the **‹ Back** button to go up one level
+- Or click any item in the **breadcrumb trail** at the top (e.g. 🏠 All Shelves › Living Room) to jump directly to that level
+
+**What you see inside a shelf:**
+- **Sections** — any child shelves, shown as clickable cards with movie counts
+- **Movies** — poster grid of movies directly assigned to this shelf
+- **Box Sets** — shown with a 2×2 poster grid; click to open the box set details
+
+### Example: Browsing a Shelf Hierarchy
+
+```
+🏠 All Shelves
+   └── 📂 Living Room       ← click to enter
+        ├── 📂 Top Shelf     ← click to see movies there
+        ├── 📂 Middle Shelf
+        └── [Movies directly on Living Room]
+```
 
 ---
 
