@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tracks copies assigned during the run to prevent double-assignment across shelves
   - Shows a summary of shelves created and films assigned on the completion screen
   - Progress feedback during creation ("Creating...", "Populating... (N films)")
+- **Shelf views now update instantly** — after creating shelves (wizard or manual), assigning/removing films, or deleting shelves, all shelf views (list, visual, shelf-view browser, contents panel) refresh automatically. No page reload needed.
 
 ---
 
