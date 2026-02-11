@@ -3869,7 +3869,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             // Build cover image: custom upload, or a poster mosaic from contained films
             let coverHTML = '';
             if (container.spine_image_type === 'custom' && container.spine_image_url) {
-                coverHTML = `<img src="${container.spine_image_url}" alt="${container.name}" style="width:100%; border-radius:var(--radius);">`;
+                coverHTML = `<img src="${container.spine_image_url}" alt="${container.name}" class="boxset-cover-img">`;
             } else if (movies && movies.length > 0) {
                 // Poster mosaic from first 4 films
                 const posters = movies.slice(0, 4).filter(m => m.poster_url);
@@ -3878,7 +3878,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                         ${posters.map(m => `<img src="${m.poster_url}" alt="${m.title || ''}">`).join('')}
                     </div>`;
                 } else if (posters.length === 1) {
-                    coverHTML = `<img src="${posters[0].poster_url}" alt="${container.name}" style="width:100%; border-radius:var(--radius);">`;
+                    coverHTML = `<img src="${posters[0].poster_url}" alt="${container.name}" class="boxset-cover-img">`;
                 } else {
                     coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
                 }

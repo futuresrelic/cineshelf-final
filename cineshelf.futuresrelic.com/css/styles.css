@@ -2224,7 +2224,11 @@ select option {
     .movie-detail-layout {
         grid-template-columns: 1fr;
     }
-    
+
+    .movie-detail-poster {
+        text-align: center;
+    }
+
     .form-actions {
         flex-direction: column;
     }
@@ -4470,11 +4474,20 @@ select option {
     border-radius: var(--radius);
     overflow: hidden;
     aspect-ratio: 2/3;
+    max-width: 280px;
+    margin: 0 auto;
 }
 .boxset-poster-mosaic img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+.boxset-cover-img {
+    width: 100%;
+    max-width: 280px;
+    display: block;
+    margin: 0 auto;
+    border-radius: var(--radius);
 }
 .boxset-cover-placeholder {
     aspect-ratio: 2/3;
@@ -4483,6 +4496,8 @@ select option {
     align-items: center;
     justify-content: center;
     font-size: 4rem;
+    max-width: 280px;
+    margin: 0 auto;
 }
 .boxset-film-list {
     display: flex;
