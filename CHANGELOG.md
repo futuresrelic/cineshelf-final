@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.2] - 2026-02-11
+
+### Fixed
+- **Shelf Wizard now auto-populates shelves with matching films** — previously, the wizard created empty shelves and told users to assign films manually. Now it:
+  - Fetches all unassigned copies (excluding films already on a shelf or inside box sets)
+  - Matches copies by director (exact), studio (exact + production companies), or genre (substring)
+  - Assigns each matching copy to the newly created shelf via the `assign_to_shelf` API
+  - Tracks copies assigned during the run to prevent double-assignment across shelves
+  - Shows a summary of shelves created and films assigned on the completion screen
+  - Progress feedback during creation ("Creating...", "Populating... (N films)")
+
+---
+
 ## [2.5.1] - 2026-02-11
 
 ### Added

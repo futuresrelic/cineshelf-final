@@ -5945,6 +5945,18 @@ async function getCurrentUserId() {
 
         const catColors = { directors: '#1a6fd4', studios: '#c0a020', genres: '#27ae60' };
         let created = 0, failed = 0;
+        let totalAssigned = 0, totalSkipped = 0;
+
+        // Fetch unassigned copies once so we only assign films not already on a shelf
+        let unassignedCopies = [];
+        try {
+            unassignedCopies = await apiCall('get_unassigned_copies') || [];
+        } catch (e) {
+            console.error('Wizard: could not fetch unassigned copies', e);
+        }
+
+        // Track copy IDs we assign during this run so a copy isn't assigned twice
+        const assignedDuringRun = new Set();
 
         for (const sel of wizardSelections) {
             try {
@@ -5953,20 +5965,78 @@ async function getCurrentUserId() {
                     color: catColors[sel.category] || '#667eea'
                 };
                 if (wizardParentShelfId) params.parent_shelf_id = parseInt(wizardParentShelfId);
-                await apiCall('create_shelf', params);
+
+                if (btn) btn.textContent = `Creating "${sel.name}"…`;
+
+                const result = await apiCall('create_shelf', params);
+                const newShelfId = result?.shelf_id;
                 created++;
+
+                if (!newShelfId) continue;
+
+                // Find matching unassigned copies for this shelf
+                const matchingCopies = unassignedCopies.filter(copy => {
+                    if (assignedDuringRun.has(copy.copy_id)) return false;
+
+                    if (sel.category === 'directors') {
+                        return copy.director && copy.director.trim() === sel.name;
+                    } else if (sel.category === 'studios') {
+                        if (copy.studio && copy.studio.trim() === sel.name) return true;
+                        // Also check production_companies if available
+                        if (copy.production_companies) {
+                            if (typeof copy.production_companies === 'string') {
+                                return copy.production_companies.includes(sel.name);
+                            }
+                            if (Array.isArray(copy.production_companies)) {
+                                return copy.production_companies.some(c => c.name === sel.name);
+                            }
+                        }
+                        return false;
+                    } else if (sel.category === 'genres') {
+                        return copy.genre && copy.genre.includes(sel.name);
+                    }
+                    return false;
+                });
+
+                if (btn) btn.textContent = `Populating "${sel.name}" (${matchingCopies.length} films)…`;
+
+                // Assign each matching copy to the new shelf
+                for (const copy of matchingCopies) {
+                    try {
+                        await apiCall('assign_to_shelf', {
+                            shelf_id: newShelfId,
+                            copy_id: copy.copy_id
+                        });
+                        assignedDuringRun.add(copy.copy_id);
+                        totalAssigned++;
+                    } catch (e) {
+                        console.error('Wizard: failed to assign copy', copy.copy_id, 'to shelf', newShelfId, e);
+                        totalSkipped++;
+                    }
+                }
             } catch (e) {
                 console.error('Wizard: failed to create shelf', sel.name, e);
                 failed++;
             }
         }
 
+        // Build summary message
+        let subtitle = '';
+        if (totalAssigned > 0) {
+            subtitle = `${totalAssigned} film${totalAssigned !== 1 ? 's' : ''} automatically assigned to your new shelves!`;
+        } else if (created > 0) {
+            subtitle = 'Shelves created, but no unassigned films matched. Assign films manually from the shelf view.';
+        }
+        if (totalSkipped > 0) {
+            subtitle += ` (${totalSkipped} could not be assigned)`;
+        }
+
         document.getElementById('shelfWizardBody').innerHTML = `
             <div class="wizard-step wizard-done">
-                <div class="wizard-done-icon">✅</div>
+                <div class="wizard-done-icon">${totalAssigned > 0 ? '🎬' : '✅'}</div>
                 <h3 class="wizard-done-title">${created} shelf${created !== 1 ? 'ves' : ''} created!</h3>
                 ${failed > 0 ? `<p style="color:#f87171; margin-top:0.5rem;">${failed} could not be created — try them manually.</p>` : ''}
-                <p class="wizard-done-subtitle">Your shelves are ready. Go assign movies to them!</p>
+                <p class="wizard-done-subtitle">${subtitle}</p>
                 <div class="wizard-footer" style="justify-content:center; gap:1rem; margin-top:1.5rem;">
                     <button class="btn btn-secondary" onclick="App.closeShelfWizard()">Close</button>
                     <button class="btn" onclick="App.closeShelfWizard(); App.switchTab('shelves');">

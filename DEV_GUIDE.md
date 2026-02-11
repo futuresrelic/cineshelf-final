@@ -1667,6 +1667,29 @@ async function filterByShelf() {
 4. Sorting still works (sort by title, year, etc.)
 5. View modes still work (grid, list, compact)
 
+### Shelf Setup Wizard
+
+The Shelf Setup Wizard (`wizardCreate()` in app.js) provides a guided flow to batch-create shelves and automatically populate them with matching films.
+
+**Flow:**
+1. **Step 1** — Choose organization category: Directors, Studios, Genres, or Mixed (all three). Optionally select a parent shelf to nest under.
+2. **Step 2** — Smart checklist: top directors/studios/genres from the user's collection, sorted by film count. Top 10 pre-checked, with "Show N more" to reveal the rest.
+3. **Step 3** — Review selected items with category color coding (blue = director, gold = studio, green = genre).
+4. **Create** — Bulk creates all selected shelves AND automatically assigns matching unassigned films.
+
+**Auto-population logic (wizardCreate):**
+- Before creating shelves, fetches all unassigned copies via `get_unassigned_copies` API
+- This excludes copies already on a shelf and copies inside box sets (containers)
+- For each new shelf, filters unassigned copies by the matching criterion:
+  - **Directors**: exact match on `copy.director`
+  - **Studios**: exact match on `copy.studio`, or partial match on `copy.production_companies`
+  - **Genres**: substring match on `copy.genre` (comma-separated genre list)
+- Assigns each match via `assign_to_shelf` API endpoint
+- Tracks assigned copy IDs during the run to prevent double-assignment (e.g., if a film matches both a director and a genre shelf, it goes to whichever is created first)
+- Completion screen shows count of shelves created and films assigned
+
+**Key functions:** `showShelfWizard()`, `wizardStep1()`, `wizardStep2()`, `wizardGoStep3()`, `wizardStep3()`, `wizardCreate()`
+
 ---
 
 ## 8. Core Features
