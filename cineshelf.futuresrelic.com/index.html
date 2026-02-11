@@ -1362,17 +1362,31 @@
             <div class="modal-body">
                 <!-- Box Set Info -->
                 <div id="boxSetInfo" style="margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                        <div>
-                            <h4 id="boxSetName" style="margin: 0 0 0.5rem 0; font-size: 1.25rem;"></h4>
-                            <p id="boxSetFormatDisplay" style="color: rgba(255,255,255,0.7); margin: 0;"></p>
+                    <div style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem;">
+                        <!-- Cover thumbnail -->
+                        <div class="boxset-detail-cover" onclick="document.getElementById('boxSetChangeCoverBtn').click()">
+                            <img id="boxSetCoverImg" src="" alt="Cover" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:8px;">
+                            <div id="boxSetCoverPlaceholder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:2.5rem; border-radius:8px;">📦</div>
+                            <div class="boxset-cover-overlay">📸 Change</div>
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-ghost" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
-                            <button class="btn-ghost" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                        <!-- Info + actions -->
+                        <div style="flex:1;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <h4 id="boxSetName" style="margin: 0 0 0.5rem 0; font-size: 1.25rem;"></h4>
+                                    <p id="boxSetFormatDisplay" style="color: rgba(255,255,255,0.7); margin: 0 0 0.5rem;"></p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn-ghost" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
+                                    <button class="btn-ghost" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                                </div>
+                            </div>
+                            <div id="boxSetStats" style="color: rgba(255,255,255,0.8); font-size: 0.9rem;"></div>
+                            <button id="boxSetChangeCoverBtn" class="btn btn-secondary" style="margin-top:0.75rem; font-size:0.85rem; padding:0.4rem 0.9rem;">
+                                📸 Change Cover
+                            </button>
                         </div>
                     </div>
-                    <div id="boxSetStats" style="color: rgba(255,255,255,0.8); font-size: 0.9rem;"></div>
                 </div>
 
                 <!-- Movies in Box Set -->
@@ -1386,6 +1400,51 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-ghost" onclick="App.closeBoxSetDetails()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cover Photo Crop Modal -->
+    <div id="coverCropModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>📸 Set Box Set Cover</h3>
+                <button class="modal-close" onclick="App.closeCoverCrop()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload controls -->
+                <div class="crop-upload-row">
+                    <label class="btn btn-secondary crop-file-label" for="cropFileInput">
+                        🖼️ Choose Photo
+                    </label>
+                    <label class="btn btn-secondary crop-file-label" for="cropCameraInput">
+                        📷 Take Photo
+                    </label>
+                    <input type="file" id="cropFileInput"   accept="image/*"
+                           onchange="App.onCoverFileChange(event)" style="display:none;">
+                    <input type="file" id="cropCameraInput" accept="image/*" capture="environment"
+                           onchange="App.onCoverFileChange(event)" style="display:none;">
+                </div>
+
+                <!-- Canvas crop area -->
+                <canvas id="cropCanvas" width="360" height="480"
+                        style="width:100%; border-radius:8px; display:block; background:#111; cursor:grab; touch-action:none;">
+                </canvas>
+
+                <!-- Zoom slider -->
+                <div class="crop-zoom-row">
+                    <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">🔍 Zoom</span>
+                    <input type="range" id="cropZoomSlider" min="50" max="300" value="100"
+                           oninput="App.cropZoom(this.value)"
+                           style="flex:1;">
+                    <span style="font-size:0.8rem; color:rgba(255,255,255,0.4);">Drag to position</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" onclick="App.closeCoverCrop()">Cancel</button>
+                <button class="btn" id="cropSaveBtn" onclick="App.saveCroppedCover()" disabled>
+                    Save Cover
+                </button>
             </div>
         </div>
     </div>

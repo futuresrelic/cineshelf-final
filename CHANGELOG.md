@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.1] - 2026-02-11
+
+### Added
+- **Box set custom cover / poster** — open any box set → click the thumbnail (or "📸 Change Cover" button) to launch a full crop modal:
+  - Choose a photo from gallery or take one live with the camera
+  - Canvas-based crop editor: drag to pan, zoom slider, 2:3 poster aspect ratio frame with corner guides
+  - Crops client-side then uploads to `/data/uploads/covers/` (Railway persistent volume)
+  - Cover replaces the auto-generated movie-poster grid in both the box sets grid and detail modal
+- **Box set badge on collection cards** — movies whose copies are inside a box set show a small 📦 badge in the corner; hover shows the box set name
+- **Confirmed**: `get_unassigned_copies` already filters out container-linked copies (`cc.id IS NULL`), so box-set films never appear in the shelf placement pool
+
+### Changed
+- Box set detail modal redesigned: cover thumbnail left, title/format/stats/actions right; clicking thumbnail opens the crop modal
+
+---
+
 ## [2.5.0] - 2026-02-11
 
 ### Added

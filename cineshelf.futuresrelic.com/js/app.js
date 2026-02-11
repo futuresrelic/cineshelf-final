@@ -73,6 +73,7 @@ const App = (function() {
     let collection = [];
     let originalCollection = []; // Store full collection for filtering
     let wishlist = [];
+    let containerMemberships = {}; // movie_id → [container_name, ...] for 📦 badge
     let shelves = []; // Store shelves for filtering
     let settings = {};
     let selectedMovie = null;
@@ -199,7 +200,19 @@ const App = (function() {
     
     async function loadCollection() {
     try {
-        const data = await apiCall('list_collection');
+        const [data, memberships] = await Promise.all([
+            apiCall('list_collection'),
+            apiCall('get_container_memberships').catch(() => [])
+        ]);
+
+        // Build movie_id → container_name map for badge display
+        containerMemberships = {};
+        (memberships || []).forEach(m => {
+            if (!containerMemberships[m.movie_id]) {
+                containerMemberships[m.movie_id] = [];
+            }
+            containerMemberships[m.movie_id].push(m.container_name);
+        });
         
         // Group movies by movie_id
         const grouped = {};
@@ -549,6 +562,10 @@ function renderCollection() {
         const safeTitle = displayTitle.replace(/"/g, '&quot;');
         const mediaIcon = movie.media_type === 'tv' ? '📺' : '🎬';
 
+        // Box-set membership badge
+        const bsNames = containerMemberships[movie.movie_id];
+        const bsTitle = bsNames ? bsNames.join(', ') : '';
+
         // Get genre emojis
         const genreEmojis = getGenreEmojis(movie.genre);
 
@@ -566,6 +583,7 @@ function renderCollection() {
                 <div class="movie-poster-container">
                     <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
+                    ${bsNames ? `<div class="boxset-member-badge" title="In box set: ${bsTitle}">📦</div>` : ''}
                 </div>
                 <div class="movie-info">
                     <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
@@ -592,6 +610,7 @@ function renderCollection() {
                 <div class="movie-poster-container">
                     <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
+                    ${bsNames ? `<div class="boxset-member-badge" title="In box set: ${bsTitle}">📦</div>` : ''}
                 </div>
 
                 <!-- ✨ NETFLIX HOVER OVERLAY -->
@@ -3500,6 +3519,236 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // ========================================
 
     // Load all box sets for the user
+    // ========================================
+    // BOX SET COVER UPLOAD + CROP
+    // ========================================
+
+    let _cropImg      = null;   // HTMLImageElement
+    let _cropOffsetX  = 0;      // image draw offset inside canvas
+    let _cropOffsetY  = 0;
+    let _cropScale    = 1;
+    let _cropDragging = false;
+    let _cropLastX    = 0;
+    let _cropLastY    = 0;
+
+    // Poster aspect ratio used for the crop frame (2 : 3)
+    const CROP_W_RATIO = 0.80; // fraction of canvas width used as crop frame
+
+    function showCoverUpload(containerId) {
+        currentContainerId = containerId;
+        document.getElementById('coverCropModal').classList.add('active');
+        // Reset state
+        _cropImg = null;
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '1rem sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Select a photo above to start', canvas.width / 2, canvas.height / 2);
+        document.getElementById('cropSaveBtn').disabled = true;
+    }
+
+    function closeCoverCrop() {
+        document.getElementById('coverCropModal').classList.remove('active');
+        _cropImg = null;
+    }
+
+    function onCoverFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => _loadCropImage(ev.target.result);
+        reader.readAsDataURL(file);
+        e.target.value = ''; // allow re-selecting same file
+    }
+
+    function _loadCropImage(src) {
+        const img = new Image();
+        img.onload = () => {
+            _cropImg    = img;
+            const canvas = document.getElementById('cropCanvas');
+            // Scale image to cover the canvas
+            const scaleX = canvas.width  / img.width;
+            const scaleY = canvas.height / img.height;
+            _cropScale   = Math.max(scaleX, scaleY);
+            _cropOffsetX = (canvas.width  - img.width  * _cropScale) / 2;
+            _cropOffsetY = (canvas.height - img.height * _cropScale) / 2;
+            document.getElementById('cropZoomSlider').value = 100;
+            document.getElementById('cropSaveBtn').disabled = false;
+            _drawCrop();
+        };
+        img.src = src;
+    }
+
+    function _drawCrop() {
+        const canvas = document.getElementById('cropCanvas');
+        const ctx    = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+
+        ctx.clearRect(0, 0, W, H);
+
+        if (_cropImg) {
+            ctx.drawImage(_cropImg,
+                _cropOffsetX, _cropOffsetY,
+                _cropImg.width * _cropScale, _cropImg.height * _cropScale);
+        }
+
+        // Crop frame dimensions (2:3 poster ratio)
+        const frameW = W * CROP_W_RATIO;
+        const frameH = frameW * (3 / 2);
+        const frameX = (W - frameW) / 2;
+        const frameY = (H - frameH) / 2;
+
+        // Semi-transparent overlay outside the frame
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, W, frameY);                          // top
+        ctx.fillRect(0, frameY + frameH, W, H - frameY - frameH); // bottom
+        ctx.fillRect(0, frameY, frameX, frameH);                // left
+        ctx.fillRect(frameX + frameW, frameY, W - frameX - frameW, frameH); // right
+
+        // Frame border
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(frameX, frameY, frameW, frameH);
+
+        // Corner accents
+        const ca = 16;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth   = 3;
+        [[frameX, frameY], [frameX + frameW, frameY],
+         [frameX, frameY + frameH], [frameX + frameW, frameY + frameH]].forEach(([cx, cy]) => {
+            const sx = cx === frameX ? 1 : -1;
+            const sy = cy === frameY ? 1 : -1;
+            ctx.beginPath();
+            ctx.moveTo(cx + sx * ca, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, cy + sy * ca);
+            ctx.stroke();
+        });
+    }
+
+    // Drag to pan
+    function _cropPointerDown(e) {
+        _cropDragging = true;
+        const pt = e.touches ? e.touches[0] : e;
+        _cropLastX = pt.clientX;
+        _cropLastY = pt.clientY;
+    }
+    function _cropPointerMove(e) {
+        if (!_cropDragging || !_cropImg) return;
+        e.preventDefault();
+        const pt = e.touches ? e.touches[0] : e;
+        const dx = pt.clientX - _cropLastX;
+        const dy = pt.clientY - _cropLastY;
+        _cropLastX = pt.clientX;
+        _cropLastY = pt.clientY;
+        _cropOffsetX += dx;
+        _cropOffsetY += dy;
+        _drawCrop();
+    }
+    function _cropPointerUp() { _cropDragging = false; }
+
+    function cropZoom(val) {
+        if (!_cropImg) return;
+        const canvas   = document.getElementById('cropCanvas');
+        const newScale = (val / 100) * Math.max(canvas.width / _cropImg.width,
+                                                 canvas.height / _cropImg.height);
+        // Zoom around canvas centre
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        _cropOffsetX = cx - (cx - _cropOffsetX) * (newScale / _cropScale);
+        _cropOffsetY = cy - (cy - _cropOffsetY) * (newScale / _cropScale);
+        _cropScale   = newScale;
+        _drawCrop();
+    }
+
+    // Wire up canvas events (called once after DOM ready)
+    function _initCropCanvasEvents() {
+        const canvas = document.getElementById('cropCanvas');
+        if (!canvas || canvas._cropEventsAttached) return;
+        canvas._cropEventsAttached = true;
+        canvas.addEventListener('mousedown',  _cropPointerDown);
+        canvas.addEventListener('mousemove',  _cropPointerMove);
+        canvas.addEventListener('mouseup',    _cropPointerUp);
+        canvas.addEventListener('mouseleave', _cropPointerUp);
+        canvas.addEventListener('touchstart', _cropPointerDown, { passive: true });
+        canvas.addEventListener('touchmove',  _cropPointerMove, { passive: false });
+        canvas.addEventListener('touchend',   _cropPointerUp);
+    }
+
+    async function saveCroppedCover() {
+        if (!_cropImg) return;
+        const sourceCanvas = document.getElementById('cropCanvas');
+        const W = sourceCanvas.width, H = sourceCanvas.height;
+
+        const frameW = W * CROP_W_RATIO;
+        const frameH = frameW * (3 / 2);
+        const frameX = (W - frameW) / 2;
+        const frameY = (H - frameH) / 2;
+
+        // Build output canvas at a clean resolution
+        const outW = 400, outH = 600;
+        const out  = document.createElement('canvas');
+        out.width  = outW;
+        out.height = outH;
+        const ctx  = out.getContext('2d');
+
+        // Map: frame pixel (frameX, frameY) → image pixel
+        const imgX = (frameX - _cropOffsetX) / _cropScale;
+        const imgY = (frameY - _cropOffsetY) / _cropScale;
+        const imgW = frameW / _cropScale;
+        const imgH = frameH / _cropScale;
+        ctx.drawImage(_cropImg, imgX, imgY, imgW, imgH, 0, 0, outW, outH);
+
+        // Upload
+        const btn = document.getElementById('cropSaveBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        out.toBlob(async (blob) => {
+            try {
+                const form = new FormData();
+                form.append('cover', blob, 'cover.jpg');
+
+                const resp = await fetch('/api/upload-cover.php', {
+                    method: 'POST',
+                    body: form
+                });
+                const result = await resp.json();
+
+                if (!result.success) throw new Error(result.error || 'Upload failed');
+
+                // Update the container's cover
+                await apiCall('update_container', {
+                    container_id: currentContainerId,
+                    spine_image_type: 'custom',
+                    spine_image_url: result.url
+                });
+
+                showToast('Cover saved! 🎨', 'success');
+                closeCoverCrop();
+                // Re-render box set modal cover if open
+                if (document.getElementById('boxSetDetailsModal').classList.contains('active')) {
+                    document.getElementById('boxSetCoverImg').src = result.url;
+                    document.getElementById('boxSetCoverImg').style.display = '';
+                    document.getElementById('boxSetCoverPlaceholder').style.display = 'none';
+                }
+                loadBoxSets();
+            } catch (err) {
+                showToast('Failed to save cover: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Cover';
+            }
+        }, 'image/jpeg', 0.88);
+    }
+
+    // ========================================
+    // END BOX SET COVER
+    // ========================================
+
     async function loadBoxSets() {
         try {
             const boxSets = await apiCall('list_containers');
@@ -3530,34 +3779,27 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             );
 
             container.innerHTML = boxSetsWithMovies.map(boxSet => {
-                // Get first 4 movie posters for grid display
+                // Thumbnail: custom cover > movie poster grid > color placeholder
                 const posterMovies = boxSet.movies.slice(0, 4);
+                const hasCustomCover = boxSet.spine_image_type === 'custom' && boxSet.spine_image_url;
                 const hasPosters = posterMovies.length > 0;
+
+                const thumbnail = hasCustomCover
+                    ? `<img src="${boxSet.spine_image_url}" alt="${boxSet.name}" style="width:120px;height:160px;flex-shrink:0;border-radius:8px;object-fit:cover;">`
+                    : hasPosters
+                    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:120px;height:160px;flex-shrink:0;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
+                            ${posterMovies.map(movie => `
+                                <div style="position:relative;overflow:hidden;background:rgba(0,0,0,0.5);">
+                                    <img src="${movie.poster_url || '/placeholder.png'}" alt="${movie.title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+                                </div>`).join('')}
+                            ${posterMovies.length < 4 ? Array(4 - posterMovies.length).fill('<div style="background:rgba(0,0,0,0.3);"></div>').join('') : ''}
+                        </div>`
+                    : `<div style="width:120px;height:160px;flex-shrink:0;background:${boxSet.spine_color||'#667eea'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3rem;">📦</div>`;
 
                 return `
                     <div class="box-set-card" onclick="App.showBoxSetDetails(${boxSet.id})">
                         <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                            ${hasPosters ? `
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 120px; height: 160px; flex-shrink: 0; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden;">
-                                    ${posterMovies.map(movie => `
-                                        <div style="position: relative; overflow: hidden; background: rgba(0,0,0,0.5);">
-                                            <img src="${movie.poster_url || '/placeholder.png'}"
-                                                 alt="${movie.title}"
-                                                 style="width: 100%; height: 100%; object-fit: cover;"
-                                                 onerror="this.style.display='none'">
-                                        </div>
-                                    `).join('')}
-                                    ${posterMovies.length < 4 ? `
-                                        ${Array(4 - posterMovies.length).fill('').map(() => `
-                                            <div style="background: rgba(0,0,0,0.3);"></div>
-                                        `).join('')}
-                                    ` : ''}
-                                </div>
-                            ` : `
-                                <div style="width: 120px; height: 160px; flex-shrink: 0; background: ${boxSet.spine_color || '#667eea'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-                                    📦
-                                </div>
-                            `}
+                            ${thumbnail}
                             <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
                                     <h3 style="margin: 0 0 0.5rem 0;">${boxSet.name}</h3>
@@ -3625,6 +3867,27 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 ${container.spine_label ? `<div><strong>Spine Label:</strong> ${container.spine_label}</div>` : ''}
                 ${container.condition ? `<div><strong>Condition:</strong> ${container.condition}</div>` : ''}
             `;
+
+            // Cover image
+            const coverImg = document.getElementById('boxSetCoverImg');
+            const coverPlaceholder = document.getElementById('boxSetCoverPlaceholder');
+            if (container.spine_image_type === 'custom' && container.spine_image_url) {
+                coverImg.src = container.spine_image_url;
+                coverImg.style.display = '';
+                coverPlaceholder.style.display = 'none';
+            } else {
+                coverImg.style.display = 'none';
+                coverPlaceholder.style.display = '';
+                coverPlaceholder.style.background = container.spine_color || '#667eea';
+            }
+            // Wire up the change-cover button
+            const coverBtn = document.getElementById('boxSetChangeCoverBtn');
+            if (coverBtn) {
+                coverBtn.onclick = () => {
+                    _initCropCanvasEvents();
+                    showCoverUpload(containerId);
+                };
+            }
 
             // Update movie count badge
             document.getElementById('movieCount').textContent = movies ? movies.length : 0;
@@ -6651,6 +6914,11 @@ return {
     addPresetToWishlist,
     saveSetting,
     openMovieWithNav,
+    showCoverUpload,
+    closeCoverCrop,
+    onCoverFileChange,
+    cropZoom,
+    saveCroppedCover,
     showShelfWizard,
     closeShelfWizard,
     wizardGoStep2,

@@ -3443,9 +3443,25 @@ case 'resolve_movie':
             }
             break;
 
-        // ========================================
-        // SHELF LAYOUT SYSTEM
-        // ========================================
+        case 'get_container_memberships':
+            // Returns {movie_id, container_id, container_name} for every movie
+            // that has at least one copy inside a container — used to badge
+            // collection cards so users know those copies are "claimed" by a box set.
+            $stmt = $db->prepare("
+                SELECT DISTINCT
+                    m.id         AS movie_id,
+                    cont.id      AS container_id,
+                    cont.name    AS container_name
+                FROM copies c
+                JOIN container_contents cc ON cc.copy_id = c.id
+                JOIN containers cont       ON cont.id    = cc.container_id
+                JOIN movies m              ON m.id       = c.movie_id
+                WHERE c.user_id = ?
+                ORDER BY m.id
+            ");
+            $stmt->execute([$userId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
 
         case 'list_shelves':
             // Get all shelves for current user with counts
