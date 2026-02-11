@@ -1906,6 +1906,11 @@ function getCertColor(cert) {
         if (tabName === 'add') {
             showAddTypeChoice();
         }
+
+        // Update PWA install UI when switching to settings tab
+        if (tabName === 'settings') {
+            initPWAInstallUI();
+        }
     }
 
     function switchCollectionView(view) {
@@ -2348,6 +2353,49 @@ function getCertColor(cert) {
             setTimeout(() => location.reload(), 1000);
         } catch (error) {
             showToast('Failed to update display name', 'error');
+        }
+    }
+
+    /**
+     * PWA Install — triggered by Android/Chrome install button
+     */
+    async function installPWA() {
+        const prompt = window._pwaInstallPrompt;
+        if (!prompt) {
+            showToast('Install prompt not available. Try from Chrome on Android.', 'info');
+            return;
+        }
+        prompt.prompt();
+        const { outcome } = await prompt.userChoice;
+        if (outcome === 'accepted') {
+            window._pwaInstallPrompt = null;
+            showToast('CineShelf installed! 🎉', 'success');
+        }
+    }
+
+    /**
+     * Update the Install App section visibility based on install state
+     * Called when the Settings tab is opened
+     */
+    function initPWAInstallUI() {
+        const androidRow     = document.getElementById('pwaInstallAndroidRow');
+        const installedRow   = document.getElementById('pwaAlreadyInstalledRow');
+        const section        = document.getElementById('pwaInstallSection');
+
+        if (!section) return;
+
+        if (window._pwaIsInstalled) {
+            // Already running as installed PWA — show badge, hide everything else
+            if (androidRow)   androidRow.style.display   = 'none';
+            if (installedRow) installedRow.style.display = '';
+            return;
+        }
+
+        if (installedRow) installedRow.style.display = 'none';
+
+        // Show Android button only if the browser fired beforeinstallprompt
+        if (androidRow) {
+            androidRow.style.display = window._pwaInstallPrompt ? '' : 'none';
         }
     }
 
@@ -6260,6 +6308,8 @@ return {
     viewPresetList,
     addPresetToWishlist,
     saveSetting,
+    installPWA,
+    initPWAInstallUI,
     switchUser,
     updateDisplayName,
     showStats,

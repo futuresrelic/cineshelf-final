@@ -1,4 +1,27 @@
 // CineShelf PWA - Registration & Aggressive Update Checker
+
+// Capture the install prompt as early as possible (must be outside IIFE so it fires before readyState)
+window._pwaInstallPrompt = null;
+window._pwaIsInstalled = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    window._pwaInstallPrompt = e;
+    console.log('[PWA] beforeinstallprompt captured');
+    // Notify settings panel if it's open
+    const btn = document.getElementById('pwaInstallAndroidBtn');
+    if (btn) btn.style.display = '';
+});
+
+window.addEventListener('appinstalled', function() {
+    window._pwaInstallPrompt = null;
+    window._pwaIsInstalled = true;
+    console.log('[PWA] App installed');
+    const section = document.getElementById('pwaInstallSection');
+    if (section) section.style.display = 'none';
+});
+
 (function() {
     'use strict';
 

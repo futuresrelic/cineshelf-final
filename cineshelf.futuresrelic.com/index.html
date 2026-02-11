@@ -847,12 +847,50 @@
                 
                 <div class="settings-group">
                     <h3>Data Management</h3>
-                    
+
                     <div class="setting-item">
                         <button class="btn" onclick="App.showStats()">📊 View Statistics</button>
                         <button class="btn btn-secondary" onclick="App.exportData()">💾 Export Data</button>
                         <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">📥 Import CSV</button>
                         <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="App.importCSV(event)">
+                    </div>
+                </div>
+
+                <div class="settings-group" id="pwaInstallSection">
+                    <h3>📲 Install App</h3>
+
+                    <!-- Android / Chrome: button shown when beforeinstallprompt fires -->
+                    <div class="setting-item" id="pwaInstallAndroidRow" style="display:none;">
+                        <label>Android / Chrome</label>
+                        <button class="btn pwa-install-btn" id="pwaInstallAndroidBtn" onclick="App.installPWA()">
+                            <span class="pwa-install-icon">🤖</span> Add to Home Screen
+                        </button>
+                        <small style="color:rgba(255,255,255,0.55); display:block; margin-top:0.4rem; line-height:1.4;">
+                            Installs CineShelf as a standalone app on your Android device.
+                        </small>
+                    </div>
+
+                    <!-- iOS: always show manual instructions (Safari has no install API) -->
+                    <div class="setting-item" id="pwaInstallIOSRow">
+                        <label>iPhone / iPad (Safari)</label>
+                        <div class="pwa-ios-steps">
+                            <div class="pwa-ios-step">
+                                <span class="pwa-ios-step-icon">1</span>
+                                <span>Tap the <strong>Share</strong> button <span class="pwa-ios-share-icon">⎙</span> at the bottom of Safari</span>
+                            </div>
+                            <div class="pwa-ios-step">
+                                <span class="pwa-ios-step-icon">2</span>
+                                <span>Scroll down and tap <strong>"Add to Home Screen"</strong></span>
+                            </div>
+                            <div class="pwa-ios-step">
+                                <span class="pwa-ios-step-icon">3</span>
+                                <span>Tap <strong>Add</strong> — CineShelf appears on your home screen</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item" id="pwaAlreadyInstalledRow" style="display:none;">
+                        <div class="pwa-installed-badge">✅ CineShelf is installed as an app</div>
                     </div>
                 </div>
             </div>
