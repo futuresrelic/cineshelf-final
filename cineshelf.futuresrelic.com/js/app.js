@@ -2077,6 +2077,20 @@ function getCertColor(cert) {
         await renderShelfViewLevel();
     }
 
+    /** Refresh shelf data everywhere: list view, visual view, and shelf-view browser cache */
+    async function refreshAllShelfViews() {
+        await loadShelves();
+        if (shelfView === 'visual') renderShelvesVisual();
+        // If the shelf-view browser is the active collection sub-view, reload its cache too
+        if (currentCollectionSubview === 'shelfview') {
+            await loadShelfViewBrowse(false);
+        }
+        // If viewing a specific shelf's contents in the manage panel, reload that too
+        if (currentShelf) {
+            viewShelfContents(currentShelf.id);
+        }
+    }
+
     function shelfViewDrillIn(shelfId, shelfName) {
         shelfViewStack.push({ id: shelfId, name: shelfName });
         renderShelfViewLevel();
@@ -6045,7 +6059,7 @@ async function getCurrentUserId() {
                 </div>
             </div>`;
 
-        await loadShelves();
+        await refreshAllShelfViews();
     }
 
     // ----------------------------------------
@@ -6422,11 +6436,7 @@ async function getCurrentUserId() {
 
             closeShelfModal();
 
-            // Reload and re-render based on current view
-            await loadShelves();
-            if (shelfView === 'visual') {
-                await renderShelvesVisual();
-            }
+            await refreshAllShelfViews();
         } catch (error) {
             console.error('Failed to save shelf:', error);
             showToast('Failed to save shelf', 'error');
@@ -6450,11 +6460,7 @@ async function getCurrentUserId() {
             await apiCall('delete_shelf', { shelf_id: shelfId });
             showToast('Shelf deleted successfully!', 'success');
 
-            // Reload and re-render based on current view
-            await loadShelves();
-            if (shelfView === 'visual') {
-                await renderShelvesVisual();
-            }
+            await refreshAllShelfViews();
         } catch (error) {
             console.error('Failed to delete shelf:', error);
             showToast('Failed to delete shelf', 'error');
@@ -6544,11 +6550,7 @@ async function getCurrentUserId() {
             await apiCall('remove_from_shelf', { copy_id: copyId });
             showToast('Movie removed from shelf', 'success');
 
-            // Reload shelf contents and shelf list
-            if (currentShelf) {
-                viewShelfContents(currentShelf.id);
-            }
-            loadShelves();
+            await refreshAllShelfViews();
         } catch (error) {
             console.error('Failed to remove from shelf:', error);
             showToast('Failed to remove from shelf', 'error');
@@ -6564,11 +6566,7 @@ async function getCurrentUserId() {
             await apiCall('remove_container_from_shelf', { container_id: containerId });
             showToast('Box set removed from shelf', 'success');
 
-            // Reload shelf contents and shelf list
-            if (currentShelf) {
-                viewShelfContents(currentShelf.id);
-            }
-            loadShelves();
+            await refreshAllShelfViews();
         } catch (error) {
             console.error('Failed to remove container from shelf:', error);
             showToast('Failed to remove container from shelf', 'error');
@@ -6922,11 +6920,8 @@ async function getCurrentUserId() {
 
             renderUnassignedMovies();
 
-            // Reload shelves to update counts
-            await loadShelves();
-            if (shelfView === 'visual') {
-                await renderShelvesVisual();
-            }
+            // Reload all shelf views (list, visual, shelf-view browser, contents panel)
+            await refreshAllShelfViews();
         } catch (error) {
             console.error('Failed to assign to shelf:', error);
             showToast('Failed to assign to shelf', 'error');
