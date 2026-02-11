@@ -4515,6 +4515,7 @@ select option {
     background: rgba(255, 255, 255, 0.04);
     border-radius: 8px;
     transition: background 0.15s;
+    overflow: hidden;
 }
 .boxset-film-row:hover {
     background: rgba(255, 255, 255, 0.1);
@@ -4540,14 +4541,19 @@ select option {
 .boxset-film-title {
     font-weight: 500;
     font-size: 0.9rem;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
 }
 .boxset-film-meta {
     font-size: 0.8rem;
     color: rgba(255,255,255,0.5);
     margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .boxset-film-missing {
     color: #ff6b6b;
