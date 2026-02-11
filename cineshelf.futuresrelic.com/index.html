@@ -413,6 +413,9 @@
                     <button class="btn" onclick="App.showCreateShelfModal()">
                         ➕ Create New Shelf
                     </button>
+                    <button class="btn" onclick="App.showShelfWizard()" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                        🧙 Setup Wizard
+                    </button>
                     <button class="btn-secondary" onclick="App.viewUnassignedCopies()">
                         📦 Unassigned Movies
                     </button>
@@ -1280,6 +1283,19 @@
                     <h3>All movies assigned!</h3>
                     <p>Every movie in your collection is on a shelf.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shelf Setup Wizard Modal -->
+    <div id="shelfWizardModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>🧙 Shelf Setup Wizard</h3>
+                <button class="modal-close" onclick="App.closeShelfWizard()">×</button>
+            </div>
+            <div class="modal-body" id="shelfWizardBody">
+                <!-- Steps rendered by JS -->
             </div>
         </div>
     </div>

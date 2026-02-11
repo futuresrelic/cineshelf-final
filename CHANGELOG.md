@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-02-11
+
+### Added
+- **Swipe / arrow navigation everywhere** — the prev/next movie nav (previously shelf-view-only) now works in all views:
+  - Collection grid and list view: click any movie → ‹ › arrows, keyboard ←/→, touch swipe
+  - Wishlist grid and list view: click any movie → same nav; wishlist cards are now clickable to view full details
+  - Wishlist detail view falls back to wishlist metadata when the item is not yet in the collection; shows "Add to Collection" button directly from the modal
+- **Shelf Setup Wizard** (`🧙 Setup Wizard` button in Shelves tab):
+  - Step 1 — choose organization style: Directors, Studios, Genres, or Mixed (all three)
+  - Optionally nest all new shelves under an existing parent shelf
+  - Step 2 — smart checklist: top directors/studios/genres from your collection, sorted by film count; top 10 pre-checked, "Show N more ▾" to reveal the rest (unchecked)
+  - Step 3 — review list with category color coding (blue = director, gold = studio, green = genre)
+  - Bulk creates all selected shelves in one click; progress and error reporting included
+  - Done screen with direct shortcut back to Shelves tab
+- **PWA Install buttons** in Settings tab (Android one-tap install, iOS step-by-step guide)
+- `version.json` synced to v2.4.2 to match codebase
+
+### Changed
+- Wishlist cards in grid/list view now have an eye icon (👁️) + click-to-view alongside the existing Add/Remove buttons
+
+---
+
 ## [2.4.1] - 2026-02-10
 
 ### Added

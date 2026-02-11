@@ -537,7 +537,10 @@ function renderCollection() {
     
     grid.style.display = 'grid';
     empty.style.display = 'none';
-    
+
+    // Capture ordered list for prev/next nav
+    collectionNavList = collection.map(g => g.movie.movie_id);
+
     grid.innerHTML = collection.map(group => {
         const movie = group.movie;
         const copyCount = group.copies.length;
@@ -559,7 +562,7 @@ function renderCollection() {
         if (currentView === 'list') {
             // Simplified list view - essential metadata only
             return `
-            <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+            <div class="movie-card collection-card" data-movie-id="${movie.movie_id}" onclick="App.openMovieWithNav(${movie.movie_id}, 'collection')" style="cursor: pointer;">
                 <div class="movie-poster-container">
                     <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
@@ -574,7 +577,7 @@ function renderCollection() {
                     </div>
                 </div>
                 <div class="movie-actions">
-                    <button class="btn-icon" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
+                    <button class="btn-icon" onclick="event.stopPropagation(); App.openMovieWithNav(${movie.movie_id}, 'collection');" title="Details">👁️</button>
                     ${copyCount > 1 ?
                         `<button class="btn-icon" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
                         `<button class="btn-icon" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
@@ -585,7 +588,7 @@ function renderCollection() {
         } else {
             // Netflix-style for grid and compact views (hover overlay)
             return `
-            <div class="movie-card" data-movie-id="${movie.movie_id}" onclick="App.viewMovieDetails(${movie.movie_id})" style="cursor: pointer;">
+            <div class="movie-card" data-movie-id="${movie.movie_id}" onclick="App.openMovieWithNav(${movie.movie_id}, 'collection')" style="cursor: pointer;">
                 <div class="movie-poster-container">
                     <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     ${copyCount > 1 ? `<div class="copy-count-badge">${copyCount} copies</div>` : ''}
@@ -603,7 +606,7 @@ function renderCollection() {
                     ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
                     ${movie.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${movie.director}</div>` : ''}
                     <div class="hover-actions">
-                        <button class="hover-btn" onclick="event.stopPropagation(); App.viewMovieDetails(${movie.movie_id});" title="Details">👁️</button>
+                        <button class="hover-btn" onclick="event.stopPropagation(); App.openMovieWithNav(${movie.movie_id}, 'collection');" title="Details">👁️</button>
                         ${copyCount > 1 ?
                             `<button class="hover-btn" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
                             `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
@@ -857,7 +860,10 @@ function renderCollection() {
         
         grid.style.display = 'grid';
         empty.style.display = 'none';
-        
+
+        // Capture ordered list for prev/next nav
+        wishlistNavList = wishlist.map(w => w.movie_id);
+
         grid.innerHTML = wishlist.map(item => {
             const posterUrl = item.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
             const safeTitle = (item.title || 'Unknown').replace(/"/g, '&quot;');
@@ -867,7 +873,7 @@ function renderCollection() {
             if (currentView === 'list') {
                 // Wishlist-style for list view (always-visible metadata)
                 return `
-                <div class="movie-card wishlist-card" data-movie-id="${item.movie_id}">
+                <div class="movie-card wishlist-card" data-movie-id="${item.movie_id}" onclick="App.openMovieWithNav(${item.movie_id}, 'wishlist')" style="cursor:pointer;">
                     <div class="movie-poster-container">
                         <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                         ${isPriority ? `<div class="priority-badge">⭐ Priority</div>` : ''}
@@ -881,15 +887,16 @@ function renderCollection() {
                         ${item.target_format ? `<div class="movie-format">Want: ${item.target_format}</div>` : ''}
                     </div>
                     <div class="movie-actions">
-                        <button class="btn-icon" onclick="App.moveToCollection(${item.movie_id})" title="Add to Collection">➕</button>
-                        <button class="btn-icon" onclick="App.removeFromWishlist(${item.movie_id})" title="Remove">🗑️</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); App.openMovieWithNav(${item.movie_id}, 'wishlist');" title="Details">👁️</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); App.moveToCollection(${item.movie_id});" title="Add to Collection">➕</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); App.removeFromWishlist(${item.movie_id});" title="Remove">🗑️</button>
                     </div>
                 </div>
                 `;
             } else {
                 // Netflix-style for grid and compact views (hover overlay)
                 return `
-                <div class="movie-card" data-movie-id="${item.movie_id}">
+                <div class="movie-card" data-movie-id="${item.movie_id}" onclick="App.openMovieWithNav(${item.movie_id}, 'wishlist')" style="cursor:pointer;">
                     <div class="movie-poster-container">
                         <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                         ${isPriority ? `<div class="priority-badge">⭐ Priority</div>` : ''}
@@ -903,6 +910,7 @@ function renderCollection() {
                         </div>
                         ${item.target_format ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">Want: ${item.target_format}</div>` : ''}
                         <div class="hover-actions">
+                            <button class="hover-btn" onclick="event.stopPropagation(); App.openMovieWithNav(${item.movie_id}, 'wishlist');" title="Details">👁️</button>
                             <button class="hover-btn" onclick="event.stopPropagation(); App.moveToCollection(${item.movie_id});" title="Add to Collection">➕</button>
                             <button class="hover-btn" onclick="event.stopPropagation(); App.removeFromWishlist(${item.movie_id});" title="Remove">🗑️</button>
                         </div>
@@ -1687,16 +1695,23 @@ async function selectPoster(movieId, posterPath) {
 async function viewMovieDetails(movieId) {
     try {
         const group = collection.find(c => c.movie.movie_id === movieId);
-        if (!group) return;
-        
-        const movie = group.movie;
-        
-        // Get all copies for this movie
-        const copies = await apiCall('get_movie_copies', { movie_id: movieId });
-        
+
+        let movie, copies = [], isWishlistOnly = false;
+
+        if (group) {
+            movie = group.movie;
+            copies = await apiCall('get_movie_copies', { movie_id: movieId });
+        } else {
+            // Fall back to wishlist data (movie not yet in collection)
+            const wItem = wishlist.find(w => w.movie_id === movieId);
+            if (!wItem) return;
+            movie = wItem;
+            isWishlistOnly = true;
+        }
+
         const content = document.getElementById('movieDetailContent');
         const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
-        
+
         content.innerHTML = `
             <div class="movie-detail-layout">
                 <div class="movie-detail-poster">
@@ -1705,8 +1720,8 @@ async function viewMovieDetails(movieId) {
                 <div class="movie-detail-info">
                     <div style="display: flex; align-items: center; gap: 1rem;">
     <h2>${movie.display_title || movie.title}</h2>
-    <button class="btn-icon" onclick="App.editDisplayTitle(${movieId})" title="Edit Display Name">✏️</button>
-    <button class="btn-icon" onclick="App.changePoster(${movieId})" title="Change Poster">🖼️</button>
+    ${!isWishlistOnly ? `<button class="btn-icon" onclick="App.editDisplayTitle(${movieId})" title="Edit Display Name">✏️</button>
+    <button class="btn-icon" onclick="App.changePoster(${movieId})" title="Change Poster">🖼️</button>` : ''}
 </div>
 ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-top: -0.5rem;">Original: ${movie.title}</div>` : ''}
                     <div class="movie-detail-meta">
@@ -1718,10 +1733,20 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                     ${movie.genre ? `<div class="movie-detail-genre">${movie.genre}</div>` : ''}
                     ${movie.director ? `<div class="movie-detail-director">🎬 Directed by ${movie.director}</div>` : ''}
                     ${movie.overview ? `<p class="movie-detail-overview">${movie.overview}</p>` : ''}
-                    
+
+                    ${isWishlistOnly ? `
+                    <div class="movie-detail-section">
+                        <h3>📋 On your wishlist</h3>
+                        ${movie.target_format ? `<p style="color:rgba(255,255,255,0.7);">Wanted format: <strong>${movie.target_format}</strong></p>` : ''}
+                        ${movie.notes ? `<p style="color:rgba(255,255,255,0.6); font-size:0.9rem;">${movie.notes}</p>` : ''}
+                        <button class="btn" onclick="App.closeMovieDetail(); App.moveToCollection(${movieId});" style="margin-top: 0.75rem;">
+                            ➕ Add to Collection
+                        </button>
+                    </div>
+                    ` : `
                     <div class="movie-detail-section">
                         <h3>Your Copies (${copies.length})</h3>
-                        
+
                         ${copies.length > 0 ? `
                             <div class="copies-summary">
                                 ${copies.map((copy, i) => `
@@ -1733,7 +1758,7 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                                     </div>
                                 `).join('')}
                             </div>
-                            
+
                             ${copies.length > 0 ? `
                                 <button class="btn" onclick="App.openCopyManager(${movieId})" style="margin-top: 1rem;">
                                     ✏️ Manage Copies
@@ -1743,12 +1768,13 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                             <p style="color: rgba(255,255,255,0.6);">No copies in your collection</p>
                         `}
                     </div>
+                    `}
                 </div>
             </div>
         `;
-        
+
         document.getElementById('movieDetailModal').classList.add('active');
-        
+
     } catch (error) {
         console.error('Failed to load movie details:', error);
         showToast('Failed to load movie details', 'error');
@@ -1785,6 +1811,16 @@ function getCertColor(cert) {
 
     let shelfNavMovieList = []; // array of movie_ids in current shelf level
     let shelfNavIndex = -1;     // current position in that list
+
+    // Ordered movie_id lists captured at render time for collection and wishlist
+    let collectionNavList = [];
+    let wishlistNavList = [];
+
+    // Universal entry point from collection/wishlist card clicks
+    function openMovieWithNav(movieId, source) {
+        const list = source === 'wishlist' ? wishlistNavList : collectionNavList;
+        viewMovieDetailsWithNav(movieId, list);
+    }
 
     // Called from spine / poster clicks inside shelf view
     function viewMovieDetailsWithNav(movieId, movieList) {
@@ -5377,6 +5413,312 @@ async function getCurrentUserId() {
     // SHELF MANAGEMENT
     // ========================================
 
+    // ----------------------------------------
+    // SHELF SETUP WIZARD
+    // ----------------------------------------
+
+    let wizardSelections  = [];
+    let wizardCategory    = 'mixed';
+    let wizardParentShelfId = null;
+
+    function showShelfWizard() {
+        document.getElementById('shelfWizardModal').classList.add('active');
+        wizardSelections = [];
+        wizardStep1();
+    }
+
+    function closeShelfWizard() {
+        document.getElementById('shelfWizardModal').classList.remove('active');
+        wizardSelections = [];
+    }
+
+    /** Compute top directors / studios / genres from the loaded collection */
+    function _wizardComputeTopItems() {
+        const directors = {}, studios = {}, genres = {};
+
+        collection.forEach(group => {
+            const m = group.movie;
+            if (m.director) {
+                const d = m.director.trim();
+                if (d) directors[d] = (directors[d] || 0) + 1;
+            }
+            if (m.studio) {
+                const s = m.studio.trim();
+                if (s) studios[s] = (studios[s] || 0) + 1;
+            }
+            if (m.genre) {
+                m.genre.split(',').forEach(g => {
+                    const gt = g.trim();
+                    if (gt) genres[gt] = (genres[gt] || 0) + 1;
+                });
+            }
+        });
+
+        const sortDesc = obj => Object.entries(obj)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+
+        return {
+            directors: sortDesc(directors),
+            studios:   sortDesc(studios),
+            genres:    sortDesc(genres)
+        };
+    }
+
+    function wizardStep1() {
+        const parentOptions = (shelves || []).map(s =>
+            `<option value="${s.id}">${s.name}</option>`
+        ).join('');
+
+        document.getElementById('shelfWizardBody').innerHTML = `
+            <div class="wizard-step">
+                <div class="wizard-step-header">
+                    <span class="wizard-step-num">1</span>
+                    <span>Choose how to organize</span>
+                </div>
+                <p class="wizard-desc">
+                    The wizard will suggest shelves based on what's most common in your collection —
+                    directors, studios, genres, or a mix. You pick which ones to create.
+                </p>
+
+                <div class="wizard-category-picker">
+                    <label class="wizard-cat-option">
+                        <input type="radio" name="wizardCat" value="directors" ${wizardCategory === 'directors' ? 'checked' : ''}>
+                        <div class="wizard-cat-card">
+                            <div class="wizard-cat-icon">🎬</div>
+                            <div class="wizard-cat-name">Directors</div>
+                            <div class="wizard-cat-desc">One shelf per director</div>
+                        </div>
+                    </label>
+                    <label class="wizard-cat-option">
+                        <input type="radio" name="wizardCat" value="studios" ${wizardCategory === 'studios' ? 'checked' : ''}>
+                        <div class="wizard-cat-card">
+                            <div class="wizard-cat-icon">🏢</div>
+                            <div class="wizard-cat-name">Studios</div>
+                            <div class="wizard-cat-desc">One shelf per studio</div>
+                        </div>
+                    </label>
+                    <label class="wizard-cat-option">
+                        <input type="radio" name="wizardCat" value="genres" ${wizardCategory === 'genres' ? 'checked' : ''}>
+                        <div class="wizard-cat-card">
+                            <div class="wizard-cat-icon">🎭</div>
+                            <div class="wizard-cat-name">Genres</div>
+                            <div class="wizard-cat-desc">One shelf per genre</div>
+                        </div>
+                    </label>
+                    <label class="wizard-cat-option">
+                        <input type="radio" name="wizardCat" value="mixed" ${wizardCategory === 'mixed' || wizardCategory === '' ? 'checked' : ''}>
+                        <div class="wizard-cat-card">
+                            <div class="wizard-cat-icon">✨</div>
+                            <div class="wizard-cat-name">Mixed</div>
+                            <div class="wizard-cat-desc">Pick from all categories</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="setting-item" style="margin-top: 1.5rem;">
+                    <label>Nest under an existing shelf <span style="color:rgba(255,255,255,0.45);">(optional)</span></label>
+                    <select id="wizardParentShelf" style="max-width: 300px;">
+                        <option value="">— Top level (no parent) —</option>
+                        ${parentOptions}
+                    </select>
+                </div>
+
+                <div class="wizard-footer">
+                    <span></span>
+                    <button class="btn" onclick="App.wizardGoStep2()">Next →</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function wizardGoStep2() {
+        wizardCategory    = document.querySelector('input[name="wizardCat"]:checked').value;
+        wizardParentShelfId = document.getElementById('wizardParentShelf').value || null;
+        wizardStep2();
+    }
+
+    /** Render a collapsible checklist section for a category */
+    function _wizardRenderSection(title, icon, items, catKey, initialShow = 10) {
+        if (!items.length) return '';
+
+        const topItems    = items.slice(0, initialShow);
+        const moreItems   = items.slice(initialShow);
+
+        const renderItem = (item, checked) => `
+            <label class="wizard-check-item">
+                <input type="checkbox" name="wizard_${catKey}" value="${item.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" ${checked ? 'checked' : ''}>
+                <span class="wizard-check-name">${item.name}</span>
+                <span class="wizard-check-count">${item.count} film${item.count !== 1 ? 's' : ''}</span>
+            </label>`;
+
+        return `
+            <div class="wizard-section">
+                <div class="wizard-section-title">${icon} ${title}</div>
+                <div class="wizard-checklist">
+                    ${topItems.map(i => renderItem(i, true)).join('')}
+                    ${moreItems.length > 0 ? `
+                        <div class="wizard-hidden" id="wizardHidden_${catKey}" style="display:none;">
+                            ${moreItems.map(i => renderItem(i, false)).join('')}
+                        </div>
+                        <button class="wizard-show-more" type="button" onclick="App.wizardToggleMore('${catKey}')">
+                            Show ${moreItems.length} more ▾
+                        </button>
+                    ` : ''}
+                </div>
+            </div>`;
+    }
+
+    function wizardToggleMore(catKey) {
+        const hidden = document.getElementById(`wizardHidden_${catKey}`);
+        const btn    = hidden ? hidden.nextElementSibling : null;
+        if (!hidden || !btn) return;
+        const expanding = hidden.style.display === 'none';
+        hidden.style.display = expanding ? '' : 'none';
+        btn.textContent = expanding
+            ? 'Show fewer ▴'
+            : `Show ${hidden.querySelectorAll('label').length} more ▾`;
+    }
+
+    function wizardStep2() {
+        const tops = _wizardComputeTopItems();
+
+        if (!collection.length) {
+            document.getElementById('shelfWizardBody').innerHTML = `
+                <div class="wizard-step">
+                    <p style="color:rgba(255,255,255,0.6); text-align:center; padding: 2rem;">
+                        Your collection is empty — add some movies first!
+                    </p>
+                    <div class="wizard-footer">
+                        <button class="btn btn-secondary" onclick="App.wizardStep1()">← Back</button>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        let sectionsHTML = '';
+        if (wizardCategory === 'directors' || wizardCategory === 'mixed') {
+            sectionsHTML += _wizardRenderSection('Directors', '🎬', tops.directors, 'directors');
+        }
+        if (wizardCategory === 'studios' || wizardCategory === 'mixed') {
+            sectionsHTML += _wizardRenderSection('Studios', '🏢', tops.studios, 'studios');
+        }
+        if (wizardCategory === 'genres' || wizardCategory === 'mixed') {
+            sectionsHTML += _wizardRenderSection('Genres', '🎭', tops.genres, 'genres');
+        }
+
+        document.getElementById('shelfWizardBody').innerHTML = `
+            <div class="wizard-step">
+                <div class="wizard-step-header">
+                    <span class="wizard-step-num">2</span>
+                    <span>Select shelves to create</span>
+                </div>
+                <p class="wizard-desc">
+                    The top picks are pre-checked. Uncheck anything you don't want, or scroll down
+                    to reveal and check less-common items too.
+                </p>
+                ${sectionsHTML || '<p style="color:rgba(255,255,255,0.5);">No data found in your collection.</p>'}
+                <div class="wizard-footer">
+                    <button class="btn btn-secondary" onclick="App.wizardStep1()">← Back</button>
+                    <button class="btn" onclick="App.wizardGoStep3()">Review →</button>
+                </div>
+            </div>`;
+    }
+
+    function wizardGoStep3() {
+        wizardSelections = [];
+        ['directors', 'studios', 'genres'].forEach(cat => {
+            document.querySelectorAll(`input[name="wizard_${cat}"]:checked`).forEach(cb => {
+                wizardSelections.push({ name: cb.value, category: cat });
+            });
+        });
+
+        if (!wizardSelections.length) {
+            showToast('Select at least one item to create a shelf for.', 'error');
+            return;
+        }
+        wizardStep3();
+    }
+
+    function wizardStep3() {
+        const parentName = wizardParentShelfId
+            ? ((shelves || []).find(s => String(s.id) === String(wizardParentShelfId))?.name || 'Selected shelf')
+            : 'Top level';
+
+        const catColors = { directors: '#1a6fd4', studios: '#c0a020', genres: '#27ae60' };
+        const catIcons  = { directors: '🎬', studios: '🏢', genres: '🎭' };
+
+        document.getElementById('shelfWizardBody').innerHTML = `
+            <div class="wizard-step">
+                <div class="wizard-step-header">
+                    <span class="wizard-step-num">3</span>
+                    <span>Review & Create</span>
+                </div>
+                <p class="wizard-desc">
+                    Ready to create <strong>${wizardSelections.length} shelf${wizardSelections.length !== 1 ? 'ves' : ''}</strong>
+                    under <strong>${parentName}</strong>:
+                </p>
+                <div class="wizard-review-list">
+                    ${wizardSelections.map(s => `
+                        <div class="wizard-review-item">
+                            <span class="wizard-review-icon">${catIcons[s.category] || '📁'}</span>
+                            <span class="wizard-review-name">${s.name}</span>
+                            <span class="wizard-review-cat" style="color:${catColors[s.category] || '#888'}">${s.category}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="wizard-footer">
+                    <button class="btn btn-secondary" onclick="App.wizardStep2()">← Back</button>
+                    <button class="btn" id="wizardCreateBtn" onclick="App.wizardCreate()">
+                        ✨ Create ${wizardSelections.length} Shelf${wizardSelections.length !== 1 ? 'ves' : ''}
+                    </button>
+                </div>
+            </div>`;
+    }
+
+    async function wizardCreate() {
+        const btn = document.getElementById('wizardCreateBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+
+        const catColors = { directors: '#1a6fd4', studios: '#c0a020', genres: '#27ae60' };
+        let created = 0, failed = 0;
+
+        for (const sel of wizardSelections) {
+            try {
+                const params = {
+                    name:  sel.name,
+                    color: catColors[sel.category] || '#667eea'
+                };
+                if (wizardParentShelfId) params.parent_shelf_id = parseInt(wizardParentShelfId);
+                await apiCall('create_shelf', params);
+                created++;
+            } catch (e) {
+                console.error('Wizard: failed to create shelf', sel.name, e);
+                failed++;
+            }
+        }
+
+        document.getElementById('shelfWizardBody').innerHTML = `
+            <div class="wizard-step wizard-done">
+                <div class="wizard-done-icon">✅</div>
+                <h3 class="wizard-done-title">${created} shelf${created !== 1 ? 'ves' : ''} created!</h3>
+                ${failed > 0 ? `<p style="color:#f87171; margin-top:0.5rem;">${failed} could not be created — try them manually.</p>` : ''}
+                <p class="wizard-done-subtitle">Your shelves are ready. Go assign movies to them!</p>
+                <div class="wizard-footer" style="justify-content:center; gap:1rem; margin-top:1.5rem;">
+                    <button class="btn btn-secondary" onclick="App.closeShelfWizard()">Close</button>
+                    <button class="btn" onclick="App.closeShelfWizard(); App.switchTab('shelves');">
+                        📚 Go to Shelves
+                    </button>
+                </div>
+            </div>`;
+
+        await loadShelves();
+    }
+
+    // ----------------------------------------
+    // END SHELF SETUP WIZARD
+    // ----------------------------------------
+
     let currentShelf = null;
     let assignCopyId = null;
     let unassignedMovies = [];
@@ -6308,6 +6650,16 @@ return {
     viewPresetList,
     addPresetToWishlist,
     saveSetting,
+    openMovieWithNav,
+    showShelfWizard,
+    closeShelfWizard,
+    wizardGoStep2,
+    wizardStep1,
+    wizardStep2,
+    wizardGoStep3,
+    wizardStep3,
+    wizardCreate,
+    wizardToggleMore,
     installPWA,
     initPWAInstallUI,
     switchUser,
