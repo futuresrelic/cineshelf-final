@@ -3902,7 +3902,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                             : `<div class="boxset-film-thumb boxset-film-thumb-empty">🎬</div>`}
                         <div class="boxset-film-info">
                             <div class="boxset-film-title">${movie.display_title || movie.title}</div>
-                            <div class="boxset-film-meta">${movie.year || ''}${movie.director ? ` · ${movie.director}` : ''}${movie.disc_label ? ` · Disc: ${movie.disc_label}` : ''}</div>
+                            <div class="boxset-film-meta">${movie.year || ''}${movie.director ? ` · ${movie.director}` : ''}${movie.disc_label ? ` · ${movie.disc_label.replace(/:\s*.+$/, '').trim()}` : ''}</div>
                         </div>
                         ${!movie.is_present ? '<span class="boxset-film-missing">Missing</span>' : ''}
                     </div>`;
@@ -3923,10 +3923,12 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                         </div>
                     </div>
                     <div class="movie-detail-info">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <h2>${container.name}</h2>
-                            <button class="btn-icon" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
-                            <button class="btn-icon" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-width: 0;">
+                            <h2 style="margin: 0; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; flex: 1 1 auto;">${container.name}</h2>
+                            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                                <button class="btn-icon" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
+                                <button class="btn-icon" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                            </div>
                         </div>
                         <div class="movie-detail-meta">
                             <span>${container.format || 'Box Set'}</span>
