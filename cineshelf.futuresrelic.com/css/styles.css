@@ -1274,6 +1274,65 @@ select option {
     padding: 2rem;
 }
 
+/* ── Movie detail: prev/next nav arrows ─────────── */
+.movie-nav-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    font-size: 1.6rem;
+    line-height: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, opacity 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+}
+.movie-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
+.movie-nav-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* ── Add Single Movie / Add Box Set choice grid ── */
+.add-type-choice {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.add-type-btn {
+    padding: 1.5rem 1rem;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.4rem;
+}
+.add-type-boxset {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.add-type-icon { font-size: 2rem; }
+.add-type-title { font-weight: 700; font-size: 1rem; }
+.add-type-desc { opacity: 0.75; font-size: 0.82rem; line-height: 1.3; }
+
+@media (max-width: 480px) {
+    .add-type-choice {
+        grid-template-columns: 1fr;   /* stack vertically on small phones */
+    }
+    .add-type-btn {
+        flex-direction: row;
+        text-align: left;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+    .add-type-icon { font-size: 1.75rem; flex-shrink: 0; }
+    .add-type-title { font-size: 0.95rem; }
+}
+
 /* Copy Manager */
 .copies-list {
     display: flex;

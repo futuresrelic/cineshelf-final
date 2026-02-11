@@ -73,10 +73,10 @@ const Auth = (function() {
      * Update UI with user info
      */
     function updateUI(user) {
-        // Update user badge
+        // Update user badge — prefer display_name, fall back to username/email
         const userBadge = document.getElementById('currentUser');
         if (userBadge) {
-            userBadge.textContent = user.username || user.email;
+            userBadge.textContent = user.display_name || user.username || user.email;
         }
 
         // Add profile picture if available

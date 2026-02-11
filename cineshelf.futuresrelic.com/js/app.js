@@ -1771,8 +1771,86 @@ function getCertColor(cert) {
     
     function closeMovieDetail() {
         document.getElementById('movieDetailModal').classList.remove('active');
+        // Clear shelf nav context when closing
+        shelfNavMovieList = [];
+        shelfNavIndex = -1;
+        const nav = document.getElementById('movieDetailNav');
+        if (nav) nav.style.display = 'none';
     }
-    
+
+    // ========================================
+    // SHELF VIEW MOVIE NAVIGATION
+    // Prev / next through movies while in shelf view modal
+    // ========================================
+
+    let shelfNavMovieList = []; // array of movie_ids in current shelf level
+    let shelfNavIndex = -1;     // current position in that list
+
+    // Called from spine / poster clicks inside shelf view
+    function viewMovieDetailsWithNav(movieId, movieList) {
+        shelfNavMovieList = movieList;
+        shelfNavIndex = movieList.indexOf(movieId);
+        viewMovieDetails(movieId);
+        _updateShelfNavUI();
+    }
+
+    function shelfMovieNav(direction) {
+        if (!shelfNavMovieList.length) return;
+        const next = shelfNavIndex + direction;
+        if (next < 0 || next >= shelfNavMovieList.length) return;
+        shelfNavIndex = next;
+        viewMovieDetails(shelfNavMovieList[shelfNavIndex]);
+        _updateShelfNavUI();
+    }
+
+    function _updateShelfNavUI() {
+        const nav = document.getElementById('movieDetailNav');
+        const label = document.getElementById('movieDetailNavLabel');
+        const prev = document.getElementById('movieDetailPrev');
+        const next = document.getElementById('movieDetailNext');
+        if (!nav) return;
+
+        if (shelfNavMovieList.length > 1) {
+            nav.style.display = 'flex';
+            label.textContent = `${shelfNavIndex + 1} / ${shelfNavMovieList.length}`;
+            prev.disabled = shelfNavIndex <= 0;
+            next.disabled = shelfNavIndex >= shelfNavMovieList.length - 1;
+        } else {
+            nav.style.display = 'none';
+        }
+    }
+
+    // Keyboard arrow navigation (only when modal is open and nav is active)
+    document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('movieDetailModal');
+        if (!modal || !modal.classList.contains('active')) return;
+        if (!shelfNavMovieList.length) return;
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); shelfMovieNav(-1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); shelfMovieNav(1); }
+    });
+
+    // Touch swipe support (iOS + Android)
+    (function() {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', function(e) {
+            const modal = document.getElementById('movieDetailModal');
+            if (!modal || !modal.classList.contains('active')) return;
+            if (!shelfNavMovieList.length) return;
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            // Only trigger if horizontal swipe is dominant and > 60px
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                if (dx < 0) shelfMovieNav(1);  // swipe left → next
+                else        shelfMovieNav(-1); // swipe right → prev
+            }
+        }, { passive: true });
+    })();
+
     // ========================================
     // UI HELPERS
     // ========================================
@@ -1951,10 +2029,18 @@ function getCertColor(cert) {
         }
     }
 
+    // Build a JSON-safe list of movie_ids (non-containers) for nav context
+    function _shelfNavIds(items) {
+        return JSON.stringify(
+            items.filter(i => !i.is_container).map(i => i.movie_id)
+        );
+    }
+
     function renderSpineStrip(items, shelfColor) {
         if (!items || items.length === 0) {
             return `<span class="spine-empty-msg">Empty</span>`;
         }
+        const navIds = _shelfNavIds(items);
         return items.map(item => {
             if (item.is_container) {
                 const count = item.container_movie_count || 0;
@@ -1970,7 +2056,7 @@ function getCertColor(cert) {
                 const title = (item.display_title || item.title || '').replace(/"/g,'&quot;');
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
-                             onclick="App.viewMovieDetails(${item.movie_id})"
+                             onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"
                              style="--spine-color:${color}">
                             <span class="spine-title">${item.display_title || item.title}</span>
                         </div>`;
@@ -1980,6 +2066,7 @@ function getCertColor(cert) {
 
     function renderPosterGrid(items) {
         if (!items || items.length === 0) return '';
+        const navIds = _shelfNavIds(items);
         let html = `<div class="shelf-view-movies-grid">`;
         items.forEach(item => {
             if (item.is_container) {
@@ -1989,7 +2076,7 @@ function getCertColor(cert) {
                     <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
                 </div>`;
             } else {
-                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetails(${item.movie_id})">
+                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})">
                     ${item.poster_url
                         ? `<img src="${item.poster_url}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.parentElement.classList.add('no-poster');this.style.display='none'">`
                         : `<div class="shelf-view-poster-placeholder">🎬</div>`}
@@ -6211,6 +6298,8 @@ return {
     shelfViewDrillIn,
     shelfViewBack,
     shelfViewGoTo,
+    viewMovieDetailsWithNav,
+    shelfMovieNav,
     closeBoxSetDetails,
     showCreateBoxSetModal,
     editBoxSet,

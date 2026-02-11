@@ -505,16 +505,16 @@
                 <h2>Add to Collection</h2>
 
                 <!-- Choice: Single Movie or Box Set -->
-                <div id="addTypeChoice" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
-                    <button class="btn" onclick="App.showAddSingleMovie()" style="padding: 1.5rem; font-size: 1rem;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📀</div>
-                        <div>Add Single Movie</div>
-                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">Add one movie to your collection</small>
+                <div id="addTypeChoice" class="add-type-choice">
+                    <button class="btn add-type-btn" onclick="App.showAddSingleMovie()">
+                        <div class="add-type-icon">📀</div>
+                        <div class="add-type-title">Add Single Movie</div>
+                        <small class="add-type-desc">Add one movie to your collection</small>
                     </button>
-                    <button class="btn" onclick="App.showAddBoxSet()" style="padding: 1.5rem; font-size: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📦</div>
-                        <div>Add Box Set</div>
-                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">Multi-movie case (trilogy, double feature, etc.)</small>
+                    <button class="btn add-type-btn add-type-boxset" onclick="App.showAddBoxSet()">
+                        <div class="add-type-icon">📦</div>
+                        <div class="add-type-title">Add Box Set</div>
+                        <small class="add-type-desc">Multi-movie case (trilogy, double feature, etc.)</small>
                     </button>
                 </div>
 
@@ -814,11 +814,11 @@
 
                     <div class="setting-item">
                         <label>Display Name</label>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" style="flex: 1;">
-                            <button class="btn" onclick="App.updateDisplayName()" style="padding: 0.5rem 1rem;">Save</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                            <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" style="flex: 1; min-width: 160px;">
+                            <button class="btn" onclick="App.updateDisplayName()" style="padding: 0.5rem 1rem; flex-shrink: 0;">Save</button>
                         </div>
-                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.25rem;">
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.4rem; line-height: 1.4;">
                             This is how your name appears to other users in groups
                         </small>
                     </div>
@@ -1021,10 +1021,16 @@
     <div id="movieDetailModal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
+                <!-- Shelf-context prev/next navigation (hidden when not in shelf view) -->
+                <div id="movieDetailNav" style="display:none; align-items:center; gap:0.5rem; margin-right:auto;">
+                    <button id="movieDetailPrev" class="movie-nav-btn" onclick="App.shelfMovieNav(-1)" title="Previous (←)">‹</button>
+                    <span id="movieDetailNavLabel" style="font-size:0.8rem;color:rgba(255,255,255,0.5);white-space:nowrap;"></span>
+                    <button id="movieDetailNext" class="movie-nav-btn" onclick="App.shelfMovieNav(1)" title="Next (→)">›</button>
+                </div>
                 <h3>Movie Details</h3>
                 <button class="modal-close" onclick="App.closeMovieDetail()">×</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="movieDetailBody">
                 <div id="movieDetailContent"></div>
             </div>
         </div>
