@@ -6296,11 +6296,16 @@ async function getCurrentUserId() {
                                 const year = movie.is_container ? '' : ` (${movie.year})`;
                                 const icon = movie.is_container ? '📦 ' : '';
 
+                                // Box set spines open box set detail directly; movie spines open movie detail
+                                const spineClick = movie.is_container
+                                    ? `App.showBoxSetDetails(${movie.container_id})`
+                                    : `App.viewMovieDetails(${movie.movie_id})`;
+
                                 return `
                                     <div class="movie-spine ${movie.is_container ? 'container-spine' : ''}"
                                          style="background: ${movie.is_container ? (movie.container_spine_color || '#764ba2') : (shelf.color || '#667eea')}"
                                          title="${icon}${title}${year}"
-                                         onclick="App.viewShelfContents(${shelf.id})">
+                                         onclick="${spineClick}">
                                         <span class="spine-title">${icon}${title}</span>
                                     </div>
                                 `;

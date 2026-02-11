@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Fixed modal stacking when opening box sets from shelf contents** — clicking a box set card inside the shelf contents modal (Shelves tab → click shelf → click box set) now properly closes the intermediate shelf contents modal before showing the box set detail, instead of rendering the detail behind it
+- **Shelf visual view spines now open directly** — clicking a box set spine opens the box set detail directly (no intermediate modal); clicking a movie spine opens the movie detail card directly. Previously all spines opened the shelf contents list modal first.
 
 ---
 
