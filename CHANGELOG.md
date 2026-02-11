@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.3] - 2026-02-11
+
+### Changed
+- **Box set details now open in the same modal as movies** — clicking a box set spine or card in the shelf view now opens the standard movie-detail modal with a consistent layout:
+  - Left column: poster mosaic (auto-generated 2x2 grid from contained films), custom cover, or color placeholder
+  - Right column: box set name, format, edition, condition, spine label, and a scrollable film list
+  - Each film row shows poster thumbnail, title, year, director — click any film to jump to its full movie detail card
+  - Edit and delete buttons carried over; "Change Cover" button under the cover image
+- **Box set cards in shelf poster-grid view** now show the custom cover image (if uploaded) instead of always showing the 📦 placeholder
+
+---
+
 ## [2.5.2] - 2026-02-11
 
 ### Fixed

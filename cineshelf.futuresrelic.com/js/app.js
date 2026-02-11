@@ -2144,8 +2144,12 @@ function getCertColor(cert) {
         let html = `<div class="shelf-view-movies-grid">`;
         items.forEach(item => {
             if (item.is_container) {
+                const coverUrl = item.container_spine_image_url;
                 html += `<div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
-                    <div class="shelf-view-poster-placeholder" style="font-size:2.5rem">📦</div>
+                    ${coverUrl
+                        ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                           <div class="shelf-view-poster-placeholder" style="display:none; background:${item.container_spine_color || '#764ba2'}; font-size:2rem;">📦</div>`
+                        : `<div class="shelf-view-poster-placeholder" style="background:${item.container_spine_color || '#764ba2'}; font-size:2rem;">📦</div>`}
                     <div class="shelf-view-movie-title">${item.container_name}</div>
                     <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
                 </div>`;
@@ -3847,23 +3851,8 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Show box set details modal
     async function showBoxSetDetails(containerId) {
         try {
-            console.log('[Box Set Details] Fetching container ID:', containerId);
             const data = await apiCall('get_container_contents', { container_id: containerId });
-            console.log('[Box Set Details] API response:', data);
-
             const { container, movies } = data;
-            console.log('[Box Set Details] Container:', container);
-            console.log('[Box Set Details] Movies:', movies);
-            console.log('[Box Set Details] FULL MOVIE DATA:', movies.map(m => ({
-                content_id: m.content_id,
-                container_id: m.container_id,
-                cc_copy_id: m.cc_copy_id,
-                copy_id: m.copy_id,
-                c_movie_id: m.c_movie_id,
-                movie_id: m.movie_id,
-                tmdb_id: m.tmdb_id,
-                title: m.title
-            })));
 
             if (!container) {
                 showToast('Box set not found', 'error');
@@ -3871,95 +3860,109 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             }
 
             currentContainerId = containerId;
-            currentContainer = container; // Store full container data for editing
+            currentContainer = container;
 
-            // Update modal title and info
-            document.getElementById('boxSetDetailsTitle').textContent = container.name;
-            document.getElementById('boxSetName').textContent = container.name;
-            document.getElementById('boxSetFormatDisplay').textContent = `${container.format || 'Box Set'}${container.edition ? ` • ${container.edition}` : ''}`;
-            document.getElementById('boxSetStats').innerHTML = `
-                ${container.spine_label ? `<div><strong>Spine Label:</strong> ${container.spine_label}</div>` : ''}
-                ${container.condition ? `<div><strong>Condition:</strong> ${container.condition}</div>` : ''}
-            `;
+            // Hide movie-specific nav arrows
+            const nav = document.getElementById('movieDetailNav');
+            if (nav) nav.style.display = 'none';
 
-            // Cover image
-            const coverImg = document.getElementById('boxSetCoverImg');
-            const coverPlaceholder = document.getElementById('boxSetCoverPlaceholder');
+            // Build cover image: custom upload, or a poster mosaic from contained films
+            let coverHTML = '';
             if (container.spine_image_type === 'custom' && container.spine_image_url) {
-                coverImg.src = container.spine_image_url;
-                coverImg.style.display = '';
-                coverPlaceholder.style.display = 'none';
+                coverHTML = `<img src="${container.spine_image_url}" alt="${container.name}" style="width:100%; border-radius:var(--radius);">`;
+            } else if (movies && movies.length > 0) {
+                // Poster mosaic from first 4 films
+                const posters = movies.slice(0, 4).filter(m => m.poster_url);
+                if (posters.length >= 2) {
+                    coverHTML = `<div class="boxset-poster-mosaic">
+                        ${posters.map(m => `<img src="${m.poster_url}" alt="${m.title || ''}">`).join('')}
+                    </div>`;
+                } else if (posters.length === 1) {
+                    coverHTML = `<img src="${posters[0].poster_url}" alt="${container.name}" style="width:100%; border-radius:var(--radius);">`;
+                } else {
+                    coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
+                }
             } else {
-                coverImg.style.display = 'none';
-                coverPlaceholder.style.display = '';
-                coverPlaceholder.style.background = container.spine_color || '#667eea';
-            }
-            // Wire up the change-cover button
-            const coverBtn = document.getElementById('boxSetChangeCoverBtn');
-            if (coverBtn) {
-                coverBtn.onclick = () => {
-                    _initCropCanvasEvents();
-                    showCoverUpload(containerId);
-                };
+                coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
             }
 
-            // Update movie count badge
-            document.getElementById('movieCount').textContent = movies ? movies.length : 0;
-
-            // Render movies list (use boxSetDetailsMoviesList to avoid collision with creation panel)
-            const moviesList = document.getElementById('boxSetDetailsMoviesList');
-            if (!movies || movies.length === 0) {
-                moviesList.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center;">No movies in this box set yet.</p>';
-            } else {
-                console.log('[Box Set Details] Rendering movies:', movies.map(m => ({
-                    title: m.title || m.display_title,
-                    poster: m.poster_url,
-                    year: m.year
-                })));
-
-                moviesList.innerHTML = movies.map(movie => `
-                    <div class="box-set-movie-item">
-                        ${movie.poster_url ? `
-                            <img src="${movie.poster_url}"
-                                 alt="${movie.display_title || movie.title}"
-                                 class="box-set-movie-poster"
-                                 onerror="this.style.display='none'; this.parentElement.classList.add('no-poster')">
-                        ` : `
-                            <div class="box-set-movie-poster" style="background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 2rem;">
-                                🎬
-                            </div>
-                        `}
-                        <div class="box-set-movie-info">
-                            <h5>${movie.display_title || movie.title}</h5>
-                            <p>${movie.year || 'N/A'}${movie.director ? ` • ${movie.director}` : ''}</p>
-                            ${movie.disc_label ? `<p style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">Disc: ${movie.disc_label}</p>` : ''}
+            // Build film list
+            const filmCount = movies ? movies.length : 0;
+            let filmsHTML = '';
+            if (movies && movies.length > 0) {
+                filmsHTML = movies.map(movie => {
+                    const movieId = movie.movie_id;
+                    const clickable = collection.find(c => c.movie.movie_id === movieId);
+                    const onclick = clickable ? `onclick="App.closeMovieDetail(); setTimeout(() => App.viewMovieDetails(${movieId}), 200);"` : '';
+                    const cursorStyle = clickable ? 'cursor:pointer' : '';
+                    return `
+                    <div class="boxset-film-row" ${onclick} style="${cursorStyle}" title="${clickable ? 'View movie details' : ''}">
+                        ${movie.poster_url
+                            ? `<img src="${movie.poster_url}" alt="${movie.display_title || movie.title}" class="boxset-film-thumb">`
+                            : `<div class="boxset-film-thumb boxset-film-thumb-empty">🎬</div>`}
+                        <div class="boxset-film-info">
+                            <div class="boxset-film-title">${movie.display_title || movie.title}</div>
+                            <div class="boxset-film-meta">${movie.year || ''}${movie.director ? ` · ${movie.director}` : ''}${movie.disc_label ? ` · Disc: ${movie.disc_label}` : ''}</div>
                         </div>
-                        <div class="box-set-movie-actions">
-                            ${!movie.is_present ? '<span style="color: #ff6b6b; font-size: 0.85rem;">Missing</span>' : ''}
+                        ${!movie.is_present ? '<span class="boxset-film-missing">Missing</span>' : ''}
+                    </div>`;
+                }).join('');
+            } else {
+                filmsHTML = '<p style="color: rgba(255,255,255,0.5); text-align: center; padding: 1rem 0;">No movies in this box set yet.</p>';
+            }
+
+            const content = document.getElementById('movieDetailContent');
+            content.innerHTML = `
+                <div class="movie-detail-layout">
+                    <div class="movie-detail-poster">
+                        ${coverHTML}
+                        <div style="text-align:center; margin-top:0.75rem;">
+                            <button class="btn btn-secondary" style="font-size:0.8rem; padding:0.35rem 0.75rem;" onclick="event.stopPropagation(); App._initCropCanvasEvents(); App.showCoverUpload(${containerId});">
+                                📸 Change Cover
+                            </button>
                         </div>
                     </div>
-                `).join('');
-            }
+                    <div class="movie-detail-info">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <h2>${container.name}</h2>
+                            <button class="btn-icon" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
+                            <button class="btn-icon" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
+                        </div>
+                        <div class="movie-detail-meta">
+                            <span>${container.format || 'Box Set'}</span>
+                            ${container.edition ? `<span>${container.edition}</span>` : ''}
+                            ${container.condition ? `<span>${container.condition}</span>` : ''}
+                            <span>${filmCount} film${filmCount !== 1 ? 's' : ''}</span>
+                        </div>
+                        ${container.spine_label ? `<div style="color: rgba(255,255,255,0.5); font-size:0.9rem;">Spine: ${container.spine_label}</div>` : ''}
 
-            // Show modal
-            document.getElementById('boxSetDetailsModal').classList.add('active');
+                        <div class="movie-detail-section" style="margin-top:1.25rem;">
+                            <h3>Films in this Box Set</h3>
+                            <div class="boxset-film-list">
+                                ${filmsHTML}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('movieDetailModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load box set details:', error);
             showToast('Failed to load box set details', 'error');
         }
     }
 
-    // Close box set details modal
+    // Close box set details (now rendered inside movie detail modal)
     function closeBoxSetDetails() {
         document.getElementById('boxSetDetailsModal').classList.remove('active');
+        document.getElementById('movieDetailModal').classList.remove('active');
 
         // DON'T clear currentContainerId if we're in the middle of box set creation
-        // (Check if boxSetStep2 is visible, which means we're adding movies)
         const step2 = document.getElementById('boxSetStep2');
         const isCreating = step2 && step2.style.display !== 'none';
 
         if (!isCreating) {
-            // Only clear if we're NOT in creation mode
             currentContainerId = null;
             currentContainer = null;
         }
@@ -3975,8 +3978,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     async function editBoxSet() {
         if (!currentContainerId || !currentContainer) return;
 
-        // Close the details modal
+        // Close both possible detail modals
         document.getElementById('boxSetDetailsModal').classList.remove('active');
+        document.getElementById('movieDetailModal').classList.remove('active');
 
         // Switch to Add tab
         switchTab('add');
@@ -6980,6 +6984,7 @@ return {
     saveSetting,
     openMovieWithNav,
     showCoverUpload,
+    _initCropCanvasEvents,
     closeCoverCrop,
     onCoverFileChange,
     cropZoom,

@@ -4462,6 +4462,84 @@ select option {
     font-size: 0.85rem;
 }
 
+/* Box Set Detail (inside movie detail modal) */
+.boxset-poster-mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    aspect-ratio: 2/3;
+}
+.boxset-poster-mosaic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.boxset-cover-placeholder {
+    aspect-ratio: 2/3;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+}
+.boxset-film-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+.boxset-film-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.6rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.boxset-film-row:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.boxset-film-thumb {
+    width: 36px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.boxset-film-thumb-empty {
+    background: rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+.boxset-film-info {
+    flex: 1;
+    min-width: 0;
+}
+.boxset-film-title {
+    font-weight: 500;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.boxset-film-meta {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+    margin-top: 2px;
+}
+.boxset-film-missing {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
 /* Container/Box Set Spines on Shelves */
 .movie-spine.container-spine {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
