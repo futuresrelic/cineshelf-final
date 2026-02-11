@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Edit and delete buttons carried over; "Change Cover" button under the cover image
 - **Box set cards in shelf poster-grid view** now show the custom cover image (if uploaded) instead of always showing the 📦 placeholder
 
+### Fixed
+- **Fixed modal stacking when opening box sets from shelf contents** — clicking a box set card inside the shelf contents modal (Shelves tab → click shelf → click box set) now properly closes the intermediate shelf contents modal before showing the box set detail, instead of rendering the detail behind it
+
 ---
 
 ## [2.5.2] - 2026-02-11

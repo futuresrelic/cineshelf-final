@@ -3946,6 +3946,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 </div>
             `;
 
+            // Close the shelf contents modal if it's open (prevents stacking)
+            document.getElementById('shelfContentsModal').classList.remove('active');
+
             document.getElementById('movieDetailModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load box set details:', error);
