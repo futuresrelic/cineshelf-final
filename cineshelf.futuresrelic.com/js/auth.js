@@ -79,20 +79,17 @@ const Auth = (function() {
             userBadge.textContent = user.display_name || user.username || user.email;
         }
 
-        // Add profile picture if available
+        // Add profile picture if available (inside user menu button)
         if (user.profile_picture) {
-            const headerRight = document.querySelector('.header-right');
-            if (headerRight) {
-                // Check if profile picture already exists
-                let img = headerRight.querySelector('img[alt="Profile"]');
+            const menuBtn = document.getElementById('userMenuBtn');
+            if (menuBtn) {
+                let img = menuBtn.querySelector('img[alt="Profile"]');
                 if (!img) {
-                    // Create new profile picture
                     img = document.createElement('img');
                     img.alt = 'Profile';
-                    img.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; margin-right: 8px;';
-                    headerRight.insertBefore(img, headerRight.firstChild);
+                    img.style.cssText = 'width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;';
+                    menuBtn.insertBefore(img, menuBtn.firstChild);
                 }
-                // Update src (whether new or existing)
                 img.src = user.profile_picture;
             }
         }

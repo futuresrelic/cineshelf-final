@@ -218,6 +218,14 @@ const App = (function() {
             observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
         });
 
+        // Close user menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('userMenu');
+            if (menu && !menu.contains(e.target)) {
+                menu.classList.remove('open');
+            }
+        });
+
         console.log('CineShelf ready!');
     }
     

@@ -114,23 +114,32 @@
         <span class="logo-fallback" style="display:none;">🎬</span>
         <span class="logo-text">CineShelf</span>
     </h1>
-    
-    <!-- GROUP SELECTOR -->
-    <div id="groupSelector" style="display:none; margin-left:auto; margin-right:1rem;">
-        <select id="currentGroup" onchange="App.switchGroup(this.value)" style="padding:0.5rem;border-radius:4px;background:#2a2a2a;color:#fff;border:1px solid #444;">
-            <option value="">My Collection</option>
-        </select>
-    </div>
-    
+
     <div class="header-right">
-        <span class="user-badge" id="currentUser">default</span>
-        <button class="icon-btn" id="logoutBtn" title="Sign Out">🚪</button>
+        <div class="user-menu" id="userMenu">
+            <button class="user-menu-btn" id="userMenuBtn" onclick="document.getElementById('userMenu').classList.toggle('open')">
+                <span class="user-menu-name" id="currentUser">default</span>
+                <span class="user-menu-arrow">▾</span>
+            </button>
+            <div class="user-menu-dropdown" id="userMenuDropdown">
+                <button class="user-menu-item" onclick="App.switchTab('settings'); document.getElementById('userMenu').classList.remove('open');">
+                    ⚙️ Settings
+                </button>
+                <button class="user-menu-item user-menu-logout" id="logoutBtn">
+                    🚪 Sign Out
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
-            </div>
-        </div>
-        
+    <!-- Hidden group selector (used by JS) -->
+    <div id="groupSelector" style="display:none;">
+        <select id="currentGroup" onchange="App.switchGroup(this.value)">
+            <option value="">My Collection</option>
+        </select>
+    </div>
+
         <!-- Navigation Tabs -->
         <nav class="tabs">
             <button class="tab active" data-tab="collection" onclick="App.switchTab('collection')">
