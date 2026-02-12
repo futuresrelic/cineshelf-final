@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splash Screen Settings - CineShelf Admin</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #333;
+            --text-primary: #fff;
+            --text-secondary: #999;
+            --accent: #667eea;
+            --accent-hover: #764ba2;
+            --success: #4caf50;
+            --danger: #f44336;
+            --border: #444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 { font-size: 1.5rem; color: #fff; }
+        .header p { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
+
+        .back-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.25); }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .form-group small {
+            display: block;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            font-size: 0.82rem;
+        }
+
+        input[type="text"], input[type="number"], input[type="url"] {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 45px;
+            padding: 2px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-row label { margin-bottom: 0; }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 28px;
+        }
+
+        .toggle input { opacity: 0; width: 0; height: 0; }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: #555;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            bottom: 3px;
+            left: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            color: #fff;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--accent); }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Live Preview */
+        .preview-box {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            position: relative;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #0f0f0f 100%);
+        }
+
+        .preview-content { text-align: center; }
+
+        .preview-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
+        }
+
+        .preview-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.3rem;
+        }
+
+        .preview-tagline {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+
+        .preview-loader {
+            width: 80px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin: 1.25rem auto 0;
+            overflow: hidden;
+        }
+
+        .preview-loader-bar {
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 2px;
+            animation: prevLoad 1.2s ease-in-out infinite;
+        }
+
+        @keyframes prevLoad {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 500;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>Splash Screen Settings</h1>
+            <p>Configure the app loading screen</p>
+        </div>
+        <a href="/admin/" class="back-btn">← Back to Admin</a>
+    </div>
+
+    <div class="container">
+        <!-- Enable/Disable -->
+        <div class="card">
+            <h2>General</h2>
+            <div class="toggle-row">
+                <div>
+                    <label>Enable Splash Screen</label>
+                    <small style="color: var(--text-secondary);">Show splash screen when the app opens</small>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="splashEnabled" checked onchange="updatePreview()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Duration (seconds)</label>
+                <input type="number" id="splashDuration" value="2" min="0.5" max="10" step="0.5">
+                <small>How long the splash screen is visible (0.5 to 10 seconds)</small>
+            </div>
+        </div>
+
+        <!-- Branding -->
+        <div class="card">
+            <h2>Branding</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="splashTitle" value="CineShelf" maxlength="100" oninput="updatePreview()">
+                </div>
+                <div class="form-group">
+                    <label>Tagline</label>
+                    <input type="text" id="splashTagline" value="Your Movie Collection" maxlength="200" oninput="updatePreview()">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Logo Image URL</label>
+                <input type="text" id="splashLogoUrl" value="/app-icon-192.png" oninput="updatePreview()">
+                <small>Path to the logo image (e.g. /app-icon-192.png or a full URL)</small>
+            </div>
+
+            <div class="form-group">
+                <label>Background Color</label>
+                <input type="color" id="splashBgColor" value="#0f0f0f" oninput="updatePreview()">
+                <small>Leave dark for the default gradient effect. This overrides the gradient with a solid color.</small>
+            </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="card">
+            <h2>Live Preview</h2>
+            <div class="preview-box" id="previewBox">
+                <div class="preview-content">
+                    <img id="previewLogo" src="/app-icon-192.png" alt="Logo" class="preview-logo" onerror="this.style.display='none'">
+                    <div id="previewTitle" class="preview-title">CineShelf</div>
+                    <div id="previewTagline" class="preview-tagline">Your Movie Collection</div>
+                    <div class="preview-loader"><div class="preview-loader-bar"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="btn-group">
+            <button class="btn btn-primary" id="saveBtn" onclick="saveConfig()">Save Settings</button>
+            <button class="btn btn-secondary" onclick="resetDefaults()">Reset Defaults</button>
+        </div>
+    </div>
+
+    <script>
+        // Load current config on page load
+        async function loadConfig() {
+            try {
+                const resp = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_splash_config' })
+                });
+                const data = await resp.json();
+
+                if (data.ok && data.data) {
+                    const cfg = data.data;
+                    document.getElementById('splashEnabled').checked = cfg.enabled !== false;
+                    document.getElementById('splashDuration').value = cfg.duration || 2;
+                    document.getElementById('splashTitle').value = cfg.title || 'CineShelf';
+                    document.getElementById('splashTagline').value = cfg.tagline || 'Your Movie Collection';
+                    document.getElementById('splashLogoUrl').value = cfg.logo_url || '/app-icon-192.png';
+                    if (cfg.bg_color) {
+                        document.getElementById('splashBgColor').value = cfg.bg_color;
+                    }
+                    updatePreview();
+                }
+            } catch (e) {
+                console.error('Failed to load splash config:', e);
+            }
+        }
+
+        function updatePreview() {
+            const title = document.getElementById('splashTitle').value || 'CineShelf';
+            const tagline = document.getElementById('splashTagline').value || '';
+            const logoUrl = document.getElementById('splashLogoUrl').value || '/app-icon-192.png';
+            const bgColor = document.getElementById('splashBgColor').value;
+
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewTagline').textContent = tagline;
+
+            const logo = document.getElementById('previewLogo');
+            logo.src = logoUrl;
+            logo.style.display = '';
+
+            const box = document.getElementById('previewBox');
+            if (bgColor && bgColor !== '#0f0f0f') {
+                box.style.background = bgColor;
+            } else {
+                box.style.background = 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #0f0f0f 100%)';
+            }
+        }
+
+        async function saveConfig() {
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            const bgColor = document.getElementById('splashBgColor').value;
+
+            try {
+                const resp = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'save_splash_config',
+                        enabled: document.getElementById('splashEnabled').checked,
+                        duration: parseFloat(document.getElementById('splashDuration').value) || 2,
+                        title: document.getElementById('splashTitle').value.trim(),
+                        tagline: document.getElementById('splashTagline').value.trim(),
+                        logo_url: document.getElementById('splashLogoUrl').value.trim(),
+                        bg_color: (bgColor && bgColor !== '#0f0f0f') ? bgColor : ''
+                    })
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showToast('Splash settings saved!', 'success');
+                } else {
+                    showToast('Error: ' + (data.error || 'Save failed'), 'error');
+                }
+            } catch (e) {
+                showToast('Network error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Settings';
+            }
+        }
+
+        function resetDefaults() {
+            if (!confirm('Reset all splash settings to defaults?')) return;
+            document.getElementById('splashEnabled').checked = true;
+            document.getElementById('splashDuration').value = 2;
+            document.getElementById('splashTitle').value = 'CineShelf';
+            document.getElementById('splashTagline').value = 'Your Movie Collection';
+            document.getElementById('splashLogoUrl').value = '/app-icon-192.png';
+            document.getElementById('splashBgColor').value = '#0f0f0f';
+            updatePreview();
+        }
+
+        function showToast(msg, type) {
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        loadConfig();
+    </script>
+</body>
+</html>

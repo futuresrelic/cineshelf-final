@@ -1,7 +1,7 @@
 # CineShelf Administrator Guide
 
-**Version:** 2.2.14
-**Last Updated:** 2026-02-08
+**Version:** 2.6.0
+**Last Updated:** 2026-02-12
 **Target Audience:** System administrators, maintainers, power users
 
 ---
@@ -88,6 +88,30 @@ Require valid-user
 ---
 
 ## Admin Tools Reference
+
+### Configuration Tools (`/admin/`)
+
+#### **Splash Screen Settings** (`splash-settings.html`)
+**Purpose:** Configure the app's loading splash screen
+**Settings:**
+- **Enable/Disable** — toggle the splash screen on or off
+- **Duration** — how long the splash displays (0.5–10 seconds)
+- **Title** — main heading shown on the splash (default: "CineShelf")
+- **Tagline** — subtitle text (default: "Your Movie Collection")
+- **Logo URL** — path or URL for the splash logo image
+- **Background Color** — solid color override (default: dark gradient)
+
+**How it works:**
+1. Settings are saved to `/data/splash-config.json` on the server
+2. The main app fetches this config on every page load
+3. The splash screen displays with the configured settings, then fades out
+4. Changes take effect immediately for all users (no cache bust needed)
+
+**Usage:**
+1. Go to Admin → Configuration → Splash Screen
+2. Adjust settings — the live preview updates in real time
+3. Click "Save Settings"
+4. Open the app to see your changes
 
 ### Migration Tools (`/admin/migration-tools/`)
 

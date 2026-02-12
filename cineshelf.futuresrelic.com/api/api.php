@@ -4564,6 +4564,49 @@ case 'resolve_movie':
         // DEFAULT
         // ========================================
 
+        case 'get_splash_config':
+            // Return splash screen configuration (public, no auth required)
+            $splashFile = dirname(__DIR__) . '/data/splash-config.json';
+            if (file_exists($splashFile)) {
+                $splashConfig = json_decode(file_get_contents($splashFile), true);
+                jsonResponse(true, $splashConfig ?: []);
+            } else {
+                // Defaults
+                jsonResponse(true, [
+                    'enabled' => true,
+                    'duration' => 2,
+                    'title' => 'CineShelf',
+                    'tagline' => 'Your Movie Collection',
+                    'logo_url' => '/app-icon-192.png',
+                    'bg_color' => ''
+                ]);
+            }
+            break;
+
+        case 'save_splash_config':
+            // Save splash screen settings (admin only)
+            $splashFile = dirname(__DIR__) . '/data/splash-config.json';
+            $config = [
+                'enabled'  => (bool)($input['enabled'] ?? true),
+                'duration' => max(0, min(10, floatval($input['duration'] ?? 2))),
+                'title'    => sanitize($input['title'] ?? 'CineShelf', 100),
+                'tagline'  => sanitize($input['tagline'] ?? '', 200),
+                'logo_url' => sanitize($input['logo_url'] ?? '/app-icon-192.png', 500),
+                'bg_color' => sanitize($input['bg_color'] ?? '', 100)
+            ];
+
+            $dataDir = dirname(__DIR__) . '/data';
+            if (!is_dir($dataDir)) {
+                mkdir($dataDir, 0755, true);
+            }
+
+            if (file_put_contents($splashFile, json_encode($config, JSON_PRETTY_PRINT))) {
+                jsonResponse(true, ['message' => 'Splash config saved', 'config' => $config]);
+            } else {
+                jsonResponse(false, null, 'Failed to write splash config');
+            }
+            break;
+
         default:
             jsonResponse(false, null, 'Unknown action: ' . $action);
     }

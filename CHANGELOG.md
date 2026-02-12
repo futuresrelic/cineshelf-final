@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.0] - 2026-02-12
+
+### Added
+- **Splash screen** — configurable loading screen when the app opens:
+  - Shows app logo, title, tagline, and animated loading bar
+  - Smooth fade-out transition when the app is ready
+  - Fully configurable from the new admin panel tool (duration, title, tagline, logo, background color)
+  - Loads config from server so all users see the same branding
+  - Can be disabled entirely from admin settings
+- **Admin splash screen settings page** (`/admin/splash-settings.html`):
+  - Toggle splash on/off, set duration (0.5–10 seconds)
+  - Customize title, tagline, logo URL, and background color
+  - Live preview updates as you edit
+  - Reset to defaults button
+- **Edit box set metadata** — the edit button on a box set now opens the full details form (name, format, edition, region, condition, spine settings, notes) pre-populated with current values. After saving, continues to film management.
+- **AI scanner for box set films** — new "Scan" button in the box set film search lets you photograph the box set back cover or disc list. GPT-4o Vision reads all movie titles from the image and auto-searches TMDB for one-tap adding.
+- **Box set filter in shelf picker** — the unassigned movies modal (Shelves → Add to Shelf) now has an "All Types / Movies Only / Box Sets Only" filter dropdown
+- **Custom format and edition dropdowns** — Format and Edition selects now have many more options (Steelbook Set, Criterion Collection, Digipack, Director's Cut, Special Edition, etc.) plus a "Custom..." option for free-text entry. Edit mode auto-adds existing custom values.
+
+### Fixed
+- **Box set cover upload now works** — the backend `update_container` API was missing `spine_image_url` field (URL sent from frontend but never saved to DB). Also fixed UI refresh to re-render the box set detail after cover save.
+- **Copy manager modal no longer hidden behind movie detail** — bumped `#copyManagerModal` z-index to 2100 so it stacks on top
+- **Box set detail modal no longer overflows horizontally on mobile** — added `overflow-x: hidden` to `.modal-content`, `min-width: 0` to `.movie-detail-info` (prevents grid child blowout), reduced modal padding on mobile, and made title+buttons flex-wrap with word-break
+- **Redundant disc labels cleaned up** — disc meta now shows "Disc 1" instead of "Disc: Disc 1: Movie Title"
+- **Backend `update_container` now handles `region` field** — was missing from the update API
+
+---
+
 ## [2.5.3] - 2026-02-11
 
 ### Changed

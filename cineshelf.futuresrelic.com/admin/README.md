@@ -16,6 +16,7 @@ The main dashboard provides quick access to all tools organized by category.
 admin/
 ├── index.html              # Main admin dashboard
 ├── config-editor.html      # Configuration viewer
+├── splash-settings.html    # Splash screen settings (NEW)
 ├── database-tools/         # Database management utilities
 ├── data-tools/             # Data enhancement utilities
 ├── migration-tools/        # Database migration scripts
@@ -48,6 +49,13 @@ admin/
 - View all groups and their members
 - Edit group names and descriptions
 - Delete groups (removes members, preserves movies)
+
+#### **Splash Screen Settings** (`splash-settings.html`)
+- Enable/disable the app splash screen
+- Set splash duration (0.5–10 seconds)
+- Customize title, tagline, logo URL, and background color
+- Live preview updates in real time
+- Settings saved to `/data/splash-config.json` (server-side, affects all users)
 - Remove individual members from groups
 - Search and filter groups
 - **Permissions:** Only group admins can edit/delete groups

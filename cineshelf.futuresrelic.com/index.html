@@ -38,6 +38,62 @@
    </script>
 </head>
 <body>
+    <!-- Splash Screen Overlay -->
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-content">
+            <img id="splashLogo" src="/app-icon-192.png" alt="CineShelf" class="splash-logo" onerror="this.style.display='none'">
+            <h1 id="splashTitle" class="splash-title">CineShelf</h1>
+            <p id="splashTagline" class="splash-tagline">Your Movie Collection</p>
+            <div class="splash-loader"><div class="splash-loader-bar"></div></div>
+        </div>
+    </div>
+
+    <script>
+    // Load splash config and show/hide splash screen
+    (function() {
+        const splash = document.getElementById('splashScreen');
+        let splashDuration = 2000; // default 2s
+        let splashEnabled = true;
+
+        // Try to load server-side splash config
+        fetch('/api/api.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'get_splash_config' })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok && data.data) {
+                const cfg = data.data;
+                splashEnabled = cfg.enabled !== false;
+                splashDuration = (cfg.duration || 2) * 1000;
+
+                if (cfg.title) document.getElementById('splashTitle').textContent = cfg.title;
+                if (cfg.tagline) document.getElementById('splashTagline').textContent = cfg.tagline;
+                if (cfg.logo_url) {
+                    const logo = document.getElementById('splashLogo');
+                    logo.src = cfg.logo_url;
+                    logo.style.display = '';
+                }
+                if (cfg.bg_color) splash.style.background = cfg.bg_color;
+            }
+            scheduleSplashHide();
+        })
+        .catch(() => scheduleSplashHide());
+
+        function scheduleSplashHide() {
+            if (!splashEnabled) {
+                splash.style.display = 'none';
+                return;
+            }
+            setTimeout(() => {
+                splash.classList.add('splash-fade-out');
+                splash.addEventListener('transitionend', () => splash.remove());
+            }, splashDuration);
+        }
+    })();
+    </script>
+
     <!-- Header -->
     <header class="header">
 <div class="header-content">
