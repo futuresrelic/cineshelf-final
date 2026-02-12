@@ -662,24 +662,38 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Format *</label>
-                                <select id="boxSetFormat">
+                                <select id="boxSetFormat" onchange="App.onCustomDropdown(this)">
                                     <option value="Blu-ray Box Set">Blu-ray Box Set</option>
                                     <option value="DVD Box Set">DVD Box Set</option>
                                     <option value="4K UHD Box Set">4K UHD Box Set</option>
+                                    <option value="Mixed Format Set">Mixed Format Set</option>
                                     <option value="Double Feature">Double Feature</option>
                                     <option value="Triple Feature">Triple Feature</option>
+                                    <option value="Steelbook Set">Steelbook Set</option>
+                                    <option value="Criterion Collection">Criterion Collection</option>
+                                    <option value="Slipcover Set">Slipcover Set</option>
+                                    <option value="Digipack">Digipack</option>
                                     <option value="Collection">Collection</option>
+                                    <option value="__custom__">Custom...</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label>Edition</label>
-                                <select id="boxSetEdition">
+                                <select id="boxSetEdition" onchange="App.onCustomDropdown(this)">
                                     <option value="">Standard</option>
                                     <option value="Ultimate Collection">Ultimate Collection</option>
                                     <option value="Limited Edition">Limited Edition</option>
                                     <option value="Collector's Edition">Collector's Edition</option>
                                     <option value="Anniversary Edition">Anniversary Edition</option>
+                                    <option value="Director's Cut">Director's Cut</option>
+                                    <option value="Special Edition">Special Edition</option>
+                                    <option value="Deluxe Edition">Deluxe Edition</option>
+                                    <option value="Theatrical Edition">Theatrical Edition</option>
+                                    <option value="Unrated Edition">Unrated Edition</option>
+                                    <option value="Complete Series">Complete Series</option>
+                                    <option value="Gift Set">Gift Set</option>
+                                    <option value="__custom__">Custom...</option>
                                 </select>
                             </div>
                         </div>
@@ -749,6 +763,7 @@
                         <div class="search-box" style="margin-bottom: 1rem;">
                             <input type="text" id="boxSetMovieSearch" placeholder="Search for a movie to add..." onkeypress="if(event.key==='Enter') App.searchMoviesForBoxSet()">
                             <button class="btn" onclick="App.searchMoviesForBoxSet()">🔍 Search</button>
+                            <button class="btn btn-secondary" onclick="App.scanBoxSetTitles()" title="Scan movie titles from box set cover">📸 Scan</button>
                         </div>
 
                         <div id="boxSetSearchResults" class="search-results"></div>
@@ -1248,6 +1263,12 @@
                            placeholder="🔍 Search movies..."
                            oninput="App.onUnassignedFilterChange('search', this.value)"
                            style="flex: 1; min-width: 200px; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+
+                    <select id="unassignedTypeFilter" onchange="App.onUnassignedFilterChange('type', this.value)">
+                        <option value="all">All Types</option>
+                        <option value="movies">Movies Only</option>
+                        <option value="boxsets">Box Sets Only</option>
+                    </select>
 
                     <select id="unassignedSortFilter" onchange="App.onUnassignedFilterChange('sort', this.value)">
                         <option value="title">Sort by Title</option>

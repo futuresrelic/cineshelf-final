@@ -3281,6 +3281,7 @@ case 'resolve_movie':
             $spineColor = sanitize($input['spine_color'] ?? '', 20);
             $format = sanitize($input['format'] ?? '', 100);
             $edition = sanitize($input['edition'] ?? '', 100);
+            $region = sanitize($input['region'] ?? '', 50);
             $condition = sanitize($input['condition'] ?? '', 20);
             $notes = sanitize($input['notes'] ?? '', 500);
 
@@ -3328,6 +3329,10 @@ case 'resolve_movie':
             if (!empty($edition)) {
                 $updates[] = "edition = ?";
                 $params[] = $edition;
+            }
+            if (!empty($region)) {
+                $updates[] = "region = ?";
+                $params[] = $region;
             }
             if (!empty($condition)) {
                 $updates[] = "condition = ?";
@@ -4135,6 +4140,83 @@ case 'resolve_movie':
             }
 
             jsonResponse(true, ['title' => $title]);
+            break;
+
+        case 'scan_boxset_titles':
+            // Recognize MULTIPLE movie titles from a box set cover/back using OpenAI Vision API
+            $base64Image = $input['image'] ?? '';
+
+            if (empty($base64Image)) {
+                jsonResponse(false, null, 'Image data required');
+            }
+
+            if (empty(OPENAI_API_KEY)) {
+                jsonResponse(false, null, 'OpenAI API not configured. Please add OPENAI_API_KEY to config/secrets.php');
+            }
+
+            $apiData = [
+                'model' => 'gpt-4o',
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'text',
+                                'text' => 'This is a photo of a DVD/Blu-ray box set. Read ALL individual movie titles visible on the cover, back, or disc list. Return ONLY a JSON array of movie title strings, like ["Movie One", "Movie Two", "Movie Three"]. Do not include the box set name itself, only the individual film titles. If you cannot determine any titles, return [].'
+                            ],
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => 'data:image/jpeg;base64,' . $base64Image
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'max_tokens' => 500
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . OPENAI_API_KEY
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlError) {
+                jsonResponse(false, null, 'Network error: ' . $curlError);
+            }
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMsg = $errorData['error']['message'] ?? 'OpenAI API request failed';
+                jsonResponse(false, null, 'OpenAI API error: ' . $errorMsg);
+            }
+
+            $data = json_decode($response, true);
+            $content = trim($data['choices'][0]['message']['content'] ?? '');
+
+            // Extract JSON array from response (handle markdown code blocks)
+            if (preg_match('/\[.*\]/s', $content, $matches)) {
+                $titles = json_decode($matches[0], true);
+            } else {
+                $titles = [];
+            }
+
+            if (!is_array($titles)) {
+                $titles = [];
+            }
+
+            jsonResponse(true, ['titles' => $titles]);
             break;
 
         case 'save_icon':

@@ -3279,11 +3279,126 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 }
 
                 showToast('Box set created! Now add movies.', 'success');
+
+                // Scroll to and focus the search input so it's obvious on mobile
+                setTimeout(() => {
+                    const searchEl = document.getElementById('boxSetMovieSearch');
+                    if (searchEl) {
+                        searchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        searchEl.focus();
+                    }
+                }, 300);
             }
         } catch (error) {
             console.error('Failed to create box set:', error);
             showToast('Failed to create box set', 'error');
         }
+    }
+
+    // Scan box set cover/back to find movie titles via AI
+    async function scanBoxSetTitles() {
+        if (!currentContainerId) {
+            showToast('Create the box set first', 'error');
+            return;
+        }
+
+        // Use a file input to capture photo (works on mobile and desktop)
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // rear camera on mobile
+
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const resultsDiv = document.getElementById('boxSetSearchResults');
+            resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem;">📸 Analyzing image for movie titles...</p>';
+
+            try {
+                // Convert to base64
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        // Resize if very large to save bandwidth
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const maxDim = 1920;
+                            let w = img.width, h = img.height;
+                            if (w > maxDim || h > maxDim) {
+                                const scale = maxDim / Math.max(w, h);
+                                w = Math.round(w * scale);
+                                h = Math.round(h * scale);
+                            }
+                            canvas.width = w;
+                            canvas.height = h;
+                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                        };
+                        img.src = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                // Call AI to extract titles
+                const resp = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'scan_boxset_titles', image: base64 })
+                });
+                const result = await resp.json();
+
+                if (!result.ok || !result.data?.titles?.length) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No movie titles found. Try a clearer photo of the back cover or disc list.</p>';
+                    return;
+                }
+
+                const titles = result.data.titles;
+                showToast(`Found ${titles.length} title${titles.length > 1 ? 's' : ''}! Searching TMDB...`, 'success');
+
+                // Search TMDB for each title and show results
+                resultsDiv.innerHTML = `<p style="text-align: center; padding: 1rem;">Found: <strong>${titles.join(', ')}</strong></p>
+                    <p style="text-align: center; padding: 0.5rem; color: rgba(255,255,255,0.6);">Searching TMDB for matches...</p>`;
+
+                let matchHTML = '';
+                for (const title of titles) {
+                    try {
+                        const data = await apiCall('search_movies', { query: title });
+                        if (data?.results?.length > 0) {
+                            const movie = data.results[0]; // Best match
+                            matchHTML += `
+                                <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})" style="border-left: 3px solid #4caf50;">
+                                    <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
+                                    <div class="result-info">
+                                        <h4>${movie.title}</h4>
+                                        <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'} <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">— scanned as "${title}"</span></p>
+                                    </div>
+                                </div>`;
+                        } else {
+                            matchHTML += `
+                                <div class="search-result" style="opacity: 0.5; border-left: 3px solid #ff6b6b; cursor: default;">
+                                    <div style="width:92px; height:138px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:4px;">❓</div>
+                                    <div class="result-info">
+                                        <h4>${title}</h4>
+                                        <p style="color: #ff6b6b;">No TMDB match — try searching manually</p>
+                                    </div>
+                                </div>`;
+                        }
+                    } catch (err) {
+                        console.error('Search failed for:', title, err);
+                    }
+                }
+
+                resultsDiv.innerHTML = `<p style="padding: 0.5rem 0; color: rgba(255,255,255,0.7); font-size: 0.9rem;">📸 Scan results — tap to add each film:</p>` + matchHTML;
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: #ff6b6b;">Scan failed: ' + error.message + '</p>';
+            }
+        };
+
+        input.click();
     }
 
     // Search for movies to add to box set
@@ -3977,7 +4092,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         showAddBoxSet();
     }
 
-    // Edit box set - opens interface to continue adding movies
+    // Edit box set - opens Step 1 pre-populated for metadata editing, then Step 2 for films
     async function editBoxSet() {
         if (!currentContainerId || !currentContainer) return;
 
@@ -3993,16 +4108,90 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         document.getElementById('addSingleMovieSection').style.display = 'none';
         document.getElementById('addBoxSetSection').style.display = 'block';
 
-        // Show Step 2 (adding movies)
-        document.getElementById('boxSetStep1').style.display = 'none';
-        document.getElementById('boxSetStep2').style.display = 'block';
+        // Show Step 1 pre-populated with current values
+        document.getElementById('boxSetStep1').style.display = 'block';
+        document.getElementById('boxSetStep2').style.display = 'none';
 
-        // Fetch current movies in this box set
+        // Pre-populate form fields from current container data
+        document.getElementById('boxSetName').value = currentContainer.name || '';
+        document.getElementById('boxSetSpineLabel').value = currentContainer.spine_label || '';
+        document.getElementById('boxSetFormat').value = currentContainer.format || 'Blu-ray Box Set';
+        document.getElementById('boxSetEdition').value = currentContainer.edition || '';
+        document.getElementById('boxSetRegion').value = currentContainer.region || 'Region Free';
+        document.getElementById('boxSetCondition').value = currentContainer.condition || 'Mint';
+        document.getElementById('boxSetSpineType').value = currentContainer.spine_image_type || 'color';
+        document.getElementById('boxSetSpineColor').value = currentContainer.spine_color || '#667eea';
+        document.getElementById('boxSetNotes').value = currentContainer.notes || '';
+
+        // Ensure custom dropdown values exist before setting them
+        _ensureDropdownOption('boxSetFormat', currentContainer.format);
+        _ensureDropdownOption('boxSetEdition', currentContainer.edition);
+
+        updateBoxSetSpinePreview();
+
+        // Change the button to "Save Changes" mode
+        const actionsDiv = document.getElementById('boxSetStep1').querySelector('.form-actions');
+        actionsDiv.innerHTML = `
+            <button class="btn" onclick="App.saveBoxSetEdits()">Save Changes & Manage Films →</button>
+            <button class="btn btn-ghost" onclick="App.cancelBoxSetEdit()">Cancel</button>
+        `;
+    }
+
+    // Save edits to box set metadata then move to Step 2
+    async function saveBoxSetEdits() {
+        const name = document.getElementById('boxSetName').value.trim();
+        const spineLabel = document.getElementById('boxSetSpineLabel').value.trim() || name;
+        const format = document.getElementById('boxSetFormat').value;
+        const edition = document.getElementById('boxSetEdition').value;
+        const region = document.getElementById('boxSetRegion').value;
+        const condition = document.getElementById('boxSetCondition').value;
+        const spineType = document.getElementById('boxSetSpineType').value;
+        const spineColor = document.getElementById('boxSetSpineColor').value;
+        const notes = document.getElementById('boxSetNotes').value;
+
+        if (!name) {
+            showToast('Please enter a box set name', 'error');
+            return;
+        }
+
         try {
+            await apiCall('update_container', {
+                container_id: currentContainerId,
+                name,
+                spine_label: spineLabel,
+                spine_image_type: spineType,
+                spine_color: spineColor,
+                format,
+                edition,
+                region,
+                condition,
+                notes
+            });
+
+            // Update local reference
+            currentContainer.name = name;
+            currentContainer.spine_label = spineLabel;
+            currentContainer.format = format;
+            currentContainer.edition = edition;
+            currentContainer.region = region;
+            currentContainer.condition = condition;
+            currentContainer.spine_image_type = spineType;
+            currentContainer.spine_color = spineColor;
+            currentContainer.notes = notes;
+
+            showToast('Box set details updated!', 'success');
+
+            // Now show Step 2 (adding movies)
+            document.getElementById('boxSetStep1').style.display = 'none';
+            document.getElementById('boxSetStep2').style.display = 'block';
+
+            // Restore Step 1 button to create mode for next time
+            _restoreStep1Buttons();
+
+            // Fetch current movies
             const data = await apiCall('get_container_contents', { container_id: currentContainerId });
             const { movies } = data;
 
-            // Populate boxSetMovies with existing movies
             boxSetMovies = movies.map((m, index) => ({
                 movie_id: m.movie_id,
                 title: m.title,
@@ -4013,25 +4202,74 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 disc_number: m.disc_number || (index + 1)
             }));
 
-            // Update UI
             const createdNameEl = document.getElementById('boxSetCreatedName');
             if (createdNameEl) {
-                createdNameEl.textContent = `📦 ${currentContainer.name} (Editing)`;
+                createdNameEl.textContent = `📦 ${name} (Editing)`;
             }
 
-            // Clear search
             const searchInput = document.getElementById('boxSetMovieSearch');
             const searchResults = document.getElementById('boxSetSearchResults');
             if (searchInput) searchInput.value = '';
             if (searchResults) searchResults.innerHTML = '';
 
-            // Update the movie list
             updateBoxSetMoviesList();
-
-            showToast(`Continue adding movies to "${currentContainer.name}"`, 'info');
         } catch (error) {
-            console.error('Failed to load box set for editing:', error);
-            showToast('Failed to open box set for editing', 'error');
+            console.error('Failed to update box set:', error);
+            showToast('Failed to save changes', 'error');
+        }
+    }
+
+    // Cancel edit and go back to box set detail
+    function cancelBoxSetEdit() {
+        _restoreStep1Buttons();
+        showAddTypeChoice();
+        if (currentContainerId) {
+            showBoxSetDetails(currentContainerId);
+        }
+    }
+
+    // Restore Step 1 buttons to default create mode
+    function _restoreStep1Buttons() {
+        const actionsDiv = document.getElementById('boxSetStep1').querySelector('.form-actions');
+        actionsDiv.innerHTML = `
+            <button class="btn" onclick="App.createBoxSetAndAddMovies()">Next: Add Movies →</button>
+            <button class="btn btn-ghost" onclick="App.showAddTypeChoice()">Cancel</button>
+        `;
+    }
+
+    // Handle "Custom..." dropdown selection — prompt user for value
+    function onCustomDropdown(selectEl) {
+        if (selectEl.value !== '__custom__') return;
+
+        const label = selectEl.previousElementSibling?.textContent || 'value';
+        const custom = prompt(`Enter a custom ${label.replace(' *', '').toLowerCase()}:`);
+
+        if (custom && custom.trim()) {
+            const val = custom.trim();
+            // Add the custom option before the "Custom..." option
+            const customOpt = selectEl.querySelector('option[value="__custom__"]');
+            const newOpt = document.createElement('option');
+            newOpt.value = val;
+            newOpt.textContent = val;
+            selectEl.insertBefore(newOpt, customOpt);
+            selectEl.value = val;
+        } else {
+            // Cancelled — revert to first option
+            selectEl.selectedIndex = 0;
+        }
+    }
+
+    // Ensure a value exists in a dropdown, add it if not
+    function _ensureDropdownOption(selectId, value) {
+        if (!value) return;
+        const select = document.getElementById(selectId);
+        const exists = Array.from(select.options).some(opt => opt.value === value);
+        if (!exists) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+            select.value = value;
         }
     }
 
@@ -6082,6 +6320,7 @@ async function getCurrentUserId() {
     let unassignedFilter = {
         search: '',
         sort: 'title',
+        type: 'all',
         director: 'all',
         genre: 'all',
         studio: 'all'
@@ -6625,6 +6864,13 @@ async function getCurrentUserId() {
             );
         }
 
+        // Apply type filter (movies vs box sets)
+        if (unassignedFilter.type === 'movies') {
+            filtered = filtered.filter(item => !item.is_container);
+        } else if (unassignedFilter.type === 'boxsets') {
+            filtered = filtered.filter(item => item.is_container);
+        }
+
         // Apply director filter
         if (unassignedFilter.director !== 'all') {
             filtered = filtered.filter(item => item.director === unassignedFilter.director);
@@ -6909,6 +7155,7 @@ async function getCurrentUserId() {
             unassignedFilter = {
                 search: '',
                 sort: 'title',
+                type: 'all',
                 director: 'all',
                 genre: 'all',
                 studio: 'all'
@@ -6917,6 +7164,9 @@ async function getCurrentUserId() {
             // Reset filter UI controls
             const searchInput = document.getElementById('unassignedSearch');
             if (searchInput) searchInput.value = '';
+
+            const typeSelect = document.getElementById('unassignedTypeFilter');
+            if (typeSelect) typeSelect.value = 'all';
 
             const sortSelect = document.getElementById('unassignedSortFilter');
             if (sortSelect) sortSelect.value = 'title';
@@ -7035,6 +7285,7 @@ return {
     showAddBoxSet,
     createBoxSetAndAddMovies,
     searchMoviesForBoxSet,
+    scanBoxSetTitles,
     addMovieToBoxSet,
     removeMovieFromBoxSet,
     finishBoxSetCreation,
@@ -7051,6 +7302,9 @@ return {
     closeBoxSetDetails,
     showCreateBoxSetModal,
     editBoxSet,
+    saveBoxSetEdits,
+    cancelBoxSetEdit,
+    onCustomDropdown,
     deleteBoxSet,
     switchGroupsTab: switchGroupsTab,
        loadGroups: loadGroups,
