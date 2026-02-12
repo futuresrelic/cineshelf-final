@@ -1848,6 +1848,10 @@ body.modal-open {
 .add-type-boxset {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
+.add-type-scan {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #43b89c 0%, #3a7bd5 100%);
+}
 .add-type-icon { font-size: 2rem; }
 .add-type-title { font-weight: 700; font-size: 1rem; }
 .add-type-desc { opacity: 0.75; font-size: 0.82rem; line-height: 1.3; }

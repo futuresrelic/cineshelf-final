@@ -627,6 +627,11 @@
                         <div class="add-type-title">Add Box Set</div>
                         <small class="add-type-desc">Multi-movie case (trilogy, double feature, etc.)</small>
                     </button>
+                    <button class="btn add-type-btn add-type-scan" onclick="CoverScanner.open()">
+                        <div class="add-type-icon">📸</div>
+                        <div class="add-type-title">Quick Scan</div>
+                        <small class="add-type-desc">Scan DVD/Blu-ray covers with camera + AI</small>
+                    </button>
                 </div>
 
                 <!-- Single Movie Section (existing functionality) -->
@@ -904,17 +909,6 @@
                     </div>
                 </div>
 
-                <!-- Quick Scan Section -->
-                <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px;">
-                    <h3 style="margin-bottom: 0.5rem;">📸 Quick Scan Mode</h3>
-                    <p style="color: rgba(255,255,255,0.6); margin-bottom: 1rem; font-size: 0.9rem;">
-                        Scan multiple DVD/Blu-ray covers at once using your camera + AI
-                    </p>
-                    <button class="btn" onclick="CoverScanner.open()">
-                        <span>📸</span>
-                        <span>Open Cover Scanner</span>
-                    </button>
-                </div>
             </div>
         </section>
 
