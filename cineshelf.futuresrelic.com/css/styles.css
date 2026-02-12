@@ -1533,6 +1533,10 @@ select option {
     display: flex;
 }
 
+#copyManagerModal {
+    z-index: 2100;
+}
+
 .modal-content {
     background: var(--bg-card);
     border-radius: var(--radius);
