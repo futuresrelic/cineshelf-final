@@ -82,9 +82,52 @@ const App = (function() {
     const API_URL = '/api/api.php';
     
     // ========================================
+    // LOADING / BUSY INDICATOR
+    // Prevents double-clicks, shows activity
+    // ========================================
+
+    let _busyCount = 0;
+    const _busyButtons = new WeakSet();
+
+    function showBusy(msg) {
+        _busyCount++;
+        const el = document.getElementById('globalLoader');
+        if (el) {
+            el.querySelector('.loader-text').textContent = msg || 'Working…';
+            el.classList.add('active');
+        }
+    }
+
+    function hideBusy() {
+        _busyCount = Math.max(0, _busyCount - 1);
+        if (_busyCount === 0) {
+            const el = document.getElementById('globalLoader');
+            if (el) el.classList.remove('active');
+        }
+    }
+
+    // Wraps any async onclick handler to prevent double-clicks and show a spinner
+    function busyClick(handler, btnElement) {
+        if (_busyButtons.has(btnElement)) return; // already running
+        _busyButtons.add(btnElement);
+        const origText = btnElement.textContent;
+        btnElement.disabled = true;
+        btnElement.style.opacity = '0.6';
+        const run = async () => {
+            try { await handler(); }
+            finally {
+                btnElement.disabled = false;
+                btnElement.style.opacity = '';
+                _busyButtons.delete(btnElement);
+            }
+        };
+        run();
+    }
+
+    // ========================================
     // INITIALIZATION
     // ========================================
-    
+
     async function init() {
         console.log('CineShelf v2.0 initializing...');
 
@@ -183,15 +226,14 @@ const App = (function() {
     // ========================================
     
     async function apiCall(action, data = {}) {
+    showBusy();
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            credentials: 'include', // Include auth cookie
+            credentials: 'include',
             body: JSON.stringify({
                 action: action,
-                // OAuth: user authentication via session cookie, no user parameter needed
-                // Legacy support maintained on backend
                 ...data
             })
         });
@@ -200,7 +242,7 @@ const App = (function() {
 
         if (!result.ok) {
             const error = new Error(result.error || 'API request failed');
-            error.data = result.data; // Preserve data from API response
+            error.data = result.data;
             throw error;
         }
 
@@ -210,6 +252,8 @@ const App = (function() {
         console.error('API Error:', error);
         showToast('Error: ' + error.message, 'error');
         throw error;
+    } finally {
+        hideBusy();
     }
 }
     
@@ -1750,27 +1794,55 @@ async function viewMovieDetails(movieId) {
         const content = document.getElementById('movieDetailContent');
         const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
 
+        // Build clickable genre tags
+        const genreTags = movie.genre ? movie.genre.split(',').map(g => g.trim()).filter(Boolean).map(g =>
+            `<span class="detail-tag" onclick="event.stopPropagation(); App.showRelatedMovies('genre', '${g.replace(/'/g, "\\'")}');">${GENRE_EMOJIS[g] || '🎭'} ${g}</span>`
+        ).join('') : '';
+
+        // Build clickable cast tags
+        const castTags = movie.actors ? movie.actors.split(',').map(a => a.trim()).filter(Boolean).map(a =>
+            `<span class="detail-tag" onclick="event.stopPropagation(); App.showRelatedMovies('actor', '${a.replace(/'/g, "\\'")}');">🎭 ${a}</span>`
+        ).join('') : '';
+
+        // Build clickable director
+        const directorTag = movie.director
+            ? `<span class="detail-tag detail-tag-highlight" onclick="event.stopPropagation(); App.showRelatedMovies('director', '${movie.director.replace(/'/g, "\\'")}');">🎬 ${movie.director}</span>`
+            : '';
+
+        // Build clickable studio
+        const studioTag = movie.studio
+            ? `<span class="detail-tag" onclick="event.stopPropagation(); App.showRelatedMovies('studio', '${movie.studio.replace(/'/g, "\\'")}');">🏢 ${movie.studio}</span>`
+            : '';
+
         content.innerHTML = `
             <div class="movie-detail-layout">
                 <div class="movie-detail-poster">
                     <img src="${posterUrl}" alt="${movie.title}">
                 </div>
                 <div class="movie-detail-info">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-    <h2>${movie.display_title || movie.title}</h2>
-    ${!isWishlistOnly ? `<button class="btn-icon" onclick="App.editDisplayTitle(${movieId})" title="Edit Display Name">✏️</button>
-    <button class="btn-icon" onclick="App.changePoster(${movieId})" title="Change Poster">🖼️</button>` : ''}
-</div>
-${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-top: -0.5rem;">Original: ${movie.title}</div>` : ''}
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <h2 style="margin:0; flex:1 1 auto; min-width:0; word-wrap:break-word;">${movie.display_title || movie.title}</h2>
+                        ${!isWishlistOnly ? `<div style="display:flex; gap:0.4rem; flex-shrink:0;">
+                            <button class="btn-icon" onclick="App.editDisplayTitle(${movieId})" title="Edit Display Name">✏️</button>
+                            <button class="btn-icon" onclick="App.changePoster(${movieId})" title="Change Poster">🖼️</button>
+                        </div>` : ''}
+                    </div>
+                    ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.85rem;">Original: ${movie.title}</div>` : ''}
+
                     <div class="movie-detail-meta">
                         ${movie.year ? `<span>${movie.year}</span>` : ''}
-                        ${movie.runtime ? `<span>${movie.runtime} min</span>` : ''}
+                        ${movie.runtime ? `<span>${formatRuntime(movie.runtime)}</span>` : ''}
                         ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
                         ${movie.certification ? `<span class="cert-badge" style="background: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
                     </div>
-                    ${movie.genre ? `<div class="movie-detail-genre">${movie.genre}</div>` : ''}
-                    ${movie.director ? `<div class="movie-detail-director">🎬 Directed by ${movie.director}</div>` : ''}
+
+                    ${genreTags ? `<div class="detail-tags-row">${genreTags}</div>` : ''}
+
+                    ${directorTag || studioTag ? `<div class="detail-tags-row">${directorTag}${studioTag}</div>` : ''}
+
                     ${movie.overview ? `<p class="movie-detail-overview">${movie.overview}</p>` : ''}
+
+                    ${castTags ? `<div class="movie-detail-section"><h3>Cast</h3><div class="detail-tags-row">${castTags}</div></div>` : ''}
 
                     ${isWishlistOnly ? `
                     <div class="movie-detail-section">
@@ -1784,7 +1856,6 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                     ` : `
                     <div class="movie-detail-section">
                         <h3>Your Copies (${copies.length})</h3>
-
                         ${copies.length > 0 ? `
                             <div class="copies-summary">
                                 ${copies.map((copy, i) => `
@@ -1796,12 +1867,9 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
                                     </div>
                                 `).join('')}
                             </div>
-
-                            ${copies.length > 0 ? `
-                                <button class="btn" onclick="App.openCopyManager(${movieId})" style="margin-top: 1rem;">
-                                    ✏️ Manage Copies
-                                </button>
-                            ` : ''}
+                            <button class="btn" onclick="App.openCopyManager(${movieId})" style="margin-top: 1rem;">
+                                ✏️ Manage Copies
+                            </button>
                         ` : `
                             <p style="color: rgba(255,255,255,0.6);">No copies in your collection</p>
                         `}
@@ -1817,6 +1885,61 @@ ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.
         console.error('Failed to load movie details:', error);
         showToast('Failed to load movie details', 'error');
     }
+}
+
+// ========================================
+// RELATED MOVIES - Clickable tags in movie detail
+// ========================================
+
+function showRelatedMovies(type, value) {
+    const labels = { genre: '🎭 Genre', actor: '🎭 Actor', director: '🎬 Director', studio: '🏢 Studio' };
+    const label = labels[type] || type;
+
+    // Search through entire collection for matches
+    const matches = collection.filter(item => {
+        const m = item.movie;
+        switch (type) {
+            case 'genre':    return m.genre && m.genre.split(',').map(g => g.trim()).includes(value);
+            case 'actor':    return m.actors && m.actors.split(',').map(a => a.trim()).includes(value);
+            case 'director': return m.director && m.director === value;
+            case 'studio':   return m.studio && m.studio === value;
+            default: return false;
+        }
+    });
+
+    const navIds = JSON.stringify(matches.map(item => item.movie.movie_id));
+
+    const content = document.getElementById('relatedMoviesContent');
+    const titleEl = document.getElementById('relatedMoviesTitle');
+    if (!content || !titleEl) return;
+
+    titleEl.textContent = `${label}: ${value}`;
+
+    if (matches.length === 0) {
+        content.innerHTML = '<p style="text-align:center; color:rgba(255,255,255,0.5); padding:2rem;">No other movies found for this filter.</p>';
+    } else {
+        content.innerHTML = `<div class="related-grid">` + matches.map(item => {
+            const m = item.movie;
+            const posterUrl = m.poster_url || '';
+            const title = m.display_title || m.title || 'Unknown';
+            return `<div class="related-card" onclick="App.closeRelatedMovies(); App.viewMovieDetailsWithNav(${m.movie_id}, ${navIds});">
+                <div class="related-poster">
+                    ${posterUrl ? `<img src="${posterUrl}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none'">` : ''}
+                    <div class="related-poster-fallback" style="${posterUrl?'display:none':''}">🎬</div>
+                </div>
+                <div class="related-info">
+                    <div class="related-title">${title}</div>
+                    <div class="related-meta">${m.year || ''} ${m.rating ? `· ⭐ ${m.rating.toFixed(1)}` : ''}</div>
+                </div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+
+    document.getElementById('relatedMoviesModal').classList.add('active');
+}
+
+function closeRelatedMovies() {
+    document.getElementById('relatedMoviesModal').classList.remove('active');
 }
 
 // Helper function for certification badge colors
@@ -2358,18 +2481,25 @@ function getCertColor(cert) {
     // ========================================
 
     let physicalMediaCache = [];
+    let physicalViewMode = 'list'; // grid | compact | list
+
+    function setPhysicalView(mode) {
+        physicalViewMode = mode;
+        document.querySelectorAll('.physical-view-switcher .view-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.pview === mode);
+        });
+        renderPhysicalMedia();
+    }
 
     async function loadPhysicalMedia() {
         const content = document.getElementById('physicalMediaContent');
         if (!content) return;
         content.innerHTML = '<div style="text-align:center;padding:3rem;color:rgba(255,255,255,0.5)">Loading physical media…</div>';
 
-        // Ensure shelves are loaded
         if (!shelves || shelves.length === 0) {
             try { shelves = await apiCall('list_shelves'); } catch(e) {}
         }
 
-        // Fetch all shelf contents
         const allItems = [];
         await Promise.all((shelves || []).map(async shelf => {
             try {
@@ -2382,6 +2512,30 @@ function getCertColor(cert) {
 
         physicalMediaCache = allItems;
         renderPhysicalMedia();
+    }
+
+    function _physicalSort(items) {
+        const sortBy = document.getElementById('physicalSortBy')?.value || 'title';
+        const sorted = [...items];
+        sorted.sort((a, b) => {
+            const tA = (a.display_title || a.title || a.container_name || '').toLowerCase();
+            const tB = (b.display_title || b.title || b.container_name || '').toLowerCase();
+            switch (sortBy) {
+                case 'title':       return tA.localeCompare(tB);
+                case 'title-desc':  return tB.localeCompare(tA);
+                case 'year-desc':   return (b.year || 0) - (a.year || 0);
+                case 'year':        return (a.year || 9999) - (b.year || 9999);
+                case 'rating-desc': return (b.rating || 0) - (a.rating || 0);
+                case 'rating':      return (a.rating || 99) - (b.rating || 99);
+                case 'runtime-desc':return (b.runtime || 0) - (a.runtime || 0);
+                case 'runtime':     return (a.runtime || 9999) - (b.runtime || 9999);
+                case 'director':    return (a.director || 'zzz').localeCompare(b.director || 'zzz');
+                case 'studio':      return (a.studio || 'zzz').localeCompare(b.studio || 'zzz');
+                case 'certification': return (a.certification || 'zzz').localeCompare(b.certification || 'zzz');
+                default: return tA.localeCompare(tB);
+            }
+        });
+        return sorted;
     }
 
     function renderPhysicalMedia() {
@@ -2399,7 +2553,6 @@ function getCertColor(cert) {
             return;
         }
 
-        // Deduplicate by copy_id (or container_id for box sets)
         const seen = new Set();
         const unique = items.filter(item => {
             const key = item.is_container ? `c_${item.container_id}` : `m_${item.copy_id}`;
@@ -2409,9 +2562,12 @@ function getCertColor(cert) {
         });
 
         let html = '';
+        const renderFn = physicalViewMode === 'grid' ? renderPhysicalGrid
+                       : physicalViewMode === 'compact' ? renderPhysicalCompact
+                       : renderPhysicalList;
 
         if (groupBy === 'flat') {
-            html = renderPhysicalFlatList(unique);
+            html = renderFn(_physicalSort(unique));
         } else if (groupBy === 'format') {
             const groups = {};
             unique.forEach(item => {
@@ -2419,18 +2575,16 @@ function getCertColor(cert) {
                 if (!groups[fmt]) groups[fmt] = [];
                 groups[fmt].push(item);
             });
-            const sortedKeys = Object.keys(groups).sort();
-            sortedKeys.forEach(fmt => {
+            Object.keys(groups).sort().forEach(fmt => {
                 html += `<div class="physical-group">
                     <div class="physical-group-header">
                         <span class="physical-group-title">${fmt}</span>
                         <span class="physical-group-count">${groups[fmt].length} item${groups[fmt].length !== 1 ? 's' : ''}</span>
                     </div>
-                    ${renderPhysicalFlatList(groups[fmt])}
+                    ${renderFn(_physicalSort(groups[fmt]))}
                 </div>`;
             });
         } else {
-            // Group by shelf
             const groups = {};
             unique.forEach(item => {
                 const key = item._shelfId || 'unassigned';
@@ -2443,7 +2597,7 @@ function getCertColor(cert) {
                         <span class="physical-group-title">${group.icon} ${group.name}</span>
                         <span class="physical-group-count">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>
                     </div>
-                    ${renderPhysicalFlatList(group.items)}
+                    ${renderFn(_physicalSort(group.items))}
                 </div>`;
             });
         }
@@ -2451,16 +2605,88 @@ function getCertColor(cert) {
         content.innerHTML = html;
     }
 
-    function renderPhysicalFlatList(items) {
-        const navIds = JSON.stringify(items.filter(i => !i.is_container).map(i => i.movie_id));
+    function _physicalNavIds(items) {
+        return JSON.stringify(items.filter(i => !i.is_container).map(i => i.movie_id));
+    }
+
+    function _physicalItemClick(item, navIds) {
+        if (item.is_container) return `onclick="App.showBoxSetDetails(${item.container_id})"`;
+        return `onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"`;
+    }
+
+    // ── GRID VIEW: poster cards with hover info ──
+    function renderPhysicalGrid(items) {
+        const navIds = _physicalNavIds(items);
+        return `<div class="physical-grid pm-grid-view">` + items.map(item => {
+            if (item.is_container) {
+                const cover = item.container_spine_image_url;
+                return `<div class="pm-card" ${_physicalItemClick(item, navIds)}>
+                    <div class="pm-card-poster">
+                        ${cover ? `<img src="${cover}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                        <div class="pm-card-placeholder" style="${cover?'display:none;':''}background:${item.container_spine_color||'#764ba2'}">📦</div>
+                    </div>
+                    <div class="pm-card-body">
+                        <div class="pm-card-title">${item.container_name}</div>
+                        <div class="pm-card-meta">Box Set · ${item.container_movie_count||0} films</div>
+                    </div>
+                </div>`;
+            }
+            const title = item.display_title || item.title || 'Unknown';
+            const certColor = item.certification ? getCertColor(item.certification) : '';
+            return `<div class="pm-card" ${_physicalItemClick(item, navIds)}>
+                <div class="pm-card-poster">
+                    ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">🎬</div>
+                </div>
+                <div class="pm-card-body">
+                    <div class="pm-card-title">${title}</div>
+                    <div class="pm-card-meta">
+                        ${item.year||''} ${item.format ? `· ${item.format}` : ''}
+                    </div>
+                    <div class="pm-card-extra">
+                        ${item.rating ? `<span>⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
+                        ${item.certification ? `<span class="cert-mini" style="background:${certColor}">${item.certification}</span>` : ''}
+                    </div>
+                    ${item.director ? `<div class="pm-card-director">${item.director}</div>` : ''}
+                </div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+
+    // ── COMPACT VIEW: small poster + title only, tight grid ──
+    function renderPhysicalCompact(items) {
+        const navIds = _physicalNavIds(items);
+        return `<div class="physical-grid pm-compact-view">` + items.map(item => {
+            if (item.is_container) {
+                const cover = item.container_spine_image_url;
+                return `<div class="pm-compact-card" ${_physicalItemClick(item, navIds)}>
+                    <div class="pm-compact-poster">
+                        ${cover ? `<img src="${cover}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                        <div class="pm-card-placeholder" style="${cover?'display:none;':''}background:${item.container_spine_color||'#764ba2'}; font-size:1.5rem;">📦</div>
+                    </div>
+                    <div class="pm-compact-title">${item.container_name}</div>
+                </div>`;
+            }
+            const title = item.display_title || item.title || 'Unknown';
+            return `<div class="pm-compact-card" ${_physicalItemClick(item, navIds)}>
+                <div class="pm-compact-poster">
+                    ${item.poster_url ? `<img src="${item.poster_url}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">🎬</div>
+                </div>
+                <div class="pm-compact-title">${title}</div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+
+    // ── LIST VIEW: horizontal rows with detailed info ──
+    function renderPhysicalList(items) {
+        const navIds = _physicalNavIds(items);
         return `<div class="physical-media-list">` + items.map(item => {
             if (item.is_container) {
                 const coverUrl = item.container_spine_image_url;
-                return `<div class="physical-media-item" onclick="App.showBoxSetDetails(${item.container_id})">
+                return `<div class="physical-media-item" ${_physicalItemClick(item, navIds)}>
                     <div class="physical-media-poster">
-                        ${coverUrl
-                            ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-                            : ''}
+                        ${coverUrl ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
                         <div class="physical-media-poster-placeholder" style="${coverUrl ? 'display:none;' : ''}background:${item.container_spine_color||'#764ba2'}">📦</div>
                     </div>
                     <div class="physical-media-info">
@@ -2470,18 +2696,23 @@ function getCertColor(cert) {
                 </div>`;
             }
             const title = item.display_title || item.title || 'Unknown';
-            return `<div class="physical-media-item" onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})">
+            const certColor = item.certification ? getCertColor(item.certification) : '';
+            return `<div class="physical-media-item" ${_physicalItemClick(item, navIds)}>
                 <div class="physical-media-poster">
-                    ${item.poster_url
-                        ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-                        : ''}
+                    ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
                     <div class="physical-media-poster-placeholder" style="${item.poster_url ? 'display:none;' : ''}">🎬</div>
                 </div>
                 <div class="physical-media-info">
                     <div class="physical-media-title">${title}</div>
                     <div class="physical-media-meta">
                         ${item.year ? `<span>${item.year}</span>` : ''}
-                        ${item.format ? `<span>· ${item.format}</span>` : ''}
+                        ${item.runtime ? `<span>· ${item.runtime} min</span>` : ''}
+                        ${item.rating ? `<span>· ⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
+                        ${item.certification ? `<span>· <span class="cert-mini" style="background:${certColor}">${item.certification}</span></span>` : ''}
+                    </div>
+                    <div class="physical-media-meta">
+                        ${item.format ? `<span>${item.format}</span>` : ''}
+                        ${item.director ? `<span>· ${item.director}</span>` : ''}
                         ${item._shelfName ? `<span>· ${item._shelfName}</span>` : ''}
                     </div>
                 </div>
@@ -7550,6 +7781,9 @@ return {
     shelfViewBack,
     shelfViewGoTo,
     renderPhysicalMedia,
+    setPhysicalView,
+    showRelatedMovies,
+    closeRelatedMovies,
     viewMovieDetailsWithNav,
     shelfMovieNav,
     closeBoxSetDetails,

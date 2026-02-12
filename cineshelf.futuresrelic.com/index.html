@@ -220,12 +220,30 @@
 
             <!-- ── SUB-PANEL: Physical Media ── -->
             <div id="subviewPhysical" class="subview-panel" style="display:none">
-                <div class="subview-toolbar" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                    <select id="physicalGroupBy" onchange="App.renderPhysicalMedia()" style="padding:0.4rem 0.6rem; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:6px;">
+                <div class="subview-toolbar physical-toolbar">
+                    <select id="physicalGroupBy" onchange="App.renderPhysicalMedia()" class="physical-select">
                         <option value="shelf">Group by Shelf</option>
                         <option value="format">Group by Format</option>
                         <option value="flat">Flat List</option>
                     </select>
+                    <select id="physicalSortBy" onchange="App.renderPhysicalMedia()" class="physical-select">
+                        <option value="title">Sort: A → Z</option>
+                        <option value="title-desc">Sort: Z → A</option>
+                        <option value="year-desc">Sort: Year (Newest)</option>
+                        <option value="year">Sort: Year (Oldest)</option>
+                        <option value="rating-desc">Sort: Rating (High)</option>
+                        <option value="rating">Sort: Rating (Low)</option>
+                        <option value="runtime-desc">Sort: Runtime (Long)</option>
+                        <option value="runtime">Sort: Runtime (Short)</option>
+                        <option value="director">Sort: Director</option>
+                        <option value="studio">Sort: Studio</option>
+                        <option value="certification">Sort: Classification</option>
+                    </select>
+                    <div class="physical-view-switcher">
+                        <button class="view-btn" data-pview="grid" onclick="App.setPhysicalView('grid')" title="Grid View">⊞</button>
+                        <button class="view-btn" data-pview="compact" onclick="App.setPhysicalView('compact')" title="Compact View">⊡</button>
+                        <button class="view-btn active" data-pview="list" onclick="App.setPhysicalView('list')" title="List View">☰</button>
+                    </div>
                 </div>
                 <div id="physicalMediaContent"></div>
             </div>
@@ -1167,6 +1185,19 @@
         </div>
     </div>
 
+    <!-- Related Movies Modal (clickable tags) -->
+    <div id="relatedMoviesModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="relatedMoviesTitle">Related Movies</h3>
+                <button class="modal-close" onclick="App.closeRelatedMovies()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="relatedMoviesContent"></div>
+            </div>
+        </div>
+    </div>
+
 <!-- Poster Selector Modal -->
 <div id="posterSelectorModal" class="modal">
     <div class="modal-content modal-large">
@@ -1724,5 +1755,11 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     }
 });
 </script>
+
+<!-- Global Loading Indicator -->
+<div id="globalLoader" class="global-loader">
+    <div class="global-loader-bar"></div>
+    <span class="loader-text">Working…</span>
+</div>
 </body>
 </html>

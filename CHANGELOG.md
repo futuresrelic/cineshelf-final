@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.0] - 2026-02-12
+
+### Added
+- **Physical Media view modes** — the Physical Media tab now supports Grid, Compact, and List views:
+  - **Grid**: poster cards with title, year, format, rating, certification, and director
+  - **Compact**: tight poster-only grid with title underneath (great for browsing)
+  - **List**: detailed horizontal rows with full metadata (default view)
+- **Physical Media sorting** — sort by Title (A-Z/Z-A), Year, Rating, Runtime, Director, Studio, or Classification
+- **Enriched movie detail cards** — movie details now show:
+  - Clickable genre tags (click to see all movies in that genre)
+  - Clickable cast members (click to see all movies with that actor)
+  - Clickable director tag (click to see all movies by that director)
+  - Clickable studio tag (click to see all movies from that studio)
+  - Related Movies modal shows filtered collection results in a poster grid
+- **Global loading indicator** — a subtle animated bar at the top of the screen shows whenever API calls are in progress, preventing confusion from lag and discouraging double-clicks
+- **Physical Media tab improvements** — API now returns rating, certification, and overview data for shelf contents, enabling richer card rendering
+
+### Changed
+- **Box Set compact view redesigned** — now shows poster with title underneath in a tight 3+ column grid (poster-focused, no metadata clutter)
+- **Box Set list view redesigned** — clean single-column layout with small 45x60 thumbnails, title, format/edition, and movie count in a compact horizontal row
+- **Movie detail layout improved** — title and action buttons now flex-wrap properly on mobile, runtime shows in human-readable format
+
+### Fixed
+- **Box Set view style buttons now fully functional** — Grid (default), Compact, and List all have distinct, polished layouts
+- **Physical Media data completeness** — `get_shelf_contents` API now returns `rating`, `certification`, and `overview` fields
+
+---
+
 ## [2.6.0] - 2026-02-12
 
 ### Added

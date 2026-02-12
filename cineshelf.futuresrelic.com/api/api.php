@@ -3663,6 +3663,9 @@ case 'resolve_movie':
                     m.studio,
                     m.actors,
                     m.runtime,
+                    m.rating,
+                    m.certification,
+                    m.overview,
                     -- Container info
                     cont.name as container_name,
                     cont.spine_label as container_spine_label,
