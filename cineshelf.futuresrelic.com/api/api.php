@@ -3277,6 +3277,7 @@ case 'resolve_movie':
             $name = sanitize($input['name'] ?? '', 200);
             $spineLabel = sanitize($input['spine_label'] ?? '', 200);
             $spineImageType = sanitize($input['spine_image_type'] ?? '', 20);
+            $spineImageUrl  = sanitize($input['spine_image_url'] ?? '', 500);
             $spineColor = sanitize($input['spine_color'] ?? '', 20);
             $format = sanitize($input['format'] ?? '', 100);
             $edition = sanitize($input['edition'] ?? '', 100);
@@ -3311,6 +3312,10 @@ case 'resolve_movie':
             if (!empty($spineImageType)) {
                 $updates[] = "spine_image_type = ?";
                 $params[] = $spineImageType;
+            }
+            if (!empty($spineImageUrl)) {
+                $updates[] = "spine_image_url = ?";
+                $params[] = $spineImageUrl;
             }
             if (!empty($spineColor)) {
                 $updates[] = "spine_color = ?";

@@ -3747,11 +3747,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
                 showToast('Cover saved! 🎨', 'success');
                 closeCoverCrop();
-                // Re-render box set modal cover if open
-                if (document.getElementById('boxSetDetailsModal').classList.contains('active')) {
-                    document.getElementById('boxSetCoverImg').src = result.url;
-                    document.getElementById('boxSetCoverImg').style.display = '';
-                    document.getElementById('boxSetCoverPlaceholder').style.display = 'none';
+                // Re-render box set detail if open in movieDetailModal
+                if (document.getElementById('movieDetailModal').classList.contains('active') && currentContainerId) {
+                    showBoxSetDetails(currentContainerId);
                 }
                 loadBoxSets();
             } catch (err) {
