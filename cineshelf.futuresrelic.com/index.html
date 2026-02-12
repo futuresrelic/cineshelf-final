@@ -172,8 +172,11 @@
         <!-- Collection Tab (Movies + Wishlist + Physical Media) -->
         <section id="collection" class="tab-content active">
 
-            <!-- Sub-navigation: switch between the four views -->
+            <!-- Sub-navigation: switch between the five views -->
             <div class="collection-subview-nav">
+                <button class="subview-btn" data-subview="physical" onclick="App.switchCollectionView('physical')">
+                    💿 Physical Media
+                </button>
                 <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')">
                     🎬 Movies
                     <span class="badge" id="collectionCount"></span>
@@ -213,6 +216,18 @@
                         <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- ── SUB-PANEL: Physical Media ── -->
+            <div id="subviewPhysical" class="subview-panel" style="display:none">
+                <div class="subview-toolbar" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <select id="physicalGroupBy" onchange="App.renderPhysicalMedia()" style="padding:0.4rem 0.6rem; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:6px;">
+                        <option value="shelf">Group by Shelf</option>
+                        <option value="format">Group by Format</option>
+                        <option value="flat">Flat List</option>
+                    </select>
+                </div>
+                <div id="physicalMediaContent"></div>
             </div>
 
             <!-- ── SUB-PANEL: Movies ── -->
@@ -731,8 +746,8 @@
                             <div class="form-group">
                                 <label>Format *</label>
                                 <select id="boxSetFormat" onchange="App.onCustomDropdown(this)">
-                                    <option value="Blu-ray Box Set">Blu-ray Box Set</option>
                                     <option value="DVD Box Set">DVD Box Set</option>
+                                    <option value="Blu-ray Box Set">Blu-ray Box Set</option>
                                     <option value="4K UHD Box Set">4K UHD Box Set</option>
                                     <option value="Mixed Format Set">Mixed Format Set</option>
                                     <option value="Double Feature">Double Feature</option>
@@ -770,8 +785,8 @@
                             <div class="form-group">
                                 <label>Region</label>
                                 <select id="boxSetRegion">
-                                    <option value="Region Free">Region Free</option>
                                     <option value="Region 1">Region 1 (US/Canada)</option>
+                                    <option value="Region Free">Region Free</option>
                                     <option value="Region 2">Region 2 (Europe)</option>
                                     <option value="Region A">Region A (Blu-ray Americas)</option>
                                     <option value="Region B">Region B (Blu-ray Europe)</option>
@@ -781,9 +796,9 @@
                             <div class="form-group">
                                 <label>Condition</label>
                                 <select id="boxSetCondition">
+                                    <option value="Good">Good</option>
                                     <option value="Mint">Mint</option>
                                     <option value="Like New">Like New</option>
-                                    <option value="Good">Good</option>
                                     <option value="Fair">Fair</option>
                                     <option value="Poor">Poor</option>
                                 </select>
@@ -828,10 +843,12 @@
                         </p>
 
                         <!-- Movie search for box set -->
-                        <div class="search-box" style="margin-bottom: 1rem;">
-                            <input type="text" id="boxSetMovieSearch" placeholder="Search for a movie to add..." onkeypress="if(event.key==='Enter') App.searchMoviesForBoxSet()">
-                            <button class="btn" onclick="App.searchMoviesForBoxSet()">🔍 Search</button>
-                            <button class="btn btn-secondary" onclick="App.scanBoxSetTitles()" title="Scan movie titles from box set cover">📸 Scan</button>
+                        <div style="margin-bottom: 1rem;">
+                            <input type="text" id="boxSetMovieSearch" placeholder="Search for a movie to add..." onkeypress="if(event.key==='Enter') App.searchMoviesForBoxSet()" style="width: 100%; margin-bottom: 0.5rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" onclick="App.searchMoviesForBoxSet()" style="flex: 1;">🔍 Search</button>
+                                <button class="btn btn-secondary" onclick="App.scanBoxSetTitles()" style="flex: 1;" title="Scan movie titles from box set cover">📸 Scan Titles</button>
+                            </div>
                         </div>
 
                         <div id="boxSetSearchResults" class="search-results"></div>
@@ -853,17 +870,7 @@
                     </div>
                 </div>
 
-                <!-- Quick Scan Section -->
-                <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(102, 126, 234, 0.1); border: 1px solid #667eea; border-radius: 8px;">
-                    <h3 style="margin-bottom: 0.5rem;">📸 Quick Scan Mode</h3>
-                    <p style="color: #a0a0a0; margin-bottom: 1rem; font-size: 0.9rem;">
-                        Scan multiple DVD/Blu-ray covers at once using your camera + AI
-                    </p>
-                    <button class="btn" onclick="CoverScanner.open()">
-                        <span>📸</span>
-                        <span>Open Cover Scanner</span>
-                    </button>
-                </div>
+                <!-- Quick Scan moved to box set Step 2 "Scan Titles" button -->
             </div>
         </section>
 

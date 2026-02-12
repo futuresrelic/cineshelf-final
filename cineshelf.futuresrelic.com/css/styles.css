@@ -1609,6 +1609,13 @@ select option {
     display: flex;
 }
 
+/* Lock body scroll when any modal is open */
+body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
 #copyManagerModal {
     z-index: 2100;
 }
@@ -4519,6 +4526,202 @@ select option {
 .box-set-stat strong {
     color: #764ba2;
     font-weight: 600;
+}
+
+/* Box Sets: Compact View */
+.box-sets-grid.compact-view {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+}
+
+.box-sets-grid.compact-view .box-set-card {
+    padding: 0.75rem;
+}
+
+.box-sets-grid.compact-view .box-set-card > div:first-child {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Smaller thumbnail in compact */
+.box-sets-grid.compact-view .box-set-card img,
+.box-sets-grid.compact-view .box-set-card > div:first-child > div:first-child,
+.box-sets-grid.compact-view .box-set-card > div:first-child > img {
+    width: 70px !important;
+    height: 95px !important;
+}
+
+.box-sets-grid.compact-view .box-set-card h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.box-sets-grid.compact-view .box-set-card .box-set-stat {
+    font-size: 0.75rem;
+}
+
+/* Box Sets: List View */
+.box-sets-grid.list-view {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+}
+
+.box-sets-grid.list-view .box-set-card {
+    padding: 0.75rem 1rem;
+}
+
+.box-sets-grid.list-view .box-set-card > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0;
+}
+
+/* Smaller thumbnail in list view */
+.box-sets-grid.list-view .box-set-card img,
+.box-sets-grid.list-view .box-set-card > div:first-child > div:first-child,
+.box-sets-grid.list-view .box-set-card > div:first-child > img {
+    width: 60px !important;
+    height: 80px !important;
+    flex-shrink: 0;
+}
+
+.box-sets-grid.list-view .box-set-card > div:first-child > div:last-child {
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+}
+
+.box-sets-grid.list-view .box-set-card h3 {
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+
+.box-sets-grid.list-view .box-set-card .box-set-card-stats {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+/* Family Collection: Compact View */
+#familyCollectionGrid.compact-view {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+    gap: 0.5rem;
+}
+
+#familyCollectionGrid.compact-view .movie-card {
+    font-size: 0.75rem;
+}
+
+#familyCollectionGrid.compact-view .movie-title {
+    font-size: 0.8rem;
+    -webkit-line-clamp: 2;
+}
+
+#familyCollectionGrid.compact-view .hover-overlay {
+    font-size: 0.7rem;
+}
+
+#familyCollectionGrid.compact-view .hover-meta {
+    font-size: 0.6rem;
+    gap: 0.4rem;
+}
+
+/* ========================================
+   PHYSICAL MEDIA VIEW
+   ======================================== */
+
+.physical-group {
+    margin-bottom: 1.5rem;
+}
+
+.physical-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.physical-group-title {
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+}
+
+.physical-group-count {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.physical-media-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.physical-media-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.physical-media-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.physical-media-poster {
+    width: 45px;
+    height: 65px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.physical-media-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.physical-media-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+}
+
+.physical-media-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.physical-media-title {
+    font-weight: 500;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.physical-media-meta {
+    display: flex;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 0.15rem;
 }
 
 .box-set-movie-item {

@@ -156,6 +156,25 @@ const App = (function() {
             setView(settings.defaultView);
         }
 
+        // Modal scroll lock — prevent background from scrolling when a modal is open
+        const observer = new MutationObserver(() => {
+            const anyActive = document.querySelector('.modal.active');
+            if (anyActive) {
+                document.body._scrollY = window.scrollY;
+                document.body.classList.add('modal-open');
+                document.body.style.top = `-${document.body._scrollY}px`;
+            } else {
+                document.body.classList.remove('modal-open');
+                document.body.style.top = '';
+                if (document.body._scrollY !== undefined) {
+                    window.scrollTo(0, document.body._scrollY);
+                }
+            }
+        });
+        document.querySelectorAll('.modal').forEach(modal => {
+            observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+        });
+
         console.log('CineShelf ready!');
     }
     
@@ -1843,6 +1862,10 @@ function getCertColor(cert) {
 
     // Called from spine / poster clicks inside shelf view
     function viewMovieDetailsWithNav(movieId, movieList) {
+        // Clear box set nav so keyboard/swipe routes to movie nav
+        boxSetNavList = [];
+        boxSetNavIndex = -1;
+        currentContainerId = null;
         shelfNavMovieList = movieList;
         shelfNavIndex = movieList.indexOf(movieId);
         viewMovieDetails(movieId);
@@ -1870,6 +1893,51 @@ function getCertColor(cert) {
             label.textContent = `${shelfNavIndex + 1} / ${shelfNavMovieList.length}`;
             prev.disabled = shelfNavIndex <= 0;
             next.disabled = shelfNavIndex >= shelfNavMovieList.length - 1;
+            // Restore movie nav onclick handlers
+            prev.onclick = () => shelfMovieNav(-1);
+            next.onclick = () => shelfMovieNav(1);
+        } else {
+            nav.style.display = 'none';
+        }
+    }
+
+    // ========================================
+    // BOX SET NAVIGATION
+    // Prev / next through box sets in the detail modal
+    // ========================================
+
+    let boxSetNavList = [];  // array of container IDs
+    let boxSetNavIndex = -1;
+
+    function showBoxSetDetailsWithNav(containerId, containerList) {
+        boxSetNavList = containerList || [];
+        boxSetNavIndex = boxSetNavList.indexOf(containerId);
+        showBoxSetDetails(containerId);
+    }
+
+    function boxSetNav(direction) {
+        if (!boxSetNavList.length) return;
+        const next = boxSetNavIndex + direction;
+        if (next < 0 || next >= boxSetNavList.length) return;
+        boxSetNavIndex = next;
+        showBoxSetDetails(boxSetNavList[boxSetNavIndex]);
+    }
+
+    function _updateBoxSetNavUI() {
+        const nav = document.getElementById('movieDetailNav');
+        const label = document.getElementById('movieDetailNavLabel');
+        const prev = document.getElementById('movieDetailPrev');
+        const next = document.getElementById('movieDetailNext');
+        if (!nav) return;
+
+        if (boxSetNavList.length > 1 && boxSetNavIndex >= 0) {
+            nav.style.display = 'flex';
+            label.textContent = `${boxSetNavIndex + 1} / ${boxSetNavList.length}`;
+            prev.disabled = boxSetNavIndex <= 0;
+            next.disabled = boxSetNavIndex >= boxSetNavList.length - 1;
+            // Override nav button handlers for box sets
+            prev.onclick = () => boxSetNav(-1);
+            next.onclick = () => boxSetNav(1);
         } else {
             nav.style.display = 'none';
         }
@@ -1879,9 +1947,16 @@ function getCertColor(cert) {
     document.addEventListener('keydown', function(e) {
         const modal = document.getElementById('movieDetailModal');
         if (!modal || !modal.classList.contains('active')) return;
-        if (!shelfNavMovieList.length) return;
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); shelfMovieNav(-1); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); shelfMovieNav(1); }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const dir = e.key === 'ArrowLeft' ? -1 : 1;
+            // If viewing a box set detail, navigate box sets
+            if (boxSetNavList.length > 1 && currentContainerId) {
+                boxSetNav(dir);
+            } else if (shelfNavMovieList.length) {
+                shelfMovieNav(dir);
+            }
+        }
     });
 
     // Touch swipe support (iOS + Android)
@@ -1895,13 +1970,16 @@ function getCertColor(cert) {
         document.addEventListener('touchend', function(e) {
             const modal = document.getElementById('movieDetailModal');
             if (!modal || !modal.classList.contains('active')) return;
-            if (!shelfNavMovieList.length) return;
             const dx = e.changedTouches[0].clientX - touchStartX;
             const dy = e.changedTouches[0].clientY - touchStartY;
             // Only trigger if horizontal swipe is dominant and > 60px
             if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-                if (dx < 0) shelfMovieNav(1);  // swipe left → next
-                else        shelfMovieNav(-1); // swipe right → prev
+                const dir = dx < 0 ? 1 : -1;
+                if (boxSetNavList.length > 1 && currentContainerId) {
+                    boxSetNav(dir);
+                } else if (shelfNavMovieList.length) {
+                    shelfMovieNav(dir);
+                }
             }
         }, { passive: true });
     })();
@@ -1978,6 +2056,7 @@ function getCertColor(cert) {
 
         // Show/hide sub-panels
         const panels = {
+            physical:  document.getElementById('subviewPhysical'),
             movies:    document.getElementById('subviewMovies'),
             wishlist:  document.getElementById('subviewWishlist'),
             boxsets:   document.getElementById('subviewBoxSets'),
@@ -1991,13 +2070,17 @@ function getCertColor(cert) {
         const shelfFilter = document.getElementById('shelfFilter');
         const sortBy = document.getElementById('sortBy');
         const filterBar = document.getElementById('filterBar');
+        const viewSwitcher = document.querySelector('#collection .view-switcher');
         if (shelfFilter) shelfFilter.style.display = view === 'movies' ? '' : 'none';
         if (sortBy)      sortBy.style.display      = view === 'movies' ? '' : 'none';
         if (filterBar)   filterBar.style.display    = view === 'movies' ? '' : 'none';
+        // Show view switcher for movies, wishlist, boxsets; hide for shelfview and physical
+        if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'physical') ? 'none' : '';
 
         // Update the section heading
         const header = document.getElementById('collectionHeader');
         if (header) {
+            if (view === 'physical') header.textContent = 'Physical Media';
             if (view === 'movies')    header.textContent = `Your Collection (${collection.length})`;
             if (view === 'wishlist')  header.textContent = `Your Wishlist (${wishlist.length})`;
             if (view === 'boxsets')   header.textContent = 'Box Sets';
@@ -2005,7 +2088,9 @@ function getCertColor(cert) {
         }
 
         // Load data for the selected sub-view
-        if (view === 'wishlist') {
+        if (view === 'physical') {
+            loadPhysicalMedia();
+        } else if (view === 'wishlist') {
             loadWishlist();
         } else if (view === 'boxsets') {
             loadBoxSets();
@@ -2266,7 +2351,144 @@ function getCertColor(cert) {
         shelfViewStack = shelfViewStack.slice(0, stackIndex + 1);
         renderShelfViewLevel();
     }
-    
+
+    // ========================================
+    // PHYSICAL MEDIA VIEW
+    // Shows all physical copies grouped by shelf, format, or flat
+    // ========================================
+
+    let physicalMediaCache = [];
+
+    async function loadPhysicalMedia() {
+        const content = document.getElementById('physicalMediaContent');
+        if (!content) return;
+        content.innerHTML = '<div style="text-align:center;padding:3rem;color:rgba(255,255,255,0.5)">Loading physical media…</div>';
+
+        // Ensure shelves are loaded
+        if (!shelves || shelves.length === 0) {
+            try { shelves = await apiCall('list_shelves'); } catch(e) {}
+        }
+
+        // Fetch all shelf contents
+        const allItems = [];
+        await Promise.all((shelves || []).map(async shelf => {
+            try {
+                const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                (items || []).forEach(item => {
+                    allItems.push({ ...item, _shelfId: shelf.id, _shelfName: shelf.name, _shelfColor: shelf.color || '#667eea', _shelfIcon: shelf.icon || '📂' });
+                });
+            } catch(e) {}
+        }));
+
+        physicalMediaCache = allItems;
+        renderPhysicalMedia();
+    }
+
+    function renderPhysicalMedia() {
+        const content = document.getElementById('physicalMediaContent');
+        if (!content) return;
+
+        const groupBy = document.getElementById('physicalGroupBy')?.value || 'shelf';
+        const items = physicalMediaCache;
+
+        if (items.length === 0) {
+            content.innerHTML = `<div class="empty-state" style="padding:3rem 0">
+                <div class="empty-icon">💿</div><h3>No physical media found</h3>
+                <p>Add movies to your shelves to see them here.</p>
+            </div>`;
+            return;
+        }
+
+        // Deduplicate by copy_id (or container_id for box sets)
+        const seen = new Set();
+        const unique = items.filter(item => {
+            const key = item.is_container ? `c_${item.container_id}` : `m_${item.copy_id}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        let html = '';
+
+        if (groupBy === 'flat') {
+            html = renderPhysicalFlatList(unique);
+        } else if (groupBy === 'format') {
+            const groups = {};
+            unique.forEach(item => {
+                const fmt = item.is_container ? 'Box Set' : (item.format || 'Unknown');
+                if (!groups[fmt]) groups[fmt] = [];
+                groups[fmt].push(item);
+            });
+            const sortedKeys = Object.keys(groups).sort();
+            sortedKeys.forEach(fmt => {
+                html += `<div class="physical-group">
+                    <div class="physical-group-header">
+                        <span class="physical-group-title">${fmt}</span>
+                        <span class="physical-group-count">${groups[fmt].length} item${groups[fmt].length !== 1 ? 's' : ''}</span>
+                    </div>
+                    ${renderPhysicalFlatList(groups[fmt])}
+                </div>`;
+            });
+        } else {
+            // Group by shelf
+            const groups = {};
+            unique.forEach(item => {
+                const key = item._shelfId || 'unassigned';
+                if (!groups[key]) groups[key] = { name: item._shelfName || 'Unassigned', icon: item._shelfIcon || '📂', color: item._shelfColor || '#667eea', items: [] };
+                groups[key].items.push(item);
+            });
+            Object.values(groups).forEach(group => {
+                html += `<div class="physical-group">
+                    <div class="physical-group-header" style="border-left: 3px solid ${group.color};">
+                        <span class="physical-group-title">${group.icon} ${group.name}</span>
+                        <span class="physical-group-count">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    ${renderPhysicalFlatList(group.items)}
+                </div>`;
+            });
+        }
+
+        content.innerHTML = html;
+    }
+
+    function renderPhysicalFlatList(items) {
+        const navIds = JSON.stringify(items.filter(i => !i.is_container).map(i => i.movie_id));
+        return `<div class="physical-media-list">` + items.map(item => {
+            if (item.is_container) {
+                const coverUrl = item.container_spine_image_url;
+                return `<div class="physical-media-item" onclick="App.showBoxSetDetails(${item.container_id})">
+                    <div class="physical-media-poster">
+                        ${coverUrl
+                            ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                            : ''}
+                        <div class="physical-media-poster-placeholder" style="${coverUrl ? 'display:none;' : ''}background:${item.container_spine_color||'#764ba2'}">📦</div>
+                    </div>
+                    <div class="physical-media-info">
+                        <div class="physical-media-title">${item.container_name}</div>
+                        <div class="physical-media-meta">Box Set · ${item.container_movie_count || 0} films</div>
+                    </div>
+                </div>`;
+            }
+            const title = item.display_title || item.title || 'Unknown';
+            return `<div class="physical-media-item" onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})">
+                <div class="physical-media-poster">
+                    ${item.poster_url
+                        ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                        : ''}
+                    <div class="physical-media-poster-placeholder" style="${item.poster_url ? 'display:none;' : ''}">🎬</div>
+                </div>
+                <div class="physical-media-info">
+                    <div class="physical-media-title">${title}</div>
+                    <div class="physical-media-meta">
+                        ${item.year ? `<span>${item.year}</span>` : ''}
+                        ${item.format ? `<span>· ${item.format}</span>` : ''}
+                        ${item._shelfName ? `<span>· ${item._shelfName}</span>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+
     function setView(viewType) {
         currentView = viewType;
 
@@ -2300,6 +2522,15 @@ function getCertColor(cert) {
             }
         });
 
+        // Also update box sets grid view class
+        const boxSetsGrid = document.getElementById('boxSetsList');
+        if (boxSetsGrid) {
+            boxSetsGrid.classList.remove('grid-view', 'compact-view', 'list-view');
+            if (viewType === 'list') boxSetsGrid.classList.add('list-view');
+            else if (viewType === 'compact') boxSetsGrid.classList.add('compact-view');
+            else boxSetsGrid.classList.add('grid-view');
+        }
+
         // Trigger re-renders to update HTML structure based on view
         renderCollection();
         renderWishlist();
@@ -2330,7 +2561,9 @@ function getCertColor(cert) {
     // Update section header based on active sub-view
     const collectionHeader = document.getElementById('collectionHeader');
     if (collectionHeader) {
-        if (currentCollectionSubview === 'wishlist') {
+        if (currentCollectionSubview === 'physical') {
+            collectionHeader.textContent = 'Physical Media';
+        } else if (currentCollectionSubview === 'wishlist') {
             collectionHeader.textContent = `Your Wishlist (${wishlistCount})`;
         } else if (currentCollectionSubview === 'boxsets') {
             collectionHeader.textContent = 'Box Sets';
@@ -3909,6 +4142,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 })
             );
 
+            // Build nav list of container IDs
+            const containerIds = JSON.stringify(boxSetsWithMovies.map(bs => bs.id));
+
             container.innerHTML = boxSetsWithMovies.map(boxSet => {
                 // Thumbnail: custom cover > movie poster grid > color placeholder
                 const posterMovies = boxSet.movies.slice(0, 4);
@@ -3928,7 +4164,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                     : `<div style="width:120px;height:160px;flex-shrink:0;background:${boxSet.spine_color||'#667eea'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3rem;">📦</div>`;
 
                 return `
-                    <div class="box-set-card" onclick="App.showBoxSetDetails(${boxSet.id})">
+                    <div class="box-set-card" onclick="App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds})">
                         <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
                             ${thumbnail}
                             <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -3975,9 +4211,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             currentContainerId = containerId;
             currentContainer = container;
 
-            // Hide movie-specific nav arrows
-            const nav = document.getElementById('movieDetailNav');
-            if (nav) nav.style.display = 'none';
+            // Reset movie nav (will be overridden by box set nav if applicable)
+            shelfNavMovieList = [];
+            shelfNavIndex = -1;
 
             // Build cover image: custom upload, or a poster mosaic from contained films
             let coverHTML = '';
@@ -3999,14 +4235,16 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
             }
 
-            // Build film list
+            // Build film list with navigation support
             const filmCount = movies ? movies.length : 0;
+            const boxSetMovieIds = movies ? movies.filter(m => collection.find(c => c.movie.movie_id === m.movie_id)).map(m => m.movie_id) : [];
+            const navIdsJson = JSON.stringify(boxSetMovieIds);
             let filmsHTML = '';
             if (movies && movies.length > 0) {
                 filmsHTML = movies.map(movie => {
                     const movieId = movie.movie_id;
                     const clickable = collection.find(c => c.movie.movie_id === movieId);
-                    const onclick = clickable ? `onclick="App.closeMovieDetail(); setTimeout(() => App.viewMovieDetails(${movieId}), 200);"` : '';
+                    const onclick = clickable ? `onclick="App.boxSetNavList=[]; App.viewMovieDetailsWithNav(${movieId}, ${navIdsJson});"` : '';
                     const cursorStyle = clickable ? 'cursor:pointer' : '';
                     return `
                     <div class="boxset-film-row" ${onclick} style="${cursorStyle}" title="${clickable ? 'View movie details' : ''}">
@@ -4065,6 +4303,9 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             document.getElementById('shelfContentsModal').classList.remove('active');
 
             document.getElementById('movieDetailModal').classList.add('active');
+
+            // Show box set nav arrows if we have a nav list
+            _updateBoxSetNavUI();
         } catch (error) {
             console.error('Failed to load box set details:', error);
             showToast('Failed to load box set details', 'error');
@@ -4403,6 +4644,13 @@ async function loadGroups() {
                 familyGroupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
                 wishlistGroupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
             });
+
+            // Auto-select the first group so the user doesn't have to pick manually
+            if (userGroups.length > 0) {
+                const firstId = userGroups[0].id;
+                familyGroupSelect.value = firstId;
+                wishlistGroupSelect.value = firstId;
+            }
         } else {
             const groupSelectorDiv = document.getElementById('groupSelector');
             if (groupSelectorDiv) groupSelectorDiv.style.display = 'none';
@@ -6316,7 +6564,7 @@ async function getCurrentUserId() {
     let unassignedMovies = [];
     let filteredUnassignedMovies = []; // Track filtered results for "Select All"
     let selectedCopyIds = new Set();
-    let shelfView = 'list';
+    let shelfView = 'visual';
     let unassignedFilter = {
         search: '',
         sort: 'title',
@@ -7293,10 +7541,15 @@ return {
     updateBoxSetSpinePreview,
     loadBoxSets,
     showBoxSetDetails,
+    showBoxSetDetailsWithNav,
+    boxSetNav,
+    get boxSetNavList() { return boxSetNavList; },
+    set boxSetNavList(v) { boxSetNavList = v; },
     loadShelfViewBrowse,
     shelfViewDrillIn,
     shelfViewBack,
     shelfViewGoTo,
+    renderPhysicalMedia,
     viewMovieDetailsWithNav,
     shelfMovieNav,
     closeBoxSetDetails,
