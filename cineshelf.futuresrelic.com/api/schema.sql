@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS movies (
     actors TEXT,
     studio TEXT,
     media_type TEXT DEFAULT 'movie',
+    number_of_seasons INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -95,6 +96,7 @@ CREATE TABLE IF NOT EXISTS copies (
     purchase_price REAL,
     notes TEXT,
     barcode TEXT,
+    seasons_owned TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE

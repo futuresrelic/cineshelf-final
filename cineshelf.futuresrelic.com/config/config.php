@@ -115,7 +115,11 @@ function getDb() {
         if ($isNewDb) {
             initializeDatabase($db);
         }
-        
+
+        // Auto-migrate: TV show support columns (v2.7.1)
+        try { $db->exec("ALTER TABLE copies ADD COLUMN seasons_owned TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE movies ADD COLUMN number_of_seasons INTEGER"); } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

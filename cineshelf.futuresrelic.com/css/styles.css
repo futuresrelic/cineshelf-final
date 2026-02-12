@@ -5238,6 +5238,71 @@ body.modal-open {
 }
 
 /* ========================================
+   TV SHOW SEASON PICKER
+   ======================================== */
+
+.season-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.season-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.8);
+}
+
+.season-checkbox:hover {
+    background: rgba(102, 126, 234, 0.2);
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+.season-checkbox input[type="checkbox"] {
+    accent-color: #667eea;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.season-checkbox.checked {
+    background: rgba(102, 126, 234, 0.25);
+    border-color: rgba(102, 126, 234, 0.5);
+    color: white;
+}
+
+/* TV badge for search results */
+.tv-badge {
+    background: rgba(102, 126, 234, 0.3);
+    color: #a8b8ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Season info display in cards/detail */
+.season-info {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    margin-top: 0.25rem;
+}
+
+.season-info strong {
+    color: rgba(255,255,255,0.9);
+}
+
+/* ========================================
    RELATED MOVIES MODAL GRID
    ======================================== */
 

@@ -414,6 +414,7 @@ try {
                     'runtime' => isset($data['episode_run_time'][0]) ? $data['episode_run_time'][0] : null,
                     'genre' => $genres,
                     'media_type' => 'tv',
+                    'number_of_seasons' => $data['number_of_seasons'] ?? null,
                     'director' => isset($data['created_by'][0]['name']) ? $data['created_by'][0]['name'] : null,
                     'certification' => $certification
                 ]);
@@ -468,6 +469,7 @@ try {
             $condition = sanitize($input['condition'] ?? 'Good', 50);
             $notes = sanitize($input['notes'] ?? '', 500);
             $barcode = sanitize($input['barcode'] ?? '', 50);
+            $seasonsOwned = sanitize($input['seasons_owned'] ?? '', 200);
 
             // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
             if (empty($tmdbId) && empty($movieId)) {
@@ -505,7 +507,8 @@ try {
             if (!$movie) {
                 // Fetch from TMDB first (with credits for actors/director/studio)
                 $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=credits,release_dates';
+                $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
                 $response = file_get_contents($url);
 
                 if ($response === false) {
@@ -515,9 +518,11 @@ try {
                 $data = json_decode($response, true);
                 $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
 
-                // Extract director
+                // Extract director (or creator for TV shows)
                 $director = '';
-                if (!empty($data['credits']['crew'])) {
+                if ($mediaType === 'tv' && !empty($data['created_by'])) {
+                    $director = $data['created_by'][0]['name'];
+                } elseif (!empty($data['credits']['crew'])) {
                     foreach ($data['credits']['crew'] as $person) {
                         if ($person['job'] === 'Director') {
                             $director = $person['name'];
@@ -541,7 +546,14 @@ try {
 
                 // Extract certification
                 $certification = '';
-                if (!empty($data['release_dates']['results'])) {
+                if ($mediaType === 'tv' && !empty($data['content_ratings']['results'])) {
+                    foreach ($data['content_ratings']['results'] as $rating) {
+                        if ($rating['iso_3166_1'] === 'US') {
+                            $certification = $rating['rating'];
+                            break;
+                        }
+                    }
+                } elseif (!empty($data['release_dates']['results'])) {
                     foreach ($data['release_dates']['results'] as $country) {
                         if ($country['iso_3166_1'] === 'US') {
                             foreach ($country['release_dates'] as $release) {
@@ -555,9 +567,10 @@ try {
                 }
 
                 // Insert movie with all metadata
+                $numberOfSeasons = $mediaType === 'tv' ? ($data['number_of_seasons'] ?? null) : null;
                 $stmt = $db->prepare("
-                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type, number_of_seasons)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
@@ -577,7 +590,8 @@ try {
                     $actors,
                     $studio,
                     $certification,
-                    $mediaType
+                    $mediaType,
+                    $numberOfSeasons
                 ]);
 
                 $movieId = $db->lastInsertId();
@@ -588,11 +602,11 @@ try {
             // Add copy
             file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format\n");
             $stmt = $db->prepare("
-                INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode, seasons_owned)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
-            $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode]);
+            $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null]);
 
             $newCopyId = $db->lastInsertId();
             file_put_contents('php://stderr', "[add_copy] Copy created with ID: $newCopyId\n");
@@ -639,6 +653,8 @@ try {
                     m.certification,
                     m.actors,
                     m.studio,
+                    m.number_of_seasons,
+                    c.seasons_owned,
                     COUNT(*) OVER (PARTITION BY m.id) as copy_count
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id
@@ -668,31 +684,32 @@ case 'update_copy':
     $region = sanitize($input['region'] ?? '', 20);
     $condition = sanitize($input['condition'] ?? '', 20);
     $notes = sanitize($input['notes'] ?? '', 500);
-    
+    $seasonsOwned = sanitize($input['seasons_owned'] ?? '', 200);
+
     if (empty($copyId) || empty($format)) {
         jsonResponse(false, null, 'Copy ID and format required');
     }
-    
+
     // Verify ownership
     $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
     $stmt->execute([$copyId]);
     $copy = $stmt->fetch();
-    
+
     if (!$copy) {
         jsonResponse(false, null, 'Copy not found');
     }
-    
+
     if ($copy['user_id'] != $userId) {
         jsonResponse(false, null, 'Not authorized to edit this copy');
     }
-    
+
     // Update copy
     $stmt = $db->prepare("
-        UPDATE copies 
-        SET format = ?, edition = ?, region = ?, condition = ?, notes = ?
+        UPDATE copies
+        SET format = ?, edition = ?, region = ?, condition = ?, notes = ?, seasons_owned = ?
         WHERE id = ? AND user_id = ?
     ");
-    $stmt->execute([$format, $edition, $region, $condition, $notes, $copyId, $userId]);
+    $stmt->execute([$format, $edition, $region, $condition, $notes, $seasonsOwned ?: null, $copyId, $userId]);
     
     logAction($db, $userId, 'copy_updated', 'copy', $copyId);  // ← FIXED!
     
@@ -820,15 +837,16 @@ case 'update_movie_poster':
                 $data = json_decode($response, true);
                 $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
                 
+                $numberOfSeasons = $mediaType === 'tv' ? ($data['number_of_seasons'] ?? null) : null;
                 $stmt = $db->prepare("
-                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, media_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, media_type, number_of_seasons)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                
+
                 $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
                 $releaseDate = $mediaType === 'tv' ? ($data['first_air_date'] ?? null) : ($data['release_date'] ?? null);
                 $year = $releaseDate ? intval(substr($releaseDate, 0, 4)) : null;
-                
+
                 $stmt->execute([
                     $tmdbId,
                     $title,
@@ -838,7 +856,8 @@ case 'update_movie_poster':
                     $data['vote_average'] ?? null,
                     $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
                     $genres,
-                    $mediaType
+                    $mediaType,
+                    $numberOfSeasons
                 ]);
                 
                 $movieId = $db->lastInsertId();
@@ -2968,7 +2987,8 @@ case 'resolve_movie':
             } else {
                 // Movie doesn't exist, fetch from TMDB and create it
                 $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=credits,release_dates';
+                $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
                 $response = file_get_contents($url);
 
                 if ($response === false) {
@@ -2978,9 +2998,11 @@ case 'resolve_movie':
                 $data = json_decode($response, true);
                 $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
 
-                // Extract director
+                // Extract director (or creator for TV shows)
                 $director = '';
-                if (!empty($data['credits']['crew'])) {
+                if ($mediaType === 'tv' && !empty($data['created_by'])) {
+                    $director = $data['created_by'][0]['name'];
+                } elseif (!empty($data['credits']['crew'])) {
                     foreach ($data['credits']['crew'] as $person) {
                         if ($person['job'] === 'Director') {
                             $director = $person['name'];
@@ -3004,7 +3026,14 @@ case 'resolve_movie':
 
                 // Extract certification
                 $certification = '';
-                if (!empty($data['release_dates']['results'])) {
+                if ($mediaType === 'tv' && !empty($data['content_ratings']['results'])) {
+                    foreach ($data['content_ratings']['results'] as $rating) {
+                        if ($rating['iso_3166_1'] === 'US') {
+                            $certification = $rating['rating'];
+                            break;
+                        }
+                    }
+                } elseif (!empty($data['release_dates']['results'])) {
                     foreach ($data['release_dates']['results'] as $country) {
                         if ($country['iso_3166_1'] === 'US') {
                             foreach ($country['release_dates'] as $release) {
@@ -3018,9 +3047,10 @@ case 'resolve_movie':
                 }
 
                 // Insert movie with all metadata
+                $numberOfSeasons = $mediaType === 'tv' ? ($data['number_of_seasons'] ?? null) : null;
                 $stmt = $db->prepare("
-                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type, number_of_seasons)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
@@ -3040,7 +3070,8 @@ case 'resolve_movie':
                     $actors,
                     $studio,
                     $certification,
-                    $mediaType
+                    $mediaType,
+                    $numberOfSeasons
                 ]);
 
                 $movieId = $db->lastInsertId();
@@ -3666,6 +3697,9 @@ case 'resolve_movie':
                     m.rating,
                     m.certification,
                     m.overview,
+                    m.media_type,
+                    m.number_of_seasons,
+                    c.seasons_owned,
                     -- Container info
                     cont.name as container_name,
                     cont.spine_label as container_spine_label,

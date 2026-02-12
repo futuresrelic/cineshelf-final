@@ -956,6 +956,7 @@ function renderCollection() {
 
         grid.innerHTML = wishlist.map(item => {
             const posterUrl = item.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
+            const mediaIcon = item.media_type === 'tv' ? '📺 ' : '';
             const safeTitle = (item.title || 'Unknown').replace(/"/g, '&quot;');
             const isPriority = item.priority > 0;
 
@@ -969,7 +970,7 @@ function renderCollection() {
                         ${isPriority ? `<div class="priority-badge">⭐ Priority</div>` : ''}
                     </div>
                     <div class="movie-info">
-                        <h3 class="movie-title">${safeTitle}</h3>
+                        <h3 class="movie-title">${mediaIcon}${safeTitle}</h3>
                         <div class="movie-meta">
                             ${item.year ? `<span>${item.year}</span>` : ''}
                             ${item.rating ? `<span>⭐ ${item.rating.toFixed(1)}</span>` : ''}
@@ -993,7 +994,7 @@ function renderCollection() {
                     </div>
 
                     <div class="hover-overlay">
-                        <div class="hover-title">${safeTitle}</div>
+                        <div class="hover-title">${mediaIcon}${safeTitle}</div>
                         <div class="hover-meta">
                             ${item.year ? `<span>${item.year}</span>` : ''}
                             ${item.rating ? `<span>⭐ ${item.rating.toFixed(1)}</span>` : ''}
@@ -1007,7 +1008,7 @@ function renderCollection() {
                     </div>
 
                     <div class="movie-info">
-                        <h3 class="movie-title">${safeTitle}</h3>
+                        <h3 class="movie-title">${mediaIcon}${safeTitle}</h3>
                     </div>
                 </div>
                 `;
@@ -1030,27 +1031,43 @@ function renderCollection() {
     async function moveToCollection(movieId) {
         const item = wishlist.find(w => w.movie_id === movieId);
         if (!item) return;
-        
+
+        const mediaType = item.media_type || 'movie';
+        const isTV = mediaType === 'tv';
+
         // Now wishlist includes tmdb_id thanks to API fix!
         selectedMovie = {
             id: item.tmdb_id,
             title: item.title,
-            poster_path: item.poster_url
+            poster_path: item.poster_url,
+            media_type: mediaType
         };
-        
+
         // Switch to add tab and show form
         switchTab('add');
-        
-        document.getElementById('selectedMovieTitle').textContent = item.title;
+
+        const titlePrefix = isTV ? '📺 ' : '';
+        document.getElementById('selectedMovieTitle').textContent = titlePrefix + item.title;
         document.getElementById('selectedMoviePoster').src = item.poster_url || '';
-        
+
         if (item.target_format) {
             document.getElementById('copyFormat').value = item.target_format;
         }
-        
+
         document.getElementById('addMovieForm').style.display = 'block';
         document.getElementById('searchResults').style.display = 'none';
-        
+
+        // Show/hide TV season picker
+        const seasonPicker = document.getElementById('tvSeasonPicker');
+        if (seasonPicker) {
+            if (isTV) {
+                seasonPicker.style.display = 'block';
+                buildSeasonCheckboxes(item.tmdb_id);
+            } else {
+                seasonPicker.style.display = 'none';
+            }
+        }
+
         showToast('Ready to add to collection!', 'info');
     }
 
@@ -1198,52 +1215,59 @@ function renderCollection() {
     
     async function searchMovies() {
         const query = document.getElementById('movieSearch').value.trim();
-        
+
         if (!query) {
             showToast('Please enter a search term', 'error');
             return;
         }
-        
+
         try {
-            const results = await apiCall('search_movie', { query: query });
-            
+            const results = await apiCall('search_multi', { query: query });
+
             const resultsDiv = document.getElementById('searchResults');
             resultsDiv.style.display = 'grid';
-            
+
             if (results.length === 0) {
                 resultsDiv.innerHTML = '<p>No results found</p>';
                 return;
             }
-            
-            resultsDiv.innerHTML = results.map(movie => {
-                const posterUrl = movie.poster_path ? 'https://image.tmdb.org/t/p/w300' + movie.poster_path : '';
+
+            resultsDiv.innerHTML = results.map(item => {
+                const isTV = item.media_type === 'tv';
+                const title = isTV ? (item.name || '') : (item.title || '');
+                const date = isTV ? item.first_air_date : item.release_date;
+                const yearStr = date ? date.substring(0, 4) : 'Unknown';
+                const posterUrl = item.poster_path ? 'https://image.tmdb.org/t/p/w300' + item.poster_path : '';
+                const safeTitle = title.replace(/"/g, '&quot;');
                 return `
-                <div class="search-result-card" 
-                     data-movie-id="${movie.id}"
-                     data-movie-title="${(movie.title || '').replace(/"/g, '&quot;')}"
-                     data-poster-path="${movie.poster_path || ''}">
-                    <img src="${posterUrl || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'92\' height=\'138\'%3E%3Crect fill=\'%23333\' width=\'92\' height=\'138\'/%3E%3C/svg%3E'}" alt="${movie.title}">
+                <div class="search-result-card"
+                     data-movie-id="${item.id}"
+                     data-movie-title="${safeTitle}"
+                     data-poster-path="${item.poster_path || ''}"
+                     data-media-type="${item.media_type || 'movie'}">
+                    <img src="${posterUrl || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'92\' height=\'138\'%3E%3Crect fill=\'%23333\' width=\'92\' height=\'138\'/%3E%3C/svg%3E'}" alt="${safeTitle}">
                     <div class="search-result-info">
-                        <h4>${movie.title}</h4>
-                        <p>${movie.release_date ? movie.release_date.substring(0, 4) : 'Unknown'}</p>
-                        ${movie.vote_average ? `<p>⭐ ${movie.vote_average.toFixed(1)}</p>` : ''}
+                        <h4>${isTV ? '📺 ' : ''}${title}</h4>
+                        <p>${yearStr} ${isTV ? '<span class="tv-badge">TV Series</span>' : ''}</p>
+                        ${item.vote_average ? `<p>⭐ ${item.vote_average.toFixed(1)}</p>` : ''}
                     </div>
                 </div>
                 `;
             }).join('');
-            
+
             // Add click handlers
             resultsDiv.querySelectorAll('.search-result-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const id = card.dataset.movieId;
                     const title = card.dataset.movieTitle;
                     const posterPath = card.dataset.posterPath;
-                    selectMovie(id, title, posterPath);
+                    const mediaType = card.dataset.mediaType || 'movie';
+                    selectMovie(id, title, posterPath, mediaType);
                 });
             });
-            
+
             showToast(`Found ${results.length} results`, 'success');
-            
+
         } catch (error) {
             console.error('Search failed:', error);
         }
@@ -1366,9 +1390,21 @@ function renderCollection() {
             document.getElementById('searchResults').style.display = 'none';
             const form = document.getElementById('addMovieForm');
             form.style.display = 'block';
-            
-            document.getElementById('selectedMovieTitle').textContent = movieData.title;
+
+            const titlePrefix = mediaType === 'tv' ? '📺 ' : '';
+            document.getElementById('selectedMovieTitle').textContent = titlePrefix + movieData.title;
             document.getElementById('selectedMoviePoster').src = movieData.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
+
+            // Show/hide TV season picker
+            const seasonPicker = document.getElementById('tvSeasonPicker');
+            if (seasonPicker) {
+                if (mediaType === 'tv') {
+                    seasonPicker.style.display = 'block';
+                    buildSeasonCheckboxes(movieData.id || movieData.tmdb_id);
+                } else {
+                    seasonPicker.style.display = 'none';
+                }
+            }
 
             showToast(`Found: ${movieData.title} (${movieData.year || 'Unknown'})`, 'success');
 
@@ -1386,25 +1422,82 @@ function renderCollection() {
     }
 }
 
-    function selectMovie(id, title, posterPath) {
-        selectedMovie = { id, title: title, poster_path: posterPath };
-        
-        document.getElementById('selectedMovieTitle').textContent = selectedMovie.title;
+    function selectMovie(id, title, posterPath, mediaType) {
+        // If called from IMDb lookup, selectedMovie already has media_type set
+        const mType = mediaType || (selectedMovie && selectedMovie.media_type) || 'movie';
+        selectedMovie = { id, title: title, poster_path: posterPath, media_type: mType };
+
+        const titleEl = document.getElementById('selectedMovieTitle');
+        titleEl.textContent = (mType === 'tv' ? '📺 ' : '') + selectedMovie.title;
         document.getElementById('selectedMoviePoster').src = posterPath ? 'https://image.tmdb.org/t/p/w300' + posterPath : '';
-        
+
         document.getElementById('addMovieForm').style.display = 'block';
         document.getElementById('searchResults').style.display = 'none';
+
+        // Show/hide TV season picker
+        const seasonPicker = document.getElementById('tvSeasonPicker');
+        if (seasonPicker) {
+            if (mType === 'tv') {
+                seasonPicker.style.display = 'block';
+                buildSeasonCheckboxes(id);
+            } else {
+                seasonPicker.style.display = 'none';
+            }
+        }
+    }
+
+    // Build season checkboxes for a TV show
+    async function buildSeasonCheckboxes(tmdbId) {
+        const container = document.getElementById('tvSeasonCheckboxes');
+        if (!container) return;
+        container.innerHTML = '<span style="color:rgba(255,255,255,0.5)">Loading seasons...</span>';
+
+        try {
+            // Fetch TV show details from TMDB to get number of seasons
+            const url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=8039283176a74ffd71a1658c6f84a051`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            const numSeasons = data.number_of_seasons || 1;
+
+            // Store for later use
+            if (selectedMovie) selectedMovie.number_of_seasons = numSeasons;
+
+            let html = '';
+            for (let i = 1; i <= numSeasons; i++) {
+                html += `<label class="season-checkbox" onclick="this.classList.toggle('checked')">
+                    <input type="checkbox" value="${i}" name="season"> S${i}
+                </label>`;
+            }
+            container.innerHTML = html;
+        } catch (e) {
+            // Fallback: simple text input
+            container.innerHTML = `<input type="text" id="seasonsOwnedText" placeholder="e.g., 1, 2, 3"
+                style="width:100%; padding:0.5rem; border-radius:4px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.1); color:white;">`;
+        }
+    }
+
+    // Get selected seasons as comma-separated string
+    function getSelectedSeasons() {
+        const checkboxes = document.querySelectorAll('#tvSeasonCheckboxes input[type="checkbox"]:checked');
+        if (checkboxes.length > 0) {
+            return Array.from(checkboxes).map(cb => cb.value).join(', ');
+        }
+        // Fallback text input
+        const textInput = document.getElementById('seasonsOwnedText');
+        return textInput ? textInput.value.trim() : '';
     }
     
     async function addToCollection() {
         if (!selectedMovie) return;
-        
+
         const format = document.getElementById('copyFormat').value;
         const edition = document.getElementById('copyEdition').value;
         const region = document.getElementById('copyRegion').value;
         const condition = document.getElementById('copyCondition').value;
         const notes = document.getElementById('copyNotes').value;
-        
+        const mediaType = selectedMovie.media_type || 'movie';
+        const seasonsOwned = mediaType === 'tv' ? getSelectedSeasons() : '';
+
         try {
             await apiCall('add_copy', {
                 tmdb_id: selectedMovie.id,
@@ -1412,48 +1505,53 @@ function renderCollection() {
                 edition: edition,
                 region: region,
                 condition: condition,
-                notes: notes
+                notes: notes,
+                media_type: mediaType,
+                seasons_owned: seasonsOwned
             });
-            
+
             showToast('Added to collection!', 'success');
-            
+
             // Clear form
             cancelAdd();
-            
+
             // Reload collection
             loadCollection();
-            
+
             // Switch to collection tab
             switchTab('collection');
-            
+
         } catch (error) {
             console.error('Failed to add to collection:', error);
         }
     }
-    
+
     async function addToWishlist() {
         if (!selectedMovie) return;
-        
+
+        const mediaType = selectedMovie.media_type || 'movie';
+
         try {
             await apiCall('add_wishlist', {
                 tmdb_id: selectedMovie.id,
                 priority: 0,
                 target_format: document.getElementById('copyFormat').value,
-                notes: document.getElementById('copyNotes').value
+                notes: document.getElementById('copyNotes').value,
+                media_type: mediaType
             });
-            
+
             showToast('Added to wishlist!', 'success');
-            
+
             // Clear form
             cancelAdd();
-            
+
             // Reload wishlist
             loadWishlist();
-            
+
             // Switch to wishlist sub-view inside Collection tab
             switchTab('collection');
             switchCollectionView('wishlist');
-            
+
         } catch (error) {
             console.error('Failed to add to wishlist:', error);
         }
@@ -1470,6 +1568,14 @@ function renderCollection() {
         document.getElementById('copyCondition').value = 'Good';
         document.getElementById('copyNotes').value = '';
 
+        // Hide and reset season picker
+        const seasonPicker = document.getElementById('tvSeasonPicker');
+        if (seasonPicker) {
+            seasonPicker.style.display = 'none';
+            const checkboxContainer = document.getElementById('tvSeasonCheckboxes');
+            if (checkboxContainer) checkboxContainer.innerHTML = '';
+        }
+
         // Show search results again
         document.getElementById('searchResults').style.display = 'grid';
     }
@@ -1481,20 +1587,24 @@ function renderCollection() {
     async function openCopyManager(movieId) {
     try {
         const copies = await apiCall('get_movie_copies', { movie_id: movieId });
-        
+
         if (copies.length === 0) {
             showToast('No copies found', 'error');
             return;
         }
-        
+
         const firstCopy = copies[0];
-        const movieTitle = firstCopy && firstCopy.movie ? 
+        const movieTitle = firstCopy && firstCopy.movie ?
             firstCopy.movie.title : 'this movie';
-        
+
+        // Check if this is a TV show
+        const group = collection.find(c => c.movie.movie_id === movieId);
+        const isTV = group && group.movie.media_type === 'tv';
+
         const content = document.getElementById('copyManagerContent');
-        
+
         content.innerHTML = `
-            <h4>All Copies of ${movieTitle}</h4>
+            <h4>All Copies of ${isTV ? '📺 ' : ''}${movieTitle}</h4>
             <div class="copies-list">
                 ${copies.map((copy, index) => `
                     <div class="copy-item" id="copy-item-${copy.id}">
@@ -1505,16 +1615,17 @@ function renderCollection() {
                                 <button class="btn-icon" onclick="App.deleteCopy(${copy.id})" title="Delete">🗑️</button>
                             </div>
                         </div>
-                        
+
                         <!-- View Mode -->
                         <div id="copy-view-${copy.id}" class="copy-details">
                             <div><strong>Format:</strong> ${copy.format}</div>
                             ${copy.edition ? `<div><strong>Edition:</strong> ${copy.edition}</div>` : ''}
                             ${copy.region ? `<div><strong>Region:</strong> ${copy.region}</div>` : ''}
                             ${copy.condition ? `<div><strong>Condition:</strong> ${copy.condition}</div>` : ''}
+                            ${copy.seasons_owned ? `<div><strong>📺 Seasons:</strong> ${copy.seasons_owned}</div>` : ''}
                             ${copy.notes ? `<div><strong>Notes:</strong> ${copy.notes}</div>` : ''}
                         </div>
-                        
+
                         <!-- Edit Mode (Hidden by default) -->
                         <div id="copy-edit-${copy.id}" class="copy-edit-form" style="display: none;">
                             <div class="form-group">
@@ -1528,23 +1639,23 @@ function renderCollection() {
                                     <option value="LaserDisc" ${copy.format === 'LaserDisc' ? 'selected' : ''}>LaserDisc</option>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Edition</label>
-                                <input type="text" id="edit-edition-${copy.id}" 
-                                       class="form-control" 
-                                       value="${copy.edition || ''}" 
+                                <input type="text" id="edit-edition-${copy.id}"
+                                       class="form-control"
+                                       value="${copy.edition || ''}"
                                        placeholder="e.g., Director's Cut">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Region</label>
-                                <input type="text" id="edit-region-${copy.id}" 
-                                       class="form-control" 
-                                       value="${copy.region || ''}" 
+                                <input type="text" id="edit-region-${copy.id}"
+                                       class="form-control"
+                                       value="${copy.region || ''}"
                                        placeholder="e.g., Region 1">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Condition</label>
                                 <select id="edit-condition-${copy.id}" class="form-control">
@@ -1556,15 +1667,25 @@ function renderCollection() {
                                     <option value="Poor" ${copy.condition === 'Poor' ? 'selected' : ''}>Poor</option>
                                 </select>
                             </div>
-                            
+
+                            ${isTV ? `
+                            <div class="form-group">
+                                <label>📺 Seasons Owned</label>
+                                <input type="text" id="edit-seasons-${copy.id}"
+                                       class="form-control"
+                                       value="${copy.seasons_owned || ''}"
+                                       placeholder="e.g., 1, 2, 3">
+                            </div>
+                            ` : ''}
+
                             <div class="form-group">
                                 <label>Notes</label>
-                                <textarea id="edit-notes-${copy.id}" 
-                                          class="form-control" 
-                                          rows="3" 
+                                <textarea id="edit-notes-${copy.id}"
+                                          class="form-control"
+                                          rows="3"
                                           placeholder="Any additional notes...">${copy.notes || ''}</textarea>
                             </div>
-                            
+
                             <div class="form-actions">
                                 <button class="btn" onclick="App.saveCopyEdit(${copy.id}, ${movieId})">💾 Save</button>
                                 <button class="btn-secondary" onclick="App.cancelCopyEdit(${copy.id})">Cancel</button>
@@ -1574,9 +1695,9 @@ function renderCollection() {
                 `).join('')}
             </div>
         `;
-        
+
         document.getElementById('copyManagerModal').classList.add('active');
-        
+
     } catch (error) {
         console.error('Failed to load copies:', error);
     }
@@ -1604,12 +1725,14 @@ async function saveCopyEdit(copyId, movieId) {
     const region = document.getElementById(`edit-region-${copyId}`).value.trim();
     const condition = document.getElementById(`edit-condition-${copyId}`).value;
     const notes = document.getElementById(`edit-notes-${copyId}`).value.trim();
-    
+    const seasonsEl = document.getElementById(`edit-seasons-${copyId}`);
+    const seasonsOwned = seasonsEl ? seasonsEl.value.trim() : '';
+
     if (!format) {
         showToast('Format is required', 'error');
         return;
     }
-    
+
     try {
         await apiCall('update_copy', {
             copy_id: copyId,
@@ -1617,7 +1740,8 @@ async function saveCopyEdit(copyId, movieId) {
             edition,
             region,
             condition,
-            notes
+            notes,
+            seasons_owned: seasonsOwned
         });
         
         showToast('Copy updated successfully!', 'success');
@@ -1822,6 +1946,33 @@ async function viewMovieDetails(movieId) {
             ? `<span class="detail-tag" onclick="event.stopPropagation(); App.showRelatedMovies('studio', '${movie.studio.replace(/'/g, "\\'")}');">🏢 ${movie.studio}</span>`
             : '';
 
+        const isTV = movie.media_type === 'tv';
+        const tvIcon = isTV ? '📺 ' : '';
+        const displayTitle = movie.display_title || movie.title;
+
+        // Build season summary for TV shows
+        let seasonSummary = '';
+        if (isTV && copies.length > 0) {
+            const allSeasons = new Set();
+            copies.forEach(copy => {
+                if (copy.seasons_owned) {
+                    copy.seasons_owned.split(',').map(s => s.trim()).filter(Boolean).forEach(s => allSeasons.add(parseInt(s)));
+                }
+            });
+            if (allSeasons.size > 0) {
+                const sorted = Array.from(allSeasons).sort((a, b) => a - b);
+                const totalSeasons = movie.number_of_seasons;
+                seasonSummary = `<div class="season-info" style="margin-top:0.5rem;">
+                    <strong>📺 Seasons owned: ${sorted.join(', ')}</strong>
+                    ${totalSeasons ? ` <span style="color:rgba(255,255,255,0.5);">of ${totalSeasons} total</span>` : ''}
+                </div>`;
+            }
+        } else if (isTV && movie.number_of_seasons) {
+            seasonSummary = `<div class="season-info" style="margin-top:0.5rem;">
+                📺 ${movie.number_of_seasons} season${movie.number_of_seasons !== 1 ? 's' : ''}
+            </div>`;
+        }
+
         content.innerHTML = `
             <div class="movie-detail-layout">
                 <div class="movie-detail-poster">
@@ -1829,20 +1980,23 @@ async function viewMovieDetails(movieId) {
                 </div>
                 <div class="movie-detail-info">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                        <h2 style="margin:0; flex:1 1 auto; min-width:0; word-wrap:break-word;">${movie.display_title || movie.title}</h2>
+                        <h2 style="margin:0; flex:1 1 auto; min-width:0; word-wrap:break-word;">${tvIcon}${displayTitle}</h2>
                         ${!isWishlistOnly ? `<div style="display:flex; gap:0.4rem; flex-shrink:0;">
                             <button class="btn-icon" onclick="App.editDisplayTitle(${movieId})" title="Edit Display Name">✏️</button>
                             <button class="btn-icon" onclick="App.changePoster(${movieId})" title="Change Poster">🖼️</button>
                         </div>` : ''}
                     </div>
                     ${movie.display_title ? `<div style="color: rgba(255,255,255,0.5); font-size: 0.85rem;">Original: ${movie.title}</div>` : ''}
+                    ${isTV ? `<div style="color: #a8b8ff; font-size: 0.8rem; margin-top: 0.25rem;"><span class="tv-badge">TV Series</span></div>` : ''}
 
                     <div class="movie-detail-meta">
                         ${movie.year ? `<span>${movie.year}</span>` : ''}
                         ${movie.runtime ? `<span>${formatRuntime(movie.runtime)}</span>` : ''}
-                        ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
+                        ${movie.rating ? `<span>⭐ ${Number(movie.rating).toFixed(1)}</span>` : ''}
                         ${movie.certification ? `<span class="cert-badge" style="background: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
                     </div>
+
+                    ${seasonSummary}
 
                     ${genreTags ? `<div class="detail-tags-row">${genreTags}</div>` : ''}
 
@@ -1871,6 +2025,7 @@ async function viewMovieDetails(movieId) {
                                         <div class="copy-number">Copy ${i + 1}</div>
                                         <div class="copy-details">
                                             ${copy.format}${copy.edition ? ` - ${copy.edition}` : ''}${copy.condition ? ` (${copy.condition})` : ''}
+                                            ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -2641,13 +2796,16 @@ function getCertColor(cert) {
             }
             const title = item.display_title || item.title || 'Unknown';
             const certColor = item.certification ? getCertColor(item.certification) : '';
+            const isTV = item.media_type === 'tv';
+            const mediaIcon = isTV ? '📺' : '🎬';
+            const seasonStr = isTV && item.seasons_owned ? `S${item.seasons_owned.replace(/,\s*/g, ', S')}` : '';
             return `<div class="pm-card" ${_physicalItemClick(item, navIds)}>
                 <div class="pm-card-poster">
                     ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">🎬</div>
+                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">${mediaIcon}</div>
                 </div>
                 <div class="pm-card-body">
-                    <div class="pm-card-title">${title}</div>
+                    <div class="pm-card-title">${isTV ? '📺 ' : ''}${title}</div>
                     <div class="pm-card-meta">
                         ${item.year||''} ${item.format ? `· ${item.format}` : ''}
                     </div>
@@ -2656,6 +2814,7 @@ function getCertColor(cert) {
                         ${item.certification ? `<span class="cert-mini" style="background:${certColor}">${item.certification}</span>` : ''}
                     </div>
                     ${item.director ? `<div class="pm-card-director">${item.director}</div>` : ''}
+                    ${seasonStr ? `<div class="season-info">${seasonStr}</div>` : ''}
                 </div>
             </div>`;
         }).join('') + `</div>`;
@@ -2676,12 +2835,13 @@ function getCertColor(cert) {
                 </div>`;
             }
             const title = item.display_title || item.title || 'Unknown';
+            const isTV = item.media_type === 'tv';
             return `<div class="pm-compact-card" ${_physicalItemClick(item, navIds)}>
                 <div class="pm-compact-poster">
                     ${item.poster_url ? `<img src="${item.poster_url}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">🎬</div>
+                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">${isTV ? '📺' : '🎬'}</div>
                 </div>
-                <div class="pm-compact-title">${title}</div>
+                <div class="pm-compact-title">${isTV ? '📺 ' : ''}${title}</div>
             </div>`;
         }).join('') + `</div>`;
     }
@@ -2705,18 +2865,21 @@ function getCertColor(cert) {
             }
             const title = item.display_title || item.title || 'Unknown';
             const certColor = item.certification ? getCertColor(item.certification) : '';
+            const isTV = item.media_type === 'tv';
+            const seasonStr = isTV && item.seasons_owned ? `· S${item.seasons_owned.replace(/,\s*/g, ', S')}` : '';
             return `<div class="physical-media-item" ${_physicalItemClick(item, navIds)}>
                 <div class="physical-media-poster">
                     ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="physical-media-poster-placeholder" style="${item.poster_url ? 'display:none;' : ''}">🎬</div>
+                    <div class="physical-media-poster-placeholder" style="${item.poster_url ? 'display:none;' : ''}">${isTV ? '📺' : '🎬'}</div>
                 </div>
                 <div class="physical-media-info">
-                    <div class="physical-media-title">${title}</div>
+                    <div class="physical-media-title">${isTV ? '📺 ' : ''}${title}</div>
                     <div class="physical-media-meta">
                         ${item.year ? `<span>${item.year}</span>` : ''}
                         ${item.runtime ? `<span>· ${item.runtime} min</span>` : ''}
                         ${item.rating ? `<span>· ⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
                         ${item.certification ? `<span>· <span class="cert-mini" style="background:${certColor}">${item.certification}</span></span>` : ''}
+                        ${seasonStr ? `<span>${seasonStr}</span>` : ''}
                     </div>
                     <div class="physical-media-meta">
                         ${item.format ? `<span>${item.format}</span>` : ''}

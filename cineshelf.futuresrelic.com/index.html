@@ -155,7 +155,7 @@
             </button>
             <button class="tab" data-tab="add" onclick="App.switchTab('add')">
                 <span class="tab-icon">➕</span>
-                <span class="tab-label">Add Movie</span>
+                <span class="tab-label">Add Title</span>
             </button>
             <button class="tab" data-tab="trivia" onclick="App.switchTab('trivia')">
                 <span class="tab-icon">🎮</span>
@@ -638,7 +638,7 @@
 
                 <!-- Search by Title -->
                 <div class="search-box">
-                    <input type="text" id="movieSearch" placeholder="Search for a movie..." onkeypress="if(event.key==='Enter') App.searchMovies()">
+                    <input type="text" id="movieSearch" placeholder="Search movies & TV shows..." onkeypress="if(event.key==='Enter') App.searchMovies()">
                     <button class="btn" onclick="App.searchMovies()">🔍 Search</button>
                 </div>
 
@@ -727,6 +727,15 @@
                     <div class="form-group">
                         <label>Notes</label>
                         <textarea id="copyNotes" placeholder="Any additional notes..."></textarea>
+                    </div>
+
+                    <!-- TV Show Season Picker (hidden by default, shown for TV) -->
+                    <div id="tvSeasonPicker" style="display: none;">
+                        <div class="form-group">
+                            <label>📺 Seasons Owned</label>
+                            <div id="tvSeasonCheckboxes" class="season-checkboxes"></div>
+                            <small style="color: rgba(255,255,255,0.5); margin-top: 0.25rem; display: block;">Select which seasons you own on this disc/set</small>
+                        </div>
                     </div>
 
                     <div class="form-actions">

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.0] - 2026-02-12
+
+### Added
+- **TV Show Support** — CineShelf now supports tracking physical TV series alongside movies:
+  - Search finds both movies and TV shows (powered by TMDB multi-search)
+  - TV shows display with a 📺 icon throughout the app (collection, detail, physical media)
+  - **Season tracking** — when adding a TV show, pick which seasons you own via checkboxes
+  - Season info is displayed in movie detail view, copy manager, and physical media views
+  - Copy manager allows editing seasons owned per copy
+  - TV show data includes number of seasons from TMDB
+  - "TV Series" badge shown on search results for easy identification
+  - IMDb lookup already handled TV shows — now the frontend properly integrates them
+- **Database migration** — auto-adds `seasons_owned` column to copies table and `number_of_seasons` column to movies table on first request
+
+### Changed
+- **Search upgraded** — now uses `search_multi` API instead of `search_movie`, returning both movies and TV shows
+- **Add Title tab** — renamed from "Add Movie" to reflect TV show support
+- **Search placeholder** — now says "Search movies & TV shows..."
+
+### Fixed
+- **My Collection dropdown fully removed** — `loadGroups()` was still overriding `display:none` with `display:block`; removed both display-toggling lines and simplified the hidden group selector to a bare `<select>` element
+
+---
+
 ## [2.7.0] - 2026-02-12
 
 ### Added
