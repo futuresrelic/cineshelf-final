@@ -4871,9 +4871,6 @@ async function loadGroups() {
         userGroups = groupsData || [];
         
         if (userGroups.length > 0) {
-            const groupSelectorDiv = document.getElementById('groupSelector');
-            if (groupSelectorDiv) groupSelectorDiv.style.display = 'block';
-            
             groupSelector.innerHTML = '<option value="">My Collection</option>';
             familyGroupSelect.innerHTML = '<option value="">Select a group...</option>';
             wishlistGroupSelect.innerHTML = '<option value="">Select a group...</option>';
@@ -4890,9 +4887,6 @@ async function loadGroups() {
                 familyGroupSelect.value = firstId;
                 wishlistGroupSelect.value = firstId;
             }
-        } else {
-            const groupSelectorDiv = document.getElementById('groupSelector');
-            if (groupSelectorDiv) groupSelectorDiv.style.display = 'none';
         }
         
         renderGroupsList();

@@ -133,12 +133,10 @@
     </div>
 </div>
 
-    <!-- Hidden group selector (used by JS) -->
-    <div id="groupSelector" style="display:none;">
-        <select id="currentGroup" onchange="App.switchGroup(this.value)">
-            <option value="">My Collection</option>
-        </select>
-    </div>
+    <!-- Hidden group selector (used by JS for group switching) -->
+    <select id="currentGroup" onchange="App.switchGroup(this.value)" style="display:none;">
+        <option value="">My Collection</option>
+    </select>
 
         <!-- Navigation Tabs -->
         <nav class="tabs">
