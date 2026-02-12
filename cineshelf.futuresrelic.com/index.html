@@ -36,6 +36,11 @@
            });
    })();
    </script>
+   <!-- Hide app behind splash — revealed by splash script when done -->
+   <style id="splashHideStyle">
+       body { background: #0f0f0f !important; }
+       body > header, body > main, body > .modal, body > footer { visibility: hidden !important; }
+   </style>
 </head>
 <body>
     <!-- Splash Screen Overlay -->
@@ -81,13 +86,20 @@
         })
         .catch(() => scheduleSplashHide());
 
+        function revealApp() {
+            const hideStyle = document.getElementById('splashHideStyle');
+            if (hideStyle) hideStyle.remove();
+        }
+
         function scheduleSplashHide() {
             if (!splashEnabled) {
                 splash.style.display = 'none';
+                revealApp();
                 return;
             }
             setTimeout(() => {
                 splash.classList.add('splash-fade-out');
+                revealApp();
                 splash.addEventListener('transitionend', () => splash.remove());
             }, splashDuration);
         }
