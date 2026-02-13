@@ -5,6 +5,10 @@ require_once __DIR__ . '/../../config/config.php';
 set_time_limit(0); // No timeout — let it run to completion
 $db = getDb();
 
+// Accept certification region from query string (default US)
+$certRegion = preg_replace('/[^A-Z\-]/', '', strtoupper($_GET['cert_region'] ?? 'US'));
+$tmdbCertCountry = $certRegion === 'CA-QC' ? 'CA' : $certRegion;
+
 // Count movies missing director OR certification
 $countQuery = "
     SELECT COUNT(*) as count
@@ -146,22 +150,42 @@ while ($movie = $stmt->fetch(PDO::FETCH_ASSOC)) {
             }
         }
 
-        // Get certification
+        // Get certification for preferred region (fallback to US)
         $certification = null;
         if ($mediaType === 'tv' && isset($data['content_ratings']['results'])) {
             foreach ($data['content_ratings']['results'] as $rating) {
-                if ($rating['iso_3166_1'] === 'US') {
+                if ($rating['iso_3166_1'] === $tmdbCertCountry) {
                     $certification = $rating['rating'];
                     break;
                 }
             }
+            if ($certification === null && $tmdbCertCountry !== 'US') {
+                foreach ($data['content_ratings']['results'] as $rating) {
+                    if ($rating['iso_3166_1'] === 'US') {
+                        $certification = $rating['rating'];
+                        break;
+                    }
+                }
+            }
         } elseif (isset($data['release_dates']['results'])) {
             foreach ($data['release_dates']['results'] as $release) {
-                if ($release['iso_3166_1'] === 'US') {
+                if ($release['iso_3166_1'] === $tmdbCertCountry) {
                     foreach ($release['release_dates'] as $date) {
                         if (!empty($date['certification'])) {
                             $certification = $date['certification'];
                             break 2;
+                        }
+                    }
+                }
+            }
+            if ($certification === null && $tmdbCertCountry !== 'US') {
+                foreach ($data['release_dates']['results'] as $release) {
+                    if ($release['iso_3166_1'] === 'US') {
+                        foreach ($release['release_dates'] as $date) {
+                            if (!empty($date['certification'])) {
+                                $certification = $date['certification'];
+                                break 2;
+                            }
                         }
                     }
                 }

@@ -937,6 +937,44 @@
                         </select>
                     </div>
 
+                    <div class="setting-item">
+                        <label>Classification Region</label>
+                        <select id="settingCertRegion" onchange="App.saveSetting('certRegion', this.value)">
+                            <option value="US">United States (MPAA)</option>
+                            <option value="CA">Canada</option>
+                            <option value="CA-QC">Canada — Quebec (Régie du cinéma)</option>
+                            <option value="GB">United Kingdom (BBFC)</option>
+                            <option value="AU">Australia (ACB)</option>
+                            <option value="DE">Germany (FSK)</option>
+                            <option value="FR">France (CNC)</option>
+                            <option value="BR">Brazil</option>
+                            <option value="JP">Japan (Eirin)</option>
+                            <option value="KR">South Korea (KMRB)</option>
+                            <option value="IN">India (CBFC)</option>
+                            <option value="NZ">New Zealand (OFLC)</option>
+                        </select>
+                        <div style="color:rgba(255,255,255,0.45); font-size:0.78rem; margin-top:0.3rem;">
+                            Sets which region's age rating is shown. Applies to newly added movies. Use Admin &rarr; Re-fetch Certifications to update existing titles.
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>Default Physical Media Region</label>
+                        <select id="settingDefaultPhysicalRegion" onchange="App.saveSetting('defaultPhysicalRegion', this.value)">
+                            <option value="">None (ask each time)</option>
+                            <option value="Region 1">Region 1 (US / Canada)</option>
+                            <option value="Region 2">Region 2 (Europe / Japan)</option>
+                            <option value="Region 3">Region 3 (Southeast Asia)</option>
+                            <option value="Region 4">Region 4 (Australia / Latin America)</option>
+                            <option value="Region 5">Region 5 (Africa / Russia)</option>
+                            <option value="Region 6">Region 6 (China)</option>
+                            <option value="Region A">Region A (Blu-ray Americas / Japan)</option>
+                            <option value="Region B">Region B (Blu-ray Europe / Australia)</option>
+                            <option value="Region C">Region C (Blu-ray Asia / Russia)</option>
+                            <option value="Region Free">Region Free</option>
+                        </select>
+                    </div>
+
                 </div>
                 
                 <div class="settings-group">

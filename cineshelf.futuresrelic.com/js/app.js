@@ -184,14 +184,24 @@ const App = (function() {
     const sortDropdown = document.getElementById('sortBy');
     const settingsDropdown = document.getElementById('settingDefaultSort');
     const defaultSort = settings.defaultSort || 'title';
-    
+
     if (sortDropdown) {
         sortDropdown.value = defaultSort;
     }
     if (settingsDropdown) {
         settingsDropdown.value = defaultSort;
     }
-    
+
+    // Restore view, region, and classification settings dropdowns
+    const viewDropdown = document.getElementById('settingDefaultView');
+    if (viewDropdown && settings.defaultView) viewDropdown.value = settings.defaultView;
+
+    const certRegionDropdown = document.getElementById('settingCertRegion');
+    if (certRegionDropdown) certRegionDropdown.value = settings.certRegion || 'US';
+
+    const physRegionDropdown = document.getElementById('settingDefaultPhysicalRegion');
+    if (physRegionDropdown) physRegionDropdown.value = settings.defaultPhysicalRegion || '';
+
     // Load data (sorting will be applied automatically)
     loadCollection();
     loadWishlist();
@@ -1127,6 +1137,12 @@ function renderCollection() {
             document.getElementById('copyFormat').value = item.target_format;
         }
 
+        // Pre-select physical media region from settings
+        const regionDropdown = document.getElementById('copyRegion');
+        if (regionDropdown && settings.defaultPhysicalRegion) {
+            regionDropdown.value = settings.defaultPhysicalRegion;
+        }
+
         document.getElementById('addMovieForm').style.display = 'block';
         document.getElementById('searchResults').style.display = 'none';
 
@@ -1228,7 +1244,8 @@ function renderCollection() {
                     try {
                         movieData = await apiCall('get_movie', {
                             tmdb_id: tmdbId,
-                            media_type: 'movie'
+                            media_type: 'movie',
+                            cert_region: settings.certRegion || 'US'
                         });
                     } catch (error) {
                         console.warn(`Stored TMDB ID ${tmdbId} failed, falling back to search`);
@@ -1250,7 +1267,8 @@ function renderCollection() {
                         tmdbId = match.id;
                         movieData = await apiCall('get_movie', {
                             tmdb_id: tmdbId,
-                            media_type: 'movie'
+                            media_type: 'movie',
+                            cert_region: settings.certRegion || 'US'
                         });
                     }
                 }
@@ -1430,10 +1448,12 @@ function renderCollection() {
                 movieData.year = details.first_air_date ? new Date(details.first_air_date).getFullYear() : null;
                 movieData.runtime = details.episode_run_time?.[0] || null;
                 
-                // Get TV rating
+                // Get TV rating for preferred region (fallback to US)
                 if (details.content_ratings?.results) {
-                    const usRating = details.content_ratings.results.find(r => r.iso_3166_1 === 'US');
-                    movieData.certification = usRating?.rating || null;
+                    const prefCertCountry = (settings.certRegion || 'US') === 'CA-QC' ? 'CA' : (settings.certRegion || 'US');
+                    const regionRating = details.content_ratings.results.find(r => r.iso_3166_1 === prefCertCountry);
+                    const usRating = prefCertCountry !== 'US' ? details.content_ratings.results.find(r => r.iso_3166_1 === 'US') : null;
+                    movieData.certification = regionRating?.rating || usRating?.rating || null;
                 }
             } else {
                 movieData.year = details.release_date ? new Date(details.release_date).getFullYear() : null;
@@ -1445,11 +1465,16 @@ function renderCollection() {
                     movieData.director = director?.name || null;
                 }
                 
-                // Get US certification
+                // Get certification for preferred region (fallback to US)
                 if (details.release_dates?.results) {
-                    const usRelease = details.release_dates.results.find(r => r.iso_3166_1 === 'US');
-                    if (usRelease?.release_dates?.[0]) {
-                        movieData.certification = usRelease.release_dates[0].certification || null;
+                    const prefCertCountry = (settings.certRegion || 'US') === 'CA-QC' ? 'CA' : (settings.certRegion || 'US');
+                    const regionRelease = details.release_dates.results.find(r => r.iso_3166_1 === prefCertCountry);
+                    const cert = regionRelease?.release_dates?.find(d => d.certification)?.certification;
+                    if (cert) {
+                        movieData.certification = cert;
+                    } else if (prefCertCountry !== 'US') {
+                        const usRelease = details.release_dates.results.find(r => r.iso_3166_1 === 'US');
+                        movieData.certification = usRelease?.release_dates?.find(d => d.certification)?.certification || null;
                     }
                 }
             }
@@ -1503,6 +1528,12 @@ function renderCollection() {
         const titleEl = document.getElementById('selectedMovieTitle');
         titleEl.textContent = (mType === 'tv' ? '📺 ' : '') + selectedMovie.title;
         document.getElementById('selectedMoviePoster').src = posterPath ? 'https://image.tmdb.org/t/p/w300' + posterPath : '';
+
+        // Pre-select physical media region from settings
+        const regionDropdown2 = document.getElementById('copyRegion');
+        if (regionDropdown2 && settings.defaultPhysicalRegion) {
+            regionDropdown2.value = settings.defaultPhysicalRegion;
+        }
 
         document.getElementById('addMovieForm').style.display = 'block';
         document.getElementById('searchResults').style.display = 'none';
@@ -1580,7 +1611,8 @@ function renderCollection() {
                 condition: condition,
                 notes: notes,
                 media_type: mediaType,
-                seasons_owned: seasonsOwned
+                seasons_owned: seasonsOwned,
+                cert_region: settings.certRegion || 'US'
             });
 
             showToast('Added to collection!', 'success');
@@ -1637,7 +1669,7 @@ function renderCollection() {
         document.getElementById('addMovieForm').style.display = 'none';
         document.getElementById('copyFormat').value = 'DVD';
         document.getElementById('copyEdition').value = '';
-        document.getElementById('copyRegion').value = '';
+        document.getElementById('copyRegion').value = settings.defaultPhysicalRegion || '';
         document.getElementById('copyCondition').value = 'Good';
         document.getElementById('copyNotes').value = '';
 
@@ -3498,7 +3530,8 @@ function getCertColor(cert) {
                                         region: movie.region,
                                         condition: movie.condition,
                                         notes: movie.notes,
-                                        barcode: movie.barcode
+                                        barcode: movie.barcode,
+                                        cert_region: settings.certRegion || 'US'
                                     });
                                     addedToCollection++;
                                 }
@@ -4248,7 +4281,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         try {
             // First, add movie to collection if not exists
             console.log('[Add Movie to Box Set] Step 1: Calling get_or_create_movie with tmdb_id:', tmdbId);
-            const movieData = await apiCall('get_or_create_movie', { tmdb_id: tmdbId });
+            const movieData = await apiCall('get_or_create_movie', { tmdb_id: tmdbId, cert_region: settings.certRegion || 'US' });
             console.log('[Add Movie to Box Set] Step 1 Response:', movieData);
 
             if (!movieData || !movieData.movie_id) {
@@ -4268,7 +4301,8 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 edition: '',
                 region: document.getElementById('boxSetRegion').value,
                 condition: document.getElementById('boxSetCondition').value,
-                notes: ''
+                notes: '',
+                cert_region: settings.certRegion || 'US'
             };
             console.log('[Add Movie to Box Set] Step 2: Calling add_copy with params:', copyParams);
             const copyData = await apiCall('add_copy', copyParams);

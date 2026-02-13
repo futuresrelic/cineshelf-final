@@ -362,38 +362,65 @@ try {
         case 'get_movie':
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
-            
+            $certRegion = sanitize($input['cert_region'] ?? 'US', 10);
+
+            // Map special sub-regions to TMDB country codes
+            $tmdbCertCountry = $certRegion;
+            if ($certRegion === 'CA-QC') $tmdbCertCountry = 'CA';
+
             if (empty($tmdbId)) {
                 jsonResponse(false, null, 'TMDB ID required');
             }
-            
+
             $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
             $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=release_dates,content_ratings,credits';
-            
+
             $response = file_get_contents($url);
-            
+
             if ($response === false) {
                 jsonResponse(false, null, 'TMDB API request failed');
             }
-            
+
             $data = json_decode($response, true);
-            
-            // Get certification
+
+            // Get certification for the user's preferred region
             $certification = null;
             if ($mediaType === 'tv' && isset($data['content_ratings']['results'])) {
                 foreach ($data['content_ratings']['results'] as $rating) {
-                    if ($rating['iso_3166_1'] === 'US') {
+                    if ($rating['iso_3166_1'] === $tmdbCertCountry) {
                         $certification = $rating['rating'];
                         break;
                     }
                 }
+                // Fallback to US if preferred region has no rating
+                if ($certification === null && $tmdbCertCountry !== 'US') {
+                    foreach ($data['content_ratings']['results'] as $rating) {
+                        if ($rating['iso_3166_1'] === 'US') {
+                            $certification = $rating['rating'];
+                            break;
+                        }
+                    }
+                }
             } elseif (isset($data['release_dates']['results'])) {
                 foreach ($data['release_dates']['results'] as $release) {
-                    if ($release['iso_3166_1'] === 'US') {
+                    if ($release['iso_3166_1'] === $tmdbCertCountry) {
                         foreach ($release['release_dates'] as $date) {
                             if (!empty($date['certification'])) {
                                 $certification = $date['certification'];
                                 break 2;
+                            }
+                        }
+                    }
+                }
+                // Fallback to US if preferred region has no certification
+                if ($certification === null && $tmdbCertCountry !== 'US') {
+                    foreach ($data['release_dates']['results'] as $release) {
+                        if ($release['iso_3166_1'] === 'US') {
+                            foreach ($release['release_dates'] as $date) {
+                                if (!empty($date['certification'])) {
+                                    $certification = $date['certification'];
+                                    break 2;
+                                }
                             }
                         }
                     }
@@ -463,6 +490,8 @@ try {
             file_put_contents('php://stderr', $debugLog);
 
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
+            $certRegion = sanitize($input['cert_region'] ?? 'US', 10);
+            $tmdbCertCountry = $certRegion === 'CA-QC' ? 'CA' : $certRegion;
             $format = sanitize($input['format'] ?? 'DVD', 50);
             $edition = sanitize($input['edition'] ?? '', 100);
             $region = sanitize($input['region'] ?? '', 50);
@@ -544,22 +573,42 @@ try {
                     $studio = $data['production_companies'][0]['name'] ?? '';
                 }
 
-                // Extract certification
+                // Extract certification for user's preferred region (fallback to US)
                 $certification = '';
                 if ($mediaType === 'tv' && !empty($data['content_ratings']['results'])) {
                     foreach ($data['content_ratings']['results'] as $rating) {
-                        if ($rating['iso_3166_1'] === 'US') {
+                        if ($rating['iso_3166_1'] === $tmdbCertCountry) {
                             $certification = $rating['rating'];
                             break;
                         }
                     }
+                    if (empty($certification) && $tmdbCertCountry !== 'US') {
+                        foreach ($data['content_ratings']['results'] as $rating) {
+                            if ($rating['iso_3166_1'] === 'US') {
+                                $certification = $rating['rating'];
+                                break;
+                            }
+                        }
+                    }
                 } elseif (!empty($data['release_dates']['results'])) {
                     foreach ($data['release_dates']['results'] as $country) {
-                        if ($country['iso_3166_1'] === 'US') {
+                        if ($country['iso_3166_1'] === $tmdbCertCountry) {
                             foreach ($country['release_dates'] as $release) {
                                 if (!empty($release['certification'])) {
                                     $certification = $release['certification'];
                                     break 2;
+                                }
+                            }
+                        }
+                    }
+                    if (empty($certification) && $tmdbCertCountry !== 'US') {
+                        foreach ($data['release_dates']['results'] as $country) {
+                            if ($country['iso_3166_1'] === 'US') {
+                                foreach ($country['release_dates'] as $release) {
+                                    if (!empty($release['certification'])) {
+                                        $certification = $release['certification'];
+                                        break 2;
+                                    }
                                 }
                             }
                         }
@@ -2965,6 +3014,8 @@ case 'resolve_movie':
             // Get existing movie or create from TMDB (used by box set creation)
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
+            $certRegion = sanitize($input['cert_region'] ?? 'US', 10);
+            $tmdbCertCountry = $certRegion === 'CA-QC' ? 'CA' : $certRegion;
 
             file_put_contents('php://stderr', "[get_or_create_movie] START - tmdb_id: $tmdbId\n");
 
@@ -3024,22 +3075,42 @@ case 'resolve_movie':
                     $studio = $data['production_companies'][0]['name'] ?? '';
                 }
 
-                // Extract certification
+                // Extract certification for user's preferred region (fallback to US)
                 $certification = '';
                 if ($mediaType === 'tv' && !empty($data['content_ratings']['results'])) {
                     foreach ($data['content_ratings']['results'] as $rating) {
-                        if ($rating['iso_3166_1'] === 'US') {
+                        if ($rating['iso_3166_1'] === $tmdbCertCountry) {
                             $certification = $rating['rating'];
                             break;
                         }
                     }
+                    if (empty($certification) && $tmdbCertCountry !== 'US') {
+                        foreach ($data['content_ratings']['results'] as $rating) {
+                            if ($rating['iso_3166_1'] === 'US') {
+                                $certification = $rating['rating'];
+                                break;
+                            }
+                        }
+                    }
                 } elseif (!empty($data['release_dates']['results'])) {
                     foreach ($data['release_dates']['results'] as $country) {
-                        if ($country['iso_3166_1'] === 'US') {
+                        if ($country['iso_3166_1'] === $tmdbCertCountry) {
                             foreach ($country['release_dates'] as $release) {
                                 if (!empty($release['certification'])) {
                                     $certification = $release['certification'];
                                     break 2;
+                                }
+                            }
+                        }
+                    }
+                    if (empty($certification) && $tmdbCertCountry !== 'US') {
+                        foreach ($data['release_dates']['results'] as $country) {
+                            if ($country['iso_3166_1'] === 'US') {
+                                foreach ($country['release_dates'] as $release) {
+                                    if (!empty($release['certification'])) {
+                                        $certification = $release['certification'];
+                                        break 2;
+                                    }
                                 }
                             }
                         }
