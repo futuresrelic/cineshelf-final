@@ -75,6 +75,7 @@ const App = (function() {
     let wishlist = [];
     let originalWishlist = []; // Store full wishlist for filtering
     let collectionDirty = false; // Flag: collection data changed but grid not re-rendered
+    let copyManagerMovieId = null; // Track which movie the copy manager is editing
     let containerMemberships = {}; // movie_id → [container_name, ...] for 📦 badge
     let shelves = []; // Store shelves for filtering
     let settings = {};
@@ -677,7 +678,7 @@ function renderCollection() {
                     <button class="btn-icon" onclick="event.stopPropagation(); App.openMovieWithNav(${movie.movie_id}, 'collection');" title="Details">👁️</button>
                     ${copyCount > 1 ?
                         `<button class="btn-icon" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
-                        `<button class="btn-icon" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
+                        `<button class="btn-icon" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id}, ${movie.movie_id});" title="Delete">🗑️</button>`
                     }
                 </div>
             </div>
@@ -707,7 +708,7 @@ function renderCollection() {
                         <button class="hover-btn" onclick="event.stopPropagation(); App.openMovieWithNav(${movie.movie_id}, 'collection');" title="Details">👁️</button>
                         ${copyCount > 1 ?
                             `<button class="hover-btn" onclick="event.stopPropagation(); App.openCopyManager(${movie.movie_id});" title="Manage">📋</button>` :
-                            `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id});" title="Delete">🗑️</button>`
+                            `<button class="hover-btn" onclick="event.stopPropagation(); App.deleteCopy(${group.copies[0].copy_id}, ${movie.movie_id});" title="Delete">🗑️</button>`
                         }
                     </div>
                 </div>
@@ -1657,6 +1658,7 @@ function renderCollection() {
     // ========================================
     
     async function openCopyManager(movieId) {
+    copyManagerMovieId = movieId;
     try {
         const copies = await apiCall('get_movie_copies', { movie_id: movieId });
 
@@ -1778,6 +1780,12 @@ function renderCollection() {
 
 function closeCopyManager() {
     document.getElementById('copyManagerModal').classList.remove('active');
+
+    // Refresh the movie detail modal behind it so the copies list updates
+    if (copyManagerMovieId && document.getElementById('movieDetailModal')?.classList.contains('active')) {
+        viewMovieDetails(copyManagerMovieId);
+    }
+    copyManagerMovieId = null;
 }
     
 function editCopy(copyId) {
@@ -1841,24 +1849,31 @@ async function saveCopyEdit(copyId, movieId) {
 async function deleteCopy(copyId, movieId) {
     if (!confirm('Delete this copy?')) return;
 
+    const copyManagerOpen = document.getElementById('copyManagerModal')?.classList.contains('active');
+
     try {
         await apiCall('delete_copy', { copy_id: copyId });
         showToast('Copy deleted', 'success');
 
-        // Refresh the copy list in-place (don't close the modal)
-        if (movieId) {
+        // Refresh the copy manager list in-place if it's open
+        if (copyManagerOpen && movieId) {
             await openCopyManager(movieId);
         }
 
-        // Silently reload collection data without re-rendering
-        // (the grid will update when the user closes the modal)
+        // Reload collection data
         try {
             const data = await apiCall('list_collection');
             collection = groupCollection(data || []);
             originalCollection = [...collection];
-            collectionDirty = true;
         } catch (e) {
             console.error('Failed to refresh collection data:', e);
+        }
+
+        // If no modal is covering the grid, re-render immediately
+        if (!copyManagerOpen && !document.getElementById('movieDetailModal')?.classList.contains('active')) {
+            renderCollection();
+        } else {
+            collectionDirty = true;
         }
     } catch (error) {
         console.error('Failed to delete copy:', error);
