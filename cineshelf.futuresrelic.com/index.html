@@ -939,6 +939,24 @@
                             <option value="created_at">Recently Added</option>
                         </select>
                     </div>
+
+                    <div class="setting-item setting-item-stacked">
+                        <label>Logo Size</label>
+                        <div class="brand-slider">
+                            <input type="range" id="settingLogoSize" min="30" max="120" value="83"
+                                   oninput="App.updateBrandSize('logoSize', this.value)">
+                            <span class="brand-slider-value" id="logoSizeValue">83px</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item setting-item-stacked">
+                        <label>Brand Text Size</label>
+                        <div class="brand-slider">
+                            <input type="range" id="settingBrandSize" min="10" max="40" value="28"
+                                   oninput="App.updateBrandSize('brandSize', this.value)">
+                            <span class="brand-slider-value" id="brandSizeValue">2.8rem</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="settings-group">

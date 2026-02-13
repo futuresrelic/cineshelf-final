@@ -175,6 +175,7 @@ const App = (function() {
 
         // Load settings
     loadSettings();
+    loadBrandSettings();
 
     // Set dropdown values from settings before loading data
     const sortDropdown = document.getElementById('sortBy');
@@ -3036,6 +3037,41 @@ function getCertColor(cert) {
     }
 }
     
+    function updateBrandSize(key, value) {
+        const numVal = parseInt(value, 10);
+        if (key === 'logoSize') {
+            document.documentElement.style.setProperty('--logo-icon-size', numVal + 'px');
+            const label = document.getElementById('logoSizeValue');
+            if (label) label.textContent = numVal + 'px';
+            settings.logoIconSize = numVal;
+        } else if (key === 'brandSize') {
+            const rem = (numVal / 10).toFixed(1);
+            document.documentElement.style.setProperty('--logo-text-size', rem + 'rem');
+            const label = document.getElementById('brandSizeValue');
+            if (label) label.textContent = rem + 'rem';
+            settings.logoTextSize = numVal;
+        }
+        saveSettings();
+    }
+
+    function loadBrandSettings() {
+        if (settings.logoIconSize) {
+            document.documentElement.style.setProperty('--logo-icon-size', settings.logoIconSize + 'px');
+            const slider = document.getElementById('settingLogoSize');
+            const label = document.getElementById('logoSizeValue');
+            if (slider) slider.value = settings.logoIconSize;
+            if (label) label.textContent = settings.logoIconSize + 'px';
+        }
+        if (settings.logoTextSize) {
+            const rem = (settings.logoTextSize / 10).toFixed(1);
+            document.documentElement.style.setProperty('--logo-text-size', rem + 'rem');
+            const slider = document.getElementById('settingBrandSize');
+            const label = document.getElementById('brandSizeValue');
+            if (slider) slider.value = settings.logoTextSize;
+            if (label) label.textContent = rem + 'rem';
+        }
+    }
+
     // Legacy function - no longer needed with OAuth
     // Users should sign out and sign in with a different account
     function switchUser() {
@@ -7884,6 +7920,7 @@ return {
     viewPresetList,
     addPresetToWishlist,
     saveSetting,
+    updateBrandSize,
     openMovieWithNav,
     showCoverUpload,
     _initCropCanvasEvents,

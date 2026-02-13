@@ -96,6 +96,10 @@
     --spacing: 1rem;
     --radius: 8px;
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+    /* Brand sizing (adjustable via Settings) */
+    --logo-icon-size: 83px;
+    --logo-text-size: 2.8rem;
 }
 
 * {
@@ -161,7 +165,7 @@ select option {
 }
 
 .logo {
-    font-size: 1.9rem;
+    font-size: var(--logo-text-size, 2.8rem);
     font-weight: 700;
     color: white;
     display: flex;
@@ -176,8 +180,8 @@ select option {
 }
 
 .logo-icon {
-    width: 52px;
-    height: 52px;
+    width: var(--logo-icon-size, 83px);
+    height: var(--logo-icon-size, 83px);
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
@@ -194,7 +198,7 @@ select option {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     font-weight: 800;
-    font-size: 1.75rem;
+    font-size: var(--logo-text-size, 2.8rem);
     letter-spacing: -0.3px;
 }
 
@@ -1337,6 +1341,34 @@ select option {
     cursor: not-allowed;
 }
 
+.setting-item-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.brand-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.brand-slider input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--primary);
+    height: 6px;
+    cursor: pointer;
+}
+
+.brand-slider-value {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    min-width: 50px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 /* PWA Install section */
 .pwa-install-btn {
     display: inline-flex;
@@ -2388,17 +2420,17 @@ body.modal-open {
     }
 
     .logo {
-        font-size: 1.6rem;
+        font-size: calc(var(--logo-text-size, 2.8rem) * 0.8);
         gap: 0.5rem;
     }
 
     .logo-text {
-        font-size: 1.45rem;
+        font-size: calc(var(--logo-text-size, 2.8rem) * 0.8);
     }
 
     .logo-icon {
-        width: 42px;
-        height: 42px;
+        width: calc(var(--logo-icon-size, 83px) * 0.8);
+        height: calc(var(--logo-icon-size, 83px) * 0.8);
         border-radius: 10px;
     }
 
