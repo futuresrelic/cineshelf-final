@@ -144,7 +144,6 @@
             <button class="tab active" data-tab="collection" onclick="App.switchTab('collection')">
                 <span class="tab-icon">📚</span>
                 <span class="tab-label">Collection</span>
-                <span class="badge" id="collectionCount"></span>
             </button>
             <button class="tab" data-tab="groups" onclick="App.switchTab('groups')">
                 <span class="tab-icon">👨‍👩‍👧‍👦</span>
@@ -165,7 +164,6 @@
             <button class="tab admin-only" data-tab="resolve" onclick="App.switchTab('resolve')">
                 <span class="tab-icon">🔍</span>
                 <span class="tab-label">Resolve</span>
-                <span class="badge" id="resolveCount">0</span>
             </button>
             <button class="tab" data-tab="settings" onclick="App.switchTab('settings')">
                 <span class="tab-icon">⚙️</span>
@@ -187,11 +185,9 @@
                 </button>
                 <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')" title="Movies">
                     🎬
-                    <span class="badge" id="collectionCount"></span>
                 </button>
                 <button class="subview-btn" data-subview="wishlist" onclick="App.switchCollectionView('wishlist')" title="Wishlist">
                     ❤️
-                    <span class="badge" id="wishlistCount">0</span>
                 </button>
                 <button class="subview-btn" data-subview="boxsets" onclick="App.switchCollectionView('boxsets')" title="Box Sets">
                     📦
@@ -248,11 +244,6 @@
                         <option value="studio">Sort: Studio</option>
                         <option value="certification">Sort: Classification</option>
                     </select>
-                    <div class="physical-view-switcher">
-                        <button class="view-btn" data-pview="grid" onclick="App.setPhysicalView('grid')" title="Grid View">⊞</button>
-                        <button class="view-btn" data-pview="compact" onclick="App.setPhysicalView('compact')" title="Compact View">⊡</button>
-                        <button class="view-btn active" data-pview="list" onclick="App.setPhysicalView('list')" title="List View">☰</button>
-                    </div>
                 </div>
                 <div id="physicalMediaContent"></div>
             </div>

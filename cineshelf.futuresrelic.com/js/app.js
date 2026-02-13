@@ -2360,11 +2360,11 @@ function getCertColor(cert) {
         const viewSwitcher = document.querySelector('#collection .view-switcher');
         const filterToggleBtn = document.getElementById('filterToggleBtn');
         if (shelfFilter) shelfFilter.style.display     = view === 'movies' ? '' : 'none';
-        if (sortBy)      sortBy.style.display          = view === 'movies' ? '' : 'none';
+        if (sortBy)      sortBy.style.display          = (view === 'movies' || view === 'wishlist') ? '' : 'none';
         if (filterBar)   filterBar.style.display        = view === 'movies' ? '' : 'none';
         if (filterToggleBtn) filterToggleBtn.style.display = view === 'movies' ? '' : 'none';
-        // Show view switcher for movies, wishlist, boxsets; hide for shelfview and physical
-        if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'physical') ? 'none' : '';
+        // Show view switcher for movies, wishlist, boxsets, physical; hide for shelfview
+        if (viewSwitcher) viewSwitcher.style.display = view === 'shelfview' ? 'none' : '';
 
         // Update the section heading
         const header = document.getElementById('collectionHeader');
@@ -2647,14 +2647,9 @@ function getCertColor(cert) {
     // ========================================
 
     let physicalMediaCache = [];
-    let physicalViewMode = 'list'; // grid | compact | list
 
     function setPhysicalView(mode) {
-        physicalViewMode = mode;
-        document.querySelectorAll('.physical-view-switcher .view-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.pview === mode);
-        });
-        renderPhysicalMedia();
+        setView(mode);
     }
 
     async function loadPhysicalMedia() {
@@ -2728,9 +2723,7 @@ function getCertColor(cert) {
         });
 
         let html = '';
-        const renderFn = physicalViewMode === 'grid' ? renderPhysicalGrid
-                       : physicalViewMode === 'compact' ? renderPhysicalCompact
-                       : renderPhysicalList;
+        const renderFn = renderPhysicalItems;
 
         if (groupBy === 'flat') {
             html = renderFn(_physicalSort(unique));
@@ -2780,117 +2773,100 @@ function getCertColor(cert) {
         return `onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"`;
     }
 
-    // ── GRID VIEW: poster cards with hover info ──
-    function renderPhysicalGrid(items) {
+    // ── Unified physical media renderer (matches Movies card structure) ──
+    function renderPhysicalItems(items) {
         const navIds = _physicalNavIds(items);
-        return `<div class="physical-grid pm-grid-view">` + items.map(item => {
+        const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
+        return `<div class="movie-grid ${viewClass}">` + items.map(item => {
+            // Box set containers
             if (item.is_container) {
                 const cover = item.container_spine_image_url;
-                return `<div class="pm-card" ${_physicalItemClick(item, navIds)}>
-                    <div class="pm-card-poster">
-                        ${cover ? `<img src="${cover}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                        <div class="pm-card-placeholder" style="${cover?'display:none;':''}background:${item.container_spine_color||'#764ba2'}">📦</div>
-                    </div>
-                    <div class="pm-card-body">
-                        <div class="pm-card-title">${item.container_name}</div>
-                        <div class="pm-card-meta">Box Set · ${item.container_movie_count||0} films</div>
-                    </div>
-                </div>`;
+                const safeTitle = (item.container_name || 'Box Set').replace(/"/g, '&quot;');
+                const posterUrl = cover || '';
+                const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23764ba2\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'40\'%3E📦%3C/text%3E%3C/svg%3E';
+
+                if (currentView === 'list') {
+                    return `<div class="movie-card collection-card" ${_physicalItemClick(item, navIds)} style="cursor:pointer;">
+                        <div class="movie-poster-container">
+                            <img src="${posterUrl || placeholderSvg}" alt="${safeTitle}" class="movie-poster">
+                        </div>
+                        <div class="movie-info">
+                            <h3 class="movie-title">📦 ${safeTitle}</h3>
+                            <div class="movie-meta">
+                                <span>Box Set</span>
+                                <span>${item.container_movie_count || 0} films</span>
+                            </div>
+                        </div>
+                        <div class="movie-actions">
+                            <button class="btn-icon" ${_physicalItemClick(item, navIds)} title="Details">👁️</button>
+                        </div>
+                    </div>`;
+                } else {
+                    return `<div class="movie-card" ${_physicalItemClick(item, navIds)} style="cursor:pointer;">
+                        <div class="movie-poster-container">
+                            <img src="${posterUrl || placeholderSvg}" alt="${safeTitle}" class="movie-poster">
+                        </div>
+                        <div class="hover-overlay">
+                            <div class="hover-title">${safeTitle}</div>
+                            <div class="hover-meta"><span>Box Set · ${item.container_movie_count || 0} films</span></div>
+                        </div>
+                        <div class="movie-info">
+                            <h3 class="movie-title">📦 ${safeTitle}</h3>
+                        </div>
+                    </div>`;
+                }
             }
+
+            // Regular movie items
             const title = item.display_title || item.title || 'Unknown';
-            const certColor = item.certification ? getCertColor(item.certification) : '';
+            const safeTitle = title.replace(/"/g, '&quot;');
+            const certColor = item.certification ? getCertColor(item.certification) : '#666';
             const isTV = item.media_type === 'tv';
             const mediaIcon = isTV ? '📺' : '🎬';
-            const seasonStr = isTV && item.seasons_owned ? `S${item.seasons_owned.replace(/,\s*/g, ', S')}` : '';
-            return `<div class="pm-card" ${_physicalItemClick(item, navIds)}>
-                <div class="pm-card-poster">
-                    ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">${mediaIcon}</div>
-                </div>
-                <div class="pm-card-body">
-                    <div class="pm-card-title">${isTV ? '📺 ' : ''}${title}</div>
-                    <div class="pm-card-meta">
-                        ${item.year||''} ${item.format ? `· ${item.format}` : ''}
-                    </div>
-                    <div class="pm-card-extra">
-                        ${item.rating ? `<span>⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
-                        ${item.certification ? `<span class="cert-mini" style="background:${certColor}">${item.certification}</span>` : ''}
-                    </div>
-                    ${item.director ? `<div class="pm-card-director">${item.director}</div>` : ''}
-                    ${seasonStr ? `<div class="season-info">${seasonStr}</div>` : ''}
-                </div>
-            </div>`;
-        }).join('') + `</div>`;
-    }
+            const posterUrl = item.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23333\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'%3ENo Poster%3C/text%3E%3C/svg%3E';
+            const runtimeFormatted = formatRuntime(item.runtime);
 
-    // ── COMPACT VIEW: small poster + title only, tight grid ──
-    function renderPhysicalCompact(items) {
-        const navIds = _physicalNavIds(items);
-        return `<div class="physical-grid pm-compact-view">` + items.map(item => {
-            if (item.is_container) {
-                const cover = item.container_spine_image_url;
-                return `<div class="pm-compact-card" ${_physicalItemClick(item, navIds)}>
-                    <div class="pm-compact-poster">
-                        ${cover ? `<img src="${cover}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                        <div class="pm-card-placeholder" style="${cover?'display:none;':''}background:${item.container_spine_color||'#764ba2'}; font-size:1.5rem;">📦</div>
+            if (currentView === 'list') {
+                return `<div class="movie-card collection-card" ${_physicalItemClick(item, navIds)} style="cursor:pointer;">
+                    <div class="movie-poster-container">
+                        <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     </div>
-                    <div class="pm-compact-title">${item.container_name}</div>
+                    <div class="movie-info">
+                        <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
+                        <div class="movie-meta">
+                            ${item.year ? `<span>${item.year}</span>` : ''}
+                            ${item.certification ? `<span class="cert-badge" style="--cert-color: ${certColor};">${item.certification}</span>` : ''}
+                            ${item.rating ? `<span>⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
+                            ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                            ${item.format ? `<span>${item.format}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="movie-actions">
+                        <button class="btn-icon" ${_physicalItemClick(item, navIds)} title="Details">👁️</button>
+                    </div>
                 </div>`;
-            }
-            const title = item.display_title || item.title || 'Unknown';
-            const isTV = item.media_type === 'tv';
-            return `<div class="pm-compact-card" ${_physicalItemClick(item, navIds)}>
-                <div class="pm-compact-poster">
-                    ${item.poster_url ? `<img src="${item.poster_url}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="pm-card-placeholder" style="${item.poster_url?'display:none;':''}">${isTV ? '📺' : '🎬'}</div>
-                </div>
-                <div class="pm-compact-title">${isTV ? '📺 ' : ''}${title}</div>
-            </div>`;
-        }).join('') + `</div>`;
-    }
-
-    // ── LIST VIEW: horizontal rows with detailed info ──
-    function renderPhysicalList(items) {
-        const navIds = _physicalNavIds(items);
-        return `<div class="physical-media-list">` + items.map(item => {
-            if (item.is_container) {
-                const coverUrl = item.container_spine_image_url;
-                return `<div class="physical-media-item" ${_physicalItemClick(item, navIds)}>
-                    <div class="physical-media-poster">
-                        ${coverUrl ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                        <div class="physical-media-poster-placeholder" style="${coverUrl ? 'display:none;' : ''}background:${item.container_spine_color||'#764ba2'}">📦</div>
+            } else {
+                const genreEmojis = getGenreEmojis(item.genre);
+                return `<div class="movie-card" ${_physicalItemClick(item, navIds)} style="cursor:pointer;">
+                    <div class="movie-poster-container">
+                        <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
                     </div>
-                    <div class="physical-media-info">
-                        <div class="physical-media-title">${item.container_name}</div>
-                        <div class="physical-media-meta">Box Set · ${item.container_movie_count || 0} films</div>
+                    <div class="hover-overlay">
+                        <div class="hover-title">${safeTitle}</div>
+                        <div class="hover-meta">
+                            ${item.year ? `<span>${item.year}</span>` : ''}
+                            ${item.certification ? `<span class="cert-badge-hover" style="--cert-color: ${certColor};">${item.certification}</span>` : ''}
+                            ${item.rating ? `<span>⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
+                            ${runtimeFormatted ? `<span>${runtimeFormatted}</span>` : ''}
+                        </div>
+                        ${genreEmojis ? `<div class="genre-emojis">${genreEmojis}</div>` : ''}
+                        ${item.director ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">🎬 ${item.director}</div>` : ''}
+                    </div>
+                    <div class="movie-info">
+                        <h3 class="movie-title">${mediaIcon} ${safeTitle}</h3>
                     </div>
                 </div>`;
             }
-            const title = item.display_title || item.title || 'Unknown';
-            const certColor = item.certification ? getCertColor(item.certification) : '';
-            const isTV = item.media_type === 'tv';
-            const seasonStr = isTV && item.seasons_owned ? `· S${item.seasons_owned.replace(/,\s*/g, ', S')}` : '';
-            return `<div class="physical-media-item" ${_physicalItemClick(item, navIds)}>
-                <div class="physical-media-poster">
-                    ${item.poster_url ? `<img src="${item.poster_url}" alt="${title.replace(/"/g,'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-                    <div class="physical-media-poster-placeholder" style="${item.poster_url ? 'display:none;' : ''}">${isTV ? '📺' : '🎬'}</div>
-                </div>
-                <div class="physical-media-info">
-                    <div class="physical-media-title">${isTV ? '📺 ' : ''}${title}</div>
-                    <div class="physical-media-meta">
-                        ${item.year ? `<span>${item.year}</span>` : ''}
-                        ${item.runtime ? `<span>· ${item.runtime} min</span>` : ''}
-                        ${item.rating ? `<span>· ⭐ ${Number(item.rating).toFixed(1)}</span>` : ''}
-                        ${item.certification ? `<span>· <span class="cert-mini" style="background:${certColor}">${item.certification}</span></span>` : ''}
-                        ${seasonStr ? `<span>${seasonStr}</span>` : ''}
-                    </div>
-                    <div class="physical-media-meta">
-                        ${item.format ? `<span>${item.format}</span>` : ''}
-                        ${item.director ? `<span>· ${item.director}</span>` : ''}
-                        ${item._shelfName ? `<span>· ${item._shelfName}</span>` : ''}
-                    </div>
-                </div>
-            </div>`;
         }).join('') + `</div>`;
     }
 
@@ -2958,11 +2934,7 @@ function getCertColor(cert) {
         function updateBadges() {
     const collectionCount = collection.length;
     const wishlistCount = wishlist.length;
-    
-    // Update tab badges
-    document.getElementById('collectionCount').textContent = collectionCount;
-    document.getElementById('wishlistCount').textContent = wishlistCount;
-    
+
     // Update section header based on active sub-view
     const collectionHeader = document.getElementById('collectionHeader');
     if (collectionHeader) {
