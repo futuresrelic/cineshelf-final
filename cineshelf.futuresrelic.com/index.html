@@ -347,7 +347,16 @@
 
             <!-- ── SUB-PANEL: Wishlist ── -->
             <div id="subviewWishlist" class="subview-panel" style="display:none">
-                <div class="subview-toolbar">
+                <div class="subview-toolbar" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="wishlistSearch" placeholder="Search wishlist..."
+                           oninput="App.filterWishlist()"
+                           style="flex:1; min-width:140px; padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
+                    <select id="wishlistGenreFilter" onchange="App.filterWishlist()" style="padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
+                        <option value="all">All Genres</option>
+                    </select>
+                    <select id="wishlistRatingFilter" onchange="App.filterWishlist()" style="padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
+                        <option value="all">All Ratings</option>
+                    </select>
                     <button class="btn-ghost" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
                 </div>
 
@@ -366,7 +375,7 @@
                     <button class="btn" onclick="App.showCreateBoxSetModal()">➕ Create New Box Set</button>
                 </div>
 
-                <div id="boxSetsList" class="box-sets-grid"></div>
+                <div id="boxSetsList" class="movie-grid grid-view"></div>
 
                 <div id="emptyBoxSets" class="empty-state" style="display: none;">
                     <div class="empty-icon">📦</div>
@@ -569,7 +578,7 @@
                 </div>
 
                 <!-- Box Sets List -->
-                <div id="boxSetsList" class="box-sets-grid"></div>
+                <div id="boxSetsList" class="movie-grid grid-view"></div>
 
                 <!-- Empty State -->
                 <div id="emptyBoxSets" class="empty-state" style="display: none;">
@@ -928,23 +937,6 @@
                         </select>
                     </div>
 
-                    <div class="setting-item setting-item-stacked">
-                        <label>Logo Size</label>
-                        <div class="brand-slider">
-                            <input type="range" id="settingLogoSize" min="30" max="120" value="83"
-                                   oninput="App.updateBrandSize('logoSize', this.value)">
-                            <span class="brand-slider-value" id="logoSizeValue">83px</span>
-                        </div>
-                    </div>
-
-                    <div class="setting-item setting-item-stacked">
-                        <label>Brand Text Size</label>
-                        <div class="brand-slider">
-                            <input type="range" id="settingBrandSize" min="10" max="40" value="28"
-                                   oninput="App.updateBrandSize('brandSize', this.value)">
-                            <span class="brand-slider-value" id="brandSizeValue">2.8rem</span>
-                        </div>
-                    </div>
                 </div>
                 
                 <div class="settings-group">

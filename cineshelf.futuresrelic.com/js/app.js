@@ -73,6 +73,7 @@ const App = (function() {
     let collection = [];
     let originalCollection = []; // Store full collection for filtering
     let wishlist = [];
+    let originalWishlist = []; // Store full wishlist for filtering
     let containerMemberships = {}; // movie_id → [container_name, ...] for 📦 badge
     let shelves = []; // Store shelves for filtering
     let settings = {};
@@ -908,11 +909,12 @@ function renderCollection() {
         console.log(`Sorted ${type} by ${sortBy}`);
     }
     
-    // Backward compatibility wrapper for old HTML
+    // Backward compatibility wrapper for old HTML — now context-aware
     function sortCollection() {
         const sortBy = document.getElementById('sortBy')?.value || 'title';
-        // Use enhanced sorting to support filters
-        if (typeof sortMoviesEnhanced === 'function') {
+        if (currentCollectionSubview === 'wishlist') {
+            sortMovies('wishlist', sortBy);
+        } else if (typeof sortMoviesEnhanced === 'function') {
             sortMoviesEnhanced(sortBy);
         } else {
             sortMovies('collection', sortBy);
@@ -927,17 +929,80 @@ function renderCollection() {
     try {
         const data = await apiCall('list_wishlist');
         wishlist = data || [];
-        
-        // ✅ FIX: Apply default sort AFTER loading data
+        originalWishlist = [...wishlist];
+
+        // Populate wishlist filter dropdowns
+        populateWishlistFilters();
+
+        // Apply default sort AFTER loading data
         const defaultSort = settings.defaultSort || 'title';
         sortMovies('wishlist', defaultSort);
-        
+
         updateBadges();
-        
+
     } catch (error) {
         console.error('Failed to load wishlist:', error);
     }
 }
+
+    function populateWishlistFilters() {
+        // Genre dropdown
+        const genreSelect = document.getElementById('wishlistGenreFilter');
+        if (genreSelect) {
+            const genres = new Set();
+            originalWishlist.forEach(item => {
+                if (item.genre) {
+                    item.genre.split(',').forEach(g => genres.add(g.trim()));
+                }
+            });
+            const sorted = [...genres].sort();
+            genreSelect.innerHTML = '<option value="all">All Genres</option>' +
+                sorted.map(g => `<option value="${g}">${g}</option>`).join('');
+        }
+
+        // Rating dropdown
+        const ratingSelect = document.getElementById('wishlistRatingFilter');
+        if (ratingSelect) {
+            const certs = new Set();
+            originalWishlist.forEach(item => {
+                if (item.certification) certs.add(item.certification);
+            });
+            const certOrder = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR'];
+            const sorted = [...certs].sort((a, b) => (certOrder.indexOf(a) === -1 ? 99 : certOrder.indexOf(a)) - (certOrder.indexOf(b) === -1 ? 99 : certOrder.indexOf(b)));
+            ratingSelect.innerHTML = '<option value="all">All Ratings</option>' +
+                sorted.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+    }
+
+    function filterWishlist() {
+        const search = (document.getElementById('wishlistSearch')?.value || '').toLowerCase().trim();
+        const genre = document.getElementById('wishlistGenreFilter')?.value || 'all';
+        const rating = document.getElementById('wishlistRatingFilter')?.value || 'all';
+
+        let filtered = [...originalWishlist];
+
+        if (search) {
+            filtered = filtered.filter(item => {
+                const title = (item.title || '').toLowerCase();
+                const displayTitle = (item.display_title || '').toLowerCase();
+                return title.includes(search) || displayTitle.includes(search);
+            });
+        }
+
+        if (genre !== 'all') {
+            filtered = filtered.filter(item => item.genre && item.genre.includes(genre));
+        }
+
+        if (rating !== 'all') {
+            filtered = filtered.filter(item => item.certification === rating);
+        }
+
+        wishlist = filtered;
+
+        // Re-apply current sort
+        const sortBy = document.getElementById('sortBy')?.value || 'title';
+        sortMovies('wishlist', sortBy);
+    }
     
     function renderWishlist() {
         const grid = document.getElementById('wishlistGrid');
@@ -2903,18 +2968,25 @@ function getCertColor(cert) {
             }
         });
 
-        // Also update box sets grid view class
+        // Update box sets grid view class
         const boxSetsGrid = document.getElementById('boxSetsList');
         if (boxSetsGrid) {
-            boxSetsGrid.classList.remove('grid-view', 'compact-view', 'list-view');
-            if (viewType === 'list') boxSetsGrid.classList.add('list-view');
-            else if (viewType === 'compact') boxSetsGrid.classList.add('compact-view');
-            else boxSetsGrid.classList.add('grid-view');
+            boxSetsGrid.className = 'movie-grid ' + (viewType === 'list' ? 'list-view' : viewType === 'compact' ? 'compact-view' : 'grid-view');
         }
 
         // Trigger re-renders to update HTML structure based on view
         renderCollection();
         renderWishlist();
+
+        // Re-render physical media if cached
+        if (physicalMediaCache.length > 0) {
+            renderPhysicalMedia();
+        }
+
+        // Re-render box sets
+        if (currentCollectionSubview === 'boxsets') {
+            loadBoxSets();
+        }
 
         // Re-render family collection if a group is selected
         if (currentGroupId && window.familyCollectionData) {
@@ -4544,6 +4616,10 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             container.style.display = 'grid';
             emptyState.style.display = 'none';
 
+            // Apply movie-grid view classes
+            const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
+            container.className = 'movie-grid ' + viewClass;
+
             // Fetch movie posters for each box set
             const boxSetsWithMovies = await Promise.all(
                 boxSets.map(async (boxSet) => {
@@ -4561,50 +4637,59 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             const containerIds = JSON.stringify(boxSetsWithMovies.map(bs => bs.id));
 
             container.innerHTML = boxSetsWithMovies.map(boxSet => {
-                // Thumbnail: custom cover > movie poster grid > color placeholder
-                const posterMovies = boxSet.movies.slice(0, 4);
+                // Poster: custom cover > first movie poster > color placeholder
                 const hasCustomCover = boxSet.spine_image_type === 'custom' && boxSet.spine_image_url;
-                const hasPosters = posterMovies.length > 0;
+                const firstMoviePoster = boxSet.movies[0]?.poster_url;
+                const posterUrl = hasCustomCover ? boxSet.spine_image_url
+                    : firstMoviePoster ? firstMoviePoster
+                    : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect fill='${encodeURIComponent(boxSet.spine_color || '#764ba2')}' width='200' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='40'%3E📦%3C/text%3E%3C/svg%3E`;
+                const safeTitle = (boxSet.name || 'Box Set').replace(/"/g, '&quot;');
 
-                const thumbnail = hasCustomCover
-                    ? `<img src="${boxSet.spine_image_url}" alt="${boxSet.name}" style="width:120px;height:160px;flex-shrink:0;border-radius:8px;object-fit:cover;">`
-                    : hasPosters
-                    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:120px;height:160px;flex-shrink:0;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;">
-                            ${posterMovies.map(movie => `
-                                <div style="position:relative;overflow:hidden;background:rgba(0,0,0,0.5);">
-                                    <img src="${movie.poster_url || '/placeholder.png'}" alt="${movie.title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
-                                </div>`).join('')}
-                            ${posterMovies.length < 4 ? Array(4 - posterMovies.length).fill('<div style="background:rgba(0,0,0,0.3);"></div>').join('') : ''}
-                        </div>`
-                    : `<div style="width:120px;height:160px;flex-shrink:0;background:${boxSet.spine_color||'#667eea'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3rem;">📦</div>`;
+                if (currentView === 'list') {
+                    // List view: detailed horizontal layout (original box set card style)
+                    const posterMovies = boxSet.movies.slice(0, 4);
+                    const thumbnail = hasCustomCover
+                        ? `<img src="${boxSet.spine_image_url}" alt="${safeTitle}" style="width:80px;height:107px;flex-shrink:0;border-radius:6px;object-fit:cover;">`
+                        : posterMovies.length > 0
+                        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:80px;height:107px;flex-shrink:0;background:rgba(0,0,0,0.3);border-radius:6px;overflow:hidden;">
+                                ${posterMovies.map(movie => `<div style="overflow:hidden;background:rgba(0,0,0,0.5);"><img src="${movie.poster_url || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"></div>`).join('')}
+                                ${posterMovies.length < 4 ? Array(4 - posterMovies.length).fill('<div style="background:rgba(0,0,0,0.3);"></div>').join('') : ''}
+                            </div>`
+                        : `<div style="width:80px;height:107px;flex-shrink:0;background:${boxSet.spine_color||'#667eea'};border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:2rem;">📦</div>`;
 
-                return `
-                    <div class="box-set-card" onclick="App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds})">
-                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                            ${thumbnail}
-                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                                <div>
-                                    <h3 style="margin: 0 0 0.5rem 0;">${boxSet.name}</h3>
-                                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">
-                                        ${boxSet.format || 'Box Set'} ${boxSet.edition ? `• ${boxSet.edition}` : ''}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 1.5rem; margin-top: 1rem;">
-                                    <div class="box-set-stat">
-                                        <strong>${boxSet.total_movies || 0}</strong>
-                                        <span>Movie${boxSet.total_movies !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    ${boxSet.spine_color ? `
-                                        <div class="box-set-stat">
-                                            <div style="width: 20px; height: 20px; background: ${boxSet.spine_color}; border-radius: 4px; margin: 0 auto;"></div>
-                                            <span style="font-size: 0.75rem;">Spine</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
+                    return `<div class="movie-card collection-card" onclick="App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds})" style="cursor:pointer;">
+                        <div class="movie-poster-container">${thumbnail}</div>
+                        <div class="movie-info">
+                            <h3 class="movie-title">📦 ${safeTitle}</h3>
+                            <div class="movie-meta">
+                                <span>${boxSet.format || 'Box Set'}</span>
+                                ${boxSet.edition ? `<span>${boxSet.edition}</span>` : ''}
+                                <span>${boxSet.total_movies || 0} Movie${boxSet.total_movies !== 1 ? 's' : ''}</span>
                             </div>
                         </div>
-                    </div>
-                `;
+                        <div class="movie-actions">
+                            <button class="btn-icon" onclick="event.stopPropagation(); App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds});" title="Details">👁️</button>
+                        </div>
+                    </div>`;
+                } else {
+                    // Grid/Compact: Netflix-style poster card matching Movies
+                    return `<div class="movie-card" onclick="App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds})" style="cursor:pointer;">
+                        <div class="movie-poster-container">
+                            <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                        </div>
+                        <div class="hover-overlay">
+                            <div class="hover-title">${safeTitle}</div>
+                            <div class="hover-meta">
+                                <span>${boxSet.format || 'Box Set'}</span>
+                                ${boxSet.edition ? `<span>${boxSet.edition}</span>` : ''}
+                                <span>${boxSet.total_movies || 0} films</span>
+                            </div>
+                        </div>
+                        <div class="movie-info">
+                            <h3 class="movie-title">📦 ${safeTitle}</h3>
+                        </div>
+                    </div>`;
+                }
             }).join('');
         } catch (error) {
             console.error('Failed to load box sets:', error);
@@ -7878,6 +7963,7 @@ return {
     cancelAdd,
     sortMovies,
     sortCollection,
+    filterWishlist,
     openCopyManager,
     closeCopyManager,
     deleteCopy,
