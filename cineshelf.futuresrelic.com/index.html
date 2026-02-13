@@ -222,6 +222,7 @@
                         <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
                         <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
                         <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                        <button class="view-btn filter-toggle-btn" id="filterToggleBtn" onclick="App.toggleFilters()" title="Filters & Sort">🔍</button>
                     </div>
                 </div>
             </div>
@@ -259,12 +260,8 @@
             <!-- ── SUB-PANEL: Movies ── -->
             <div id="subviewMovies" class="subview-panel">
 
-                <!-- Netflix Filter Bar -->
+                <!-- Netflix Filter Bar (expanded controls only) -->
                 <div class="filter-bar" id="filterBar">
-                    <button class="btn-ghost" onclick="App.toggleFilters()" id="filterToggleBtn">
-                        🔍 Filters &amp; Sort
-                    </button>
-
                     <div class="filter-controls" id="filterControls" style="display: none;">
                         <div class="filter-group" style="grid-column: 1 / -1;">
                             <label>Search by Name</label>

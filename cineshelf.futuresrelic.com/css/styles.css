@@ -772,7 +772,7 @@ select option {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 .section-header h2 {
@@ -2784,6 +2784,10 @@ body.modal-open {
    ======================================== */
 
 .filter-bar {
+    /* Invisible when collapsed — takes zero space */
+}
+
+.filter-bar.filter-open {
     margin-bottom: 1.5rem;
     background: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(20px);
@@ -2793,13 +2797,16 @@ body.modal-open {
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
+.filter-toggle-btn.active {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+}
+
 .filter-controls {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .filter-group {

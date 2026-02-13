@@ -2358,9 +2358,11 @@ function getCertColor(cert) {
         const sortBy = document.getElementById('sortBy');
         const filterBar = document.getElementById('filterBar');
         const viewSwitcher = document.querySelector('#collection .view-switcher');
-        if (shelfFilter) shelfFilter.style.display = view === 'movies' ? '' : 'none';
-        if (sortBy)      sortBy.style.display      = view === 'movies' ? '' : 'none';
-        if (filterBar)   filterBar.style.display    = view === 'movies' ? '' : 'none';
+        const filterToggleBtn = document.getElementById('filterToggleBtn');
+        if (shelfFilter) shelfFilter.style.display     = view === 'movies' ? '' : 'none';
+        if (sortBy)      sortBy.style.display          = view === 'movies' ? '' : 'none';
+        if (filterBar)   filterBar.style.display        = view === 'movies' ? '' : 'none';
+        if (filterToggleBtn) filterToggleBtn.style.display = view === 'movies' ? '' : 'none';
         // Show view switcher for movies, wishlist, boxsets; hide for shelfview and physical
         if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'physical') ? 'none' : '';
 
@@ -3532,14 +3534,17 @@ function renderUnresolved() {
 function toggleFilters() {
     const controls = document.getElementById('filterControls');
     const btn = document.getElementById('filterToggleBtn');
-    
+    const bar = document.getElementById('filterBar');
+
     if (controls.style.display === 'none') {
         controls.style.display = 'grid';
-        btn.textContent = '🔍 Hide Filters';
+        if (bar) bar.classList.add('filter-open');
+        if (btn) btn.classList.add('active');
         updateFilterUI(); // Populate dropdowns
     } else {
         controls.style.display = 'none';
-        btn.textContent = '🔍 Filters & Sort';
+        if (bar) bar.classList.remove('filter-open');
+        if (btn) btn.classList.remove('active');
     }
 }
 
