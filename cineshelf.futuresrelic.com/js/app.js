@@ -1833,7 +1833,14 @@ async function saveCopyEdit(copyId, movieId) {
         // Silently reload collection data without re-rendering
         try {
             const data = await apiCall('list_collection');
-            collection = groupCollection(data || []);
+            const grouped = {};
+            (data || []).forEach(item => {
+                if (!grouped[item.movie_id]) {
+                    grouped[item.movie_id] = { movie: item, copies: [] };
+                }
+                grouped[item.movie_id].copies.push(item);
+            });
+            collection = Object.values(grouped);
             originalCollection = [...collection];
             collectionDirty = true;
         } catch (e) {
@@ -1863,7 +1870,14 @@ async function deleteCopy(copyId, movieId) {
         // Reload collection data
         try {
             const data = await apiCall('list_collection');
-            collection = groupCollection(data || []);
+            const grouped = {};
+            (data || []).forEach(item => {
+                if (!grouped[item.movie_id]) {
+                    grouped[item.movie_id] = { movie: item, copies: [] };
+                }
+                grouped[item.movie_id].copies.push(item);
+            });
+            collection = Object.values(grouped);
             originalCollection = [...collection];
         } catch (e) {
             console.error('Failed to refresh collection data:', e);
@@ -1871,7 +1885,8 @@ async function deleteCopy(copyId, movieId) {
 
         // If no modal is covering the grid, re-render immediately
         if (!copyManagerOpen && !document.getElementById('movieDetailModal')?.classList.contains('active')) {
-            renderCollection();
+            const sortBy = document.getElementById('sortBy')?.value || 'title';
+            sortMovies('collection', sortBy);
         } else {
             collectionDirty = true;
         }
@@ -2234,7 +2249,9 @@ function getCertColor(cert) {
         if (collectionDirty) {
             collectionDirty = false;
             const savedScroll = document.body._scrollY;
-            renderCollection();
+            // Sort then render (sortMovies calls renderCollection internally)
+            const sortBy = document.getElementById('sortBy')?.value || 'title';
+            sortMovies('collection', sortBy);
             // Restore the saved scroll position (the observer will use this)
             document.body._scrollY = savedScroll;
         }
