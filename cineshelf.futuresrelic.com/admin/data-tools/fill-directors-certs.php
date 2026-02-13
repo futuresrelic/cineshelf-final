@@ -8,14 +8,23 @@ $db = getDb();
 // Accept certification region from query string (default US)
 $certRegion = preg_replace('/[^A-Z\-]/', '', strtoupper($_GET['cert_region'] ?? 'US'));
 $tmdbCertCountry = $certRegion === 'CA-QC' ? 'CA' : $certRegion;
+$forceAll = isset($_GET['force']) && $_GET['force'] === '1';
 
-// Count movies missing director OR certification
-$countQuery = "
-    SELECT COUNT(*) as count
-    FROM movies
-    WHERE tmdb_id NOT LIKE 'unresolved_%'
-    AND (director IS NULL OR director = '' OR certification IS NULL OR certification = '')
-";
+// Count movies to process
+if ($forceAll) {
+    $countQuery = "
+        SELECT COUNT(*) as count
+        FROM movies
+        WHERE tmdb_id NOT LIKE 'unresolved_%'
+    ";
+} else {
+    $countQuery = "
+        SELECT COUNT(*) as count
+        FROM movies
+        WHERE tmdb_id NOT LIKE 'unresolved_%'
+        AND (director IS NULL OR director = '' OR certification IS NULL OR certification = '')
+    ";
+}
 $total = $db->query($countQuery)->fetch(PDO::FETCH_ASSOC)['count'];
 
 echo "<!DOCTYPE html><html><head><style>
@@ -79,10 +88,13 @@ body { font-family: Arial; padding: 20px; background: #0f0f0f; color: white; }
 <a href='../index.html' class='back-btn'>← Back to Admin Panel</a>
 ";
 
-echo "<h1>🔧 Fill Missing Director & Certification</h1>";
+$modeLabel = $forceAll ? 'Re-fetch ALL' : 'Fill Missing';
+echo "<h1>🔧 $modeLabel Director & Certification</h1>";
+echo "<p class='info'>Region: <strong>$certRegion</strong>" . ($forceAll ? " — <strong>Force mode: re-fetching all titles</strong>" : "") . "</p>";
 
 echo "<div class='stats-box'>";
-echo "<strong>📊 Movies needing director/certification: $total</strong>";
+$countLabel = $forceAll ? 'Total movies to re-fetch' : 'Movies needing director/certification';
+echo "<strong>📊 $countLabel: $total</strong>";
 if ($total > 0) {
     echo "<div class='progress-bar-container'><div class='progress-bar' id='pbar' style='width:0%'></div><div class='progress-text' id='ptxt'>0 / $total</div></div>";
     echo "<div id='statusLine' class='info'>Starting...</div>";
@@ -91,6 +103,8 @@ echo "</div>";
 
 if ($total == 0) {
     echo "<div class='success'>🎉 All movies have complete metadata!</div>";
+    $currentUrl = "?cert_region=" . urlencode($certRegion) . "&force=1";
+    echo "<div style='margin-top:15px;'><a href='$currentUrl' class='back-btn' style='background:#e67e22;'>🔄 Re-fetch All Titles</a></div>";
     echo "</body></html>";
     exit;
 }
@@ -103,13 +117,21 @@ function flushNow() {
     flush();
 }
 
-// Process ALL movies (no LIMIT)
-$selectQuery = "
-    SELECT id, tmdb_id, title, media_type
-    FROM movies
-    WHERE tmdb_id NOT LIKE 'unresolved_%'
-    AND (director IS NULL OR director = '' OR certification IS NULL OR certification = '')
-";
+// Process movies
+if ($forceAll) {
+    $selectQuery = "
+        SELECT id, tmdb_id, title, media_type
+        FROM movies
+        WHERE tmdb_id NOT LIKE 'unresolved_%'
+    ";
+} else {
+    $selectQuery = "
+        SELECT id, tmdb_id, title, media_type
+        FROM movies
+        WHERE tmdb_id NOT LIKE 'unresolved_%'
+        AND (director IS NULL OR director = '' OR certification IS NULL OR certification = '')
+    ";
+}
 
 $stmt = $db->query($selectQuery);
 $processed = 0;
@@ -237,6 +259,12 @@ echo "<div class='success'>🎉 Done! Updated: $updated movies</div>";
 if ($failed > 0) {
     echo "<div class='error'>❌ Failed: $failed movies</div>";
 }
+$refetchUrl = "?cert_region=" . urlencode($certRegion) . "&force=1";
+$missingUrl = "?cert_region=" . urlencode($certRegion);
+echo "<div style='margin-top:15px;'>";
+echo "<a href='$refetchUrl' class='back-btn' style='background:#e67e22;'>🔄 Re-fetch All Titles</a> ";
+echo "<a href='$missingUrl' class='back-btn' style='background:#4caf50;'>🔍 Run Again (Missing Only)</a>";
+echo "</div>";
 echo "</div>";
 
 // Final progress update
