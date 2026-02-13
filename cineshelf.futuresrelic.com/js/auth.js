@@ -74,21 +74,28 @@ const Auth = (function() {
      */
     function updateUI(user) {
         // Update user badge — prefer display_name, fall back to username/email
+        const displayName = user.display_name || user.username || user.email;
         const userBadge = document.getElementById('currentUser');
         if (userBadge) {
-            userBadge.textContent = user.display_name || user.username || user.email;
+            userBadge.textContent = displayName;
         }
 
-        // Add profile picture if available (inside user menu button)
+        // Update avatar initial
+        const userAvatar = document.getElementById('userAvatar');
+        if (userAvatar) {
+            userAvatar.textContent = (displayName || 'U').charAt(0).toUpperCase();
+        }
+
+        // Add profile picture if available — replace the initial avatar
         if (user.profile_picture) {
-            const menuBtn = document.getElementById('userMenuBtn');
-            if (menuBtn) {
-                let img = menuBtn.querySelector('img[alt="Profile"]');
+            if (userAvatar) {
+                let img = userAvatar.querySelector('img');
                 if (!img) {
                     img = document.createElement('img');
                     img.alt = 'Profile';
-                    img.style.cssText = 'width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;';
-                    menuBtn.insertBefore(img, menuBtn.firstChild);
+                    img.style.cssText = 'width: 100%; height: 100%; border-radius: 50%; object-fit: cover;';
+                    userAvatar.textContent = '';
+                    userAvatar.appendChild(img);
                 }
                 img.src = user.profile_picture;
             }
