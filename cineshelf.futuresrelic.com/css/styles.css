@@ -457,16 +457,18 @@ select option {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: rgba(255, 255, 255, 0.7);
-    padding: 0.45rem 1rem;
+    padding: 0.45rem 0.65rem;
     border-radius: 999px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 1.15rem;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     transition: all 0.2s;
     position: relative;
     white-space: nowrap;
+    min-width: 40px;
 }
 
 .subview-btn:hover {
