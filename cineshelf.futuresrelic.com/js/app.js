@@ -74,6 +74,7 @@ const App = (function() {
     let originalCollection = []; // Store full collection for filtering
     let wishlist = [];
     let originalWishlist = []; // Store full wishlist for filtering
+    let collectionDirty = false; // Flag: collection data changed but grid not re-rendered
     let containerMemberships = {}; // movie_id → [container_name, ...] for 📦 badge
     let shelves = []; // Store shelves for filtering
     let settings = {};
@@ -202,12 +203,17 @@ const App = (function() {
         }
 
         // Modal scroll lock — prevent background from scrolling when a modal is open
+        // Only save scroll position on the FIRST modal open (not when stacking modals)
         const observer = new MutationObserver(() => {
             const anyActive = document.querySelector('.modal.active');
             if (anyActive) {
-                document.body._scrollY = window.scrollY;
-                document.body.classList.add('modal-open');
-                document.body.style.top = `-${document.body._scrollY}px`;
+                if (!document.body.classList.contains('modal-open')) {
+                    // First modal opening — save the real scroll position
+                    document.body._scrollY = window.scrollY;
+                    document.body.classList.add('modal-open');
+                    document.body.style.top = `-${document.body._scrollY}px`;
+                }
+                // If already modal-open, don't overwrite saved scroll position
             } else {
                 document.body.classList.remove('modal-open');
                 document.body.style.top = '';
@@ -1655,7 +1661,8 @@ function renderCollection() {
         const copies = await apiCall('get_movie_copies', { movie_id: movieId });
 
         if (copies.length === 0) {
-            showToast('No copies found', 'error');
+            showToast('No more copies', 'info');
+            closeCopyManager();
             return;
         }
 
@@ -1678,7 +1685,7 @@ function renderCollection() {
                             <strong>Copy #${index + 1}</strong>
                             <div style="display: flex; gap: 0.5rem;">
                                 <button class="btn-icon" onclick="App.editCopy(${copy.id})" title="Edit">✏️</button>
-                                <button class="btn-icon" onclick="App.deleteCopy(${copy.id})" title="Delete">🗑️</button>
+                                <button class="btn-icon" onclick="App.deleteCopy(${copy.id}, ${movieId})" title="Delete">🗑️</button>
                             </div>
                         </div>
 
@@ -1811,27 +1818,48 @@ async function saveCopyEdit(copyId, movieId) {
         });
         
         showToast('Copy updated successfully!', 'success');
-        
+
         // Reload the copy manager to show updated values
         await openCopyManager(movieId);
-        
-        // Also reload collection to refresh the main view
-        loadCollection();
-        
+
+        // Silently reload collection data without re-rendering
+        try {
+            const data = await apiCall('list_collection');
+            collection = groupCollection(data || []);
+            originalCollection = [...collection];
+            collectionDirty = true;
+        } catch (e) {
+            console.error('Failed to refresh collection data:', e);
+        }
+
     } catch (error) {
         console.error('Failed to update copy:', error);
         showToast('Failed to update copy', 'error');
     }
 }
 
-async function deleteCopy(copyId) {
+async function deleteCopy(copyId, movieId) {
     if (!confirm('Delete this copy?')) return;
-    
+
     try {
         await apiCall('delete_copy', { copy_id: copyId });
         showToast('Copy deleted', 'success');
-        loadCollection();
-        closeCopyManager();
+
+        // Refresh the copy list in-place (don't close the modal)
+        if (movieId) {
+            await openCopyManager(movieId);
+        }
+
+        // Silently reload collection data without re-rendering
+        // (the grid will update when the user closes the modal)
+        try {
+            const data = await apiCall('list_collection');
+            collection = groupCollection(data || []);
+            originalCollection = [...collection];
+            collectionDirty = true;
+        } catch (e) {
+            console.error('Failed to refresh collection data:', e);
+        }
     } catch (error) {
         console.error('Failed to delete copy:', error);
     }
@@ -2186,6 +2214,16 @@ function getCertColor(cert) {
 }
     
     function closeMovieDetail() {
+        // If collection data changed while modal was open, re-render the grid
+        // but preserve scroll position
+        if (collectionDirty) {
+            collectionDirty = false;
+            const savedScroll = document.body._scrollY;
+            renderCollection();
+            // Restore the saved scroll position (the observer will use this)
+            document.body._scrollY = savedScroll;
+        }
+
         document.getElementById('movieDetailModal').classList.remove('active');
         // Clear shelf nav context when closing
         shelfNavMovieList = [];
