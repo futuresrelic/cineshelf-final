@@ -14,12 +14,13 @@
 4. [Database Management](#database-management)
 5. [User Management](#user-management)
 6. [Group Management](#group-management)
-7. [Data Maintenance](#data-maintenance)
-8. [System Diagnostics](#system-diagnostics)
-9. [Backup & Recovery](#backup--recovery)
-10. [Performance Tuning](#performance-tuning)
-11. [Troubleshooting Common Issues](#troubleshooting-common-issues)
-12. [Security Best Practices](#security-best-practices)
+7. [Bulk Data Editor (v2.9.0)](#bulk-data-editor-v290)
+8. [Data Maintenance](#data-maintenance)
+9. [System Diagnostics](#system-diagnostics)
+10. [Backup & Recovery](#backup--recovery)
+11. [Performance Tuning](#performance-tuning)
+12. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+13. [Security Best Practices](#security-best-practices)
 
 ---
 
@@ -1738,6 +1739,6 @@ cp data/cineshelf.backup.sqlite data/cineshelf.sqlite
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-02-03
+**Document Version:** 1.1
+**Last Updated:** 2026-02-14
 **Support:** For technical assistance, contact the development team or consult the Dev Guide.
