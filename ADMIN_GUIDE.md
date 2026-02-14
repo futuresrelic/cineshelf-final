@@ -712,6 +712,137 @@ User opens app
 
 ---
 
+### New in v2.9.0: Bulk Data Editor, AI Cover Scanning & Box Set Movie Scanner
+
+These features were introduced in v2.9.0. Administrators should be aware of the configuration requirements and system impact.
+
+#### **Bulk Data Editor (Spreadsheet View)**
+
+**Purpose:** Allows users to view and edit all copies or box sets in a spreadsheet-style table within the Collection tab (📊 Spreadsheet pill button).
+
+**What It Does:**
+- Presents all copies or box sets as an editable table
+- Supports inline editing of Format, Edition, Region, Condition, and Notes
+- Provides title-based filtering
+- Offers "Fetch TMDB Data" to fill in missing metadata for individual rows
+- Saves all modified rows in a single bulk API call
+
+**Admin Considerations:**
+
+1. **API Load:**
+   - Bulk saves send one API request per modified row (batched on the client)
+   - Large collections with many simultaneous edits may increase API load briefly
+   - The TMDB fetch button triggers individual API lookups — remind users of TMDB rate limits (40 req/10s)
+
+2. **Database Impact:**
+   - Bulk updates modify the `copies` or `box_sets` tables
+   - Each save triggers individual UPDATE statements within a transaction
+   - Monitor database write performance if users report slow saves on large batches
+
+3. **Data Quality:**
+   - The Spreadsheet view makes it easy for users to normalize inconsistent data (e.g., standardizing "BluRay" → "Blu-ray")
+   - Admins can use this feature themselves to audit and clean up user data quickly
+
+**Monitoring:**
+```sql
+-- Check recent bulk edits (copies updated in rapid succession by same user)
+SELECT user_id, COUNT(*) as edits, MIN(updated_at) as started, MAX(updated_at) as finished
+FROM copies
+WHERE updated_at > datetime('now', '-1 hour')
+GROUP BY user_id
+HAVING edits > 10
+ORDER BY edits DESC;
+```
+
+#### **Box Set AI Cover Scanning**
+
+**Purpose:** When creating a box set, users can photograph the box set cover and have AI analyze the text on it, automatically suggesting field assignments (Title, Spine, Edition, Format, Version).
+
+**How It Works:**
+1. User clicks "Scan Cover" in the box set creation form
+2. Camera captures or user uploads a cover photo
+3. Image is sent to the AI vision API for text detection
+4. Detected text is returned as labeled chips (Title, Spine, Edition, Format, Version)
+5. User can click chips to reassign them to different fields
+6. Confirmed values auto-fill the box set form
+
+**Admin Considerations:**
+
+1. **OpenAI API Dependency:**
+   - This feature requires a valid OpenAI API key configured in the system
+   - Verify the key is set in `/config/config.php` or environment variables:
+     ```php
+     define('OPENAI_API_KEY', getenv('OPENAI_API_KEY'));
+     ```
+   - If the key is missing or invalid, the "Scan Cover" button will fail silently or show an error
+
+2. **API Costs:**
+   - Each cover scan sends one image to the OpenAI vision API
+   - Estimated cost: ~$0.01-0.03 per scan (depends on image size and model used)
+   - Monitor usage via the OpenAI dashboard if costs are a concern
+
+3. **Privacy:**
+   - Cover images are sent to OpenAI's API for processing
+   - No images are stored on the CineShelf server after processing
+   - Inform users if your deployment has specific data handling policies
+
+4. **Troubleshooting:**
+   - If scans return no results, check the OpenAI API key validity
+   - If field assignments are incorrect, users can reassign chips manually
+   - Poor image quality (blurry, low light) reduces accuracy
+
+**Error Log Monitoring:**
+```bash
+# Check for AI scanning errors
+grep -i "openai\|cover.scan\|vision" /path/to/data/php-errors.log
+```
+
+#### **Box Set Movie Scanner (Camera-Based)**
+
+**Purpose:** Users can scan multiple movie disc covers in sequence using their device camera, then batch-add all identified movies to a box set at once.
+
+**How It Works:**
+1. User clicks "Scan Covers" within a box set (new or existing)
+2. Device camera opens directly (no file picker -- same as Quick Scan)
+3. User scans disc covers one at a time; each is identified in real time
+4. After scanning all discs, user reviews the matched movie list
+5. User clicks "Add All to Box Set" to batch-add all identified movies
+
+**Admin Considerations:**
+
+1. **TMDB API Usage:**
+   - Each scanned cover triggers a TMDB search to identify the movie
+   - A box set with many discs (e.g., 25 movies in a James Bond collection) generates many API calls in quick succession
+   - TMDB rate limit is 40 requests per 10 seconds -- the client-side code includes throttling, but monitor for 429 errors
+
+2. **Camera Permissions:**
+   - This feature requires camera access via the browser
+   - Users on iOS Safari must grant camera permissions; some enterprise MDM policies may block this
+   - If users report camera not opening, verify their browser supports `getUserMedia` API
+
+3. **Image Processing:**
+   - Cover recognition uses a combination of text detection and TMDB search
+   - The OpenAI API may be used for cover text extraction (same key as AI Cover Scanning above)
+   - Fallback: if AI recognition fails, users are prompted to search manually
+
+4. **Performance:**
+   - Rapid sequential scans create short bursts of API activity
+   - Monitor server load during peak usage if many users scan simultaneously
+
+**Monitoring:**
+```sql
+-- Check box sets with many movies added at once (likely from scanner)
+SELECT bs.id, bs.name, COUNT(bsm.movie_id) as movie_count, bs.updated_at
+FROM box_sets bs
+JOIN box_set_movies bsm ON bs.id = bsm.box_set_id
+GROUP BY bs.id
+HAVING movie_count > 5
+ORDER BY bs.updated_at DESC
+LIMIT 20;
+```
+
+---
+
 ## Database Management
 
 ### Database Location
@@ -1080,6 +1211,37 @@ The `scan_boxset_cover_fields` endpoint makes an additional type of OpenAI Visio
 ### Audit Logging
 
 Bulk updates are logged with action types `copy_bulk_updated` and `container_bulk_updated` in the `audit_log` table, with one entry per updated record.
+
+### Admin Considerations for Bulk Editor
+
+**Performance:** The `list_all_copies_detailed` endpoint performs a JOIN across `copies` and `movies` tables and returns all rows for a user. For users with very large collections (1000+ copies), this may be slow. Monitor the `php-errors.log` for any slow query warnings.
+
+**Data Integrity:** The `bulk_update_copies` and `bulk_update_containers` endpoints validate each update independently. If one row fails (e.g., invalid copy_id), the others still succeed. The response includes counts of both successful and failed updates.
+
+### Box Set AI Features (v2.9.0)
+
+Two new AI-powered features use the OpenAI API and affect admin cost monitoring:
+
+#### Box Set Cover Scanning (`scan_boxset_cover_fields`)
+
+- **Model:** GPT-4o (full model, not mini)
+- **Cost per scan:** ~$0.02-0.05 (higher than single-title scans due to richer prompt)
+- **Purpose:** Analyzes a photo of a box set cover and detects text phrases, categorizing them into Title, Spine Label, Edition, Format, and Version fields
+- **Monitoring:** Check OpenAI usage dashboard for `gpt-4o` calls. Each box set cover scan is a single API call.
+
+#### Box Set Movie Scanner (Camera-Based)
+
+- **Model:** GPT-4o-mini (same as existing Quick Scan)
+- **Cost per scan:** ~$0.01-0.02 per movie cover
+- **Purpose:** Sequential camera scanning of individual disc covers within a box set
+- **Monitoring:** Multiple scans per box set (one per disc). A 10-movie box set = ~10 API calls = ~$0.10-0.20. Uses the existing `scan_cover_image` endpoint.
+
+#### Cost Management Tips
+
+- Monitor the OpenAI billing dashboard weekly if users are actively scanning
+- Set a monthly spending limit on the OpenAI account to prevent runaway costs
+- The cover scanner features only work when `OPENAI_API_KEY` is configured; remove the key to disable AI features entirely
+- Consider setting a per-user daily scan limit in a future release if costs become a concern
 
 ---
 
