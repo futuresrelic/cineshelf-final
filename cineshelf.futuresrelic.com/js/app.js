@@ -2514,7 +2514,8 @@ function getCertColor(cert) {
             movies:    document.getElementById('subviewMovies'),
             wishlist:  document.getElementById('subviewWishlist'),
             boxsets:   document.getElementById('subviewBoxSets'),
-            shelfview: document.getElementById('subviewShelf')
+            shelfview: document.getElementById('subviewShelf'),
+            spreadsheet: document.getElementById('subviewSpreadsheet')
         };
         Object.entries(panels).forEach(([key, el]) => {
             if (el) el.style.display = key === view ? 'block' : 'none';
@@ -2530,8 +2531,8 @@ function getCertColor(cert) {
         if (sortBy)      sortBy.style.display          = (view === 'movies' || view === 'wishlist') ? '' : 'none';
         if (filterBar)   filterBar.style.display        = view === 'movies' ? '' : 'none';
         if (filterToggleBtn) filterToggleBtn.style.display = view === 'movies' ? '' : 'none';
-        // Show view switcher for movies, wishlist, boxsets, physical; hide for shelfview
-        if (viewSwitcher) viewSwitcher.style.display = view === 'shelfview' ? 'none' : '';
+        // Show view switcher for movies, wishlist, boxsets, physical; hide for shelfview and spreadsheet
+        if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'spreadsheet') ? 'none' : '';
 
         // Update the section heading
         const header = document.getElementById('collectionHeader');
@@ -2541,6 +2542,7 @@ function getCertColor(cert) {
             if (view === 'wishlist')  header.textContent = `Your Wishlist (${wishlist.length})`;
             if (view === 'boxsets')   header.textContent = 'Box Sets';
             if (view === 'shelfview') header.textContent = 'Shelf View';
+            if (view === 'spreadsheet') header.textContent = 'Bulk Editor';
         }
 
         // Load data for the selected sub-view
@@ -2552,6 +2554,8 @@ function getCertColor(cert) {
             loadBoxSets();
         } else if (view === 'shelfview') {
             loadShelfViewBrowse();
+        } else if (view === 'spreadsheet') {
+            loadSpreadsheetData();
         }
     }
 
@@ -4164,109 +4168,16 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     }
 
     // Scan box set cover/back to find movie titles via AI
+    // Opens camera-based scanner (like Quick Scan) for scanning individual covers
+    // or can scan box set back cover for multiple titles at once
     async function scanBoxSetTitles() {
         if (!currentContainerId) {
             showToast('Create the box set first', 'error');
             return;
         }
 
-        // Use a file input to capture photo (works on mobile and desktop)
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'environment'; // rear camera on mobile
-
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const resultsDiv = document.getElementById('boxSetSearchResults');
-            resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem;">📸 Analyzing image for movie titles...</p>';
-
-            try {
-                // Convert to base64
-                const base64 = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        // Resize if very large to save bandwidth
-                        const img = new Image();
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            const maxDim = 1920;
-                            let w = img.width, h = img.height;
-                            if (w > maxDim || h > maxDim) {
-                                const scale = maxDim / Math.max(w, h);
-                                w = Math.round(w * scale);
-                                h = Math.round(h * scale);
-                            }
-                            canvas.width = w;
-                            canvas.height = h;
-                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                            resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
-                        };
-                        img.src = ev.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                });
-
-                // Call AI to extract titles
-                const resp = await fetch('/api/api.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'scan_boxset_titles', image: base64 })
-                });
-                const result = await resp.json();
-
-                if (!result.ok || !result.data?.titles?.length) {
-                    resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No movie titles found. Try a clearer photo of the back cover or disc list.</p>';
-                    return;
-                }
-
-                const titles = result.data.titles;
-                showToast(`Found ${titles.length} title${titles.length > 1 ? 's' : ''}! Searching TMDB...`, 'success');
-
-                // Search TMDB for each title and show results
-                resultsDiv.innerHTML = `<p style="text-align: center; padding: 1rem;">Found: <strong>${titles.join(', ')}</strong></p>
-                    <p style="text-align: center; padding: 0.5rem; color: rgba(255,255,255,0.6);">Searching TMDB for matches...</p>`;
-
-                let matchHTML = '';
-                for (const title of titles) {
-                    try {
-                        const data = await apiCall('search_movies', { query: title });
-                        if (data?.results?.length > 0) {
-                            const movie = data.results[0]; // Best match
-                            matchHTML += `
-                                <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})" style="border-left: 3px solid #4caf50;">
-                                    <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
-                                    <div class="result-info">
-                                        <h4>${movie.title}</h4>
-                                        <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'} <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">— scanned as "${title}"</span></p>
-                                    </div>
-                                </div>`;
-                        } else {
-                            matchHTML += `
-                                <div class="search-result" style="opacity: 0.5; border-left: 3px solid #ff6b6b; cursor: default;">
-                                    <div style="width:92px; height:138px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:4px;">❓</div>
-                                    <div class="result-info">
-                                        <h4>${title}</h4>
-                                        <p style="color: #ff6b6b;">No TMDB match — try searching manually</p>
-                                    </div>
-                                </div>`;
-                        }
-                    } catch (err) {
-                        console.error('Search failed for:', title, err);
-                    }
-                }
-
-                resultsDiv.innerHTML = `<p style="padding: 0.5rem 0; color: rgba(255,255,255,0.7); font-size: 0.9rem;">📸 Scan results — tap to add each film:</p>` + matchHTML;
-
-            } catch (error) {
-                console.error('Scan error:', error);
-                resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: #ff6b6b;">Scan failed: ' + error.message + '</p>';
-            }
-        };
-
-        input.click();
+        // Open the camera-based scanner modal (Quick Scan style)
+        openBoxSetScanner();
     }
 
     // Search for movies to add to box set
@@ -8107,6 +8018,752 @@ async function getCurrentUserId() {
     }
 
     // ========================================
+    // SPREADSHEET / BULK DATA EDITOR
+    // ========================================
+
+    let spreadsheetData = [];       // Current loaded data (copies or containers)
+    let spreadsheetOriginal = [];   // Original data snapshot for change detection
+    let spreadsheetChanges = {};    // Track changes: { rowId: { field: newValue, ... } }
+    let spreadsheetType = 'copies'; // 'copies' or 'boxsets'
+
+    async function loadSpreadsheetData() {
+        spreadsheetType = document.getElementById('spreadsheetDataType')?.value || 'copies';
+        const container = document.getElementById('spreadsheetContainer');
+        container.innerHTML = '<div style="text-align:center; padding:3rem; color:rgba(255,255,255,0.5);">Loading data...</div>';
+
+        spreadsheetChanges = {};
+        updateSpreadsheetChangeCount();
+
+        try {
+            if (spreadsheetType === 'copies') {
+                spreadsheetData = await apiCall('list_all_copies_detailed');
+            } else {
+                spreadsheetData = await apiCall('list_all_containers_detailed');
+            }
+            spreadsheetOriginal = JSON.parse(JSON.stringify(spreadsheetData));
+            renderSpreadsheet();
+        } catch (error) {
+            console.error('Failed to load spreadsheet data:', error);
+            container.innerHTML = '<div style="text-align:center; padding:3rem; color:#ff6b6b;">Failed to load data. Please try again.</div>';
+        }
+    }
+
+    function renderSpreadsheet() {
+        const container = document.getElementById('spreadsheetContainer');
+        const searchTerm = (document.getElementById('spreadsheetSearch')?.value || '').toLowerCase();
+
+        let filtered = spreadsheetData;
+        if (searchTerm) {
+            filtered = spreadsheetData.filter(item => {
+                const title = (item.display_title || item.title || item.name || '').toLowerCase();
+                return title.includes(searchTerm);
+            });
+        }
+
+        if (!filtered || filtered.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:3rem; color:rgba(255,255,255,0.5);">No data found.</div>';
+            return;
+        }
+
+        if (spreadsheetType === 'copies') {
+            container.innerHTML = renderCopiesSpreadsheet(filtered);
+        } else {
+            container.innerHTML = renderContainersSpreadsheet(filtered);
+        }
+    }
+
+    function renderCopiesSpreadsheet(data) {
+        const formatOptions = ['DVD', 'Blu-ray', '4K UHD', 'Digital', 'VHS', 'Laserdisc', '16mm', 'DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set'].map(f => `<option value="${f}">${f}</option>`).join('');
+        const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'].map(c => `<option value="${c}">${c}</option>`).join('');
+        const regionOptions = ['Region 1', 'Region 2', 'Region 3', 'Region 4', 'Region 5', 'Region 6', 'Region A', 'Region B', 'Region C', 'Region Free'].map(r => `<option value="${r}">${r}</option>`).join('');
+
+        let html = `<table class="spreadsheet-table">
+            <thead><tr>
+                <th></th>
+                <th>Title</th>
+                <th>Year</th>
+                <th>Format</th>
+                <th>Edition</th>
+                <th>Region</th>
+                <th>Condition</th>
+                <th>Notes</th>
+                <th>Director</th>
+                <th>TMDB</th>
+            </tr></thead><tbody>`;
+
+        data.forEach(item => {
+            const id = item.copy_id;
+            const title = item.display_title || item.title || 'Unknown';
+            const poster = item.poster_url || '';
+            const changes = spreadsheetChanges[id] || {};
+            const changed = Object.keys(changes).length > 0;
+            const missingData = !item.director || !item.genre || !item.actors;
+
+            html += `<tr class="${changed ? 'spreadsheet-row-changed' : ''}" data-copy-id="${id}">
+                <td>${poster ? `<img src="${poster}" class="spreadsheet-poster" alt="">` : '<div style="width:35px;height:52px;background:rgba(255,255,255,0.05);border-radius:3px;"></div>'}</td>
+                <td class="spreadsheet-title" title="${title.replace(/"/g, '&quot;')}">${title}</td>
+                <td>${item.year || ''}</td>
+                <td><select onchange="App.onSpreadsheetChange(${id}, 'format', this.value)" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
+                    ${formatOptions}
+                </select></td>
+                <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange(${id}, 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
+                <td><select onchange="App.onSpreadsheetChange(${id}, 'region', this.value)" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
+                    <option value="">--</option>${regionOptions}
+                </select></td>
+                <td><select onchange="App.onSpreadsheetChange(${id}, 'condition', this.value)" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
+                    ${conditionOptions}
+                </select></td>
+                <td><input type="text" value="${(changes.notes !== undefined ? changes.notes : item.notes || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange(${id}, 'notes', this.value)" class="${changes.notes !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Notes..." style="min-width:120px;"></td>
+                <td style="color:rgba(255,255,255,0.5); font-size:0.8rem;">${item.director || '—'}</td>
+                <td>${missingData ? `<button class="btn-fetch-tmdb" onclick="App.fetchTmdbForCopy(${id}, ${item.tmdb_id})">🔄</button>` : '<span style="color:#4caf50; font-size:0.8rem;">✓</span>'}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+
+        // Set current values on selects after render
+        requestAnimationFrame(() => {
+            data.forEach(item => {
+                const row = document.querySelector(`tr[data-copy-id="${item.copy_id}"]`);
+                if (!row) return;
+                const changes = spreadsheetChanges[item.copy_id] || {};
+                const selects = row.querySelectorAll('select');
+                if (selects[0]) selects[0].value = changes.format || item.format || 'DVD';
+                if (selects[1]) selects[1].value = changes.region || item.region || '';
+                if (selects[2]) selects[2].value = changes.condition || item.copy_condition || 'Good';
+            });
+        });
+
+        return html;
+    }
+
+    function renderContainersSpreadsheet(data) {
+        const formatOptions = ['DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set', 'Mixed Format Set', 'Double Feature', 'Triple Feature', 'Steelbook Set', 'Criterion Collection', 'Collection'].map(f => `<option value="${f}">${f}</option>`).join('');
+        const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'].map(c => `<option value="${c}">${c}</option>`).join('');
+        const regionOptions = ['Region 1', 'Region 2', 'Region A', 'Region B', 'Region Free'].map(r => `<option value="${r}">${r}</option>`).join('');
+
+        let html = `<table class="spreadsheet-table">
+            <thead><tr>
+                <th>Name</th>
+                <th>Movies</th>
+                <th>Format</th>
+                <th>Edition</th>
+                <th>Region</th>
+                <th>Condition</th>
+            </tr></thead><tbody>`;
+
+        data.forEach(item => {
+            const id = item.container_id;
+            const changes = spreadsheetChanges[`c_${id}`] || {};
+            const changed = Object.keys(changes).length > 0;
+
+            html += `<tr class="${changed ? 'spreadsheet-row-changed' : ''}" data-container-id="${id}">
+                <td class="spreadsheet-title" style="font-weight:600;">📦 ${item.name || 'Unnamed'}</td>
+                <td style="text-align:center;">${item.movie_count || 0}</td>
+                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'format', this.value)" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
+                    ${formatOptions}
+                </select></td>
+                <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange('c_${id}', 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
+                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'region', this.value)" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
+                    <option value="">--</option>${regionOptions}
+                </select></td>
+                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'condition', this.value)" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
+                    ${conditionOptions}
+                </select></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+
+        requestAnimationFrame(() => {
+            data.forEach(item => {
+                const row = document.querySelector(`tr[data-container-id="${item.container_id}"]`);
+                if (!row) return;
+                const changes = spreadsheetChanges[`c_${item.container_id}`] || {};
+                const selects = row.querySelectorAll('select');
+                if (selects[0]) selects[0].value = changes.format || item.format || 'DVD Box Set';
+                if (selects[1]) selects[1].value = changes.region || item.region || '';
+                if (selects[2]) selects[2].value = changes.condition || item.container_condition || 'Good';
+            });
+        });
+
+        return html;
+    }
+
+    function onSpreadsheetChange(rowId, field, value) {
+        if (!spreadsheetChanges[rowId]) {
+            spreadsheetChanges[rowId] = {};
+        }
+
+        // Check if value differs from original
+        const original = spreadsheetType === 'copies'
+            ? spreadsheetOriginal.find(i => i.copy_id == rowId)
+            : spreadsheetOriginal.find(i => `c_${i.container_id}` === String(rowId));
+
+        const origField = field === 'condition'
+            ? (spreadsheetType === 'copies' ? 'copy_condition' : 'container_condition')
+            : field;
+        const origValue = original ? (original[origField] || '') : '';
+
+        if (value === origValue) {
+            delete spreadsheetChanges[rowId][field];
+            if (Object.keys(spreadsheetChanges[rowId]).length === 0) {
+                delete spreadsheetChanges[rowId];
+            }
+        } else {
+            spreadsheetChanges[rowId][field] = value;
+        }
+
+        updateSpreadsheetChangeCount();
+
+        // Highlight changed cell
+        const rowSelector = spreadsheetType === 'copies'
+            ? `tr[data-copy-id="${rowId}"]`
+            : `tr[data-container-id="${String(rowId).replace('c_', '')}"]`;
+        const row = document.querySelector(rowSelector);
+        if (row) {
+            row.classList.toggle('spreadsheet-row-changed', !!spreadsheetChanges[rowId]);
+        }
+    }
+
+    function updateSpreadsheetChangeCount() {
+        const count = Object.keys(spreadsheetChanges).length;
+        const badge = document.getElementById('spreadsheetChangeCount');
+        const saveBtn = document.getElementById('spreadsheetSaveBtn');
+        if (badge) {
+            badge.textContent = `${count} change${count !== 1 ? 's' : ''}`;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+        if (saveBtn) {
+            saveBtn.disabled = count === 0;
+        }
+    }
+
+    function filterSpreadsheet() {
+        renderSpreadsheet();
+    }
+
+    async function saveSpreadsheetChanges() {
+        const changeCount = Object.keys(spreadsheetChanges).length;
+        if (changeCount === 0) {
+            showToast('No changes to save', 'info');
+            return;
+        }
+
+        if (!confirm(`Save ${changeCount} change${changeCount !== 1 ? 's' : ''}?`)) return;
+
+        try {
+            if (spreadsheetType === 'copies') {
+                const updates = Object.entries(spreadsheetChanges).map(([copyId, fields]) => ({
+                    copy_id: parseInt(copyId),
+                    ...fields
+                }));
+                const result = await apiCall('bulk_update_copies', { updates });
+                showToast(`Updated ${result.updated} copies`, 'success');
+            } else {
+                const updates = Object.entries(spreadsheetChanges).map(([key, fields]) => ({
+                    container_id: parseInt(key.replace('c_', '')),
+                    ...fields
+                }));
+                const result = await apiCall('bulk_update_containers', { updates });
+                showToast(`Updated ${result.updated} box sets`, 'success');
+            }
+
+            spreadsheetChanges = {};
+            updateSpreadsheetChangeCount();
+            await loadSpreadsheetData();
+            loadCollection();
+        } catch (error) {
+            console.error('Bulk save failed:', error);
+            showToast('Failed to save changes', 'error');
+        }
+    }
+
+    async function fetchTmdbForCopy(copyId, tmdbId) {
+        if (!tmdbId) {
+            showToast('No TMDB ID available for this title', 'error');
+            return;
+        }
+        try {
+            showToast('Fetching TMDB data...', 'info');
+            const data = await apiCall('get_or_create_movie', { tmdb_id: tmdbId, cert_region: settings.certRegion || 'US' });
+            if (data) {
+                showToast(`Updated data for "${data.title}"`, 'success');
+                await loadSpreadsheetData();
+            }
+        } catch (error) {
+            console.error('TMDB fetch failed:', error);
+            showToast('Failed to fetch TMDB data', 'error');
+        }
+    }
+
+    async function fetchMissingTmdbData() {
+        if (spreadsheetType !== 'copies') {
+            showToast('TMDB fetch only works for individual copies', 'info');
+            return;
+        }
+
+        const missing = spreadsheetData.filter(item => !item.director || !item.genre || !item.actors);
+        if (missing.length === 0) {
+            showToast('All entries have complete data!', 'success');
+            return;
+        }
+
+        if (!confirm(`Fetch TMDB data for ${missing.length} entries with missing info?`)) return;
+
+        showToast(`Fetching data for ${missing.length} entries...`, 'info');
+        let updated = 0;
+        for (const item of missing) {
+            if (!item.tmdb_id) continue;
+            try {
+                await apiCall('get_or_create_movie', { tmdb_id: item.tmdb_id, cert_region: settings.certRegion || 'US' });
+                updated++;
+            } catch (e) {
+                console.error('Failed for:', item.title, e);
+            }
+            // Small delay to respect rate limits
+            await new Promise(r => setTimeout(r, 300));
+        }
+
+        showToast(`Updated ${updated} entries`, 'success');
+        await loadSpreadsheetData();
+    }
+
+    // ========================================
+    // BOX SET COVER FIELD DETECTION (AI)
+    // ========================================
+
+    let detectedFieldData = null;
+
+    async function scanBoxSetCoverForFields() {
+        // Use a file input to capture photo
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show modal with loading
+            document.getElementById('boxSetFieldDetectModal').classList.add('active');
+            document.getElementById('boxSetFieldDetectLoading').style.display = 'block';
+            document.getElementById('boxSetFieldDetectContent').style.display = 'none';
+
+            try {
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const maxDim = 1920;
+                            let w = img.width, h = img.height;
+                            if (w > maxDim || h > maxDim) {
+                                const scale = maxDim / Math.max(w, h);
+                                w = Math.round(w * scale);
+                                h = Math.round(h * scale);
+                            }
+                            canvas.width = w;
+                            canvas.height = h;
+                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                        };
+                        img.src = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                const resp = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'scan_boxset_cover_fields', image: base64 })
+                });
+                const result = await resp.json();
+
+                if (!result.ok || !result.data) {
+                    showToast('AI analysis failed: ' + (result.error || 'Unknown error'), 'error');
+                    closeBoxSetFieldDetect();
+                    return;
+                }
+
+                detectedFieldData = result.data;
+                renderDetectedFields(result.data);
+
+            } catch (error) {
+                console.error('Cover field scan error:', error);
+                showToast('Failed to analyze cover', 'error');
+                closeBoxSetFieldDetect();
+            }
+        };
+
+        input.click();
+    }
+
+    function renderDetectedFields(data) {
+        document.getElementById('boxSetFieldDetectLoading').style.display = 'none';
+        document.getElementById('boxSetFieldDetectContent').style.display = 'block';
+
+        const phrases = data.detected_phrases || [];
+        const suggested = data.suggested || {};
+
+        // Render detected phrases as clickable chips
+        const phrasesContainer = document.getElementById('detectedPhrasesContainer');
+        const fieldNames = ['title', 'spine_label', 'edition', 'format', 'version'];
+        const fieldLabels = { title: 'Title', spine_label: 'Spine', edition: 'Edition', format: 'Format', version: 'Version' };
+
+        phrasesContainer.innerHTML = phrases.map((phrase, idx) => {
+            // Check if this phrase was suggested for any field
+            let assignedField = '';
+            for (const [field, value] of Object.entries(suggested)) {
+                if (value && value.toLowerCase() === phrase.toLowerCase()) {
+                    assignedField = field;
+                    break;
+                }
+            }
+
+            return `<div class="detected-phrase ${assignedField ? 'assigned' : ''}"
+                         onclick="App.cycleDetectedPhraseField(${idx})"
+                         data-phrase-idx="${idx}"
+                         data-assigned-field="${assignedField}">
+                <span>${phrase}</span>
+                ${assignedField ? `<span class="phrase-field-tag">${fieldLabels[assignedField] || assignedField}</span>` : ''}
+            </div>`;
+        }).join('');
+
+        // Pre-fill the field inputs with suggested values
+        const titleInput = document.getElementById('fieldDetectTitle');
+        const spineInput = document.getElementById('fieldDetectSpine');
+        const editionInput = document.getElementById('fieldDetectEdition');
+        const formatSelect = document.getElementById('fieldDetectFormat');
+        const versionInput = document.getElementById('fieldDetectVersion');
+
+        if (suggested.title) titleInput.value = suggested.title;
+        if (suggested.spine_label) spineInput.value = suggested.spine_label;
+        if (suggested.edition) editionInput.value = suggested.edition;
+        if (suggested.version) versionInput.value = suggested.version;
+
+        // Try to match format to dropdown
+        if (suggested.format) {
+            const formatLower = suggested.format.toLowerCase();
+            if (formatLower.includes('dvd')) formatSelect.value = 'DVD Box Set';
+            else if (formatLower.includes('4k') || formatLower.includes('uhd')) formatSelect.value = '4K UHD Box Set';
+            else if (formatLower.includes('blu')) formatSelect.value = 'Blu-ray Box Set';
+            else formatSelect.value = '';
+        }
+    }
+
+    function cycleDetectedPhraseField(idx) {
+        const phraseEl = document.querySelector(`.detected-phrase[data-phrase-idx="${idx}"]`);
+        if (!phraseEl) return;
+
+        const fieldNames = ['', 'title', 'spine_label', 'edition', 'format', 'version'];
+        const fieldLabels = { title: 'Title', spine_label: 'Spine', edition: 'Edition', format: 'Format', version: 'Version' };
+        const currentField = phraseEl.dataset.assignedField || '';
+        const currentIdx = fieldNames.indexOf(currentField);
+        const nextField = fieldNames[(currentIdx + 1) % fieldNames.length];
+
+        phraseEl.dataset.assignedField = nextField;
+        phraseEl.classList.toggle('assigned', !!nextField);
+
+        // Update the tag
+        const existingTag = phraseEl.querySelector('.phrase-field-tag');
+        if (existingTag) existingTag.remove();
+        if (nextField) {
+            const tag = document.createElement('span');
+            tag.className = 'phrase-field-tag';
+            tag.textContent = fieldLabels[nextField] || nextField;
+            phraseEl.appendChild(tag);
+        }
+
+        // Update the corresponding input field
+        const phraseText = phraseEl.querySelector('span').textContent;
+        const fieldInputMap = {
+            title: 'fieldDetectTitle',
+            spine_label: 'fieldDetectSpine',
+            edition: 'fieldDetectEdition',
+            version: 'fieldDetectVersion'
+        };
+
+        if (nextField && fieldInputMap[nextField]) {
+            document.getElementById(fieldInputMap[nextField]).value = phraseText;
+        }
+        if (nextField === 'format') {
+            const formatLower = phraseText.toLowerCase();
+            const formatSelect = document.getElementById('fieldDetectFormat');
+            if (formatLower.includes('dvd')) formatSelect.value = 'DVD Box Set';
+            else if (formatLower.includes('4k') || formatLower.includes('uhd')) formatSelect.value = '4K UHD Box Set';
+            else if (formatLower.includes('blu')) formatSelect.value = 'Blu-ray Box Set';
+        }
+    }
+
+    function applyDetectedFields() {
+        const title = document.getElementById('fieldDetectTitle').value.trim();
+        const spine = document.getElementById('fieldDetectSpine').value.trim();
+        const edition = document.getElementById('fieldDetectEdition').value.trim();
+        const format = document.getElementById('fieldDetectFormat').value;
+        const version = document.getElementById('fieldDetectVersion').value.trim();
+
+        // Apply to box set step 1 form
+        if (title) document.getElementById('boxSetName').value = title;
+        if (spine) document.getElementById('boxSetSpineLabel').value = spine;
+        if (format) document.getElementById('boxSetFormat').value = format;
+
+        // Apply edition - check if it matches a dropdown option, otherwise set as custom
+        if (edition) {
+            const editionSelect = document.getElementById('boxSetEdition');
+            const matchingOption = Array.from(editionSelect.options).find(
+                opt => opt.value.toLowerCase() === edition.toLowerCase()
+            );
+            if (matchingOption) {
+                editionSelect.value = matchingOption.value;
+            } else {
+                editionSelect.value = edition;
+                // Add custom option if needed
+                if (!Array.from(editionSelect.options).find(o => o.value === edition)) {
+                    const opt = document.createElement('option');
+                    opt.value = edition;
+                    opt.textContent = edition;
+                    editionSelect.insertBefore(opt, editionSelect.querySelector('option[value="__custom__"]'));
+                    editionSelect.value = edition;
+                }
+            }
+        }
+
+        // If version info, append to notes
+        if (version) {
+            const notesEl = document.getElementById('boxSetNotes');
+            const existing = notesEl.value.trim();
+            notesEl.value = existing ? `${existing}\nVersion: ${version}` : `Version: ${version}`;
+        }
+
+        closeBoxSetFieldDetect();
+        showToast('Fields populated from cover scan!', 'success');
+    }
+
+    function closeBoxSetFieldDetect() {
+        document.getElementById('boxSetFieldDetectModal').classList.remove('active');
+        detectedFieldData = null;
+    }
+
+    // ========================================
+    // BOX SET MOVIE SCANNER (Camera-based, Quick Scan style)
+    // ========================================
+
+    let boxSetScannerStream = null;
+    let boxSetScanList = [];
+
+    async function openBoxSetScanner() {
+        if (!currentContainerId) {
+            showToast('Create the box set first', 'error');
+            return;
+        }
+
+        document.getElementById('boxSetScannerModal').classList.add('active');
+        boxSetScanList = [];
+        renderBoxSetScanList();
+        updateBoxSetScanCount();
+
+        const video = document.getElementById('boxSetScannerVideo');
+
+        try {
+            const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+            if (iOS) {
+                try {
+                    boxSetScannerStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+                    });
+                } catch (err) {
+                    try {
+                        boxSetScannerStream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                        });
+                    } catch (err2) {
+                        boxSetScannerStream = await navigator.mediaDevices.getUserMedia({
+                            video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+                        });
+                    }
+                }
+            } else {
+                try {
+                    boxSetScannerStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+                    });
+                } catch (err) {
+                    boxSetScannerStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+            }
+
+            video.srcObject = boxSetScannerStream;
+            if (iOS) {
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+            }
+            await video.play();
+        } catch (error) {
+            console.error('Camera error:', error);
+            closeBoxSetScanner();
+            if (error.name === 'NotFoundError') {
+                alert('No camera found on this device');
+            } else if (error.name === 'NotAllowedError') {
+                alert('Camera permission denied. Please allow camera access in your browser settings.');
+            } else {
+                alert('Camera error: ' + error.message);
+            }
+        }
+    }
+
+    async function boxSetScanCapture() {
+        if (!boxSetScannerStream) return;
+
+        const btn = document.getElementById('boxSetCaptureBtn');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>🔄</span><span>Analyzing...</span>';
+
+        try {
+            const video = document.getElementById('boxSetScannerVideo');
+            const canvas = document.getElementById('boxSetScannerCanvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            const base64Image = imageData.split(',')[1];
+
+            // Use the existing scan_cover_image to get a single title
+            const response = await fetch('/api/api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'scan_cover_image', image: base64Image })
+            });
+            const result = await response.json();
+
+            if (result.ok && result.data?.title && result.data.title !== 'UNKNOWN') {
+                const title = result.data.title.trim();
+                boxSetScanList.push({ id: Date.now(), title, timestamp: new Date().toISOString() });
+                renderBoxSetScanList();
+                updateBoxSetScanCount();
+
+                // Flash success
+                document.getElementById('boxSetScannerPreview').style.background = '#10b981';
+                setTimeout(() => {
+                    document.getElementById('boxSetScannerPreview').style.background = '';
+                }, 300);
+
+                showToast(`Detected: "${title}"`, 'success');
+            } else {
+                showToast('Could not recognize title. Try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Box set scan error:', error);
+            showToast('Scan error: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }
+
+    function renderBoxSetScanList() {
+        const container = document.getElementById('boxSetScanList');
+        if (boxSetScanList.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#666; padding:2rem;">Scan a cover to detect movie titles.</p>';
+            return;
+        }
+        container.innerHTML = boxSetScanList.map(item => `
+            <div class="scan-batch-item" data-id="${item.id}">
+                <div style="flex:1;">
+                    <div style="font-weight:600; margin-bottom:0.25rem;">${item.title}</div>
+                    <div style="font-size:0.75rem; color:#666;">${new Date(item.timestamp).toLocaleTimeString()}</div>
+                </div>
+                <button onclick="App.removeBoxSetScanItem(${item.id})" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:1.2rem; padding:0.5rem;" title="Remove">✕</button>
+            </div>
+        `).join('');
+    }
+
+    function removeBoxSetScanItem(id) {
+        boxSetScanList = boxSetScanList.filter(item => item.id !== id);
+        renderBoxSetScanList();
+        updateBoxSetScanCount();
+    }
+
+    function clearBoxSetScanList() {
+        if (boxSetScanList.length > 0 && !confirm('Clear all scanned titles?')) return;
+        boxSetScanList = [];
+        renderBoxSetScanList();
+        updateBoxSetScanCount();
+    }
+
+    function updateBoxSetScanCount() {
+        const badge = document.getElementById('boxSetScanCount');
+        if (badge) {
+            badge.textContent = boxSetScanList.length;
+            badge.style.display = boxSetScanList.length > 0 ? 'inline' : 'none';
+        }
+    }
+
+    async function processBoxSetScanBatch() {
+        if (boxSetScanList.length === 0) {
+            showToast('No titles to process', 'info');
+            return;
+        }
+
+        const btn = document.getElementById('boxSetProcessBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Processing...</span>';
+
+        let added = 0;
+        const resultsDiv = document.getElementById('boxSetSearchResults');
+
+        try {
+            closeBoxSetScanner();
+
+            for (const item of boxSetScanList) {
+                try {
+                    // Search TMDB for the title
+                    const data = await apiCall('search_movies', { query: item.title });
+                    if (data?.results?.length > 0) {
+                        const movie = data.results[0];
+                        // Add the best match to box set
+                        await addMovieToBoxSet(movie.id);
+                        added++;
+                    } else {
+                        showToast(`No TMDB match for "${item.title}"`, 'error');
+                    }
+                } catch (err) {
+                    console.error('Failed to process:', item.title, err);
+                }
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            boxSetScanList = [];
+            showToast(`Added ${added} movie${added !== 1 ? 's' : ''} to box set!`, 'success');
+
+        } catch (error) {
+            console.error('Process batch error:', error);
+            showToast('Failed to process batch', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span>✅</span><span>Add All to Box Set</span>';
+        }
+    }
+
+    function closeBoxSetScanner() {
+        if (boxSetScannerStream) {
+            boxSetScannerStream.getTracks().forEach(track => track.stop());
+            boxSetScannerStream = null;
+        }
+        document.getElementById('boxSetScannerModal').classList.remove('active');
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
 
@@ -8242,6 +8899,27 @@ return {
        loadGroupWishlist: loadGroupWishlist,
        renderGroupWishlist: renderGroupWishlist,
        filterWishlistByMember: filterWishlistByMember,
+
+    // Spreadsheet / Bulk Editor (v2.9.0)
+    loadSpreadsheetData,
+    renderSpreadsheet,
+    filterSpreadsheet,
+    saveSpreadsheetChanges,
+    onSpreadsheetChange,
+    fetchTmdbForCopy,
+    fetchMissingTmdbData,
+    // Box Set AI Cover Field Detection (v2.9.0)
+    scanBoxSetCoverForFields,
+    cycleDetectedPhraseField,
+    applyDetectedFields,
+    closeBoxSetFieldDetect,
+    // Box Set Movie Scanner - Camera (v2.9.0)
+    openBoxSetScanner,
+    boxSetScanCapture,
+    removeBoxSetScanItem,
+    clearBoxSetScanList,
+    processBoxSetScanBatch,
+    closeBoxSetScanner,
 
     // === ADD THESE FOR DEBUGGING ===
     get collection() { return collection; },

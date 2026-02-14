@@ -1,7 +1,7 @@
 # CineShelf Administrator Guide
 
-**Version:** 2.8.0
-**Last Updated:** 2026-02-12
+**Version:** 2.9.0
+**Last Updated:** 2026-02-14
 **Target Audience:** System administrators, maintainers, power users
 
 ---
@@ -1055,6 +1055,30 @@ WHERE b.returned_at IS NULL
   AND b.due_date < date('now')
 ORDER BY days_overdue DESC;
 ```
+
+---
+
+## Bulk Data Editor (v2.9.0)
+
+The Bulk Data Editor provides a spreadsheet-style interface for rapid inline editing of collection data. This is accessible to all users via the 📊 (Bulk Editor) sub-view in the Collection tab.
+
+### New API Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `list_all_copies_detailed` | Fetches all copies with full movie metadata for the spreadsheet view |
+| `list_all_containers_detailed` | Fetches all containers with movie counts for the spreadsheet view |
+| `bulk_update_copies` | Batch-updates multiple copies at once (format, edition, region, condition, notes) |
+| `bulk_update_containers` | Batch-updates multiple containers at once (format, edition, region, condition) |
+| `scan_boxset_cover_fields` | AI-powered cover analysis for box set field detection (GPT-4o) |
+
+### OpenAI API Usage Note
+
+The `scan_boxset_cover_fields` endpoint makes an additional type of OpenAI Vision API call. It uses `gpt-4o` with `max_tokens: 800` and returns structured JSON with detected text phrases and suggested field mappings. Admins should monitor OpenAI API usage if cost is a concern.
+
+### Audit Logging
+
+Bulk updates are logged with action types `copy_bulk_updated` and `container_bulk_updated` in the `audit_log` table, with one entry per updated record.
 
 ---
 

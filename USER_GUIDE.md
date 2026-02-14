@@ -1,7 +1,7 @@
 # CineShelf User Guide
 
-**Version:** 2.2.14
-**Last Updated:** 2026-02-08
+**Version:** 2.9.0
+**Last Updated:** 2026-02-14
 **Welcome to CineShelf!** Your personal movie collection manager.
 
 ---
@@ -10,14 +10,15 @@
 
 1. [Getting Started](#getting-started)
 2. [Your Collection](#your-collection)
-3. [Managing Your Wishlist](#managing-your-wishlist)
-4. [Family & Group Collections](#family--group-collections)
-5. [Borrowing Movies](#borrowing-movies)
-6. [Playing Trivia](#playing-trivia)
-7. [Settings & Preferences](#settings--preferences)
-8. [Tips & Tricks](#tips--tricks)
-9. [Frequently Asked Questions](#frequently-asked-questions)
-10. [Troubleshooting](#troubleshooting)
+3. [Bulk Data Editor](#bulk-data-editor)
+4. [Managing Your Wishlist](#managing-your-wishlist)
+5. [Family & Group Collections](#family--group-collections)
+6. [Borrowing Movies](#borrowing-movies)
+7. [Playing Trivia](#playing-trivia)
+8. [Settings & Preferences](#settings--preferences)
+9. [Tips & Tricks](#tips--tricks)
+10. [Frequently Asked Questions](#frequently-asked-questions)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -101,6 +102,7 @@ Inside the Collection tab, use the pill buttons at the top to switch views:
 | 🎬 Movies | Your full movie collection (filter, sort, grid/list view) |
 | ❤️ Wishlist | Movies you want to buy |
 | 📦 Box Sets | Your owned box sets, DVD/Blu-ray collections, multi-movie packages |
+| 📊 Spreadsheet | Bulk edit all copies or box sets in a table view (NEW in v2.9.0) |
 | 🗂️ Shelf View | Browse shelves hierarchically — click in to see sections and movies |
 
 **Finding Your Way:**
@@ -364,6 +366,93 @@ Box sets are physical cases containing multiple movies. Examples:
    - Click "Done" or navigate away
    - Box set is saved automatically
 
+### Box Set AI Cover Scanning (NEW in v2.9.0)
+
+When creating a box set, you can use AI to analyze the cover photo and automatically detect text, saving you from typing everything manually.
+
+**How It Works:**
+
+1. **Start Creating a Box Set**
+   - Go to Add Tab (➕) → Add Box Set
+
+2. **Click "Scan Cover"**
+   - A new button appears in the box set creation form
+   - Take a photo of the box set cover (or upload one)
+
+3. **AI Analyzes the Cover**
+   - The AI reads all visible text on the cover image
+   - It detects titles, edition info, format, spine text, and version details
+
+4. **Review Suggested Field Assignments**
+   - Each detected piece of text appears as a **clickable chip**
+   - Chips are color-coded by suggested field:
+     - **Title** — the box set name
+     - **Spine** — what appears on the physical spine
+     - **Edition** — special edition details (e.g., "Ultimate Collector's Edition")
+     - **Format** — disc format (e.g., "Blu-ray", "4K UHD")
+     - **Version** — version or release info
+   - Click any chip to **reassign** it to a different field
+   - For example, if AI suggests "Director's Cut" as Title, click it and reassign to Edition
+
+5. **Accept and Continue**
+   - Once fields are assigned correctly, confirm
+   - The form auto-fills with the detected values
+   - Continue adding movies to the box set as usual
+
+**Tips:**
+- Use good lighting and a flat surface for best results
+- The AI works best with English-language covers
+- You can always manually adjust any field after scanning
+- Works with phone cameras and uploaded images
+
+### Box Set Movie Scanner — Camera-Based (NEW in v2.9.0)
+
+Quickly add multiple movies to a box set by scanning their individual disc covers with your camera, similar to the Quick Scan feature.
+
+**How It Works:**
+
+1. **Open a Box Set** (new or existing)
+   - Navigate to the box set creation or editing screen
+
+2. **Click "Scan Covers"**
+   - This opens your device camera directly (no file picker)
+   - Works just like the Quick Scan feature for single movies
+
+3. **Scan Movie Covers One by One**
+   - Point the camera at the first disc cover and capture
+   - The system identifies the movie
+   - Immediately prompts you for the next scan
+   - Keep scanning all discs in the box set
+
+4. **Review Scanned Movies**
+   - After scanning, all identified movies appear in a list
+   - Review the matches and remove any incorrect ones
+   - Adjust the order if needed
+
+5. **Batch-Add to Box Set**
+   - Click "Add All to Box Set"
+   - All scanned movies are added at once
+   - Much faster than searching and adding one by one
+
+**Example Workflow:**
+```
+Open "Lord of the Rings Extended" box set
+  → Click "Scan Covers"
+  → Camera opens
+  → Scan: Fellowship of the Ring → ✓ Matched
+  → Scan: The Two Towers → ✓ Matched
+  → Scan: Return of the King → ✓ Matched
+  → Review 3 movies
+  → Click "Add All to Box Set"
+  → Done! All 3 movies added
+```
+
+**Tips:**
+- Scan the front cover of each disc for best results
+- If a disc is not recognized, you can skip it and add manually later
+- Works great for large box sets with many discs (e.g., James Bond Collection)
+- Ensure adequate lighting for clear camera captures
+
 ### Example: Creating The Matrix Trilogy Box Set
 
 ```
@@ -479,6 +568,62 @@ See your collection stats at the top:
 - **Total Value** - Sum of purchase prices
 - **Formats Breakdown** - How many DVDs, Blu-rays, etc.
 - **Average Rating** - Average TMDB rating of your collection
+
+### Bulk Data Editor — Spreadsheet View (NEW in v2.9.0)
+
+The Bulk Data Editor gives you a spreadsheet-style table for viewing and editing your entire collection at a glance. Access it from the **📊 Spreadsheet** tab inside Collection.
+
+**What It Does:**
+- Displays all your copies (or box sets) in a sortable, scrollable table
+- Each row shows one copy with columns for Title, Format, Edition, Region, Condition, and Notes
+- Edit fields inline — click any editable cell and change the value directly
+- Filter by title to narrow down what you see
+- Fetch missing TMDB data for entries that are incomplete
+- Save all your changes in bulk with one click
+
+**How to Use the Bulk Data Editor:**
+
+1. **Open the Spreadsheet View**
+   - Go to the Collection tab
+   - Click the **📊 Spreadsheet** pill button at the top
+
+2. **Browse Your Data**
+   - All copies (or box sets) load into the table
+   - Scroll horizontally to see all columns
+   - Use the title filter at the top to search for specific movies
+
+3. **Edit Inline**
+   - Click any editable cell (Format, Edition, Region, Condition, Notes)
+   - Type or select a new value
+   - The cell highlights to indicate unsaved changes
+
+4. **Fetch Missing TMDB Data**
+   - If a row is missing poster, director, or other metadata, click "Fetch TMDB Data"
+   - The system queries TMDB and fills in missing fields
+
+5. **Save Changes in Bulk**
+   - When you are done editing, click "Save All Changes"
+   - All modified rows are saved at once
+   - A confirmation message shows how many rows were updated
+
+**Tips:**
+- Great for quickly normalizing formats (e.g., changing "BluRay" to "Blu-ray" everywhere)
+- Use the filter to focus on a specific franchise or format
+- Review recently added entries to fill in missing Edition or Condition fields
+
+**Example:**
+```
+┌──────────────────────┬──────────┬────────────┬──────────┬───────────┬──────────┐
+│ Title                │ Format   │ Edition    │ Region   │ Condition │ Notes    │
+├──────────────────────┼──────────┼────────────┼──────────┼───────────┼──────────┤
+│ Inception            │ Blu-ray  │ Standard   │ Region A │ Mint      │          │
+│ The Matrix           │ 4K UHD   │ Steelbook  │ Region A │ Like New  │ Import   │
+│ Alien                │ DVD      │ Director's │ Region 1 │ Good      │          │
+│ Jurassic Park        │ Blu-ray  │ [click to  │ [click]  │ [click]   │ [click]  │
+│                      │          │  edit]     │          │           │          │
+└──────────────────────┴──────────┴────────────┴──────────┴───────────┴──────────┘
+                                             [ Save All Changes ]
+```
 
 ---
 
@@ -1297,6 +1442,9 @@ Connect with other CineShelf users:
 | Create group | Groups → Create Group → Name → Create |
 | Borrow movie | Group Collection → Select movie → Borrow |
 | Play trivia | Trivia → Choose mode → Start Game |
+| Bulk edit collection | Collection → 📊 Spreadsheet → Edit → Save All |
+| Scan box set cover | Add Box Set → Scan Cover → Review chips → Confirm |
+| Scan movies into box set | Box Set → Scan Covers → Scan each disc → Add All |
 | Export data | Settings → Export Collection → CSV/JSON |
 
 ### Movie Formats
@@ -1339,6 +1487,6 @@ US ratings explained:
 
 **Enjoy using CineShelf!** 🎬🍿
 
-**Document Version:** 1.0
-**Last Updated:** 2026-02-03
+**Document Version:** 1.1
+**Last Updated:** 2026-02-14
 **For technical support, see ADMIN_GUIDE.md or DEV_GUIDE.md**

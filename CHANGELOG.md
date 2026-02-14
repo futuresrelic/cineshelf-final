@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.0] - 2026-02-14
+
+### Added
+- **Bulk Data Editor (Spreadsheet View)** — new sub-view in the Collection tab for rapid inline editing:
+  - New "Bulk Editor" sub-view (spreadsheet icon) accessible from the Collection tab pill navigation
+  - Displays all movies/copies or box sets in a spreadsheet/table format
+  - Inline editing for Format, Edition, Region, Condition, and Notes fields directly in the table
+  - Filter rows by title search
+  - "Fetch Missing Data" button to populate missing TMDB metadata in bulk across all visible rows
+  - Individual refresh buttons per row to fetch TMDB data for a single entry
+  - "Save Changes" button with change tracking — shows count of modified rows before saving
+  - Toggle between "Individual Copies" and "Box Sets" data types within the spreadsheet
+  - New API endpoints: `list_all_copies_detailed`, `list_all_containers_detailed`, `bulk_update_copies`, `bulk_update_containers`
+- **Box Set AI Cover Scanning with Smart Field Detection** — AI-powered form auto-population:
+  - New "Scan Cover" button on Box Set Step 1 (creation form)
+  - Uses GPT-4o to analyze a photo of the box set cover
+  - Detects text phrases on the cover and categorizes them into fields: Title, Spine Label, Edition, Format, Version
+  - Shows a modal with detected phrases as clickable chips
+  - Click a phrase chip to cycle through field assignments (Title → Spine → Edition → Format → Version → None)
+  - "Apply to Box Set Form" button auto-populates the creation form fields with assigned phrases
+  - New API endpoint: `scan_boxset_cover_fields`
+- **Box Set Movie Scanner (Camera-Based, Quick Scan Style)** — streamlined camera scanning for adding movies to box sets:
+  - "Scan Titles" button now opens a camera-based scanner modal (matching the Quick Scan UX in Add Movie)
+  - Live camera feed with "Scan Cover" button for each disc/movie
+  - Each scan uses AI (GPT-4o) to recognize a movie title from the cover
+  - Multiple covers can be scanned sequentially, building a batch list
+  - "Add All to Box Set" processes the batch: searches TMDB for each title and adds matches to the current box set
+  - Supports iOS and Android camera handling
+  - Significantly fewer clicks compared to the previous file-upload approach
+
+---
+
 ## [2.8.0] - 2026-02-12
 
 ### Added
@@ -575,7 +607,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MINOR**: New features, non-breaking changes
 - **PATCH**: Bug fixes, small improvements
 
-**Current Version:** 2.2.14
+**Current Version:** 2.9.0
 
 ---
 

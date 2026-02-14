@@ -4367,6 +4367,269 @@ case 'resolve_movie':
             jsonResponse(true, ['titles' => $titles]);
             break;
 
+        case 'scan_boxset_cover_fields':
+            // AI-powered box set cover scanning: detects text phrases and suggests field assignments
+            // Returns detected phrases with suggested field mappings (title, spine, edition, format, version, etc.)
+            $base64Image = $input['image'] ?? '';
+
+            if (empty($base64Image)) {
+                jsonResponse(false, null, 'Image data required');
+            }
+
+            if (empty(OPENAI_API_KEY)) {
+                jsonResponse(false, null, 'OpenAI API not configured');
+            }
+
+            $apiData = [
+                'model' => 'gpt-4o',
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'text',
+                                'text' => 'This is a photo of a DVD/Blu-ray box set cover. Analyze ALL visible text and categorize each detected phrase into the most likely field it belongs to. Return a JSON object with these keys:
+- "detected_phrases": array of ALL text phrases found on the cover
+- "suggested": object with these optional keys, each containing the best-matching phrase:
+  - "title": the box set title/name (e.g. "Star Wars: The Complete Trilogy")
+  - "spine_label": text that would appear on the spine
+  - "edition": edition info (e.g. "Special Edition", "Director\'s Cut", "Collector\'s Edition")
+  - "format": physical format (e.g. "DVD", "Blu-ray", "4K UHD")
+  - "aspect_ratio": aspect ratio info (e.g. "Widescreen", "Full Screen")
+  - "version": version info (e.g. "Theatrical Version", "Director\'s Cut", "Final Cut", "Unrated")
+  - "studio": studio name if visible
+  - "movie_count": number of movies/films mentioned (as string)
+Return ONLY the JSON object, no markdown.'
+                            ],
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => 'data:image/jpeg;base64,' . $base64Image
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'max_tokens' => 800
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . OPENAI_API_KEY
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlError) {
+                jsonResponse(false, null, 'Network error: ' . $curlError);
+            }
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMsg = $errorData['error']['message'] ?? 'OpenAI API request failed';
+                jsonResponse(false, null, 'OpenAI API error: ' . $errorMsg);
+            }
+
+            $data = json_decode($response, true);
+            $content = trim($data['choices'][0]['message']['content'] ?? '');
+
+            // Try to parse JSON from response (handle markdown code blocks)
+            $content = preg_replace('/^```json\s*/', '', $content);
+            $content = preg_replace('/\s*```$/', '', $content);
+            $parsed = json_decode($content, true);
+
+            if (!is_array($parsed)) {
+                $parsed = ['detected_phrases' => [], 'suggested' => []];
+            }
+
+            jsonResponse(true, $parsed);
+            break;
+
+        case 'bulk_update_copies':
+            // Bulk update multiple copies at once (for spreadsheet editor)
+            $updates = $input['updates'] ?? [];
+
+            if (!is_array($updates) || empty($updates)) {
+                jsonResponse(false, null, 'No updates provided');
+            }
+
+            $successCount = 0;
+            $errors = [];
+
+            foreach ($updates as $update) {
+                $copyId = intval($update['copy_id'] ?? 0);
+                if (!$copyId) {
+                    $errors[] = 'Invalid copy_id';
+                    continue;
+                }
+
+                // Verify ownership
+                $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+                $stmt->execute([$copyId]);
+                $copy = $stmt->fetch();
+
+                if (!$copy || $copy['user_id'] != $userId) {
+                    $errors[] = "Copy $copyId not found or access denied";
+                    continue;
+                }
+
+                $format = sanitize($update['format'] ?? '', 50);
+                $edition = sanitize($update['edition'] ?? '', 100);
+                $region = sanitize($update['region'] ?? '', 50);
+                $condition = sanitize($update['condition'] ?? '', 50);
+                $notes = sanitize($update['notes'] ?? '', 500);
+
+                $stmt = $db->prepare("
+                    UPDATE copies
+                    SET format = CASE WHEN ? != '' THEN ? ELSE format END,
+                        edition = ?,
+                        region = CASE WHEN ? != '' THEN ? ELSE region END,
+                        condition = CASE WHEN ? != '' THEN ? ELSE condition END,
+                        notes = ?
+                    WHERE id = ? AND user_id = ?
+                ");
+                $stmt->execute([
+                    $format, $format,
+                    $edition,
+                    $region, $region,
+                    $condition, $condition,
+                    $notes,
+                    $copyId, $userId
+                ]);
+
+                $successCount++;
+                logAction($db, $userId, 'copy_bulk_updated', 'copy', $copyId);
+            }
+
+            jsonResponse(true, ['updated' => $successCount, 'errors' => $errors]);
+            break;
+
+        case 'bulk_update_containers':
+            // Bulk update multiple box sets at once (for spreadsheet editor)
+            $updates = $input['updates'] ?? [];
+
+            if (!is_array($updates) || empty($updates)) {
+                jsonResponse(false, null, 'No updates provided');
+            }
+
+            $successCount = 0;
+            $errors = [];
+
+            foreach ($updates as $update) {
+                $containerId = intval($update['container_id'] ?? 0);
+                if (!$containerId) {
+                    $errors[] = 'Invalid container_id';
+                    continue;
+                }
+
+                // Verify ownership
+                $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+                $stmt->execute([$containerId]);
+                $container = $stmt->fetch();
+
+                if (!$container || $container['user_id'] != $userId) {
+                    $errors[] = "Container $containerId not found or access denied";
+                    continue;
+                }
+
+                $format = sanitize($update['format'] ?? '', 50);
+                $edition = sanitize($update['edition'] ?? '', 100);
+                $region = sanitize($update['region'] ?? '', 50);
+                $condition = sanitize($update['condition'] ?? '', 50);
+
+                $stmt = $db->prepare("
+                    UPDATE containers
+                    SET format = CASE WHEN ? != '' THEN ? ELSE format END,
+                        edition = ?,
+                        region = CASE WHEN ? != '' THEN ? ELSE region END,
+                        condition = CASE WHEN ? != '' THEN ? ELSE condition END
+                    WHERE id = ? AND user_id = ?
+                ");
+                $stmt->execute([
+                    $format, $format,
+                    $edition,
+                    $region, $region,
+                    $condition, $condition,
+                    $containerId, $userId
+                ]);
+
+                $successCount++;
+                logAction($db, $userId, 'container_bulk_updated', 'container', $containerId);
+            }
+
+            jsonResponse(true, ['updated' => $successCount, 'errors' => $errors]);
+            break;
+
+        case 'list_all_copies_detailed':
+            // Get all copies with full movie details for bulk editing spreadsheet
+            $stmt = $db->prepare("
+                SELECT
+                    c.id as copy_id,
+                    c.movie_id,
+                    c.format,
+                    c.edition,
+                    c.region,
+                    c.condition as copy_condition,
+                    c.notes,
+                    c.barcode,
+                    c.seasons_owned,
+                    c.created_at,
+                    m.tmdb_id,
+                    m.title,
+                    m.display_title,
+                    m.year,
+                    m.poster_url,
+                    m.rating,
+                    m.runtime,
+                    m.genre,
+                    m.director,
+                    m.actors,
+                    m.studio,
+                    m.certification,
+                    m.media_type,
+                    m.overview
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.user_id = ?
+                ORDER BY COALESCE(m.display_title, m.title) ASC
+            ");
+            $stmt->execute([$userId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'list_all_containers_detailed':
+            // Get all containers with details for bulk editing spreadsheet
+            $stmt = $db->prepare("
+                SELECT
+                    ct.id as container_id,
+                    ct.name,
+                    ct.spine_label,
+                    ct.format,
+                    ct.edition,
+                    ct.region,
+                    ct.condition as container_condition,
+                    ct.notes,
+                    ct.created_at,
+                    (SELECT COUNT(*) FROM container_contents cc WHERE cc.container_id = ct.id) as movie_count
+                FROM containers ct
+                WHERE ct.user_id = ?
+                ORDER BY ct.name ASC
+            ");
+            $stmt->execute([$userId]);
+
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
         case 'save_icon':
             // Save app icons to ROOT directory or /admin/ directory
             // Main app uses: /app-icon.png (512x512), /app-icon-192.png, /favicon.ico

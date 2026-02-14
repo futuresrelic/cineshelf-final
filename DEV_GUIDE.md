@@ -1,7 +1,7 @@
 # CineShelf Developer Guide
 
-**Version:** 2.2.14  
-**Last Updated:** February 7, 2026  
+**Version:** 2.9.0
+**Last Updated:** February 14, 2026
 **Repository:** https://github.com/futuresrelic/cineshelf-final
 
 ---
@@ -17,10 +17,13 @@
 7. [Shelf Management](#7-shelf-management)
 8. [Core Features](#8-core-features)
 9. [Version Management & Cache Busting](#85-version-management--cache-busting)
-10. [Development Setup](#9-development-setup)
-11. [Deployment](#10-deployment)
-12. [API Reference](#11-api-reference)
-13. [Troubleshooting](#12-troubleshooting)
+10. [Bulk Data Editor](#86-bulk-data-editor)
+11. [Box Set AI Cover Scanning](#87-box-set-ai-cover-scanning)
+12. [Box Set Movie Scanner](#88-box-set-movie-scanner)
+13. [Development Setup](#9-development-setup)
+14. [Deployment](#10-deployment)
+15. [API Reference](#11-api-reference)
+16. [Troubleshooting](#12-troubleshooting)
 
 ---
 
@@ -1706,6 +1709,7 @@ The Shelf Setup Wizard (`wizardCreate()` in app.js) provides a guided flow to ba
 | Wishlist | `'wishlist'` | Wishlist grid | Browse Lists button |
 | Box Sets | `'boxsets'` | Box sets list | Create Box Set button |
 | Shelf View | `'shelfview'` | Hierarchical shelf browser | Back button + breadcrumb |
+| Bulk Editor | `'bulkeditor'` | Spreadsheet/table view | Data type toggle, title search, save/fetch buttons |
 
 **Shelf View state:**
 - `shelfViewStack` — array of `{id, name}` representing the drill-in path; `id: null` = root
@@ -2182,6 +2186,412 @@ async function forceUpdate() {
 
 ---
 
+## 8.6. Bulk Data Editor
+
+### Overview
+
+The Bulk Data Editor (v2.9.0+) adds a spreadsheet-style sub-view to the Collection tab, allowing users to view and edit multiple copies or box sets in a table format. This is significantly faster than editing items one-by-one through the detail modal.
+
+### Architecture
+
+```
+┌─────────────────────────────────────┐
+│ Collection Tab → Bulk Editor (📊)   │
+├─────────────────────────────────────┤
+│ [Individual Copies] [Box Sets]      │  ← Data type toggle
+│ [Search by title...        ]        │  ← Title filter
+│ [Fetch Missing Data] [Save Changes] │  ← Action buttons
+├─────────────────────────────────────┤
+│ Title  │ Format │ Edition │ Region  │  ← Table headers
+│────────┼────────┼─────────┼─────────│
+│ Alien  │ Blu-ray│ Dir.Cut │ Region A│  ← Inline editable
+│ Jaws   │ 4K     │ Std     │ Region A│  ← Inline editable
+│ ...    │ ...    │ ...     │ ...     │
+└─────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+1. User clicks Bulk Editor (📊) sub-view button
+   ↓
+2. Frontend calls list_all_copies_detailed or list_all_containers_detailed
+   ↓
+3. Backend returns all copies/containers with full metadata
+   ↓
+4. Frontend renders spreadsheet table with inline editable fields
+   ↓
+5. User edits fields → changes tracked in local state (modified row count shown)
+   ↓
+6. User clicks "Save Changes"
+   ↓
+7. Frontend calls bulk_update_copies or bulk_update_containers with changed rows
+   ↓
+8. Backend batch-updates all modified records
+```
+
+### API Endpoints
+
+#### `list_all_copies_detailed`
+
+Returns all copies for the current user with full movie metadata, suitable for spreadsheet rendering.
+
+**Request:**
+```json
+{
+    "action": "list_all_copies_detailed"
+}
+```
+
+**Response:**
+```json
+{
+    "ok": true,
+    "data": [
+        {
+            "copy_id": 42,
+            "movie_id": 10,
+            "title": "Alien",
+            "year": 1979,
+            "poster_url": "https://image.tmdb.org/t/p/w500/...",
+            "format": "Blu-ray",
+            "edition": "Director's Cut",
+            "region": "Region A",
+            "condition": "Like New",
+            "notes": ""
+        }
+    ]
+}
+```
+
+#### `list_all_containers_detailed`
+
+Returns all box sets/containers for the current user with metadata.
+
+**Request:**
+```json
+{
+    "action": "list_all_containers_detailed"
+}
+```
+
+**Response:**
+```json
+{
+    "ok": true,
+    "data": [
+        {
+            "container_id": 5,
+            "name": "The Matrix Trilogy",
+            "spine_label": "THE MATRIX TRILOGY",
+            "format": "Blu-ray Box Set",
+            "edition": "Ultimate Collection",
+            "region": "Region A",
+            "condition": "Mint",
+            "notes": "",
+            "movie_count": 3
+        }
+    ]
+}
+```
+
+#### `bulk_update_copies`
+
+Batch-updates multiple copies in a single request.
+
+**Request:**
+```json
+{
+    "action": "bulk_update_copies",
+    "updates": [
+        {
+            "copy_id": 42,
+            "format": "4K",
+            "edition": "Steelbook",
+            "region": "Region A",
+            "condition": "Mint",
+            "notes": "Limited edition"
+        },
+        {
+            "copy_id": 43,
+            "format": "Blu-ray",
+            "edition": "Standard",
+            "region": "Region B",
+            "condition": "Good",
+            "notes": ""
+        }
+    ]
+}
+```
+
+**Response:**
+```json
+{
+    "ok": true,
+    "data": {
+        "updated": 2,
+        "failed": 0
+    }
+}
+```
+
+#### `bulk_update_containers`
+
+Batch-updates multiple box sets/containers in a single request.
+
+**Request:**
+```json
+{
+    "action": "bulk_update_containers",
+    "updates": [
+        {
+            "container_id": 5,
+            "format": "4K UHD Box Set",
+            "edition": "Collector's Edition",
+            "region": "Region A",
+            "condition": "Mint",
+            "notes": "Upgraded to 4K"
+        }
+    ]
+}
+```
+
+### Change Tracking
+
+The frontend tracks modifications in a `Map` keyed by copy/container ID. The "Save Changes" button displays the count of modified rows (e.g., "Save Changes (3)") so the user knows how many rows will be updated before committing.
+
+### Fetch Missing Data
+
+The "Fetch Missing Data" button iterates over all visible rows and identifies copies whose associated movies lack TMDB metadata (e.g., missing director, genre, actors). It then batch-fetches details from TMDB and updates the database. Individual per-row refresh buttons allow targeted fetching for a single entry.
+
+---
+
+## 8.7. Box Set AI Cover Scanning
+
+### Overview
+
+The Box Set AI Cover Scanning feature (v2.9.0+) adds a "Scan Cover" button to Box Set Step 1 (the creation form). It uses GPT-4o to analyze a photo of the box set's physical cover and detect text phrases, categorizing them into form fields.
+
+### Architecture
+
+```
+┌────────────────────┐
+│ Box Set Step 1     │
+│ (Creation Form)    │
+│                    │
+│ [Scan Cover]       │  ← New button
+└────────┬───────────┘
+         │
+         ▼ [User takes photo or selects image]
+┌──────────────────────────────────┐
+│ Image captured → base64 encoded  │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│ POST /api/api.php                │
+│ {                                │
+│   action: 'scan_boxset_cover_    │
+│            fields',              │
+│   image: 'base64_jpeg_data...'   │
+│ }                                │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│ Backend → GPT-4o Vision API      │
+│ Prompt: Detect all text phrases  │
+│ and categorize as Title, Spine,  │
+│ Edition, Format, or Version      │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│ Response: Array of phrases with  │
+│ suggested field assignments      │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│ Modal shows detected phrases     │
+│ as clickable chips               │
+│                                  │
+│ [The Matrix Trilogy] ← Title     │
+│ [4K Ultra HD]        ← Format    │
+│ [Ultimate Ed.]       ← Edition   │
+│                                  │
+│ Click chip to cycle:             │
+│ Title → Spine → Edition →        │
+│ Format → Version → None          │
+│                                  │
+│ [Apply to Box Set Form]          │
+└──────────────────────────────────┘
+```
+
+### API Endpoint
+
+#### `scan_boxset_cover_fields`
+
+Analyzes a box set cover image and returns detected text phrases with field categorizations.
+
+**Request:**
+```json
+{
+    "action": "scan_boxset_cover_fields",
+    "image": "base64_jpeg_data..."
+}
+```
+
+**Response:**
+```json
+{
+    "ok": true,
+    "data": {
+        "phrases": [
+            {"text": "The Matrix Trilogy", "field": "title"},
+            {"text": "THE MATRIX TRILOGY", "field": "spine"},
+            {"text": "Ultimate Collection", "field": "edition"},
+            {"text": "4K Ultra HD", "field": "format"},
+            {"text": "Remastered 2023", "field": "version"}
+        ]
+    }
+}
+```
+
+### Field Assignment Cycling
+
+Users can click any detected phrase chip to cycle its field assignment:
+
+```
+Title → Spine Label → Edition → Format → Version → None → Title → ...
+```
+
+Each field type is visually distinguished with a different color/badge in the modal. When the user clicks "Apply to Box Set Form", all assigned phrases populate the corresponding fields in the Box Set Step 1 form.
+
+### Model & Cost
+
+- **Model:** GPT-4o (full model, not mini — needed for accurate text detection and categorization)
+- **Cost:** ~$0.02-0.05 per scan (higher than single-title scans due to richer prompt and response)
+
+---
+
+## 8.8. Box Set Movie Scanner
+
+### Overview
+
+The Box Set Movie Scanner (v2.9.0+) replaces the previous file-upload approach for adding movies to box sets with a camera-based Quick Scan experience. It matches the UX of the existing Quick Scan in the Add Movie tab.
+
+### Architecture
+
+```
+┌────────────────────────────────────┐
+│ Box Set Step 2 (Add Movies)        │
+│                                    │
+│ [Scan Titles]  ← Opens scanner    │
+└────────┬───────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────┐
+│ Camera Scanner Modal               │
+│ ┌──────────────────────────────┐   │
+│ │                              │   │
+│ │      Live Camera Feed        │   │
+│ │                              │   │
+│ └──────────────────────────────┘   │
+│ [Scan Cover]                       │
+│                                    │
+│ Scanned Titles:                    │
+│ ✅ The Matrix (1999)               │
+│ ✅ The Matrix Reloaded (2003)      │
+│ ✅ The Matrix Revolutions (2003)   │
+│                                    │
+│ [Add All to Box Set]               │
+└────────────────────────────────────┘
+```
+
+### Scanning Flow
+
+```
+1. User clicks "Scan Titles" → Camera scanner modal opens
+   ↓
+2. Live camera feed displayed (getUserMedia, rear camera preferred)
+   ↓
+3. User points camera at a movie cover → clicks "Scan Cover"
+   ↓
+4. Frame captured → base64 JPEG → POST scan_cover_image
+   ↓
+5. GPT-4o returns recognized movie title
+   ↓
+6. Title added to batch list in the modal
+   ↓
+7. Repeat steps 3-6 for each disc/movie in the box set
+   ↓
+8. User clicks "Add All to Box Set"
+   ↓
+9. For each title in the batch:
+   a. Search TMDB for the title
+   b. Take the top match
+   c. Add movie to collection + link to current box set via add_movie_to_container
+   ↓
+10. Box set movie list updates with all newly added films
+```
+
+### Camera Handling
+
+Reuses the same camera infrastructure as the existing Quick Scan feature in cover-scanner.js:
+
+```javascript
+// Camera initialization (shared with Quick Scan)
+const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+    }
+});
+```
+
+**iOS Compatibility:**
+- `playsinline` and `webkit-playsinline` attributes set on video element
+- HTTPS required (Railway provides this)
+- Camera permission required in Safari settings
+
+**Android Compatibility:**
+- Permission prompt on first use
+- HTTPS required
+- Standard Chrome camera API
+
+### Batch Processing
+
+Unlike the main Quick Scan (which adds to `unresolved_copies` for later resolution), the Box Set scanner immediately processes each title:
+
+1. Searches TMDB for the scanned title
+2. Takes the best match automatically
+3. Creates a copy and links it to the current box set (`add_movie_to_container`)
+4. Updates the box set movie list in real time
+
+This eliminates the "resolve" step entirely, making box set population much faster.
+
+### UX Advantages Over Previous Approach
+
+The previous approach required:
+1. Click "Scan" button
+2. Select image file from gallery
+3. Wait for AI processing
+4. See result, confirm
+5. Repeat for each movie
+
+The new camera-based approach:
+1. Click "Scan Titles" (opens modal once)
+2. Point camera at cover, click "Scan Cover"
+3. Title instantly added to batch list
+4. Point at next cover, click again
+5. Click "Add All to Box Set" when done
+
+This reduces the number of taps/clicks from ~5 per movie to ~2 per movie, and eliminates repeated modal open/close cycles.
+
+---
+
 ## 9. Development Setup
 
 ### Prerequisites
@@ -2364,6 +2774,16 @@ fetch('/api/api.php', {
 | `add_to_wishlist` | tmdb_id | Add to wishlist |
 | `get_wishlist` | - | Get wishlist |
 | `scan_cover_image` | image (base64) | AI scan |
+
+### Bulk Editor Actions (v2.9.0+)
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_all_copies_detailed` | - | Get all copies with full movie metadata for spreadsheet view |
+| `list_all_containers_detailed` | - | Get all box sets with metadata for spreadsheet view |
+| `bulk_update_copies` | updates (array of {copy_id, format, edition, region, condition, notes}) | Batch-update multiple copies |
+| `bulk_update_containers` | updates (array of {container_id, format, edition, region, condition, notes}) | Batch-update multiple box sets |
+| `scan_boxset_cover_fields` | image (base64) | AI scan box set cover, return detected text phrases with field assignments |
 
 ### Shelf Actions
 
