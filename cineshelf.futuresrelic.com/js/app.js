@@ -2149,7 +2149,7 @@ async function viewMovieDetails(movieId) {
                         ${movie.year ? `<span>${movie.year}</span>` : ''}
                         ${movie.runtime ? `<span>${formatRuntime(movie.runtime)}</span>` : ''}
                         ${movie.rating ? `<span>⭐ ${Number(movie.rating).toFixed(1)}</span>` : ''}
-                        ${movie.certification ? `<span class="cert-badge" style="background: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge" style="--cert-color: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
                     </div>
 
                     ${seasonSummary}
@@ -5662,7 +5662,7 @@ async function viewGroupMovieDetails(movieId) {
                         ${movie.year ? `<span>${movie.year}</span>` : ''}
                         ${movie.runtime ? `<span>${movie.runtime} min</span>` : ''}
                         ${movie.rating ? `<span>⭐ ${movie.rating.toFixed(1)}</span>` : ''}
-                        ${movie.certification ? `<span class="cert-badge" style="background: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
+                        ${movie.certification ? `<span class="cert-badge" style="--cert-color: ${getCertColor(movie.certification)};">${movie.certification}</span>` : ''}
                     </div>
                     ${movie.genre ? `<div class="movie-detail-genre">${movie.genre}</div>` : ''}
                     ${movie.director ? `<div class="movie-detail-director">🎬 Directed by ${movie.director}</div>` : ''}
@@ -8072,10 +8072,59 @@ async function getCurrentUserId() {
         }
     }
 
+    function buildSelectOptions(presets, currentValue, includeEmpty) {
+        let opts = '';
+        if (includeEmpty) opts += '<option value="">--</option>';
+        const normalizedPresets = presets.map(p => p.toLowerCase());
+        let matched = !currentValue || currentValue === '';
+        presets.forEach(p => {
+            const selected = currentValue && currentValue.toLowerCase() === p.toLowerCase() ? ' selected' : '';
+            if (selected) matched = true;
+            opts += `<option value="${p}"${selected}>${p}</option>`;
+        });
+        // If stored value doesn't match any preset, add it as a visible option
+        if (!matched && currentValue) {
+            opts += `<option value="${currentValue}" selected>${currentValue}</option>`;
+        }
+        opts += '<option value="__custom__">Custom...</option>';
+        return opts;
+    }
+
+    function handleSpreadsheetCustomSelect(selectEl, rowId, field) {
+        if (selectEl.value === '__custom__') {
+            const custom = prompt('Enter custom value:');
+            if (custom && custom.trim()) {
+                const trimmed = custom.trim();
+                // Add the custom value as an option and select it
+                const opt = document.createElement('option');
+                opt.value = trimmed;
+                opt.textContent = trimmed;
+                opt.selected = true;
+                selectEl.insertBefore(opt, selectEl.querySelector('option[value="__custom__"]'));
+                onSpreadsheetChange(rowId, field, trimmed);
+            } else {
+                // Revert to previous value
+                const changes = spreadsheetChanges[rowId] || {};
+                const original = spreadsheetType === 'copies'
+                    ? spreadsheetOriginal.find(i => i.copy_id == rowId)
+                    : spreadsheetOriginal.find(i => `c_${i.container_id}` === String(rowId));
+                const origField = field === 'condition'
+                    ? (spreadsheetType === 'copies' ? 'copy_condition' : 'container_condition')
+                    : field;
+                selectEl.value = changes[field] || (original ? original[origField] : '') || '';
+            }
+        } else {
+            onSpreadsheetChange(rowId, field, selectEl.value);
+        }
+    }
+
+    const FORMAT_PRESETS = ['DVD', 'Blu-ray', '4K UHD', 'Digital', 'VHS', 'Laserdisc', '16mm', 'DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set'];
+    const CONDITION_PRESETS = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'];
+    const REGION_PRESETS = ['Region 1', 'Region 2', 'Region 3', 'Region 4', 'Region 5', 'Region 6', 'Region A', 'Region B', 'Region C', 'Region Free'];
+    const BOXSET_FORMAT_PRESETS = ['DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set', 'Mixed Format Set', 'Double Feature', 'Triple Feature', 'Steelbook Set', 'Criterion Collection', 'Collection'];
+    const BOXSET_REGION_PRESETS = ['Region 1', 'Region 2', 'Region A', 'Region B', 'Region Free'];
+
     function renderCopiesSpreadsheet(data) {
-        const formatOptions = ['DVD', 'Blu-ray', '4K UHD', 'Digital', 'VHS', 'Laserdisc', '16mm', 'DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set'].map(f => `<option value="${f}">${f}</option>`).join('');
-        const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'].map(c => `<option value="${c}">${c}</option>`).join('');
-        const regionOptions = ['Region 1', 'Region 2', 'Region 3', 'Region 4', 'Region 5', 'Region 6', 'Region A', 'Region B', 'Region C', 'Region Free'].map(r => `<option value="${r}">${r}</option>`).join('');
 
         let html = `<table class="spreadsheet-table">
             <thead><tr>
@@ -8099,19 +8148,23 @@ async function getCurrentUserId() {
             const changed = Object.keys(changes).length > 0;
             const missingData = !item.director || !item.genre || !item.actors;
 
+            const curFormat = changes.format || item.format || '';
+            const curRegion = changes.region || item.region || '';
+            const curCondition = changes.condition || item.copy_condition || '';
+
             html += `<tr class="${changed ? 'spreadsheet-row-changed' : ''}" data-copy-id="${id}">
                 <td>${poster ? `<img src="${poster}" class="spreadsheet-poster" alt="">` : '<div style="width:35px;height:52px;background:rgba(255,255,255,0.05);border-radius:3px;"></div>'}</td>
                 <td class="spreadsheet-title" title="${title.replace(/"/g, '&quot;')}">${title}</td>
                 <td>${item.year || ''}</td>
-                <td><select onchange="App.onSpreadsheetChange(${id}, 'format', this.value)" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
-                    ${formatOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'format')" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(FORMAT_PRESETS, curFormat, false)}
                 </select></td>
                 <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange(${id}, 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
-                <td><select onchange="App.onSpreadsheetChange(${id}, 'region', this.value)" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
-                    <option value="">--</option>${regionOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'region')" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(REGION_PRESETS, curRegion, true)}
                 </select></td>
-                <td><select onchange="App.onSpreadsheetChange(${id}, 'condition', this.value)" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
-                    ${conditionOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'condition')" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(CONDITION_PRESETS, curCondition, false)}
                 </select></td>
                 <td><input type="text" value="${(changes.notes !== undefined ? changes.notes : item.notes || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange(${id}, 'notes', this.value)" class="${changes.notes !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Notes..." style="min-width:120px;"></td>
                 <td style="color:rgba(255,255,255,0.5); font-size:0.8rem;">${item.director || '—'}</td>
@@ -8120,27 +8173,10 @@ async function getCurrentUserId() {
         });
 
         html += '</tbody></table>';
-
-        // Set current values on selects after render
-        requestAnimationFrame(() => {
-            data.forEach(item => {
-                const row = document.querySelector(`tr[data-copy-id="${item.copy_id}"]`);
-                if (!row) return;
-                const changes = spreadsheetChanges[item.copy_id] || {};
-                const selects = row.querySelectorAll('select');
-                if (selects[0]) selects[0].value = changes.format || item.format || 'DVD';
-                if (selects[1]) selects[1].value = changes.region || item.region || '';
-                if (selects[2]) selects[2].value = changes.condition || item.copy_condition || 'Good';
-            });
-        });
-
         return html;
     }
 
     function renderContainersSpreadsheet(data) {
-        const formatOptions = ['DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set', 'Mixed Format Set', 'Double Feature', 'Triple Feature', 'Steelbook Set', 'Criterion Collection', 'Collection'].map(f => `<option value="${f}">${f}</option>`).join('');
-        const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'].map(c => `<option value="${c}">${c}</option>`).join('');
-        const regionOptions = ['Region 1', 'Region 2', 'Region A', 'Region B', 'Region Free'].map(r => `<option value="${r}">${r}</option>`).join('');
 
         let html = `<table class="spreadsheet-table">
             <thead><tr>
@@ -8157,36 +8193,27 @@ async function getCurrentUserId() {
             const changes = spreadsheetChanges[`c_${id}`] || {};
             const changed = Object.keys(changes).length > 0;
 
+            const curFormat = changes.format || item.format || '';
+            const curRegion = changes.region || item.region || '';
+            const curCondition = changes.condition || item.container_condition || '';
+
             html += `<tr class="${changed ? 'spreadsheet-row-changed' : ''}" data-container-id="${id}">
                 <td class="spreadsheet-title" style="font-weight:600;">📦 ${item.name || 'Unnamed'}</td>
                 <td style="text-align:center;">${item.movie_count || 0}</td>
-                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'format', this.value)" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
-                    ${formatOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'format')" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(BOXSET_FORMAT_PRESETS, curFormat, false)}
                 </select></td>
                 <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange('c_${id}', 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
-                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'region', this.value)" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
-                    <option value="">--</option>${regionOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'region')" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(BOXSET_REGION_PRESETS, curRegion, true)}
                 </select></td>
-                <td><select onchange="App.onSpreadsheetChange('c_${id}', 'condition', this.value)" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
-                    ${conditionOptions}
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'condition')" class="${changes.condition ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(CONDITION_PRESETS, curCondition, false)}
                 </select></td>
             </tr>`;
         });
 
         html += '</tbody></table>';
-
-        requestAnimationFrame(() => {
-            data.forEach(item => {
-                const row = document.querySelector(`tr[data-container-id="${item.container_id}"]`);
-                if (!row) return;
-                const changes = spreadsheetChanges[`c_${item.container_id}`] || {};
-                const selects = row.querySelectorAll('select');
-                if (selects[0]) selects[0].value = changes.format || item.format || 'DVD Box Set';
-                if (selects[1]) selects[1].value = changes.region || item.region || '';
-                if (selects[2]) selects[2].value = changes.condition || item.container_condition || 'Good';
-            });
-        });
-
         return html;
     }
 
@@ -8906,6 +8933,7 @@ return {
     filterSpreadsheet,
     saveSpreadsheetChanges,
     onSpreadsheetChange,
+    handleSpreadsheetCustomSelect,
     fetchTmdbForCopy,
     fetchMissingTmdbData,
     // Box Set AI Cover Field Detection (v2.9.0)

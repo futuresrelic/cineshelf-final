@@ -1005,11 +1005,11 @@ select option {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Certification Badge (for movie cards) */
+/* Certification Badge (for movie cards) - uses --cert-color from inline style */
 .cert-badge {
-    background: rgba(255, 193, 7, 0.2);
-    border: 1px solid rgba(255, 193, 7, 0.5);
-    color: #ffc107;
+    background: color-mix(in srgb, var(--cert-color, #ff9800) 20%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cert-color, #ff9800) 50%, transparent);
+    color: var(--cert-color, #ff9800);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.75rem;
@@ -2099,11 +2099,11 @@ body.modal-open {
     color: var(--text-muted);
 }
 
-/* Certification badge in detail view */
+/* Certification badge in detail view - uses --cert-color or inline background */
 .movie-detail-meta .cert-badge {
-    background: rgba(255, 193, 7, 0.2);
-    border: 1px solid rgba(255, 193, 7, 0.5);
-    color: #ffc107;
+    background: color-mix(in srgb, var(--cert-color, #ff9800) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cert-color, #ff9800) 50%, transparent);
+    color: white;
     padding: 3px 8px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -5534,16 +5534,45 @@ body.modal-open {
 
 .spreadsheet-container {
     overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     max-height: calc(100vh - 260px);
-    overflow-y: auto;
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.1);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.35) rgba(255,255,255,0.08);
+}
+
+.spreadsheet-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.spreadsheet-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+}
+
+.spreadsheet-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.spreadsheet-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.spreadsheet-container::-webkit-scrollbar-corner {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .spreadsheet-table {
     width: 100%;
-    min-width: 900px;
+    min-width: 1100px;
     border-collapse: collapse;
     font-size: 0.85rem;
 }
