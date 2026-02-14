@@ -120,6 +120,33 @@ function getDb() {
         try { $db->exec("ALTER TABLE copies ADD COLUMN seasons_owned TEXT"); } catch (PDOException $e) {}
         try { $db->exec("ALTER TABLE movies ADD COLUMN number_of_seasons INTEGER"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Physical media attributes (v3.0.0)
+        try { $db->exec("ALTER TABLE copies ADD COLUMN aspect_ratio TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN package_type TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN feature_count TEXT DEFAULT 'Single'"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN has_slipcover INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN has_booklet INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN has_bonus_disc INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN bonus_disc_count INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN has_digital_copy INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN has_3d INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        // Container physical media attributes
+        try { $db->exec("ALTER TABLE containers ADD COLUMN aspect_ratio TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN package_type TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN feature_count TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN has_slipcover INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN has_booklet INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN has_bonus_disc INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN bonus_disc_count INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN has_digital_copy INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN has_3d INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN spine_type TEXT DEFAULT 'color'"); } catch (PDOException $e) {}
+        // Recreate view with new fields
+        try {
+            $db->exec("DROP VIEW IF EXISTS containers_with_counts");
+            $db->exec("CREATE VIEW IF NOT EXISTS containers_with_counts AS SELECT c.*, COUNT(cc.id) as total_movies, SUM(CASE WHEN cc.is_present = 1 THEN 1 ELSE 0 END) as present_movies, SUM(CASE WHEN cc.is_present = 0 THEN 1 ELSE 0 END) as missing_movies FROM containers c LEFT JOIN container_contents cc ON c.id = cc.container_id GROUP BY c.id");
+        } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

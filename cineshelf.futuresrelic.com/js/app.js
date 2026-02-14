@@ -207,6 +207,7 @@ const App = (function() {
     loadWishlist();
     loadGroups();
     loadShelves(); // Load shelves to populate dropdown
+    _initPackagingToggles(); // Wire up packaging checkbox toggles
 
         // Apply saved view preferences
         if (settings.defaultView) {
@@ -1601,6 +1602,16 @@ function renderCollection() {
         const notes = document.getElementById('copyNotes').value;
         const mediaType = selectedMovie.media_type || 'movie';
         const seasonsOwned = mediaType === 'tv' ? getSelectedSeasons() : '';
+        // Physical media attributes (v3.0.0)
+        const aspectRatio = document.getElementById('copyAspectRatio')?.value || '';
+        const packageType = document.getElementById('copyPackageType')?.value || '';
+        const featureCount = document.getElementById('copyFeatureCount')?.value || 'Single';
+        const hasSlipcover = document.getElementById('copyHasSlipcover')?.checked ? 1 : 0;
+        const hasBooklet = document.getElementById('copyHasBooklet')?.checked ? 1 : 0;
+        const hasBonusDisc = document.getElementById('copyHasBonusDisc')?.checked ? 1 : 0;
+        const bonusDiscCount = hasBonusDisc ? parseInt(document.getElementById('copyBonusDiscCount')?.value || '1') : 0;
+        const hasDigitalCopy = document.getElementById('copyHasDigitalCopy')?.checked ? 1 : 0;
+        const has3d = document.getElementById('copyHas3d')?.checked ? 1 : 0;
 
         try {
             await apiCall('add_copy', {
@@ -1612,7 +1623,16 @@ function renderCollection() {
                 notes: notes,
                 media_type: mediaType,
                 seasons_owned: seasonsOwned,
-                cert_region: settings.certRegion || 'US'
+                cert_region: settings.certRegion || 'US',
+                aspect_ratio: aspectRatio,
+                package_type: packageType,
+                feature_count: featureCount,
+                has_slipcover: hasSlipcover,
+                has_booklet: hasBooklet,
+                has_bonus_disc: hasBonusDisc,
+                bonus_disc_count: bonusDiscCount,
+                has_digital_copy: hasDigitalCopy,
+                has_3d: has3d
             });
 
             showToast('Added to collection!', 'success');
@@ -1726,33 +1746,102 @@ function renderCollection() {
                         <!-- View Mode -->
                         <div id="copy-view-${copy.id}" class="copy-details">
                             <div><strong>Format:</strong> ${copy.format}</div>
+                            ${copy.aspect_ratio ? `<div><strong>Aspect Ratio:</strong> ${copy.aspect_ratio}</div>` : ''}
                             ${copy.edition ? `<div><strong>Edition:</strong> ${copy.edition}</div>` : ''}
+                            ${copy.package_type ? `<div><strong>Package:</strong> ${copy.package_type}</div>` : ''}
+                            ${copy.feature_count && copy.feature_count !== 'Single' ? `<div><strong>Features:</strong> ${copy.feature_count}</div>` : ''}
                             ${copy.region ? `<div><strong>Region:</strong> ${copy.region}</div>` : ''}
                             ${copy.condition ? `<div><strong>Condition:</strong> ${copy.condition}</div>` : ''}
                             ${copy.seasons_owned ? `<div><strong>📺 Seasons:</strong> ${copy.seasons_owned}</div>` : ''}
+                            ${(copy.has_slipcover || copy.has_booklet || copy.has_bonus_disc || copy.has_digital_copy || copy.has_3d) ? `
+                            <div><strong>Extras:</strong> ${[
+                                copy.has_slipcover ? 'Slipcover' : '',
+                                copy.has_booklet ? 'Booklet' : '',
+                                copy.has_bonus_disc ? (copy.bonus_disc_count > 1 ? copy.bonus_disc_count + ' Bonus Discs' : 'Bonus Disc') : '',
+                                copy.has_digital_copy ? 'Digital Copy' : '',
+                                copy.has_3d ? '3D' : ''
+                            ].filter(Boolean).join(', ')}</div>` : ''}
                             ${copy.notes ? `<div><strong>Notes:</strong> ${copy.notes}</div>` : ''}
                         </div>
 
                         <!-- Edit Mode (Hidden by default) -->
                         <div id="copy-edit-${copy.id}" class="copy-edit-form" style="display: none;">
-                            <div class="form-group">
-                                <label>Format *</label>
-                                <select id="edit-format-${copy.id}" class="form-control">
-                                    <option value="DVD" ${copy.format === 'DVD' ? 'selected' : ''}>DVD</option>
-                                    <option value="Blu-ray" ${copy.format === 'Blu-ray' ? 'selected' : ''}>Blu-ray</option>
-                                    <option value="4K Ultra HD" ${copy.format === '4K Ultra HD' ? 'selected' : ''}>4K Ultra HD</option>
-                                    <option value="Digital" ${copy.format === 'Digital' ? 'selected' : ''}>Digital</option>
-                                    <option value="VHS" ${copy.format === 'VHS' ? 'selected' : ''}>VHS</option>
-                                    <option value="LaserDisc" ${copy.format === 'LaserDisc' ? 'selected' : ''}>LaserDisc</option>
-                                </select>
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Format *</label>
+                                    <select id="edit-format-${copy.id}" class="form-control">
+                                        <option value="DVD" ${copy.format === 'DVD' ? 'selected' : ''}>DVD</option>
+                                        <option value="Blu-ray" ${copy.format === 'Blu-ray' ? 'selected' : ''}>Blu-ray</option>
+                                        <option value="4K UHD" ${copy.format === '4K UHD' ? 'selected' : ''}>4K UHD</option>
+                                        <option value="4K Ultra HD" ${copy.format === '4K Ultra HD' ? 'selected' : ''}>4K Ultra HD</option>
+                                        <option value="Digital" ${copy.format === 'Digital' ? 'selected' : ''}>Digital</option>
+                                        <option value="VHS" ${copy.format === 'VHS' ? 'selected' : ''}>VHS</option>
+                                        <option value="LaserDisc" ${copy.format === 'LaserDisc' ? 'selected' : ''}>LaserDisc</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Aspect Ratio</label>
+                                    <select id="edit-aspect-ratio-${copy.id}" class="form-control">
+                                        <option value="" ${!copy.aspect_ratio ? 'selected' : ''}>Not Specified</option>
+                                        <option value="Widescreen" ${copy.aspect_ratio === 'Widescreen' ? 'selected' : ''}>Widescreen</option>
+                                        <option value="Full Screen" ${copy.aspect_ratio === 'Full Screen' ? 'selected' : ''}>Full Screen</option>
+                                        <option value="Letterbox" ${copy.aspect_ratio === 'Letterbox' ? 'selected' : ''}>Letterbox</option>
+                                        <option value="Pan & Scan" ${copy.aspect_ratio === 'Pan & Scan' ? 'selected' : ''}>Pan & Scan</option>
+                                        <option value="IMAX" ${copy.aspect_ratio === 'IMAX' ? 'selected' : ''}>IMAX</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div class="form-group">
-                                <label>Edition</label>
-                                <input type="text" id="edit-edition-${copy.id}"
-                                       class="form-control"
-                                       value="${copy.edition || ''}"
-                                       placeholder="e.g., Director's Cut">
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Edition</label>
+                                    <input type="text" id="edit-edition-${copy.id}"
+                                           class="form-control"
+                                           value="${copy.edition || ''}"
+                                           placeholder="e.g., Director's Cut">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Package Type</label>
+                                    <select id="edit-package-type-${copy.id}" class="form-control">
+                                        <option value="" ${!copy.package_type ? 'selected' : ''}>Standard Amaray</option>
+                                        <option value="Steelbook" ${copy.package_type === 'Steelbook' ? 'selected' : ''}>Steelbook</option>
+                                        <option value="Digibook" ${copy.package_type === 'Digibook' ? 'selected' : ''}>Digibook</option>
+                                        <option value="Digipack" ${copy.package_type === 'Digipack' ? 'selected' : ''}>Digipack</option>
+                                        <option value="Slipcase" ${copy.package_type === 'Slipcase' ? 'selected' : ''}>Slipcase</option>
+                                        <option value="Mediabook" ${copy.package_type === 'Mediabook' ? 'selected' : ''}>Mediabook</option>
+                                        <option value="Snap Case" ${copy.package_type === 'Snap Case' ? 'selected' : ''}>Snap Case</option>
+                                        <option value="Eco Case" ${copy.package_type === 'Eco Case' ? 'selected' : ''}>Eco Case</option>
+                                        <option value="Keep Case" ${copy.package_type === 'Keep Case' ? 'selected' : ''}>Keep Case</option>
+                                        <option value="Tin Case" ${copy.package_type === 'Tin Case' ? 'selected' : ''}>Tin Case</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Feature Count</label>
+                                    <select id="edit-feature-count-${copy.id}" class="form-control">
+                                        <option value="Single" ${(copy.feature_count || 'Single') === 'Single' ? 'selected' : ''}>Single Feature</option>
+                                        <option value="Single + Bonus" ${copy.feature_count === 'Single + Bonus' ? 'selected' : ''}>Single + Bonus Disc</option>
+                                        <option value="Double Feature" ${copy.feature_count === 'Double Feature' ? 'selected' : ''}>Double Feature</option>
+                                        <option value="Triple Feature" ${copy.feature_count === 'Triple Feature' ? 'selected' : ''}>Triple Feature</option>
+                                        <option value="Quadruple Feature" ${copy.feature_count === 'Quadruple Feature' ? 'selected' : ''}>Quadruple Feature</option>
+                                        <option value="Collection" ${copy.feature_count === 'Collection' ? 'selected' : ''}>Collection</option>
+                                        <option value="Complete Series" ${copy.feature_count === 'Complete Series' ? 'selected' : ''}>Complete Series</option>
+                                        <option value="Full Saga" ${copy.feature_count === 'Full Saga' ? 'selected' : ''}>Full Saga</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Condition</label>
+                                    <select id="edit-condition-${copy.id}" class="form-control">
+                                        <option value="">Not specified</option>
+                                        <option value="Mint" ${copy.condition === 'Mint' ? 'selected' : ''}>Mint</option>
+                                        <option value="Excellent" ${copy.condition === 'Excellent' ? 'selected' : ''}>Excellent</option>
+                                        <option value="Good" ${copy.condition === 'Good' ? 'selected' : ''}>Good</option>
+                                        <option value="Fair" ${copy.condition === 'Fair' ? 'selected' : ''}>Fair</option>
+                                        <option value="Poor" ${copy.condition === 'Poor' ? 'selected' : ''}>Poor</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="form-group">
@@ -1763,16 +1852,20 @@ function renderCollection() {
                                        placeholder="e.g., Region 1">
                             </div>
 
+                            <!-- Packaging Extras -->
                             <div class="form-group">
-                                <label>Condition</label>
-                                <select id="edit-condition-${copy.id}" class="form-control">
-                                    <option value="">Not specified</option>
-                                    <option value="Mint" ${copy.condition === 'Mint' ? 'selected' : ''}>Mint</option>
-                                    <option value="Excellent" ${copy.condition === 'Excellent' ? 'selected' : ''}>Excellent</option>
-                                    <option value="Good" ${copy.condition === 'Good' ? 'selected' : ''}>Good</option>
-                                    <option value="Fair" ${copy.condition === 'Fair' ? 'selected' : ''}>Fair</option>
-                                    <option value="Poor" ${copy.condition === 'Poor' ? 'selected' : ''}>Poor</option>
-                                </select>
+                                <label>Packaging Extras</label>
+                                <div class="packaging-extras-grid">
+                                    <label class="toggle-chip"><input type="checkbox" id="edit-slipcover-${copy.id}" ${copy.has_slipcover ? 'checked' : ''}><span>Slipcover</span></label>
+                                    <label class="toggle-chip"><input type="checkbox" id="edit-booklet-${copy.id}" ${copy.has_booklet ? 'checked' : ''}><span>Booklet</span></label>
+                                    <label class="toggle-chip"><input type="checkbox" id="edit-bonus-disc-${copy.id}" ${copy.has_bonus_disc ? 'checked' : ''}><span>Bonus Disc</span></label>
+                                    <label class="toggle-chip"><input type="checkbox" id="edit-digital-copy-${copy.id}" ${copy.has_digital_copy ? 'checked' : ''}><span>Digital Copy</span></label>
+                                    <label class="toggle-chip"><input type="checkbox" id="edit-3d-${copy.id}" ${copy.has_3d ? 'checked' : ''}><span>3D</span></label>
+                                </div>
+                                <div style="margin-top:0.5rem; ${copy.has_bonus_disc ? '' : 'display:none;'}">
+                                    <label style="font-size:0.85rem;">Bonus Disc Count</label>
+                                    <input type="number" id="edit-bonus-disc-count-${copy.id}" class="form-control" min="1" max="10" value="${copy.bonus_disc_count || 1}" style="width:80px;">
+                                </div>
                             </div>
 
                             ${isTV ? `
@@ -1840,6 +1933,16 @@ async function saveCopyEdit(copyId, movieId) {
     const notes = document.getElementById(`edit-notes-${copyId}`).value.trim();
     const seasonsEl = document.getElementById(`edit-seasons-${copyId}`);
     const seasonsOwned = seasonsEl ? seasonsEl.value.trim() : '';
+    // Physical media attributes (v3.0.0)
+    const aspectRatio = document.getElementById(`edit-aspect-ratio-${copyId}`)?.value || '';
+    const packageType = document.getElementById(`edit-package-type-${copyId}`)?.value || '';
+    const featureCount = document.getElementById(`edit-feature-count-${copyId}`)?.value || 'Single';
+    const hasSlipcover = document.getElementById(`edit-slipcover-${copyId}`)?.checked ? 1 : 0;
+    const hasBooklet = document.getElementById(`edit-booklet-${copyId}`)?.checked ? 1 : 0;
+    const hasBonusDisc = document.getElementById(`edit-bonus-disc-${copyId}`)?.checked ? 1 : 0;
+    const bonusDiscCount = hasBonusDisc ? parseInt(document.getElementById(`edit-bonus-disc-count-${copyId}`)?.value || '1') : 0;
+    const hasDigitalCopy = document.getElementById(`edit-digital-copy-${copyId}`)?.checked ? 1 : 0;
+    const has3d = document.getElementById(`edit-3d-${copyId}`)?.checked ? 1 : 0;
 
     if (!format) {
         showToast('Format is required', 'error');
@@ -1854,7 +1957,16 @@ async function saveCopyEdit(copyId, movieId) {
             region,
             condition,
             notes,
-            seasons_owned: seasonsOwned
+            seasons_owned: seasonsOwned,
+            aspect_ratio: aspectRatio,
+            package_type: packageType,
+            feature_count: featureCount,
+            has_slipcover: hasSlipcover,
+            has_booklet: hasBooklet,
+            has_bonus_disc: hasBonusDisc,
+            bonus_disc_count: bonusDiscCount,
+            has_digital_copy: hasDigitalCopy,
+            has_3d: has3d
         });
         
         showToast('Copy updated successfully!', 'success');
@@ -2664,23 +2776,59 @@ function getCertColor(cert) {
             if (item.is_container) {
                 const count = item.container_movie_count || 0;
                 const label = item.container_spine_label || item.container_name || 'Box Set';
+                const spineType = item.container_spine_type || item.spine_type || 'color';
+                const spineColor = item.container_spine_color || '#667eea';
+                const spineImageUrl = item.container_spine_image_url;
+
+                // Determine spine style based on type
+                let spineStyle = '';
+                let spineContent = '';
+
+                if (spineType === 'custom' && spineImageUrl) {
+                    spineStyle = `background-image: url('${spineImageUrl}'); background-size: cover; background-position: center;`;
+                    spineContent = `<span class="spine-title" style="text-shadow: 0 1px 4px rgba(0,0,0,0.9);">${label}</span>`;
+                } else {
+                    spineStyle = `--spine-color: ${spineColor};`;
+                    spineContent = `<span class="spine-title">${label}</span>`;
+                }
+
                 return `<div class="spine-item spine-container"
                              title="${(item.container_name || '').replace(/"/g,'&quot;')} · ${count} films"
-                             onclick="App.showBoxSetDetails(${item.container_id})">
-                            <span class="spine-title">${label}</span>
+                             onclick="App.showBoxSetDetails(${item.container_id})"
+                             style="${spineStyle}"
+                             data-container-id="${item.container_id}">
+                            ${spineContent}
                             ${count > 0 ? `<span class="spine-badge">${count}</span>` : ''}
                         </div>`;
             } else {
                 const color = spineColorForItem(item, shelfColor);
                 const title = (item.display_title || item.title || '').replace(/"/g,'&quot;');
+                // Check if poster-based spine coloring is enabled
+                const posterUrl = item.poster_url;
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
                              onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"
-                             style="--spine-color:${color}">
+                             style="--spine-color:${color}"
+                             data-poster-url="${posterUrl || ''}"
+                             data-movie-id="${item.movie_id}">
                             <span class="spine-title">${item.display_title || item.title}</span>
                         </div>`;
             }
         }).join('');
+    }
+
+    // Apply average poster colors to spine items after rendering
+    async function applyPosterSpineColors(container) {
+        const spineItems = container.querySelectorAll('.spine-item[data-poster-url]:not(.spine-container)');
+        for (const spine of spineItems) {
+            const posterUrl = spine.dataset.posterUrl;
+            if (posterUrl && posterUrl !== 'null' && posterUrl !== '') {
+                try {
+                    const color = await extractAverageColor(posterUrl);
+                    spine.style.setProperty('--spine-color', color);
+                } catch (e) { /* keep default */ }
+            }
+        }
     }
 
     function renderPosterGrid(items) {
@@ -4097,6 +4245,15 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         const spineType = document.getElementById('boxSetSpineType').value;
         const spineColor = document.getElementById('boxSetSpineColor').value;
         const notes = document.getElementById('boxSetNotes').value;
+        // Physical media attributes (v3.0.0)
+        const aspectRatio = document.getElementById('boxSetAspectRatio')?.value || '';
+        const packageType = document.getElementById('boxSetPackageType')?.value || '';
+        const hasSlipcover = document.getElementById('boxSetHasSlipcover')?.checked ? 1 : 0;
+        const hasBooklet = document.getElementById('boxSetHasBooklet')?.checked ? 1 : 0;
+        const hasBonusDisc = document.getElementById('boxSetHasBonusDisc')?.checked ? 1 : 0;
+        const bonusDiscCount = hasBonusDisc ? parseInt(document.getElementById('boxSetBonusDiscCount')?.value || '1') : 0;
+        const hasDigitalCopy = document.getElementById('boxSetHasDigitalCopy')?.checked ? 1 : 0;
+        const has3d = document.getElementById('boxSetHas3d')?.checked ? 1 : 0;
 
         if (!name) {
             showToast('Please enter a box set name', 'error');
@@ -4114,11 +4271,20 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 spine_label: spineLabel,
                 spine_image_type: spineType,
                 spine_color: spineColor,
+                spine_type: spineType,
                 format,
                 edition,
                 region,
                 condition,
-                notes
+                notes,
+                aspect_ratio: aspectRatio,
+                package_type: packageType,
+                has_slipcover: hasSlipcover,
+                has_booklet: hasBooklet,
+                has_bonus_disc: hasBonusDisc,
+                bonus_disc_count: bonusDiscCount,
+                has_digital_copy: hasDigitalCopy,
+                has_3d: has3d
             });
 
             if (data.container_id) {
@@ -4447,11 +4613,41 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Poster aspect ratio used for the crop frame (2 : 3)
     const CROP_W_RATIO = 0.80; // fraction of canvas width used as crop frame
 
+    // Crop aspect mode and image adjustment state
+    let _cropAspect = 'poster'; // 'poster' (2:3), 'boxset' (4:5), 'square' (1:1)
+    let _cropBrightness = 0;
+    let _cropContrast = 0;
+    let _cropWarmth = 0;
+    let _cropSaturation = 0;
+
     function showCoverUpload(containerId) {
         currentContainerId = containerId;
         document.getElementById('coverCropModal').classList.add('active');
         // Reset state
         _cropImg = null;
+        _cropAspect = 'poster';
+        _cropBrightness = 0;
+        _cropContrast = 0;
+        _cropWarmth = 0;
+        _cropSaturation = 0;
+        // Reset adjustment sliders
+        const bEl = document.getElementById('cropBrightness');
+        const cEl = document.getElementById('cropContrast');
+        const wEl = document.getElementById('cropWarmth');
+        const sEl = document.getElementById('cropSaturation');
+        if (bEl) bEl.value = 0;
+        if (cEl) cEl.value = 0;
+        if (wEl) wEl.value = 0;
+        if (sEl) sEl.value = 0;
+        ['cropBrightnessVal','cropContrastVal','cropWarmthVal','cropSaturationVal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '0';
+        });
+        // Reset aspect buttons
+        document.querySelectorAll('.crop-aspect-btns .btn-chip').forEach(b => b.classList.remove('active'));
+        const posterBtn = document.querySelector('.crop-aspect-btns .btn-chip[data-aspect="poster"]');
+        if (posterBtn) posterBtn.classList.add('active');
+
         const canvas = document.getElementById('cropCanvas');
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -4496,6 +4692,14 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         img.src = src;
     }
 
+    function _getCropAspectRatio() {
+        switch (_cropAspect) {
+            case 'boxset': return 5 / 4;   // 4:5 - squatter box set shape
+            case 'square': return 1;       // 1:1
+            default: return 3 / 2;         // 2:3 poster
+        }
+    }
+
     function _drawCrop() {
         const canvas = document.getElementById('cropCanvas');
         const ctx    = canvas.getContext('2d');
@@ -4504,14 +4708,26 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         ctx.clearRect(0, 0, W, H);
 
         if (_cropImg) {
+            // Apply image adjustments
+            ctx.save();
+            const filterParts = [];
+            if (_cropBrightness !== 0) filterParts.push(`brightness(${1 + _cropBrightness / 100})`);
+            if (_cropContrast !== 0) filterParts.push(`contrast(${1 + _cropContrast / 100})`);
+            if (_cropSaturation !== 0) filterParts.push(`saturate(${1 + _cropSaturation / 100})`);
+            // Warmth via hue-rotate (positive = warm/orange, negative = cool/blue)
+            if (_cropWarmth !== 0) filterParts.push(`sepia(${Math.abs(_cropWarmth) / 100 * 0.3}) hue-rotate(${_cropWarmth > 0 ? -10 : 10}deg)`);
+            if (filterParts.length > 0) ctx.filter = filterParts.join(' ');
+
             ctx.drawImage(_cropImg,
                 _cropOffsetX, _cropOffsetY,
                 _cropImg.width * _cropScale, _cropImg.height * _cropScale);
+            ctx.restore();
         }
 
-        // Crop frame dimensions (2:3 poster ratio)
+        // Crop frame dimensions based on selected aspect ratio
+        const aspectRatio = _getCropAspectRatio();
         const frameW = W * CROP_W_RATIO;
-        const frameH = frameW * (3 / 2);
+        const frameH = frameW * aspectRatio;
         const frameX = (W - frameW) / 2;
         const frameY = (H - frameH) / 2;
 
@@ -4541,6 +4757,13 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             ctx.lineTo(cx, cy + sy * ca);
             ctx.stroke();
         });
+
+        // Aspect label
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '0.7rem sans-serif';
+        ctx.textAlign = 'center';
+        const label = _cropAspect === 'poster' ? '2:3 Poster' : _cropAspect === 'boxset' ? '4:5 Box Set' : '1:1 Square';
+        ctx.fillText(label, W / 2, frameY + frameH + 16);
     }
 
     // Drag to pan
@@ -4591,22 +4814,203 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         canvas.addEventListener('touchend',   _cropPointerUp);
     }
 
+    // ── Crop Aspect Ratio Switching ──
+    function setCropAspect(mode) {
+        _cropAspect = mode;
+        document.querySelectorAll('.crop-aspect-btns .btn-chip').forEach(b => {
+            b.classList.toggle('active', b.dataset.aspect === mode);
+        });
+        _drawCrop();
+    }
+
+    // ── Image Adjustment Controls ──
+    function applyCropAdjustments() {
+        _cropBrightness = parseInt(document.getElementById('cropBrightness')?.value || '0');
+        _cropContrast = parseInt(document.getElementById('cropContrast')?.value || '0');
+        _cropWarmth = parseInt(document.getElementById('cropWarmth')?.value || '0');
+        _cropSaturation = parseInt(document.getElementById('cropSaturation')?.value || '0');
+        // Update value displays
+        const bv = document.getElementById('cropBrightnessVal');
+        const cv = document.getElementById('cropContrastVal');
+        const wv = document.getElementById('cropWarmthVal');
+        const sv = document.getElementById('cropSaturationVal');
+        if (bv) bv.textContent = _cropBrightness;
+        if (cv) cv.textContent = _cropContrast;
+        if (wv) wv.textContent = _cropWarmth;
+        if (sv) sv.textContent = _cropSaturation;
+        _drawCrop();
+    }
+
+    function resetCropAdjustments() {
+        _cropBrightness = _cropContrast = _cropWarmth = _cropSaturation = 0;
+        ['cropBrightness','cropContrast','cropWarmth','cropSaturation'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = 0;
+        });
+        ['cropBrightnessVal','cropContrastVal','cropWarmthVal','cropSaturationVal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '0';
+        });
+        _drawCrop();
+    }
+
+    function autoAdjustCrop() {
+        if (!_cropImg) return;
+        // Sample average brightness and color from the image
+        const sample = document.createElement('canvas');
+        sample.width = 100;
+        sample.height = 100;
+        const sCtx = sample.getContext('2d');
+        sCtx.drawImage(_cropImg, 0, 0, 100, 100);
+        const data = sCtx.getImageData(0, 0, 100, 100).data;
+
+        let totalR = 0, totalG = 0, totalB = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            totalR += data[i];
+            totalG += data[i + 1];
+            totalB += data[i + 2];
+            count++;
+        }
+        const avgR = totalR / count;
+        const avgG = totalG / count;
+        const avgB = totalB / count;
+        const avgLum = (avgR + avgG + avgB) / 3;
+
+        // Auto-brightness: push towards ~130 avg luminance
+        _cropBrightness = Math.round((130 - avgLum) / 2.55 * 0.6);
+        _cropBrightness = Math.max(-50, Math.min(50, _cropBrightness));
+
+        // Auto-contrast: slight boost if image is flat
+        const variance = _calcVariance(data, avgLum);
+        _cropContrast = variance < 2000 ? 15 : (variance < 4000 ? 8 : 0);
+
+        // Auto-warmth: correct if too warm (ambient light)
+        const warmthBias = avgR - avgB;
+        _cropWarmth = Math.round(-warmthBias / 5);
+        _cropWarmth = Math.max(-30, Math.min(30, _cropWarmth));
+
+        // Slight saturation boost
+        _cropSaturation = 10;
+
+        // Update sliders
+        document.getElementById('cropBrightness').value = _cropBrightness;
+        document.getElementById('cropContrast').value = _cropContrast;
+        document.getElementById('cropWarmth').value = _cropWarmth;
+        document.getElementById('cropSaturation').value = _cropSaturation;
+        document.getElementById('cropBrightnessVal').textContent = _cropBrightness;
+        document.getElementById('cropContrastVal').textContent = _cropContrast;
+        document.getElementById('cropWarmthVal').textContent = _cropWarmth;
+        document.getElementById('cropSaturationVal').textContent = _cropSaturation;
+
+        _drawCrop();
+        showToast('Auto-adjusted image', 'success');
+    }
+
+    function _calcVariance(data, mean) {
+        let sum = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            const lum = (data[i] + data[i+1] + data[i+2]) / 3;
+            sum += (lum - mean) ** 2;
+            count++;
+        }
+        return sum / count;
+    }
+
+    // ── Spine Color Extraction from Poster ──
+    function extractAverageColor(imageUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 50;
+                canvas.height = 75;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 50, 75);
+                const data = ctx.getImageData(0, 0, 50, 75).data;
+
+                // Use a weighted approach - edges contribute to spine color more
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let y = 0; y < 75; y++) {
+                    for (let x = 0; x < 50; x++) {
+                        const i = (y * 50 + x) * 4;
+                        // Weight edges (left/right columns) more for spine color
+                        const edgeWeight = (x < 8 || x > 42) ? 3 : 1;
+                        r += data[i] * edgeWeight;
+                        g += data[i + 1] * edgeWeight;
+                        b += data[i + 2] * edgeWeight;
+                        count += edgeWeight;
+                    }
+                }
+                r = Math.round(r / count);
+                g = Math.round(g / count);
+                b = Math.round(b / count);
+
+                // Boost saturation slightly for more vivid spines
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                if (max - min > 20) {
+                    const factor = 1.2;
+                    const avg = (r + g + b) / 3;
+                    r = Math.min(255, Math.round(avg + (r - avg) * factor));
+                    g = Math.min(255, Math.round(avg + (g - avg) * factor));
+                    b = Math.min(255, Math.round(avg + (b - avg) * factor));
+                }
+
+                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+                resolve(hex);
+            };
+            img.onerror = () => resolve('#667eea');
+            img.src = imageUrl;
+        });
+    }
+
+    // ── Bonus disc toggle for add form ──
+    function _initPackagingToggles() {
+        // Copy form bonus disc toggle
+        const bonusDiscCb = document.getElementById('copyHasBonusDisc');
+        if (bonusDiscCb) {
+            bonusDiscCb.addEventListener('change', () => {
+                const row = document.getElementById('bonusDiscCountRow');
+                if (row) row.style.display = bonusDiscCb.checked ? 'block' : 'none';
+            });
+        }
+        // Box set form bonus disc toggle
+        const boxSetBonusDiscCb = document.getElementById('boxSetHasBonusDisc');
+        if (boxSetBonusDiscCb) {
+            boxSetBonusDiscCb.addEventListener('change', () => {
+                const row = document.getElementById('boxSetBonusDiscCountRow');
+                if (row) row.style.display = boxSetBonusDiscCb.checked ? 'block' : 'none';
+            });
+        }
+    }
+
     async function saveCroppedCover() {
         if (!_cropImg) return;
         const sourceCanvas = document.getElementById('cropCanvas');
         const W = sourceCanvas.width, H = sourceCanvas.height;
 
+        const aspectRatio = _getCropAspectRatio();
         const frameW = W * CROP_W_RATIO;
-        const frameH = frameW * (3 / 2);
+        const frameH = frameW * aspectRatio;
         const frameX = (W - frameW) / 2;
         const frameY = (H - frameH) / 2;
 
         // Build output canvas at a clean resolution
-        const outW = 400, outH = 600;
+        const outW = 400;
+        const outH = Math.round(outW * aspectRatio);
         const out  = document.createElement('canvas');
         out.width  = outW;
         out.height = outH;
         const ctx  = out.getContext('2d');
+
+        // Apply image adjustments to output
+        const filterParts = [];
+        if (_cropBrightness !== 0) filterParts.push(`brightness(${1 + _cropBrightness / 100})`);
+        if (_cropContrast !== 0) filterParts.push(`contrast(${1 + _cropContrast / 100})`);
+        if (_cropSaturation !== 0) filterParts.push(`saturate(${1 + _cropSaturation / 100})`);
+        if (_cropWarmth !== 0) filterParts.push(`sepia(${Math.abs(_cropWarmth) / 100 * 0.3}) hue-rotate(${_cropWarmth > 0 ? -10 : 10}deg)`);
+        if (filterParts.length > 0) ctx.filter = filterParts.join(' ');
 
         // Map: frame pixel (frameX, frameY) → image pixel
         const imgX = (frameX - _cropOffsetX) / _cropScale;
@@ -7520,72 +7924,25 @@ async function getCurrentUserId() {
         }
     }
 
+    // ── Shelf contents state for drag-and-drop ──
+    let _shelfContentsData = [];
+    let _shelfDragMode = false;
+    let _shelfDragEl = null;
+    let _shelfOriginalOrder = [];
+
     async function viewShelfContents(shelfId) {
         const shelf = shelves.find(s => s.id === shelfId);
         if (!shelf) return;
 
         currentShelf = shelf;
+        _shelfDragMode = false;
 
         try {
             const contents = await apiCall('get_shelf_contents', { shelf_id: shelfId });
+            _shelfContentsData = contents || [];
 
             document.getElementById('shelfContentsTitle').textContent = `📚 ${shelf.name}`;
-
-            const container = document.getElementById('shelfContentsList');
-            const emptyState = document.getElementById('emptyShelfContents');
-
-            if (!contents || contents.length === 0) {
-                container.innerHTML = '';
-                if (emptyState) emptyState.style.display = 'block';
-            } else {
-                if (emptyState) emptyState.style.display = 'none';
-
-                container.innerHTML = contents.map(item => {
-                    // Handle both containers (box sets) and regular movies
-                    const isContainer = item.is_container === 1 || item.is_container === true;
-
-                    if (isContainer) {
-                        // Render container/box set - use custom poster if available
-                        const coverUrl = item.container_spine_image_url;
-                        const shelfContainerPosterHTML = coverUrl
-                            ? `<img src="${coverUrl}" alt="${item.container_name || 'Box Set'}" class="shelf-movie-poster" style="object-fit: cover;"
-                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
-                              + `<div class="container-poster" style="display:none; background: ${item.container_spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`
-                            : `<div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`;
-                        return `
-                            <div class="shelf-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
-                                ${shelfContainerPosterHTML}
-                                <div class="shelf-movie-info">
-                                    <h4>${item.container_name || 'Box Set'}</h4>
-                                    <p>${item.container_movie_count || 0} movie${item.container_movie_count !== 1 ? 's' : ''}</p>
-                                    <div class="shelf-movie-format">${item.container_format || 'Box Set'}</div>
-                                </div>
-                                <button class="btn-remove" onclick="event.stopPropagation(); App.removeContainerFromShelf(${item.container_id});" title="Remove from shelf">
-                                    ×
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        // Render regular movie
-                        return `
-                            <div class="shelf-movie-card">
-                                <img src="${item.poster_url || '/placeholder.png'}"
-                                     alt="${item.title}"
-                                     class="shelf-movie-poster">
-                                <div class="shelf-movie-info">
-                                    <h4>${item.display_title || item.title}</h4>
-                                    <p>${item.year || 'N/A'}</p>
-                                    <div class="shelf-movie-format">${item.format}</div>
-                                </div>
-                                <button class="btn-remove" onclick="App.removeFromShelf(${item.copy_id})" title="Remove from shelf">
-                                    ×
-                                </button>
-                            </div>
-                        `;
-                    }
-                }).join('');
-            }
-
+            _renderShelfContents();
             document.getElementById('shelfContentsModal').classList.add('active');
         } catch (error) {
             console.error('Failed to load shelf contents:', error);
@@ -7593,9 +7950,186 @@ async function getCurrentUserId() {
         }
     }
 
+    function _renderShelfContents() {
+        const container = document.getElementById('shelfContentsList');
+        const emptyState = document.getElementById('emptyShelfContents');
+        const dragHint = document.getElementById('shelfDragHint');
+        const saveBar = document.getElementById('shelfSaveOrderBar');
+
+        if (!_shelfContentsData || _shelfContentsData.length === 0) {
+            container.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
+            if (dragHint) dragHint.style.display = 'none';
+            if (saveBar) saveBar.style.display = 'none';
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (dragHint) dragHint.style.display = _shelfDragMode ? 'block' : 'none';
+        if (saveBar) saveBar.style.display = _shelfDragMode ? 'flex' : 'none';
+
+        container.innerHTML = _shelfContentsData.map((item, idx) => {
+            const isContainer = item.is_container === 1 || item.is_container === true;
+            const dragAttrs = _shelfDragMode
+                ? `draggable="true" ondragstart="App._shelfDragStart(event, ${idx})" ondragover="App._shelfDragOver(event, ${idx})" ondragend="App._shelfDragEnd(event)" ondrop="App._shelfDrop(event, ${idx})"`
+                : '';
+            const dragHandle = _shelfDragMode
+                ? `<div class="shelf-drag-handle" title="Drag to reorder">⠿</div>`
+                : '';
+
+            if (isContainer) {
+                const coverUrl = item.container_spine_image_url;
+                const shelfContainerPosterHTML = coverUrl
+                    ? `<img src="${coverUrl}" alt="${item.container_name || 'Box Set'}" class="shelf-movie-poster" style="object-fit: cover;"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
+                      + `<div class="container-poster" style="display:none; background: ${item.container_spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`
+                    : `<div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`;
+                return `
+                    <div class="shelf-movie-card container-card ${_shelfDragMode ? 'drag-enabled' : ''}"
+                         data-idx="${idx}" data-type="container" data-id="${item.container_id}"
+                         ${dragAttrs}
+                         ${!_shelfDragMode ? `onclick="App.showBoxSetDetails(${item.container_id})"` : ''}>
+                        ${dragHandle}
+                        ${shelfContainerPosterHTML}
+                        <div class="shelf-movie-info">
+                            <h4>${item.container_name || 'Box Set'}</h4>
+                            <p>${item.container_movie_count || 0} movie${item.container_movie_count !== 1 ? 's' : ''}</p>
+                            <div class="shelf-movie-format">${item.container_format || 'Box Set'}</div>
+                        </div>
+                        <button class="btn-remove" onclick="event.stopPropagation(); App.removeContainerFromShelf(${item.container_id});" title="Remove from shelf">
+                            ×
+                        </button>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="shelf-movie-card ${_shelfDragMode ? 'drag-enabled' : ''}"
+                         data-idx="${idx}" data-type="copy" data-id="${item.copy_id}"
+                         ${dragAttrs}>
+                        ${dragHandle}
+                        <img src="${item.poster_url || '/placeholder.png'}"
+                             alt="${item.title}"
+                             class="shelf-movie-poster">
+                        <div class="shelf-movie-info">
+                            <h4>${item.display_title || item.title}</h4>
+                            <p>${item.year || 'N/A'}</p>
+                            <div class="shelf-movie-format">${item.format}</div>
+                        </div>
+                        <button class="btn-remove" onclick="App.removeFromShelf(${item.copy_id})" title="Remove from shelf">
+                            ×
+                        </button>
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    // ── Drag-and-drop handlers ──
+    function _shelfDragStart(e, idx) {
+        _shelfDragEl = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        e.currentTarget.classList.add('dragging');
+    }
+
+    function _shelfDragOver(e, idx) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const cards = document.querySelectorAll('#shelfContentsList .shelf-movie-card');
+        cards.forEach((c, i) => {
+            c.classList.toggle('drag-over', i === idx && idx !== _shelfDragEl);
+        });
+    }
+
+    function _shelfDrop(e, targetIdx) {
+        e.preventDefault();
+        if (_shelfDragEl === null || _shelfDragEl === targetIdx) return;
+
+        const moved = _shelfContentsData.splice(_shelfDragEl, 1)[0];
+        _shelfContentsData.splice(targetIdx, 0, moved);
+        _shelfDragEl = null;
+        _renderShelfContents();
+    }
+
+    function _shelfDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('#shelfContentsList .shelf-movie-card').forEach(c => c.classList.remove('drag-over'));
+        _shelfDragEl = null;
+    }
+
+    // ── Sort and custom ordering ──
+    function sortShelfContents(mode) {
+        if (!_shelfContentsData || _shelfContentsData.length === 0) return;
+
+        if (mode === 'custom') {
+            _shelfDragMode = true;
+            _shelfOriginalOrder = [..._shelfContentsData];
+            _renderShelfContents();
+            showToast('Drag items to reorder', 'info');
+            return;
+        }
+
+        _shelfDragMode = false;
+
+        const sorters = {
+            title: (a, b) => {
+                const tA = (a.display_title || a.title || a.container_name || '').toLowerCase();
+                const tB = (b.display_title || b.title || b.container_name || '').toLowerCase();
+                return tA.localeCompare(tB);
+            },
+            year: (a, b) => (a.year || 9999) - (b.year || 9999),
+            format: (a, b) => {
+                const fA = (a.format || a.container_format || '').toLowerCase();
+                const fB = (b.format || b.container_format || '').toLowerCase();
+                return fA.localeCompare(fB);
+            }
+        };
+
+        if (sorters[mode]) {
+            _shelfContentsData.sort(sorters[mode]);
+        }
+
+        _renderShelfContents();
+        // Auto-save the sorted order
+        _saveShelfOrderToServer();
+    }
+
+    async function saveShelfOrder() {
+        await _saveShelfOrderToServer();
+        _shelfDragMode = false;
+        _renderShelfContents();
+        showToast('Shelf order saved!', 'success');
+    }
+
+    async function _saveShelfOrderToServer() {
+        if (!currentShelf) return;
+        const itemOrder = _shelfContentsData.map(item => {
+            const isContainer = item.is_container === 1 || item.is_container === true;
+            return {
+                type: isContainer ? 'container' : 'copy',
+                id: isContainer ? item.container_id : item.copy_id
+            };
+        });
+        try {
+            await apiCall('reorder_shelf_contents', {
+                shelf_id: currentShelf.id,
+                item_order: itemOrder
+            });
+        } catch (err) {
+            console.error('Failed to save shelf order:', err);
+            showToast('Failed to save order', 'error');
+        }
+    }
+
+    function cancelShelfReorder() {
+        _shelfContentsData = [..._shelfOriginalOrder];
+        _shelfDragMode = false;
+        _renderShelfContents();
+    }
+
     function closeShelfContents() {
         document.getElementById('shelfContentsModal').classList.remove('active');
         currentShelf = null;
+        _shelfDragMode = false;
     }
 
     async function removeFromShelf(copyId) {
@@ -8841,6 +9375,13 @@ return {
     onCoverFileChange,
     cropZoom,
     saveCroppedCover,
+    // Image adjustment & crop controls (v3.0.0)
+    setCropAspect,
+    applyCropAdjustments,
+    resetCropAdjustments,
+    autoAdjustCrop,
+    extractAverageColor,
+    applyPosterSpineColors,
     showShelfWizard,
     closeShelfWizard,
     wizardGoStep2,
@@ -8989,6 +9530,14 @@ return {
     closeShelfContents,
     removeFromShelf,
     removeContainerFromShelf,
+    // Shelf drag-and-drop & sorting (v3.0.0)
+    sortShelfContents,
+    saveShelfOrder,
+    cancelShelfReorder,
+    _shelfDragStart,
+    _shelfDragOver,
+    _shelfDrop,
+    _shelfDragEnd,
     viewUnassignedCopies,
     closeUnassignedModal,
     openAssignToShelf,

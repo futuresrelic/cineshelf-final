@@ -499,6 +499,16 @@ try {
             $notes = sanitize($input['notes'] ?? '', 500);
             $barcode = sanitize($input['barcode'] ?? '', 50);
             $seasonsOwned = sanitize($input['seasons_owned'] ?? '', 200);
+            // Physical media attributes (v3.0.0)
+            $aspectRatio = sanitize($input['aspect_ratio'] ?? '', 50);
+            $packageType = sanitize($input['package_type'] ?? '', 50);
+            $featureCount = sanitize($input['feature_count'] ?? 'Single', 50);
+            $hasSlipcover = intval($input['has_slipcover'] ?? 0);
+            $hasBooklet = intval($input['has_booklet'] ?? 0);
+            $hasBonusDisc = intval($input['has_bonus_disc'] ?? 0);
+            $bonusDiscCount = intval($input['bonus_disc_count'] ?? 0);
+            $hasDigitalCopy = intval($input['has_digital_copy'] ?? 0);
+            $has3d = intval($input['has_3d'] ?? 0);
 
             // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
             if (empty($tmdbId) && empty($movieId)) {
@@ -651,11 +661,14 @@ try {
             // Add copy
             file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format\n");
             $stmt = $db->prepare("
-                INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode, seasons_owned)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode, seasons_owned,
+                    aspect_ratio, package_type, feature_count, has_slipcover, has_booklet, has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
-            $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null]);
+            $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null,
+                $aspectRatio ?: null, $packageType ?: null, $featureCount ?: 'Single',
+                $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d]);
 
             $newCopyId = $db->lastInsertId();
             file_put_contents('php://stderr', "[add_copy] Copy created with ID: $newCopyId\n");
@@ -734,6 +747,16 @@ case 'update_copy':
     $condition = sanitize($input['condition'] ?? '', 20);
     $notes = sanitize($input['notes'] ?? '', 500);
     $seasonsOwned = sanitize($input['seasons_owned'] ?? '', 200);
+    // Physical media attributes (v3.0.0)
+    $aspectRatio = sanitize($input['aspect_ratio'] ?? '', 50);
+    $packageType = sanitize($input['package_type'] ?? '', 50);
+    $featureCount = sanitize($input['feature_count'] ?? '', 50);
+    $hasSlipcover = intval($input['has_slipcover'] ?? 0);
+    $hasBooklet = intval($input['has_booklet'] ?? 0);
+    $hasBonusDisc = intval($input['has_bonus_disc'] ?? 0);
+    $bonusDiscCount = intval($input['bonus_disc_count'] ?? 0);
+    $hasDigitalCopy = intval($input['has_digital_copy'] ?? 0);
+    $has3d = intval($input['has_3d'] ?? 0);
 
     if (empty($copyId) || empty($format)) {
         jsonResponse(false, null, 'Copy ID and format required');
@@ -755,10 +778,16 @@ case 'update_copy':
     // Update copy
     $stmt = $db->prepare("
         UPDATE copies
-        SET format = ?, edition = ?, region = ?, condition = ?, notes = ?, seasons_owned = ?
+        SET format = ?, edition = ?, region = ?, condition = ?, notes = ?, seasons_owned = ?,
+            aspect_ratio = ?, package_type = ?, feature_count = ?,
+            has_slipcover = ?, has_booklet = ?, has_bonus_disc = ?, bonus_disc_count = ?,
+            has_digital_copy = ?, has_3d = ?
         WHERE id = ? AND user_id = ?
     ");
-    $stmt->execute([$format, $edition, $region, $condition, $notes, $seasonsOwned ?: null, $copyId, $userId]);
+    $stmt->execute([$format, $edition, $region, $condition, $notes, $seasonsOwned ?: null,
+        $aspectRatio ?: null, $packageType ?: null, $featureCount ?: 'Single',
+        $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d,
+        $copyId, $userId]);
     
     logAction($db, $userId, 'copy_updated', 'copy', $copyId);  // ← FIXED!
     
@@ -3207,6 +3236,7 @@ case 'resolve_movie':
             $spineLabel = sanitize($input['spine_label'] ?? $name, 200);
             $spineImageType = sanitize($input['spine_image_type'] ?? 'color', 20);
             $spineColor = sanitize($input['spine_color'] ?? '#667eea', 20);
+            $spineType = sanitize($input['spine_type'] ?? 'color', 20);
             $format = sanitize($input['format'] ?? '', 100);
             $edition = sanitize($input['edition'] ?? '', 100);
             $region = sanitize($input['region'] ?? '', 20);
@@ -3214,6 +3244,16 @@ case 'resolve_movie':
             $purchaseDate = sanitize($input['purchase_date'] ?? '', 20);
             $purchasePrice = floatval($input['purchase_price'] ?? 0);
             $notes = sanitize($input['notes'] ?? '', 500);
+            // Physical media attributes (v3.0.0)
+            $aspectRatio = sanitize($input['aspect_ratio'] ?? '', 50);
+            $packageType = sanitize($input['package_type'] ?? '', 50);
+            $featureCount = sanitize($input['feature_count'] ?? '', 50);
+            $hasSlipcover = intval($input['has_slipcover'] ?? 0);
+            $hasBooklet = intval($input['has_booklet'] ?? 0);
+            $hasBonusDisc = intval($input['has_bonus_disc'] ?? 0);
+            $bonusDiscCount = intval($input['bonus_disc_count'] ?? 0);
+            $hasDigitalCopy = intval($input['has_digital_copy'] ?? 0);
+            $has3d = intval($input['has_3d'] ?? 0);
 
             if (empty($name)) {
                 jsonResponse(false, null, 'Container name required');
@@ -3221,13 +3261,17 @@ case 'resolve_movie':
 
             $stmt = $db->prepare("
                 INSERT INTO containers (
-                    user_id, name, spine_label, spine_image_type, spine_color,
-                    format, edition, region, condition, purchase_date, purchase_price, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    user_id, name, spine_label, spine_image_type, spine_color, spine_type,
+                    format, edition, region, condition, purchase_date, purchase_price, notes,
+                    aspect_ratio, package_type, feature_count, has_slipcover, has_booklet,
+                    has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $userId, $name, $spineLabel, $spineImageType, $spineColor,
-                $format, $edition, $region, $condition, $purchaseDate ?: null, $purchasePrice, $notes
+                $userId, $name, $spineLabel, $spineImageType, $spineColor, $spineType,
+                $format, $edition, $region, $condition, $purchaseDate ?: null, $purchasePrice, $notes,
+                $aspectRatio ?: null, $packageType ?: null, $featureCount ?: null,
+                $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d
             ]);
 
             $containerId = $db->lastInsertId();
@@ -3421,11 +3465,16 @@ case 'resolve_movie':
             $spineImageType = sanitize($input['spine_image_type'] ?? '', 20);
             $spineImageUrl  = sanitize($input['spine_image_url'] ?? '', 500);
             $spineColor = sanitize($input['spine_color'] ?? '', 20);
+            $spineType = sanitize($input['spine_type'] ?? '', 20);
             $format = sanitize($input['format'] ?? '', 100);
             $edition = sanitize($input['edition'] ?? '', 100);
             $region = sanitize($input['region'] ?? '', 50);
             $condition = sanitize($input['condition'] ?? '', 20);
             $notes = sanitize($input['notes'] ?? '', 500);
+            // Physical media attributes (v3.0.0)
+            $aspectRatio = sanitize($input['aspect_ratio'] ?? '', 50);
+            $packageType = sanitize($input['package_type'] ?? '', 50);
+            $featureCount = sanitize($input['feature_count'] ?? '', 50);
 
             if (!$containerId) {
                 jsonResponse(false, null, 'Container ID required');
@@ -3464,6 +3513,10 @@ case 'resolve_movie':
                 $updates[] = "spine_color = ?";
                 $params[] = $spineColor;
             }
+            if (!empty($spineType)) {
+                $updates[] = "spine_type = ?";
+                $params[] = $spineType;
+            }
             if (!empty($format)) {
                 $updates[] = "format = ?";
                 $params[] = $format;
@@ -3483,6 +3536,43 @@ case 'resolve_movie':
             if (isset($input['notes'])) {
                 $updates[] = "notes = ?";
                 $params[] = $notes;
+            }
+            // Physical media attributes
+            if (isset($input['aspect_ratio'])) {
+                $updates[] = "aspect_ratio = ?";
+                $params[] = $aspectRatio ?: null;
+            }
+            if (isset($input['package_type'])) {
+                $updates[] = "package_type = ?";
+                $params[] = $packageType ?: null;
+            }
+            if (isset($input['feature_count'])) {
+                $updates[] = "feature_count = ?";
+                $params[] = $featureCount ?: null;
+            }
+            if (isset($input['has_slipcover'])) {
+                $updates[] = "has_slipcover = ?";
+                $params[] = intval($input['has_slipcover']);
+            }
+            if (isset($input['has_booklet'])) {
+                $updates[] = "has_booklet = ?";
+                $params[] = intval($input['has_booklet']);
+            }
+            if (isset($input['has_bonus_disc'])) {
+                $updates[] = "has_bonus_disc = ?";
+                $params[] = intval($input['has_bonus_disc']);
+            }
+            if (isset($input['bonus_disc_count'])) {
+                $updates[] = "bonus_disc_count = ?";
+                $params[] = intval($input['bonus_disc_count']);
+            }
+            if (isset($input['has_digital_copy'])) {
+                $updates[] = "has_digital_copy = ?";
+                $params[] = intval($input['has_digital_copy']);
+            }
+            if (isset($input['has_3d'])) {
+                $updates[] = "has_3d = ?";
+                $params[] = intval($input['has_3d']);
             }
 
             if (empty($updates)) {
@@ -3816,6 +3906,7 @@ case 'resolve_movie':
                     cont.spine_label as container_spine_label,
                     cont.spine_color as container_spine_color,
                     cont.spine_image_url as container_spine_image_url,
+                    cont.spine_type as container_spine_type,
                     cont.format as container_format,
                     (SELECT COUNT(*) FROM container_contents cc WHERE cc.container_id = cont.id) as container_movie_count
                 FROM shelf_assignments sa
@@ -4042,9 +4133,11 @@ case 'resolve_movie':
         case 'reorder_shelf_contents':
             $shelfId = intval($input['shelf_id'] ?? 0);
             $copyOrder = $input['copy_order'] ?? [];
+            // v3.0.0: Support mixed items (copies + containers)
+            $itemOrder = $input['item_order'] ?? [];
 
-            if (!$shelfId || !is_array($copyOrder)) {
-                jsonResponse(false, null, 'Shelf ID and copy order required');
+            if (!$shelfId) {
+                jsonResponse(false, null, 'Shelf ID required');
             }
 
             // Verify ownership
@@ -4058,14 +4151,31 @@ case 'resolve_movie':
 
             $db->beginTransaction();
 
-            foreach ($copyOrder as $index => $copyId) {
-                $stmt = $db->prepare("UPDATE shelf_assignments SET position_in_shelf = ? WHERE shelf_id = ? AND copy_id = ?");
-                $stmt->execute([$index, $shelfId, intval($copyId)]);
+            if (!empty($itemOrder) && is_array($itemOrder)) {
+                // New format: array of {type: 'copy'|'container', id: N}
+                foreach ($itemOrder as $index => $item) {
+                    $type = $item['type'] ?? 'copy';
+                    $id = intval($item['id'] ?? 0);
+                    if ($type === 'container') {
+                        $stmt = $db->prepare("UPDATE shelf_assignments SET position_in_shelf = ? WHERE shelf_id = ? AND container_id = ? AND is_container = 1");
+                        $stmt->execute([$index, $shelfId, $id]);
+                    } else {
+                        $stmt = $db->prepare("UPDATE shelf_assignments SET position_in_shelf = ? WHERE shelf_id = ? AND copy_id = ? AND is_container = 0");
+                        $stmt->execute([$index, $shelfId, $id]);
+                    }
+                }
+            } elseif (!empty($copyOrder) && is_array($copyOrder)) {
+                // Legacy format: array of copy IDs
+                foreach ($copyOrder as $index => $copyId) {
+                    $stmt = $db->prepare("UPDATE shelf_assignments SET position_in_shelf = ? WHERE shelf_id = ? AND copy_id = ?");
+                    $stmt->execute([$index, $shelfId, intval($copyId)]);
+                }
             }
 
             $db->commit();
 
-            jsonResponse(true, ['updated' => count($copyOrder)]);
+            $count = !empty($itemOrder) ? count($itemOrder) : count($copyOrder);
+            jsonResponse(true, ['updated' => $count]);
             break;
 
         case 'fetch_article':

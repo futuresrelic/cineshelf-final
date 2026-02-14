@@ -710,18 +710,88 @@
                                 <option value="4K UHD">4K UHD</option>
                                 <option value="VHS">VHS</option>
                                 <option value="Digital">Digital</option>
+                                <option value="LaserDisc">LaserDisc</option>
                             </select>
                         </div>
 
                         <div class="form-group">
+                            <label>Aspect Ratio</label>
+                            <select id="copyAspectRatio">
+                                <option value="">Not Specified</option>
+                                <option value="Widescreen">Widescreen</option>
+                                <option value="Full Screen">Full Screen</option>
+                                <option value="Letterbox">Letterbox</option>
+                                <option value="Pan & Scan">Pan & Scan</option>
+                                <option value="IMAX">IMAX</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
                             <label>Edition</label>
-                            <select id="copyEdition">
+                            <select id="copyEdition" onchange="App.onCustomDropdown(this)">
                                 <option value="">Standard</option>
                                 <option value="Collector's Edition">Collector's Edition</option>
-                                <option value="Steelbook">Steelbook</option>
                                 <option value="Limited Edition">Limited Edition</option>
                                 <option value="Director's Cut">Director's Cut</option>
                                 <option value="Extended Edition">Extended Edition</option>
+                                <option value="Special Edition">Special Edition</option>
+                                <option value="Anniversary Edition">Anniversary Edition</option>
+                                <option value="Unrated Edition">Unrated Edition</option>
+                                <option value="Theatrical Edition">Theatrical Edition</option>
+                                <option value="Gold Edition">Gold Edition</option>
+                                <option value="Platinum Edition">Platinum Edition</option>
+                                <option value="Diamond Edition">Diamond Edition</option>
+                                <option value="Signature Edition">Signature Edition</option>
+                                <option value="Deluxe Edition">Deluxe Edition</option>
+                                <option value="Gift Set">Gift Set</option>
+                                <option value="Criterion Collection">Criterion Collection</option>
+                                <option value="__custom__">Custom...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Package Type</label>
+                            <select id="copyPackageType" onchange="App.onCustomDropdown(this)">
+                                <option value="">Standard Amaray</option>
+                                <option value="Steelbook">Steelbook</option>
+                                <option value="Digibook">Digibook</option>
+                                <option value="Digipack">Digipack</option>
+                                <option value="Slipcase">Slipcase</option>
+                                <option value="Mediabook">Mediabook</option>
+                                <option value="Snap Case">Snap Case</option>
+                                <option value="Eco Case">Eco Case</option>
+                                <option value="Keep Case">Keep Case</option>
+                                <option value="Tin Case">Tin Case</option>
+                                <option value="__custom__">Custom...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Feature Count</label>
+                            <select id="copyFeatureCount">
+                                <option value="Single">Single Feature</option>
+                                <option value="Single + Bonus">Single + Bonus Disc</option>
+                                <option value="Double Feature">Double Feature</option>
+                                <option value="Triple Feature">Triple Feature</option>
+                                <option value="Quadruple Feature">Quadruple Feature</option>
+                                <option value="Collection">Collection</option>
+                                <option value="Complete Series">Complete Series</option>
+                                <option value="Full Saga">Full Saga</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Condition</label>
+                            <select id="copyCondition">
+                                <option value="Mint">Mint</option>
+                                <option value="Excellent">Excellent</option>
+                                <option value="Good" selected>Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Poor">Poor</option>
                             </select>
                         </div>
                     </div>
@@ -738,16 +808,21 @@
                                 <option value="Region Free">Region Free</option>
                             </select>
                         </div>
+                    </div>
 
-                        <div class="form-group">
-                            <label>Condition</label>
-                            <select id="copyCondition">
-                                <option value="Mint">Mint</option>
-                                <option value="Excellent">Excellent</option>
-                                <option value="Good">Good</option>
-                                <option value="Fair">Fair</option>
-                                <option value="Poor">Poor</option>
-                            </select>
+                    <!-- Packaging Extras -->
+                    <div class="form-group">
+                        <label>Packaging Extras</label>
+                        <div class="packaging-extras-grid">
+                            <label class="toggle-chip"><input type="checkbox" id="copyHasSlipcover"><span>Slipcover</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="copyHasBooklet"><span>Booklet/Insert</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="copyHasBonusDisc"><span>Bonus Disc</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="copyHasDigitalCopy"><span>Digital Copy</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="copyHas3d"><span>3D</span></label>
+                        </div>
+                        <div id="bonusDiscCountRow" style="display:none; margin-top:0.5rem;">
+                            <label style="font-size:0.85rem;">Bonus Disc Count</label>
+                            <input type="number" id="copyBonusDiscCount" min="1" max="10" value="1" style="width:80px;">
                         </div>
                     </div>
 
@@ -844,6 +919,34 @@
 
                         <div class="form-row">
                             <div class="form-group">
+                                <label>Aspect Ratio</label>
+                                <select id="boxSetAspectRatio">
+                                    <option value="">Not Specified</option>
+                                    <option value="Widescreen">Widescreen</option>
+                                    <option value="Full Screen">Full Screen</option>
+                                    <option value="Letterbox">Letterbox</option>
+                                    <option value="Pan & Scan">Pan & Scan</option>
+                                    <option value="IMAX">IMAX</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Package Type</label>
+                                <select id="boxSetPackageType" onchange="App.onCustomDropdown(this)">
+                                    <option value="">Standard</option>
+                                    <option value="Steelbook">Steelbook</option>
+                                    <option value="Digibook">Digibook</option>
+                                    <option value="Digipack">Digipack</option>
+                                    <option value="Slipcase">Slipcase</option>
+                                    <option value="Mediabook">Mediabook</option>
+                                    <option value="Tin Case">Tin Case</option>
+                                    <option value="__custom__">Custom...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label>Region</label>
                                 <select id="boxSetRegion">
                                     <option value="Region 1">Region 1 (US/Canada)</option>
@@ -857,12 +960,28 @@
                             <div class="form-group">
                                 <label>Condition</label>
                                 <select id="boxSetCondition">
-                                    <option value="Good">Good</option>
                                     <option value="Mint">Mint</option>
                                     <option value="Like New">Like New</option>
+                                    <option value="Good" selected>Good</option>
                                     <option value="Fair">Fair</option>
                                     <option value="Poor">Poor</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- Box Set Packaging Extras -->
+                        <div class="form-group">
+                            <label>Packaging Extras</label>
+                            <div class="packaging-extras-grid">
+                                <label class="toggle-chip"><input type="checkbox" id="boxSetHasSlipcover"><span>Slipcover/Sleeve</span></label>
+                                <label class="toggle-chip"><input type="checkbox" id="boxSetHasBooklet"><span>Booklet/Insert</span></label>
+                                <label class="toggle-chip"><input type="checkbox" id="boxSetHasBonusDisc"><span>Bonus Disc</span></label>
+                                <label class="toggle-chip"><input type="checkbox" id="boxSetHasDigitalCopy"><span>Digital Copy</span></label>
+                                <label class="toggle-chip"><input type="checkbox" id="boxSetHas3d"><span>3D</span></label>
+                            </div>
+                            <div id="boxSetBonusDiscCountRow" style="display:none; margin-top:0.5rem;">
+                                <label style="font-size:0.85rem;">Bonus Disc Count</label>
+                                <input type="number" id="boxSetBonusDiscCount" min="1" max="10" value="1" style="width:80px;">
                             </div>
                         </div>
 
@@ -870,6 +989,7 @@
                             <label>Spine Appearance</label>
                             <select id="boxSetSpineType" onchange="App.updateBoxSetSpinePreview()">
                                 <option value="color">Plain Colored Spine</option>
+                                <option value="average_color">Average Cover Color (auto)</option>
                                 <option value="first_movie">First Movie Poster</option>
                                 <option value="custom">Custom Spine Image (upload later)</option>
                             </select>
@@ -1627,16 +1747,27 @@
                 <button class="modal-close" onclick="App.closeShelfContents()">×</button>
             </div>
             <div class="modal-body">
-                <div class="shelf-contents-actions" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+                <div class="shelf-contents-actions" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <button class="btn-secondary" onclick="App.addMoviesToShelf()">
                         ➕ Add Movies
                     </button>
+                    <div class="shelf-sort-group">
+                        <button class="btn-ghost shelf-sort-btn" onclick="App.sortShelfContents('title')" title="Sort A-Z">A-Z</button>
+                        <button class="btn-ghost shelf-sort-btn" onclick="App.sortShelfContents('year')" title="Sort by Year">Year</button>
+                        <button class="btn-ghost shelf-sort-btn" onclick="App.sortShelfContents('format')" title="Sort by Format">Format</button>
+                        <button class="btn-ghost shelf-sort-btn" onclick="App.sortShelfContents('custom')" title="Custom order via drag & drop">Drag</button>
+                    </div>
                 </div>
+                <p id="shelfDragHint" class="shelf-drag-hint" style="display:none;">Drag items by their handle to reorder, then click Save Order</p>
                 <div id="shelfContentsList" class="shelf-contents-grid"></div>
                 <div id="emptyShelfContents" class="empty-state" style="display: none;">
                     <div class="empty-icon">📚</div>
                     <h3>Shelf is empty</h3>
                     <p>Add movies to this shelf to get started!</p>
+                </div>
+                <div id="shelfSaveOrderBar" class="shelf-save-bar" style="display:none;">
+                    <button class="btn" onclick="App.saveShelfOrder()">Save Order</button>
+                    <button class="btn-ghost" onclick="App.cancelShelfReorder()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -1725,7 +1856,7 @@
 
     <!-- Cover Photo Crop Modal -->
     <div id="coverCropModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 540px;">
             <div class="modal-header">
                 <h3>📸 Set Box Set Cover</h3>
                 <button class="modal-close" onclick="App.closeCoverCrop()">×</button>
@@ -1745,6 +1876,16 @@
                            onchange="App.onCoverFileChange(event)" style="display:none;">
                 </div>
 
+                <!-- Aspect ratio toggle -->
+                <div class="crop-aspect-row">
+                    <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">Crop Shape:</span>
+                    <div class="crop-aspect-btns">
+                        <button class="btn-chip active" onclick="App.setCropAspect('poster')" data-aspect="poster">Poster (2:3)</button>
+                        <button class="btn-chip" onclick="App.setCropAspect('boxset')" data-aspect="boxset">Box Set (4:5)</button>
+                        <button class="btn-chip" onclick="App.setCropAspect('square')" data-aspect="square">Square (1:1)</button>
+                    </div>
+                </div>
+
                 <!-- Canvas crop area -->
                 <canvas id="cropCanvas" width="360" height="480"
                         style="width:100%; border-radius:8px; display:block; background:#111; cursor:grab; touch-action:none;">
@@ -1758,6 +1899,41 @@
                            style="flex:1;">
                     <span style="font-size:0.8rem; color:rgba(255,255,255,0.4);">Drag to position</span>
                 </div>
+
+                <!-- Image Adjustment Controls -->
+                <details class="crop-adjustments">
+                    <summary>Image Adjustments</summary>
+                    <div class="crop-adjust-grid">
+                        <div class="crop-adjust-row">
+                            <label>Brightness</label>
+                            <input type="range" id="cropBrightness" min="-100" max="100" value="0"
+                                   oninput="App.applyCropAdjustments()">
+                            <span class="crop-adjust-val" id="cropBrightnessVal">0</span>
+                        </div>
+                        <div class="crop-adjust-row">
+                            <label>Contrast</label>
+                            <input type="range" id="cropContrast" min="-100" max="100" value="0"
+                                   oninput="App.applyCropAdjustments()">
+                            <span class="crop-adjust-val" id="cropContrastVal">0</span>
+                        </div>
+                        <div class="crop-adjust-row">
+                            <label>Warmth</label>
+                            <input type="range" id="cropWarmth" min="-50" max="50" value="0"
+                                   oninput="App.applyCropAdjustments()">
+                            <span class="crop-adjust-val" id="cropWarmthVal">0</span>
+                        </div>
+                        <div class="crop-adjust-row">
+                            <label>Saturation</label>
+                            <input type="range" id="cropSaturation" min="-100" max="100" value="0"
+                                   oninput="App.applyCropAdjustments()">
+                            <span class="crop-adjust-val" id="cropSaturationVal">0</span>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                            <button class="btn-ghost" onclick="App.autoAdjustCrop()" style="font-size:0.8rem;">Auto Adjust</button>
+                            <button class="btn-ghost" onclick="App.resetCropAdjustments()" style="font-size:0.8rem;">Reset</button>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="modal-footer">
                 <button class="btn-ghost" onclick="App.closeCoverCrop()">Cancel</button>

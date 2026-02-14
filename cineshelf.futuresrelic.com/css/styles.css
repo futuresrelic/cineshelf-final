@@ -5791,3 +5791,267 @@ body.modal-open {
         min-width: auto;
     }
 }
+
+/* ============================================
+   CineShelf v3.0.0 — Physical Media Attributes,
+   Drag-and-Drop Shelves, Image Adjustments,
+   Spine Customization
+   ============================================ */
+
+/* ── Packaging Extras Toggle Chips ── */
+.packaging-extras-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.toggle-chip {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-chip input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-chip span {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6);
+    transition: all 0.15s ease;
+}
+
+.toggle-chip input:checked + span {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(102, 126, 234, 0.3);
+}
+
+.toggle-chip:hover span {
+    border-color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.8);
+}
+
+/* ── Shelf Drag-and-Drop ── */
+.shelf-drag-hint {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary);
+}
+
+.shelf-save-bar {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 1rem 0 0.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 1rem;
+}
+
+.shelf-sort-group {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+}
+
+.shelf-sort-btn {
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.6rem !important;
+    border-radius: 4px !important;
+    min-width: auto !important;
+}
+
+.shelf-sort-btn:hover {
+    background: rgba(102, 126, 234, 0.2) !important;
+}
+
+.shelf-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    min-width: 28px;
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.35);
+    cursor: grab;
+    user-select: none;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+    transition: color 0.15s;
+}
+
+.shelf-drag-handle:hover {
+    color: rgba(255,255,255,0.7);
+}
+
+.shelf-drag-handle:active {
+    cursor: grabbing;
+}
+
+.shelf-movie-card.drag-enabled {
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.shelf-movie-card.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.shelf-movie-card.drag-over {
+    border-top: 3px solid var(--primary);
+    padding-top: calc(0.75rem - 3px);
+}
+
+/* ── Crop Aspect Ratio Buttons ── */
+.crop-aspect-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.crop-aspect-btns {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.btn-chip {
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-chip:hover {
+    border-color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.85);
+}
+
+.btn-chip.active {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* ── Image Adjustment Controls ── */
+.crop-adjustments {
+    margin-top: 0.75rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+}
+
+.crop-adjustments summary {
+    padding: 0.6rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7);
+    user-select: none;
+}
+
+.crop-adjustments summary:hover {
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.03);
+}
+
+.crop-adjustments[open] summary {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.crop-adjust-grid {
+    padding: 0.75rem 0.9rem;
+}
+
+.crop-adjust-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.crop-adjust-row label {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    min-width: 70px;
+    text-align: right;
+}
+
+.crop-adjust-row input[type="range"] {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--primary);
+}
+
+.crop-adjust-val {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Spine with background image ── */
+.spine-item[style*="background-image"] {
+    background-size: cover !important;
+    background-position: center !important;
+}
+
+.spine-container[style*="background-image"] {
+    background: none !important;
+}
+
+/* ── Spine with custom container color via --spine-color ── */
+.spine-container[style*="--spine-color"] {
+    background: linear-gradient(to right,
+        color-mix(in srgb, var(--spine-color) 80%, black),
+        var(--spine-color),
+        color-mix(in srgb, var(--spine-color) 70%, white 20%),
+        var(--spine-color)
+    ) !important;
+}
+
+/* ── Mobile adjustments for new features ── */
+@media (max-width: 480px) {
+    .packaging-extras-grid {
+        gap: 0.3rem;
+    }
+    .toggle-chip span {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .shelf-sort-group {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .crop-aspect-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .crop-adjust-row label {
+        min-width: 55px;
+        font-size: 0.72rem;
+    }
+}
