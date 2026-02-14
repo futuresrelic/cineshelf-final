@@ -8122,6 +8122,7 @@ async function getCurrentUserId() {
     const CONDITION_PRESETS = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'];
     const REGION_PRESETS = ['Region 1', 'Region 2', 'Region 3', 'Region 4', 'Region 5', 'Region 6', 'Region A', 'Region B', 'Region C', 'Region Free'];
     const BOXSET_FORMAT_PRESETS = ['DVD Box Set', 'Blu-ray Box Set', '4K UHD Box Set', 'Mixed Format Set', 'Double Feature', 'Triple Feature', 'Steelbook Set', 'Criterion Collection', 'Collection'];
+    const EDITION_PRESETS = ['Standard', "Director's Cut", 'Special Edition', 'Limited Edition', 'Collector\'s Edition', 'Unrated', 'Extended', 'Theatrical', 'Anniversary Edition', 'Criterion', 'Steelbook', 'Slipcover'];
     const BOXSET_REGION_PRESETS = ['Region 1', 'Region 2', 'Region A', 'Region B', 'Region Free'];
 
     function renderCopiesSpreadsheet(data) {
@@ -8149,17 +8150,20 @@ async function getCurrentUserId() {
             const missingData = !item.director || !item.genre || !item.actors;
 
             const curFormat = changes.format || item.format || '';
+            const curEdition = changes.edition !== undefined ? changes.edition : item.edition || '';
             const curRegion = changes.region || item.region || '';
             const curCondition = changes.condition || item.copy_condition || '';
 
             html += `<tr class="${changed ? 'spreadsheet-row-changed' : ''}" data-copy-id="${id}">
                 <td>${poster ? `<img src="${poster}" class="spreadsheet-poster" alt="">` : '<div style="width:35px;height:52px;background:rgba(255,255,255,0.05);border-radius:3px;"></div>'}</td>
-                <td class="spreadsheet-title" title="${title.replace(/"/g, '&quot;')}">${title}</td>
+                <td class="spreadsheet-title" title="${title.replace(/"/g, '&quot;')}"><a href="#" onclick="event.preventDefault(); App.viewMovieDetails(${item.movie_id})">${title}</a></td>
                 <td>${item.year || ''}</td>
                 <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'format')" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
                     ${buildSelectOptions(FORMAT_PRESETS, curFormat, false)}
                 </select></td>
-                <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange(${id}, 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'edition')" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(EDITION_PRESETS, curEdition, true)}
+                </select></td>
                 <td><select onchange="App.handleSpreadsheetCustomSelect(this, ${id}, 'region')" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
                     ${buildSelectOptions(REGION_PRESETS, curRegion, true)}
                 </select></td>
@@ -8194,6 +8198,7 @@ async function getCurrentUserId() {
             const changed = Object.keys(changes).length > 0;
 
             const curFormat = changes.format || item.format || '';
+            const curEdition = changes.edition !== undefined ? changes.edition : item.edition || '';
             const curRegion = changes.region || item.region || '';
             const curCondition = changes.condition || item.container_condition || '';
 
@@ -8203,7 +8208,9 @@ async function getCurrentUserId() {
                 <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'format')" class="${changes.format ? 'spreadsheet-cell-changed' : ''}">
                     ${buildSelectOptions(BOXSET_FORMAT_PRESETS, curFormat, false)}
                 </select></td>
-                <td><input type="text" value="${(changes.edition !== undefined ? changes.edition : item.edition || '').replace(/"/g, '&quot;')}" onchange="App.onSpreadsheetChange('c_${id}', 'edition', this.value)" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}" placeholder="Edition..."></td>
+                <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'edition')" class="${changes.edition !== undefined ? 'spreadsheet-cell-changed' : ''}">
+                    ${buildSelectOptions(EDITION_PRESETS, curEdition, true)}
+                </select></td>
                 <td><select onchange="App.handleSpreadsheetCustomSelect(this, 'c_${id}', 'region')" class="${changes.region ? 'spreadsheet-cell-changed' : ''}">
                     ${buildSelectOptions(BOXSET_REGION_PRESETS, curRegion, true)}
                 </select></td>

@@ -5628,6 +5628,17 @@ body.modal-open {
     white-space: nowrap;
 }
 
+.spreadsheet-table .spreadsheet-title a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.spreadsheet-table .spreadsheet-title a:hover {
+    color: #667eea;
+    text-decoration: underline;
+}
+
 .spreadsheet-table select,
 .spreadsheet-table input[type="text"] {
     background: rgba(255,255,255,0.06);
