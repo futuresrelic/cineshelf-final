@@ -4658,6 +4658,11 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         ctx.textAlign = 'center';
         ctx.fillText('Select a photo above to start', canvas.width / 2, canvas.height / 2);
         document.getElementById('cropSaveBtn').disabled = true;
+
+        // If container already has a custom cover, pre-load it for editing
+        if (currentContainer && currentContainer.spine_image_type === 'custom' && currentContainer.spine_image_url) {
+            _loadCropImage(currentContainer.spine_image_url);
+        }
     }
 
     function closeCoverCrop() {
