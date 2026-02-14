@@ -1843,6 +1843,8 @@ htpasswd -c /path/to/.htpasswd admin
 - [ ] Update dependencies (if any)
 - [ ] Review error logs for suspicious activity
 - [ ] Test backup restore procedure
+- [ ] Review OpenAI API usage and costs (AI Cover Scanning, v2.9.0+)
+- [ ] Verify TMDB rate limits are not being exceeded (Bulk Editor TMDB fetch, Box Set Scanner)
 
 ---
 
