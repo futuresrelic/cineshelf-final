@@ -980,13 +980,13 @@
                 <div class="settings-group">
                     <h3>Account</h3>
 
-                    <div class="setting-item">
+                    <div class="setting-item setting-item-stacked">
                         <label>Display Name</label>
                         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                             <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" style="flex: 1; min-width: 160px;">
                             <button class="btn" onclick="App.updateDisplayName()" style="padding: 0.5rem 1rem; flex-shrink: 0;">Save</button>
                         </div>
-                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.4rem; line-height: 1.4;">
+                        <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.2rem; line-height: 1.4;">
                             This is how your name appears to other users in groups
                         </small>
                     </div>
@@ -1028,12 +1028,12 @@
                     <h3>📲 Install App</h3>
 
                     <!-- Android / Chrome: button shown when beforeinstallprompt fires -->
-                    <div class="setting-item" id="pwaInstallAndroidRow" style="display:none;">
+                    <div class="setting-item setting-item-stacked" id="pwaInstallAndroidRow" style="display:none;">
                         <label>Android / Chrome</label>
                         <button class="btn pwa-install-btn" id="pwaInstallAndroidBtn" onclick="App.installPWA()">
                             <span class="pwa-install-icon">🤖</span> Add to Home Screen
                         </button>
-                        <small style="color:rgba(255,255,255,0.55); display:block; margin-top:0.4rem; line-height:1.4;">
+                        <small style="color:rgba(255,255,255,0.55); display:block; margin-top:0.2rem; line-height:1.4;">
                             Installs CineShelf as a standalone app on your Android device.
                         </small>
                     </div>

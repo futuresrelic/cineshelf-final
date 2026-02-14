@@ -988,7 +988,47 @@ case 'update_movie_poster':
             
             jsonResponse(true, $stmt->fetchAll());
             break;
-        
+
+        case 'delete_unresolved':
+            $movieId = intval($input['movie_id'] ?? 0);
+
+            if (!$movieId) {
+                jsonResponse(false, null, 'Movie ID required');
+            }
+
+            // Verify movie is unresolved and user owns copies
+            $stmt = $db->prepare("
+                SELECT m.id, m.tmdb_id FROM movies m
+                JOIN copies c ON c.movie_id = m.id
+                WHERE m.id = ? AND c.user_id = ? AND m.tmdb_id LIKE 'unresolved_%'
+                LIMIT 1
+            ");
+            $stmt->execute([$movieId, $userId]);
+            $movie = $stmt->fetch();
+
+            if (!$movie) {
+                jsonResponse(false, null, 'Unresolved movie not found or access denied');
+            }
+
+            // Delete all copies for this movie belonging to this user
+            $stmt = $db->prepare("DELETE FROM copies WHERE movie_id = ? AND user_id = ?");
+            $stmt->execute([$movieId, $userId]);
+
+            // If no copies remain for this movie from any user, clean up the movie record
+            $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM copies WHERE movie_id = ?");
+            $stmt->execute([$movieId]);
+            $remaining = $stmt->fetch();
+
+            if ($remaining['cnt'] == 0) {
+                $stmt = $db->prepare("DELETE FROM movies WHERE id = ?");
+                $stmt->execute([$movieId]);
+            }
+
+            logAction($db, $userId, 'unresolved_deleted', 'movie', $movieId);
+
+            jsonResponse(true, ['message' => 'Unresolved movie deleted']);
+            break;
+
 case 'resolve_movie':
     $movieId = intval($input['movie_id'] ?? 0);
     $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);

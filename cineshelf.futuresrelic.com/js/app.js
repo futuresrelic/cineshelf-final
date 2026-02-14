@@ -3660,22 +3660,67 @@ function renderUnresolved() {
                     ${movie.copy_count > 1 ? `<span class="unresolved-copies">${movie.copy_count} copies</span>` : ''}
                 </div>
             </div>
-            <button class="btn-resolve" data-movie-id="${movie.movie_id}" data-title="${safeTitle}">
-                🔍 Match
-            </button>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="btn-resolve" data-movie-id="${movie.movie_id}" data-title="${safeTitle}">
+                    🔍 Match
+                </button>
+                <button class="btn-resolve btn-delete-unresolved" data-movie-id="${movie.movie_id}" data-title="${safeTitle}" style="background: rgba(239,68,68,0.2); color: #ef4444;">
+                    🗑️ Delete
+                </button>
+            </div>
         `;
 
         list.appendChild(item);
     });
 
     // Add event listeners to all resolve buttons
-    list.querySelectorAll('.btn-resolve').forEach(btn => {
+    list.querySelectorAll('.btn-resolve:not(.btn-delete-unresolved)').forEach(btn => {
         btn.addEventListener('click', function(e) {
             const movieId = parseInt(e.target.dataset.movieId);
             const title = e.target.dataset.title;
             openResolveModal(movieId, title);
         });
     });
+
+    // Add event listeners to all delete buttons
+    list.querySelectorAll('.btn-delete-unresolved').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const movieId = parseInt(e.target.dataset.movieId);
+            const title = e.target.dataset.title;
+            deleteUnresolved(movieId, title);
+        });
+    });
+}
+
+async function deleteUnresolved(movieId, title) {
+    if (!confirm(`Delete "${title}" from your collection? This will remove all copies of this unmatched entry.`)) return;
+
+    try {
+        await apiCall('delete_unresolved', { movie_id: movieId });
+        showToast(`"${title}" deleted`, 'success');
+
+        // Refresh the unresolved list
+        await loadUnresolved();
+
+        // Refresh collection data
+        try {
+            const data = await apiCall('list_collection');
+            const grouped = {};
+            (data || []).forEach(item => {
+                if (!grouped[item.movie_id]) {
+                    grouped[item.movie_id] = { movie: item, copies: [] };
+                }
+                grouped[item.movie_id].copies.push(item);
+            });
+            collection = Object.values(grouped);
+            originalCollection = [...collection];
+        } catch (e) {
+            console.error('Failed to refresh collection:', e);
+        }
+    } catch (error) {
+        console.error('Failed to delete unresolved movie:', error);
+        showToast('Failed to delete entry', 'error');
+    }
 }
 
 function toggleFilters() {
@@ -7589,12 +7634,16 @@ async function getCurrentUserId() {
                     const isContainer = item.is_container === 1 || item.is_container === true;
 
                     if (isContainer) {
-                        // Render container/box set
+                        // Render container/box set - use custom poster if available
+                        const coverUrl = item.container_spine_image_url;
+                        const shelfContainerPosterHTML = coverUrl
+                            ? `<img src="${coverUrl}" alt="${item.container_name || 'Box Set'}" class="shelf-movie-poster" style="object-fit: cover;"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
+                              + `<div class="container-poster" style="display:none; background: ${item.container_spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`
+                            : `<div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`;
                         return `
                             <div class="shelf-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
-                                <div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-                                    📦
-                                </div>
+                                ${shelfContainerPosterHTML}
                                 <div class="shelf-movie-info">
                                     <h4>${item.container_name || 'Box Set'}</h4>
                                     <p>${item.container_movie_count || 0} movie${item.container_movie_count !== 1 ? 's' : ''}</p>
@@ -7779,7 +7828,16 @@ async function getCurrentUserId() {
                 const isSelected = selectedCopyIds.has(itemId);
 
                 if (item.is_container) {
-                    // Render box set / container
+                    // Render box set / container - use custom poster if available
+                    const hasCustomCover = item.spine_image_type === 'custom' && item.spine_image_url;
+                    const containerPosterHTML = hasCustomCover
+                        ? `<img src="${item.spine_image_url}" alt="${item.name}" class="unassigned-movie-poster" style="object-fit: cover;"
+                                onclick="App.toggleMovieSelection('${itemId}')"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
+                          + `<div class="container-poster" style="display:none; background: ${item.spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;"
+                                 onclick="App.toggleMovieSelection('${itemId}')">📦</div>`
+                        : `<div class="container-poster" style="background: ${item.spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;"
+                                 onclick="App.toggleMovieSelection('${itemId}')">📦</div>`;
                     return `
                         <div class="unassigned-movie-card ${isSelected ? 'selected' : ''} container-card" data-item-id="${itemId}">
                             <input type="checkbox"
@@ -7787,10 +7845,7 @@ async function getCurrentUserId() {
                                    ${isSelected ? 'checked' : ''}
                                    onchange="App.toggleMovieSelection('${itemId}')"
                                    onclick="event.stopPropagation()">
-                            <div class="container-poster" style="background: ${item.spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;"
-                                 onclick="App.toggleMovieSelection('${itemId}')">
-                                📦
-                            </div>
+                            ${containerPosterHTML}
                             <div class="unassigned-movie-info" onclick="App.toggleMovieSelection('${itemId}')">
                                 <h4>${item.name}</h4>
                                 <p style="color: rgba(255,255,255,0.8);">${item.movie_count} movie${item.movie_count !== 1 ? 's' : ''}</p>
@@ -8113,6 +8168,7 @@ return {
     importCSV,
     loadUnresolved,
     renderUnresolved,
+    deleteUnresolved,
     openResolveModal,
     closeResolveModal,
     searchForResolve,
