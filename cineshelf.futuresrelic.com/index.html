@@ -937,7 +937,7 @@
                         </select>
                     </div>
 
-                    <div class="setting-item">
+                    <div class="setting-item setting-item-stacked">
                         <label>Classification Region</label>
                         <select id="settingCertRegion" onchange="App.saveSetting('certRegion', this.value)">
                             <option value="US">United States (MPAA)</option>
@@ -953,9 +953,9 @@
                             <option value="IN">India (CBFC)</option>
                             <option value="NZ">New Zealand (OFLC)</option>
                         </select>
-                        <div style="color:rgba(255,255,255,0.45); font-size:0.78rem; margin-top:0.3rem;">
+                        <small style="color: rgba(255,255,255,0.45); display: block; line-height: 1.4;">
                             Sets which region's age rating is shown. Applies to newly added movies. Use Admin &rarr; Re-fetch Certifications to update existing titles.
-                        </div>
+                        </small>
                     </div>
 
                     <div class="setting-item">
