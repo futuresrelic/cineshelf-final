@@ -5365,6 +5365,17 @@ body.modal-open {
     text-transform: uppercase;
 }
 
+/* UMDB source badge for search results */
+.umdb-badge {
+    background: rgba(234, 170, 102, 0.3);
+    color: #ffd6a8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
 /* Season info display in cards/detail */
 .season-info {
     font-size: 0.8rem;

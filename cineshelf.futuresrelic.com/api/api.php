@@ -9,6 +9,120 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/auth-middleware.php';
 
+// ========================================
+// UMDB API HELPERS
+// ========================================
+
+/**
+ * Check if an ID is a UMDB ID (prefixed with "umdb-")
+ * @param string $id The ID to check
+ * @return bool True if this is a UMDB ID
+ */
+function isUmdbId($id) {
+    return str_starts_with((string)$id, 'umdb-');
+}
+
+/**
+ * Make an HTTP GET request to the UMDB API
+ * Automatically attaches the X-API-Key header when UMDB_API_KEY is set.
+ *
+ * @param string $path  API path (e.g. "/movie/umdb-42" or "/search/multi?query=foo")
+ * @return array|false  Decoded JSON response, or false on failure
+ */
+function umdbFetch($path) {
+    $url = UMDB_BASE_URL . $path;
+
+    $opts = ['http' => [
+        'method' => 'GET',
+        'timeout' => 15,
+        'header' => "Accept: application/json\r\n",
+    ]];
+
+    if (!empty(UMDB_API_KEY)) {
+        $opts['http']['header'] .= "X-API-Key: " . UMDB_API_KEY . "\r\n";
+    }
+
+    $ctx = stream_context_create($opts);
+    $response = @file_get_contents($url, false, $ctx);
+
+    if ($response === false) {
+        error_log("CineShelf: UMDB request failed – $url");
+        return false;
+    }
+
+    return json_decode($response, true);
+}
+
+/**
+ * Build the correct detail-fetch URL for a movie/tv id.
+ * Returns [url, source] where source is 'umdb' or 'tmdb'.
+ *
+ * @param string $id        The tmdb_id or umdb-{n} id
+ * @param string $mediaType 'movie' or 'tv'
+ * @param string $append    append_to_response value
+ * @return array            ['url' => string, 'source' => 'umdb'|'tmdb', 'headers' => array]
+ */
+function buildDetailUrl($id, $mediaType = 'movie', $append = 'credits,release_dates') {
+    $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
+
+    if (isUmdbId($id)) {
+        $url = UMDB_BASE_URL . $endpoint . $id;
+        if ($append) {
+            $url .= '?append_to_response=' . urlencode($append);
+        }
+        $headers = [];
+        if (!empty(UMDB_API_KEY)) {
+            $headers[] = "X-API-Key: " . UMDB_API_KEY;
+        }
+        return ['url' => $url, 'source' => 'umdb', 'headers' => $headers];
+    }
+
+    // Default: TMDB
+    $url = TMDB_BASE_URL . $endpoint . $id . '?api_key=' . TMDB_API_KEY;
+    if ($append) {
+        $url .= '&append_to_response=' . urlencode($append);
+    }
+    return ['url' => $url, 'source' => 'tmdb', 'headers' => []];
+}
+
+/**
+ * Fetch JSON from a URL, optionally with extra headers (used for UMDB auth).
+ *
+ * @param string $url
+ * @param array  $extraHeaders
+ * @return string|false  Raw response body
+ */
+function fetchUrl($url, $extraHeaders = []) {
+    $headerStr = "Accept: application/json\r\n";
+    foreach ($extraHeaders as $h) {
+        $headerStr .= $h . "\r\n";
+    }
+    $opts = ['http' => [
+        'method'  => 'GET',
+        'timeout' => 15,
+        'header'  => $headerStr,
+    ]];
+    $ctx = stream_context_create($opts);
+    return @file_get_contents($url, false, $ctx);
+}
+
+/**
+ * Resolve a poster/backdrop path to a full URL.
+ * UMDB may return full URLs; TMDB returns relative paths.
+ *
+ * @param string|null $path  poster_path or poster_url value
+ * @return string|null       Full URL or null
+ */
+function resolveImageUrl($path) {
+    if (empty($path)) return null;
+    // Already a full URL (UMDB may return these)
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        return $path;
+    }
+    // TMDB-style relative path
+    return TMDB_IMAGE_BASE . $path;
+}
+
 /**
  * Extract movie titles and years from HTML content using OpenAI
  * @param string $htmlContent The HTML content to parse
@@ -337,28 +451,113 @@ try {
             
         case 'search_multi':
             $query = sanitize($input['query'] ?? '', 100);
-            
+            $includeUmdb = ($input['include_umdb'] ?? true);
+
             if (empty($query)) {
                 jsonResponse(false, null, 'Search query required');
             }
-            
+
+            // Search TMDB
             $url = TMDB_BASE_URL . '/search/multi?api_key=' . TMDB_API_KEY . '&query=' . urlencode($query);
             $response = file_get_contents($url);
-            
+
             if ($response === false) {
                 jsonResponse(false, null, 'TMDB API request failed');
             }
-            
+
             $data = json_decode($response, true);
-            
+
             // Filter to only movies and TV shows
             $results = array_filter($data['results'] ?? [], function($item) {
                 return in_array($item['media_type'], ['movie', 'tv']);
             });
-            
-            jsonResponse(true, array_values($results));
+            $results = array_values($results);
+
+            // Also search UMDB and merge results (non-blocking: failure is OK)
+            if ($includeUmdb) {
+                $umdbData = umdbFetch('/search/multi?query=' . urlencode($query));
+                if ($umdbData && !empty($umdbData['results'])) {
+                    $umdbResults = array_filter($umdbData['results'], function($item) {
+                        return in_array($item['media_type'] ?? 'movie', ['movie', 'tv']);
+                    });
+                    // Tag UMDB results with source for frontend differentiation
+                    foreach ($umdbResults as &$r) {
+                        $r['source'] = 'umdb';
+                    }
+                    unset($r);
+                    // Append UMDB results after TMDB results
+                    $results = array_merge($results, array_values($umdbResults));
+                }
+            }
+
+            jsonResponse(true, $results);
             break;
-        
+
+        case 'find_by_imdb':
+            // Lookup a movie/TV show by IMDb ID — tries TMDB, then UMDB
+            $imdbId = sanitize($input['imdb_id'] ?? '', 20);
+
+            if (empty($imdbId)) {
+                jsonResponse(false, null, 'IMDb ID required');
+            }
+
+            // Try TMDB first
+            $tmdbFindUrl = TMDB_BASE_URL . '/find/' . urlencode($imdbId) . '?api_key=' . TMDB_API_KEY . '&external_source=imdb_id';
+            $tmdbResp = file_get_contents($tmdbFindUrl);
+            $tmdbFind = $tmdbResp ? json_decode($tmdbResp, true) : null;
+
+            $result = null;
+            $mediaType = 'movie';
+
+            if ($tmdbFind) {
+                if (!empty($tmdbFind['movie_results'])) {
+                    $result = $tmdbFind['movie_results'][0];
+                    $mediaType = 'movie';
+                } elseif (!empty($tmdbFind['tv_results'])) {
+                    $result = $tmdbFind['tv_results'][0];
+                    $mediaType = 'tv';
+                }
+            }
+
+            // If TMDB had no result, try UMDB
+            if (!$result) {
+                $umdbFind = umdbFetch('/find/' . urlencode($imdbId) . '?external_source=imdb_id');
+                if ($umdbFind) {
+                    if (!empty($umdbFind['movie_results'])) {
+                        $result = $umdbFind['movie_results'][0];
+                        $mediaType = 'movie';
+                        $result['source'] = 'umdb';
+                    } elseif (!empty($umdbFind['tv_results'])) {
+                        $result = $umdbFind['tv_results'][0];
+                        $mediaType = 'tv';
+                        $result['source'] = 'umdb';
+                    }
+                }
+            }
+
+            if (!$result) {
+                jsonResponse(false, null, 'No movie or TV show found for IMDb ID: ' . $imdbId);
+            }
+
+            // Now fetch full details
+            $detailId = $result['id'];
+            $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+            $detail = buildDetailUrl((string)$detailId, $mediaType, $appendTo);
+            $detailResp = fetchUrl($detail['url'], $detail['headers']);
+
+            if ($detailResp === false) {
+                // Return the basic find result if detail fetch fails
+                $result['media_type'] = $mediaType;
+                jsonResponse(true, $result);
+            }
+
+            $details = json_decode($detailResp, true);
+            $details['media_type'] = $mediaType;
+            $details['source'] = $detail['source'];
+
+            jsonResponse(true, $details);
+            break;
+
         case 'get_movie':
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
             $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
@@ -372,13 +571,14 @@ try {
                 jsonResponse(false, null, 'TMDB ID required');
             }
 
-            $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-            $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=release_dates,content_ratings,credits';
-
-            $response = file_get_contents($url);
+            // Route to UMDB or TMDB based on ID prefix
+            $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+            $detail = buildDetailUrl($tmdbId, $mediaType, $appendTo);
+            $response = fetchUrl($detail['url'], $detail['headers']);
 
             if ($response === false) {
-                jsonResponse(false, null, 'TMDB API request failed');
+                $apiName = $detail['source'] === 'umdb' ? 'UMDB' : 'TMDB';
+                jsonResponse(false, null, "$apiName API request failed");
             }
 
             $data = json_decode($response, true);
@@ -434,8 +634,8 @@ try {
                     'id' => $data['id'],
                     'title' => $data['name'],
                     'year' => isset($data['first_air_date']) ? intval(substr($data['first_air_date'], 0, 4)) : null,
-                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
-                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
+                    'poster_url' => resolveImageUrl($data['poster_path'] ?? $data['poster_url'] ?? null),
+                    'backdrop_url' => resolveImageUrl($data['backdrop_path'] ?? $data['backdrop_url'] ?? null),
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => isset($data['episode_run_time'][0]) ? $data['episode_run_time'][0] : null,
@@ -443,7 +643,8 @@ try {
                     'media_type' => 'tv',
                     'number_of_seasons' => $data['number_of_seasons'] ?? null,
                     'director' => isset($data['created_by'][0]['name']) ? $data['created_by'][0]['name'] : null,
-                    'certification' => $certification
+                    'certification' => $certification,
+                    'source' => $detail['source']
                 ]);
             } else {
                 // Get director
@@ -461,8 +662,8 @@ try {
                     'id' => $data['id'],
                     'title' => $data['title'],
                     'year' => isset($data['release_date']) ? intval(substr($data['release_date'], 0, 4)) : null,
-                    'poster_url' => isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
-                    'backdrop_url' => isset($data['backdrop_path']) ? TMDB_IMAGE_BASE . $data['backdrop_path'] : null,
+                    'poster_url' => resolveImageUrl($data['poster_path'] ?? $data['poster_url'] ?? null),
+                    'backdrop_url' => resolveImageUrl($data['backdrop_path'] ?? $data['backdrop_url'] ?? null),
                     'overview' => $data['overview'] ?? null,
                     'rating' => $data['vote_average'] ?? null,
                     'runtime' => $data['runtime'] ?? null,
@@ -470,7 +671,8 @@ try {
                     'imdb_id' => $data['imdb_id'] ?? null,
                     'media_type' => 'movie',
                     'director' => $director,
-                    'certification' => $certification
+                    'certification' => $certification,
+                    'source' => $detail['source']
                 ]);
             }
             break;
@@ -546,14 +748,14 @@ try {
             }
 
             if (!$movie) {
-                // Fetch from TMDB first (with credits for actors/director/studio)
-                $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
+                // Fetch from TMDB or UMDB (with credits for actors/director/studio)
                 $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
-                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
-                $response = file_get_contents($url);
+                $detail = buildDetailUrl($tmdbId, $mediaType, $appendTo);
+                $response = fetchUrl($detail['url'], $detail['headers']);
 
                 if ($response === false) {
-                    jsonResponse(false, null, 'Failed to fetch movie from TMDB');
+                    $apiName = $detail['source'] === 'umdb' ? 'UMDB' : 'TMDB';
+                    jsonResponse(false, null, "Failed to fetch movie from $apiName");
                 }
 
                 $data = json_decode($response, true);
@@ -642,7 +844,7 @@ try {
                     $tmdbId,
                     $title,
                     $year,
-                    isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    resolveImageUrl($data['poster_path'] ?? $data['poster_url'] ?? null),
                     $data['overview'] ?? null,
                     $data['vote_average'] ?? null,
                     $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
@@ -855,19 +1057,26 @@ case 'update_display_title':
 case 'get_movie_posters':
     $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
     $mediaType = sanitize($input['media_type'] ?? 'movie', 20);
-    
+
     if (empty($tmdbId)) {
         jsonResponse(false, null, 'TMDB ID required');
     }
-    
-    // Fetch posters from TMDB
+
+    // Route to UMDB or TMDB for images
     $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-    $url = TMDB_BASE_URL . $endpoint . $tmdbId . '/images?api_key=' . TMDB_API_KEY;
-    
-    $response = file_get_contents($url);
-    
+    if (isUmdbId($tmdbId)) {
+        $url = UMDB_BASE_URL . $endpoint . $tmdbId . '/images';
+        $headers = !empty(UMDB_API_KEY) ? ["X-API-Key: " . UMDB_API_KEY] : [];
+    } else {
+        $url = TMDB_BASE_URL . $endpoint . $tmdbId . '/images?api_key=' . TMDB_API_KEY;
+        $headers = [];
+    }
+
+    $response = fetchUrl($url, $headers);
+
     if ($response === false) {
-        jsonResponse(false, null, 'Failed to fetch posters from TMDB');
+        $apiName = isUmdbId($tmdbId) ? 'UMDB' : 'TMDB';
+        jsonResponse(false, null, "Failed to fetch posters from $apiName");
     }
     
     $data = json_decode($response, true);
@@ -890,8 +1099,8 @@ case 'update_movie_poster':
         jsonResponse(false, null, 'Movie ID and poster path required');
     }
     
-    // Build full poster URL
-    $posterUrl = TMDB_IMAGE_BASE . $posterPath;
+    // Build full poster URL (handle both TMDB relative paths and full URLs from UMDB)
+    $posterUrl = resolveImageUrl($posterPath);
     
     // Update movie poster
     $stmt = $db->prepare("
@@ -2420,18 +2629,26 @@ case 'resolve_movie':
             break;
 
         case 'get_movie_cast':
-            // Get cast/crew for a movie from TMDB
+            // Get cast/crew for a movie from TMDB or UMDB
             $tmdbId = sanitize($input['tmdb_id'] ?? '', 20);
 
             if (empty($tmdbId)) {
                 jsonResponse(false, null, 'TMDB ID required');
             }
 
-            $url = TMDB_BASE_URL . '/movie/' . $tmdbId . '/credits?api_key=' . TMDB_API_KEY;
-            $response = file_get_contents($url);
+            if (isUmdbId($tmdbId)) {
+                $url = UMDB_BASE_URL . '/movie/' . $tmdbId . '/credits';
+                $headers = !empty(UMDB_API_KEY) ? ["X-API-Key: " . UMDB_API_KEY] : [];
+            } else {
+                $url = TMDB_BASE_URL . '/movie/' . $tmdbId . '/credits?api_key=' . TMDB_API_KEY;
+                $headers = [];
+            }
+
+            $response = fetchUrl($url, $headers);
 
             if ($response === false) {
-                jsonResponse(false, null, 'TMDB API request failed');
+                $apiName = isUmdbId($tmdbId) ? 'UMDB' : 'TMDB';
+                jsonResponse(false, null, "$apiName API request failed");
             }
 
             $data = json_decode($response, true);
@@ -3129,14 +3346,14 @@ case 'resolve_movie':
                 file_put_contents('php://stderr', "[get_or_create_movie] RETURNING EXISTING: movie_id={$movie['movie_id']}, tmdb_id={$movie['tmdb_id']}, title={$movie['title']}\n");
                 jsonResponse(true, $movie);
             } else {
-                // Movie doesn't exist, fetch from TMDB and create it
-                $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
+                // Movie doesn't exist, fetch from TMDB or UMDB and create it
                 $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
-                $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
-                $response = file_get_contents($url);
+                $detail = buildDetailUrl($tmdbId, $mediaType, $appendTo);
+                $response = fetchUrl($detail['url'], $detail['headers']);
 
                 if ($response === false) {
-                    jsonResponse(false, null, 'Failed to fetch movie from TMDB');
+                    $apiName = $detail['source'] === 'umdb' ? 'UMDB' : 'TMDB';
+                    jsonResponse(false, null, "Failed to fetch movie from $apiName");
                 }
 
                 $data = json_decode($response, true);
@@ -3225,7 +3442,7 @@ case 'resolve_movie':
                     $tmdbId,
                     $title,
                     $year,
-                    isset($data['poster_path']) ? TMDB_IMAGE_BASE . $data['poster_path'] : null,
+                    resolveImageUrl($data['poster_path'] ?? $data['poster_url'] ?? null),
                     $data['overview'] ?? null,
                     $data['vote_average'] ?? null,
                     $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
@@ -5555,6 +5772,85 @@ Return ONLY the JSON object, no markdown.'
             $stmt->execute([$copyId, $userId]);
 
             jsonResponse(true, ['unlinked' => true]);
+            break;
+
+        // ========================================
+        // UMDB — Physical Releases & External ID Lookup
+        // ========================================
+
+        case 'find_by_external_id':
+            // Lookup a movie/TV show by IMDb or TMDB ID via UMDB
+            $externalId = sanitize($input['external_id'] ?? '', 30);
+            $externalSource = sanitize($input['external_source'] ?? 'imdb_id', 30);
+
+            if (empty($externalId)) {
+                jsonResponse(false, null, 'External ID required');
+            }
+
+            $umdbData = umdbFetch('/find/' . urlencode($externalId) . '?external_source=' . urlencode($externalSource));
+
+            if ($umdbData === false) {
+                jsonResponse(false, null, 'UMDB find request failed');
+            }
+
+            jsonResponse(true, $umdbData);
+            break;
+
+        case 'get_releases':
+            // Get all physical releases for a UMDB movie
+            $umdbId = sanitize($input['umdb_id'] ?? '', 30);
+
+            if (empty($umdbId)) {
+                jsonResponse(false, null, 'UMDB ID required');
+            }
+
+            $umdbData = umdbFetch('/movie/' . urlencode($umdbId) . '/releases');
+
+            if ($umdbData === false) {
+                jsonResponse(false, null, 'Failed to fetch releases from UMDB');
+            }
+
+            jsonResponse(true, $umdbData);
+            break;
+
+        case 'get_release':
+            // Get a single release detail by release ID
+            $releaseId = sanitize($input['release_id'] ?? '', 30);
+
+            if (empty($releaseId)) {
+                jsonResponse(false, null, 'Release ID required');
+            }
+
+            $umdbData = umdbFetch('/releases/' . urlencode($releaseId));
+
+            if ($umdbData === false) {
+                jsonResponse(false, null, 'Failed to fetch release from UMDB');
+            }
+
+            jsonResponse(true, $umdbData);
+            break;
+
+        case 'search_releases':
+            // Search physical releases by title and optional format
+            $query = sanitize($input['query'] ?? '', 100);
+            $format = sanitize($input['format'] ?? '', 50);
+
+            if (empty($query)) {
+                jsonResponse(false, null, 'Search query required');
+            }
+
+            $params = 'query=' . urlencode($query);
+            if (!empty($format)) {
+                $params .= '&format=' . urlencode($format);
+            }
+
+            $umdbData = umdbFetch('/search/releases?' . $params);
+
+            if ($umdbData === false) {
+                jsonResponse(false, null, 'UMDB release search failed');
+            }
+
+            jsonResponse(true, $umdbData);
             break;
 
         default:

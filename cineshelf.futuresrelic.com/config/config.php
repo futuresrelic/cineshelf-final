@@ -25,6 +25,16 @@ define('TMDB_API_KEY', $tmdbKey);
 define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');
 define('TMDB_IMAGE_BASE', 'https://image.tmdb.org/t/p/w500');
 
+// UMDB API Configuration (physical media database)
+// Read from environment variable — leave blank to use UMDB's open/unauthenticated mode
+$umdbKey = getenv('UMDB_API_KEY');
+if (!$umdbKey && file_exists(__DIR__ . '/secrets.php')) {
+    $secrets = isset($secrets) ? $secrets : (include __DIR__ . '/secrets.php');
+    $umdbKey = $secrets['UMDB_API_KEY'] ?? '';
+}
+define('UMDB_API_KEY', $umdbKey ?: '');
+define('UMDB_BASE_URL', 'https://umdb-production.up.railway.app/api/v1');
+
 // OpenAI API Configuration (for AI-powered article extraction)
 // Load from environment variable or local secrets file (not in version control)
 $openaiKey = getenv('OPENAI_API_KEY');

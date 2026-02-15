@@ -1329,18 +1329,24 @@ function renderCollection() {
                 const title = isTV ? (item.name || '') : (item.title || '');
                 const date = isTV ? item.first_air_date : item.release_date;
                 const yearStr = date ? date.substring(0, 4) : 'Unknown';
-                const posterUrl = item.poster_path ? 'https://image.tmdb.org/t/p/w300' + item.poster_path : '';
+                const isUmdb = item.source === 'umdb';
+                // Handle both TMDB relative paths and full URLs (UMDB)
+                const rawPoster = item.poster_path || item.poster_url || '';
+                const posterUrl = rawPoster
+                    ? (rawPoster.startsWith('http') ? rawPoster : 'https://image.tmdb.org/t/p/w300' + rawPoster)
+                    : '';
                 const safeTitle = title.replace(/"/g, '&quot;');
+                const sourceBadge = isUmdb ? '<span class="umdb-badge">UMDB</span>' : '';
                 return `
                 <div class="search-result-card"
                      data-movie-id="${item.id}"
                      data-movie-title="${safeTitle}"
-                     data-poster-path="${item.poster_path || ''}"
+                     data-poster-path="${rawPoster}"
                      data-media-type="${item.media_type || 'movie'}">
                     <img src="${posterUrl || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'92\' height=\'138\'%3E%3Crect fill=\'%23333\' width=\'92\' height=\'138\'/%3E%3C/svg%3E'}" alt="${safeTitle}">
                     <div class="search-result-info">
                         <h4>${isTV ? '📺 ' : ''}${title}</h4>
-                        <p>${yearStr} ${isTV ? '<span class="tv-badge">TV Series</span>' : ''}</p>
+                        <p>${yearStr} ${isTV ? '<span class="tv-badge">TV Series</span>' : ''} ${sourceBadge}</p>
                         ${item.vote_average ? `<p>⭐ ${item.vote_average.toFixed(1)}</p>` : ''}
                     </div>
                 </div>
@@ -1392,63 +1398,43 @@ function renderCollection() {
     console.log('CineShelf: Starting IMDB lookup for:', imdbId);
 
     try {
-        // Use TMDB's "find" endpoint with IMDb ID
-        const findUrl = `https://api.themoviedb.org/3/find/${imdbId}?api_key=8039283176a74ffd71a1658c6f84a051&external_source=imdb_id`;
-        console.log('CineShelf: Fetching from:', findUrl);
-        
-        const findResponse = await fetch(findUrl);
-        const findData = await findResponse.json();
-        
-        console.log('CineShelf: TMDB find response:', findData);
+        // Route through backend — searches TMDB then UMDB automatically
+        const details = await apiCall('find_by_imdb', { imdb_id: imdbId });
 
-        // Check BOTH movie_results and tv_results
-        let result = null;
-        let mediaType = 'movie';
-        
-        if (findData.movie_results && findData.movie_results.length > 0) {
-            result = findData.movie_results[0];
-            mediaType = 'movie';
-            console.log('CineShelf: Found movie via IMDB ID:', result);
-        } else if (findData.tv_results && findData.tv_results.length > 0) {
-            result = findData.tv_results[0];
-            mediaType = 'tv';
-            console.log('CineShelf: Found TV series via IMDB ID:', result);
-        }
+        console.log('CineShelf: find_by_imdb response:', details);
 
-        if (result) {
-            console.log(`CineShelf: Found ${mediaType} via IMDB ID ${imdbId}:`, result);
-            
-            // Fetch full details
-            const endpoint = mediaType === 'tv' ? 'tv' : 'movie';
-            const detailsUrl = `https://api.themoviedb.org/3/${endpoint}/${result.id}?api_key=8039283176a74ffd71a1658c6f84a051&append_to_response=credits,release_dates,content_ratings`;
-            console.log('CineShelf: Fetching details from:', detailsUrl);
-            
-            const response = await fetch(detailsUrl);
-            const details = await response.json();
-            
-            console.log('CineShelf: Details:', details);
+        if (details) {
+            const mediaType = details.media_type || 'movie';
+            console.log(`CineShelf: Found ${mediaType} via IMDB ID ${imdbId}:`, details);
+
+            // Resolve poster URL (backend may return poster_path or poster_url)
+            const posterPath = details.poster_path || details.poster_url || null;
+            const posterUrl = posterPath
+                ? (posterPath.startsWith('http') ? posterPath : `https://image.tmdb.org/t/p/w500${posterPath}`)
+                : null;
 
             // Build movie data object
             let movieData = {
-                id: details.id.toString(),        // ← ADD THIS LINE!
-                tmdb_id: details.id.toString(),
-                title: mediaType === 'tv' ? details.name : details.title,
+                id: (details.id || '').toString(),
+                tmdb_id: (details.id || '').toString(),
+                title: mediaType === 'tv' ? (details.name || details.title) : (details.title || details.name),
                 year: null,
-                poster_url: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null,
+                poster_url: posterUrl,
                 overview: details.overview || '',
                 rating: details.vote_average || 0,
                 media_type: mediaType,
                 genre: details.genres?.map(g => g.name).join(', ') || '',
                 director: null,
                 runtime: null,
-                certification: null
+                certification: null,
+                source: details.source || 'tmdb'
             };
 
             // Get year based on media type
             if (mediaType === 'tv') {
                 movieData.year = details.first_air_date ? new Date(details.first_air_date).getFullYear() : null;
                 movieData.runtime = details.episode_run_time?.[0] || null;
-                
+
                 // Get TV rating for preferred region (fallback to US)
                 if (details.content_ratings?.results) {
                     const prefCertCountry = (settings.certRegion || 'US') === 'CA-QC' ? 'CA' : (settings.certRegion || 'US');
@@ -1459,13 +1445,13 @@ function renderCollection() {
             } else {
                 movieData.year = details.release_date ? new Date(details.release_date).getFullYear() : null;
                 movieData.runtime = details.runtime || null;
-                
+
                 // Get director
                 if (details.credits?.crew) {
                     const director = details.credits.crew.find(person => person.job === 'Director');
                     movieData.director = director?.name || null;
                 }
-                
+
                 // Get certification for preferred region (fallback to US)
                 if (details.release_dates?.results) {
                     const prefCertCountry = (settings.certRegion || 'US') === 'CA-QC' ? 'CA' : (settings.certRegion || 'US');
@@ -1528,7 +1514,11 @@ function renderCollection() {
 
         const titleEl = document.getElementById('selectedMovieTitle');
         titleEl.textContent = (mType === 'tv' ? '📺 ' : '') + selectedMovie.title;
-        document.getElementById('selectedMoviePoster').src = posterPath ? 'https://image.tmdb.org/t/p/w300' + posterPath : '';
+        // Handle both TMDB relative paths and full URLs (UMDB)
+        const posterSrc = posterPath
+            ? (posterPath.startsWith('http') ? posterPath : 'https://image.tmdb.org/t/p/w300' + posterPath)
+            : '';
+        document.getElementById('selectedMoviePoster').src = posterSrc;
 
         // Pre-select physical media region from settings
         const regionDropdown2 = document.getElementById('copyRegion');
@@ -1558,10 +1548,8 @@ function renderCollection() {
         container.innerHTML = '<span style="color:rgba(255,255,255,0.5)">Loading seasons...</span>';
 
         try {
-            // Fetch TV show details from TMDB to get number of seasons
-            const url = `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=8039283176a74ffd71a1658c6f84a051`;
-            const resp = await fetch(url);
-            const data = await resp.json();
+            // Fetch TV show details via backend (routes to TMDB or UMDB)
+            const data = await apiCall('get_movie', { tmdb_id: tmdbId, media_type: 'tv' });
             const numSeasons = data.number_of_seasons || 1;
 
             // Store for later use
