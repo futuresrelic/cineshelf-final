@@ -8094,8 +8094,8 @@ async function getCurrentUserId() {
         }
 
         _renderShelfContents();
-        // Auto-save the sorted order
-        _saveShelfOrderToServer();
+        // Auto-save the sorted order, then refresh shelf views
+        _saveShelfOrderToServer().then(() => refreshAllShelfViews());
     }
 
     async function saveShelfOrder() {
@@ -8103,6 +8103,7 @@ async function getCurrentUserId() {
         _shelfDragMode = false;
         _renderShelfContents();
         showToast('Shelf order saved!', 'success');
+        refreshAllShelfViews();
     }
 
     async function _saveShelfOrderToServer() {
