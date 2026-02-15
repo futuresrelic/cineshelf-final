@@ -4684,10 +4684,10 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         img.onload = () => {
             _cropImg    = img;
             const canvas = document.getElementById('cropCanvas');
-            // Scale image to cover the canvas
+            // Scale image to fit entirely inside the canvas (no cropping on load)
             const scaleX = canvas.width  / img.width;
             const scaleY = canvas.height / img.height;
-            _cropScale   = Math.max(scaleX, scaleY);
+            _cropScale   = Math.min(scaleX, scaleY);
             _cropOffsetX = (canvas.width  - img.width  * _cropScale) / 2;
             _cropOffsetY = (canvas.height - img.height * _cropScale) / 2;
             document.getElementById('cropZoomSlider').value = 100;
@@ -4795,7 +4795,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     function cropZoom(val) {
         if (!_cropImg) return;
         const canvas   = document.getElementById('cropCanvas');
-        const newScale = (val / 100) * Math.max(canvas.width / _cropImg.width,
+        const newScale = (val / 100) * Math.min(canvas.width / _cropImg.width,
                                                  canvas.height / _cropImg.height);
         // Zoom around canvas centre
         const cx = canvas.width / 2, cy = canvas.height / 2;
