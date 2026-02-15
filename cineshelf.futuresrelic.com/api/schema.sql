@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS copies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     movie_id INTEGER NOT NULL,
+    edition_id INTEGER,
     format TEXT NOT NULL,
     edition TEXT,
     region TEXT,
@@ -99,7 +100,8 @@ CREATE TABLE IF NOT EXISTS copies (
     seasons_owned TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+    FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+    FOREIGN KEY (edition_id) REFERENCES media_editions(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_copies_user ON copies(user_id);
@@ -390,3 +392,71 @@ CREATE TABLE IF NOT EXISTS trivia_stats (
 );
 
 CREATE INDEX IF NOT EXISTS idx_trivia_stats_best_score ON trivia_stats(best_score DESC);
+
+-- ============================================
+-- UMDB: MEDIA EDITIONS
+-- Specific physical releases of a movie
+-- Shared across all users (universal reference data)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS media_editions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    movie_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    format TEXT,
+    package_type TEXT,
+    region TEXT,
+    barcode TEXT,
+    release_date TEXT,
+    distributor TEXT,
+    country TEXT,
+    disc_count INTEGER DEFAULT 1,
+    notes TEXT,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_editions_movie ON media_editions(movie_id);
+CREATE INDEX IF NOT EXISTS idx_media_editions_barcode ON media_editions(barcode);
+
+-- ============================================
+-- UMDB: EDITION COMPONENTS
+-- What comes in the box (universal truth)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS edition_components (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    edition_id INTEGER NOT NULL,
+    component_type TEXT NOT NULL,
+    component_name TEXT NOT NULL,
+    description TEXT,
+    position INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (edition_id) REFERENCES media_editions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_edition_components_edition ON edition_components(edition_id);
+
+-- ============================================
+-- CINESHELF: COPY COMPONENTS (User-Specific)
+-- Tracks what the user actually HAS and its condition
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS copy_components (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    copy_id INTEGER NOT NULL,
+    edition_component_id INTEGER NOT NULL,
+    is_present INTEGER DEFAULT 1,
+    condition TEXT DEFAULT 'Good',
+    notes TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+    FOREIGN KEY (edition_component_id) REFERENCES edition_components(id) ON DELETE CASCADE,
+    UNIQUE(copy_id, edition_component_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_copy_components_copy ON copy_components(copy_id);
+CREATE INDEX IF NOT EXISTS idx_copy_components_edition_component ON copy_components(edition_component_id);

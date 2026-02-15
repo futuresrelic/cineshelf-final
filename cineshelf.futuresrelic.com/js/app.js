@@ -1752,7 +1752,7 @@ function renderCollection() {
                             ${copy.feature_count && copy.feature_count !== 'Single' ? `<div><strong>Features:</strong> ${copy.feature_count}</div>` : ''}
                             ${copy.region ? `<div><strong>Region:</strong> ${copy.region}</div>` : ''}
                             ${copy.condition ? `<div><strong>Condition:</strong> ${copy.condition}</div>` : ''}
-                            ${copy.seasons_owned ? `<div><strong>📺 Seasons:</strong> ${copy.seasons_owned}</div>` : ''}
+                            ${copy.seasons_owned ? `<div><strong>Seasons:</strong> ${copy.seasons_owned}</div>` : ''}
                             ${(copy.has_slipcover || copy.has_booklet || copy.has_bonus_disc || copy.has_digital_copy || copy.has_3d) ? `
                             <div><strong>Extras:</strong> ${[
                                 copy.has_slipcover ? 'Slipcover' : '',
@@ -1762,6 +1762,25 @@ function renderCollection() {
                                 copy.has_3d ? '3D' : ''
                             ].filter(Boolean).join(', ')}</div>` : ''}
                             ${copy.notes ? `<div><strong>Notes:</strong> ${copy.notes}</div>` : ''}
+
+                            <!-- Physical Edition & Component Tracking -->
+                            <div class="edition-section">
+                                ${copy.edition_id ? `
+                                    <div class="edition-badge">
+                                        <span class="edition-badge-label">${copy.edition_name || 'Linked Edition'}</span>
+                                        ${copy.edition_distributor ? `<span class="edition-badge-dist">${copy.edition_distributor}</span>` : ''}
+                                        ${copy.components_total > 0 ? `
+                                            <span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>
+                                        ` : ''}
+                                    </div>
+                                    <div class="edition-actions">
+                                        <button class="btn-sm" onclick="App.openComponentChecklist(${copy.id}, ${movieId})">Checklist</button>
+                                        <button class="btn-sm btn-sm-muted" onclick="App.unlinkCopyEdition(${copy.id}, ${movieId})">Unlink</button>
+                                    </div>
+                                ` : `
+                                    <button class="btn-sm btn-sm-outline" onclick="App.openEditionPicker(${copy.id}, ${movieId})">+ Link Physical Edition</button>
+                                `}
+                            </div>
                         </div>
 
                         <!-- Edit Mode (Hidden by default) -->
@@ -2040,9 +2059,425 @@ async function deleteCopy(copyId, movieId) {
 }
     
     // ========================================
+    // PHYSICAL MEDIA EDITIONS & COMPONENT TRACKING
+    // ========================================
+
+    async function openEditionPicker(copyId, movieId) {
+        try {
+            const editions = await apiCall('get_editions', { movie_id: movieId });
+            const modal = document.getElementById('copyManagerContent');
+
+            // Build picker UI
+            let html = `
+                <div class="edition-picker" id="edition-picker-${copyId}">
+                    <h4>Select Physical Edition</h4>
+                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+                        Link this copy to a specific physical release to track individual components (booklet, insert, discs, etc.)
+                    </p>
+            `;
+
+            if (editions && editions.length > 0) {
+                html += `<div class="edition-list">`;
+                for (const ed of editions) {
+                    html += `
+                        <div class="edition-option" onclick="App.linkCopyToEdition(${copyId}, ${ed.id}, ${movieId})">
+                            <div class="edition-option-name">${ed.name}</div>
+                            <div class="edition-option-meta">
+                                ${ed.format ? `<span>${ed.format}</span>` : ''}
+                                ${ed.distributor ? `<span>${ed.distributor}</span>` : ''}
+                                ${ed.region ? `<span>${ed.region}</span>` : ''}
+                                ${ed.component_count ? `<span>${ed.component_count} components</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            } else {
+                html += `<p class="text-muted" style="font-size:0.9rem;">No editions defined for this title yet.</p>`;
+            }
+
+            html += `
+                    <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+                        <button class="btn" onclick="App.showCreateEdition(${copyId}, ${movieId})">+ Create New Edition</button>
+                        <button class="btn-secondary" onclick="App.openCopyManager(${movieId})">Cancel</button>
+                    </div>
+                </div>
+            `;
+
+            modal.innerHTML = html;
+        } catch (error) {
+            console.error('Failed to load editions:', error);
+            showToast('Failed to load editions', 'error');
+        }
+    }
+
+    async function linkCopyToEdition(copyId, editionId, movieId) {
+        try {
+            await apiCall('initialize_copy_components', { copy_id: copyId, edition_id: editionId });
+            showToast('Edition linked! Component tracking enabled.', 'success');
+            await openCopyManager(movieId);
+        } catch (error) {
+            console.error('Failed to link edition:', error);
+            showToast('Failed to link edition', 'error');
+        }
+    }
+
+    async function unlinkCopyEdition(copyId, movieId) {
+        if (!confirm('Unlink this edition? Component tracking data will be removed.')) return;
+        try {
+            await apiCall('unlink_copy_edition', { copy_id: copyId });
+            showToast('Edition unlinked', 'info');
+            await openCopyManager(movieId);
+        } catch (error) {
+            console.error('Failed to unlink edition:', error);
+            showToast('Failed to unlink edition', 'error');
+        }
+    }
+
+    function showCreateEdition(copyId, movieId) {
+        const modal = document.getElementById('copyManagerContent');
+
+        const componentTypes = [
+            { value: 'disc', label: 'Disc' },
+            { value: 'booklet', label: 'Booklet' },
+            { value: 'insert', label: 'Insert / Inlet' },
+            { value: 'slipcover', label: 'Slipcover' },
+            { value: 'poster', label: 'Poster' },
+            { value: 'art_cards', label: 'Art Cards' },
+            { value: 'digital_code', label: 'Digital Code' },
+            { value: 'case', label: 'Case' },
+            { value: 'outer_case', label: 'Outer Case / O-Ring' },
+            { value: 'stickers', label: 'Stickers' },
+            { value: 'other', label: 'Other' }
+        ];
+
+        modal.innerHTML = `
+            <div class="create-edition-form">
+                <h4>Create Physical Edition</h4>
+                <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+                    Define what this physical release includes. Other users will see this edition too.
+                </p>
+
+                <div class="form-row" style="display:flex; gap:0.5rem;">
+                    <div class="form-group" style="flex:2;">
+                        <label>Edition Name *</label>
+                        <input type="text" id="edition-name" class="form-control"
+                               placeholder='e.g., "Arrow Video Limited Edition" or "Criterion #456"'>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Format</label>
+                        <select id="edition-format" class="form-control">
+                            <option value="">Not Specified</option>
+                            <option value="DVD">DVD</option>
+                            <option value="Blu-ray">Blu-ray</option>
+                            <option value="4K UHD">4K UHD</option>
+                            <option value="4K Ultra HD">4K Ultra HD</option>
+                            <option value="VHS">VHS</option>
+                            <option value="LaserDisc">LaserDisc</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row" style="display:flex; gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Distributor / Label</label>
+                        <input type="text" id="edition-distributor" class="form-control"
+                               placeholder="e.g., Arrow Video, Criterion, Shout Factory">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Package Type</label>
+                        <select id="edition-package-type" class="form-control">
+                            <option value="">Standard</option>
+                            <option value="Steelbook">Steelbook</option>
+                            <option value="Digibook">Digibook</option>
+                            <option value="Digipack">Digipack</option>
+                            <option value="Slipcase">Slipcase</option>
+                            <option value="Mediabook">Mediabook</option>
+                            <option value="Keep Case">Keep Case</option>
+                            <option value="Snap Case">Snap Case</option>
+                            <option value="Tin Case">Tin Case</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row" style="display:flex; gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Region</label>
+                        <input type="text" id="edition-region" class="form-control" placeholder="e.g., Region A, Region 1">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Country</label>
+                        <input type="text" id="edition-country" class="form-control" placeholder="e.g., USA, UK">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Barcode</label>
+                        <input type="text" id="edition-barcode" class="form-control" placeholder="UPC / EAN">
+                    </div>
+                </div>
+
+                <div class="form-row" style="display:flex; gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Release Date</label>
+                        <input type="date" id="edition-release-date" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Disc Count</label>
+                        <input type="number" id="edition-disc-count" class="form-control" min="1" max="20" value="1">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Components (what's in the box)</label>
+                    <div id="edition-components-list" class="edition-components-builder">
+                    </div>
+                    <button class="btn-secondary" style="margin-top:0.5rem; font-size:0.85rem;" onclick="App.addEditionComponentRow()">+ Add Component</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="edition-notes" class="form-control" rows="2" placeholder="Any additional details..."></textarea>
+                </div>
+
+                <div class="form-actions" style="display:flex; gap:0.5rem; margin-top:1rem;">
+                    <button class="btn" onclick="App.saveNewEdition(${copyId}, ${movieId})">Save Edition</button>
+                    <button class="btn-secondary" onclick="App.openEditionPicker(${copyId}, ${movieId})">Back</button>
+                </div>
+            </div>
+        `;
+
+        // Add a few default component rows
+        addEditionComponentRow('disc', 'Feature Film Disc');
+        addEditionComponentRow('case', 'Case');
+    }
+
+    function addEditionComponentRow(defaultType, defaultName) {
+        const list = document.getElementById('edition-components-list');
+        if (!list) return;
+        const index = list.children.length;
+
+        const componentTypes = [
+            { value: 'disc', label: 'Disc' },
+            { value: 'booklet', label: 'Booklet' },
+            { value: 'insert', label: 'Insert / Inlet' },
+            { value: 'slipcover', label: 'Slipcover' },
+            { value: 'poster', label: 'Poster' },
+            { value: 'art_cards', label: 'Art Cards' },
+            { value: 'digital_code', label: 'Digital Code' },
+            { value: 'case', label: 'Case' },
+            { value: 'outer_case', label: 'Outer Case / O-Ring' },
+            { value: 'stickers', label: 'Stickers' },
+            { value: 'other', label: 'Other' }
+        ];
+
+        const row = document.createElement('div');
+        row.className = 'component-row';
+        row.innerHTML = `
+            <select class="form-control comp-type" style="flex:1;">
+                ${componentTypes.map(t => `<option value="${t.value}" ${t.value === (defaultType || '') ? 'selected' : ''}>${t.label}</option>`).join('')}
+            </select>
+            <input type="text" class="form-control comp-name" placeholder="Component name" value="${defaultName || ''}" style="flex:2;">
+            <button class="btn-icon" onclick="this.parentElement.remove()" title="Remove" style="flex-shrink:0;">x</button>
+        `;
+        list.appendChild(row);
+    }
+
+    async function saveNewEdition(copyId, movieId) {
+        const name = document.getElementById('edition-name')?.value.trim();
+        if (!name) {
+            showToast('Edition name is required', 'error');
+            return;
+        }
+
+        const components = [];
+        const rows = document.querySelectorAll('#edition-components-list .component-row');
+        rows.forEach((row, i) => {
+            const type = row.querySelector('.comp-type')?.value;
+            const compName = row.querySelector('.comp-name')?.value.trim();
+            if (type && compName) {
+                components.push({
+                    component_type: type,
+                    component_name: compName,
+                    position: i
+                });
+            }
+        });
+
+        try {
+            const result = await apiCall('create_edition', {
+                movie_id: movieId,
+                name: name,
+                format: document.getElementById('edition-format')?.value || '',
+                package_type: document.getElementById('edition-package-type')?.value || '',
+                region: document.getElementById('edition-region')?.value.trim() || '',
+                barcode: document.getElementById('edition-barcode')?.value.trim() || '',
+                release_date: document.getElementById('edition-release-date')?.value || '',
+                distributor: document.getElementById('edition-distributor')?.value.trim() || '',
+                country: document.getElementById('edition-country')?.value.trim() || '',
+                disc_count: parseInt(document.getElementById('edition-disc-count')?.value || '1'),
+                notes: document.getElementById('edition-notes')?.value.trim() || '',
+                components: components
+            });
+
+            if (result && result.edition_id) {
+                showToast('Edition created!', 'success');
+                // Auto-link this copy to the new edition
+                if (copyId) {
+                    await linkCopyToEdition(copyId, result.edition_id, movieId);
+                } else {
+                    await openCopyManager(movieId);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to create edition:', error);
+            showToast('Failed to create edition', 'error');
+        }
+    }
+
+    async function openComponentChecklist(copyId, movieId) {
+        try {
+            const data = await apiCall('get_copy_components', { copy_id: copyId });
+            const modal = document.getElementById('copyManagerContent');
+
+            if (!data || !data.edition || !data.components || data.components.length === 0) {
+                showToast('No components to track', 'info');
+                return;
+            }
+
+            const edition = data.edition;
+            const components = data.components;
+
+            const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'];
+
+            const typeIcons = {
+                disc: '\uD83D\uDCBF',
+                booklet: '\uD83D\uDCD6',
+                insert: '\uD83D\uDCC4',
+                slipcover: '\uD83D\uDDBC\uFE0F',
+                poster: '\uD83D\uDDBC\uFE0F',
+                art_cards: '\uD83C\uDFA8',
+                digital_code: '\uD83D\uDD11',
+                case: '\uD83D\uDCE6',
+                outer_case: '\uD83D\uDCE6',
+                stickers: '\u2B50',
+                other: '\uD83D\uDCCC'
+            };
+
+            let html = `
+                <div class="component-checklist">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <div>
+                            <h4 style="margin:0;">Component Checklist</h4>
+                            <p class="text-muted" style="font-size:0.85rem; margin:0.25rem 0 0;">
+                                ${edition.name}${edition.distributor ? ' &mdash; ' + edition.distributor : ''}
+                            </p>
+                        </div>
+                        <button class="btn-secondary" style="font-size:0.85rem;" onclick="App.openCopyManager(${movieId})">Back</button>
+                    </div>
+
+                    <div class="component-items">
+            `;
+
+            for (const comp of components) {
+                const icon = typeIcons[comp.component_type] || '\uD83D\uDCCC';
+                const present = comp.is_present == 1;
+                const condition = comp.user_condition || 'Good';
+
+                html += `
+                    <div class="component-item ${present ? 'component-present' : 'component-missing'}" id="comp-item-${comp.edition_component_id}">
+                        <div class="component-item-header">
+                            <label class="component-toggle">
+                                <input type="checkbox" ${present ? 'checked' : ''}
+                                    onchange="App.toggleComponent(${copyId}, ${comp.edition_component_id}, this.checked, ${movieId})">
+                                <span class="component-toggle-label">
+                                    <span class="component-icon">${icon}</span>
+                                    ${comp.component_name}
+                                </span>
+                            </label>
+                        </div>
+                        <div class="component-item-details" style="${present ? '' : 'opacity:0.4;'}">
+                            <select class="form-control component-condition"
+                                    data-copy-id="${copyId}"
+                                    data-comp-id="${comp.edition_component_id}"
+                                    onchange="App.updateComponentCondition(${copyId}, ${comp.edition_component_id}, this.value)">
+                                ${conditionOptions.map(c => `<option value="${c}" ${condition === c ? 'selected' : ''}>${c}</option>`).join('')}
+                            </select>
+                            ${comp.description ? `<span class="component-desc">${comp.description}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const presentCount = components.filter(c => c.is_present == 1).length;
+            html += `
+                    </div>
+                    <div class="component-summary">
+                        <span id="comp-summary-count">${presentCount} of ${components.length}</span> components present
+                    </div>
+                </div>
+            `;
+
+            modal.innerHTML = html;
+        } catch (error) {
+            console.error('Failed to load components:', error);
+            showToast('Failed to load component checklist', 'error');
+        }
+    }
+
+    async function toggleComponent(copyId, editionComponentId, isPresent, movieId) {
+        try {
+            const item = document.getElementById(`comp-item-${editionComponentId}`);
+            const details = item?.querySelector('.component-item-details');
+            const condition = item?.querySelector('.component-condition')?.value || 'Good';
+
+            if (isPresent) {
+                item?.classList.remove('component-missing');
+                item?.classList.add('component-present');
+                if (details) details.style.opacity = '';
+            } else {
+                item?.classList.remove('component-present');
+                item?.classList.add('component-missing');
+                if (details) details.style.opacity = '0.4';
+            }
+
+            // Update summary
+            const checkboxes = document.querySelectorAll('.component-toggle input[type="checkbox"]');
+            const presentCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            const summaryEl = document.getElementById('comp-summary-count');
+            if (summaryEl) summaryEl.textContent = `${presentCount} of ${checkboxes.length}`;
+
+            await apiCall('update_copy_component', {
+                copy_id: copyId,
+                edition_component_id: editionComponentId,
+                is_present: isPresent ? 1 : 0,
+                condition: condition
+            });
+        } catch (error) {
+            console.error('Failed to update component:', error);
+            showToast('Failed to update component', 'error');
+        }
+    }
+
+    async function updateComponentCondition(copyId, editionComponentId, condition) {
+        try {
+            const item = document.getElementById(`comp-item-${editionComponentId}`);
+            const isPresent = item?.querySelector('.component-toggle input')?.checked ? 1 : 0;
+
+            await apiCall('update_copy_component', {
+                copy_id: copyId,
+                edition_component_id: editionComponentId,
+                is_present: isPresent,
+                condition: condition
+            });
+        } catch (error) {
+            console.error('Failed to update condition:', error);
+            showToast('Failed to update condition', 'error');
+        }
+    }
+
+    // ========================================
     // MOVIE DETAILS
     // ========================================
-    
+
 /**
  * REPLACE viewMovieDetails() function in app.js
  * Location: Around line 950-1000
@@ -9357,9 +9792,19 @@ return {
     openCopyManager,
     closeCopyManager,
     deleteCopy,
-    editCopy,              // ← ADD
-    cancelCopyEdit,        // ← ADD
-    saveCopyEdit,          // ← ADD
+    editCopy,
+    cancelCopyEdit,
+    saveCopyEdit,
+    // Physical Media Editions & Component Tracking (v4.0.0)
+    openEditionPicker,
+    linkCopyToEdition,
+    unlinkCopyEdition,
+    showCreateEdition,
+    addEditionComponentRow,
+    saveNewEdition,
+    openComponentChecklist,
+    toggleComponent,
+    updateComponentCondition,
     editDisplayTitle,
     changePoster,
     closePosterSelector,

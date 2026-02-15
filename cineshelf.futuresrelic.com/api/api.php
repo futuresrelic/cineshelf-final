@@ -509,6 +509,8 @@ try {
             $bonusDiscCount = intval($input['bonus_disc_count'] ?? 0);
             $hasDigitalCopy = intval($input['has_digital_copy'] ?? 0);
             $has3d = intval($input['has_3d'] ?? 0);
+            // Edition link (v4.0.0)
+            $editionId = !empty($input['edition_id']) ? intval($input['edition_id']) : null;
 
             // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
             if (empty($tmdbId) && empty($movieId)) {
@@ -659,14 +661,14 @@ try {
             }
 
             // Add copy
-            file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format\n");
+            file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format, editionId=$editionId\n");
             $stmt = $db->prepare("
-                INSERT INTO copies (user_id, movie_id, format, edition, region, condition, notes, barcode, seasons_owned,
+                INSERT INTO copies (user_id, movie_id, edition_id, format, edition, region, condition, notes, barcode, seasons_owned,
                     aspect_ratio, package_type, feature_count, has_slipcover, has_booklet, has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
-            $stmt->execute([$userId, $movieId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null,
+            $stmt->execute([$userId, $movieId, $editionId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null,
                 $aspectRatio ?: null, $packageType ?: null, $featureCount ?: 'Single',
                 $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d]);
 
@@ -683,6 +685,20 @@ try {
             $verifyStmt->execute([$newCopyId]);
             $verifyResult = $verifyStmt->fetch();
             file_put_contents('php://stderr', "[add_copy] VERIFICATION: copy_id={$verifyResult['copy_id']}, movie_id={$verifyResult['movie_id']}, tmdb_id={$verifyResult['tmdb_id']}, title={$verifyResult['title']}\n");
+
+            // If edition was specified, auto-initialize copy components
+            if ($editionId) {
+                $compStmt = $db->prepare("SELECT id FROM edition_components WHERE edition_id = ?");
+                $compStmt->execute([$editionId]);
+                $editionComps = $compStmt->fetchAll();
+                $insertCompStmt = $db->prepare("
+                    INSERT OR IGNORE INTO copy_components (copy_id, edition_component_id, is_present, condition)
+                    VALUES (?, ?, 1, 'Good')
+                ");
+                foreach ($editionComps as $comp) {
+                    $insertCompStmt->execute([$newCopyId, $comp['id']]);
+                }
+            }
 
             logAction($db, $userId, 'copy_added', 'copy', $newCopyId);
 
@@ -796,14 +812,22 @@ case 'update_copy':
         
         case 'get_movie_copies':
             $movieId = intval($input['movie_id'] ?? 0);
-            
+
             $stmt = $db->prepare("
-                SELECT * FROM copies
-                WHERE movie_id = ? AND user_id = ?
-                ORDER BY created_at DESC
+                SELECT c.*,
+                    me.name as edition_name,
+                    me.distributor as edition_distributor,
+                    me.disc_count as edition_disc_count,
+                    (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = c.edition_id) as edition_component_count,
+                    (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id AND cc.is_present = 1) as components_present,
+                    (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total
+                FROM copies c
+                LEFT JOIN media_editions me ON c.edition_id = me.id
+                WHERE c.movie_id = ? AND c.user_id = ?
+                ORDER BY c.created_at DESC
             ");
             $stmt->execute([$movieId, $userId]);
-            
+
             jsonResponse(true, $stmt->fetchAll());
             break;
 
@@ -5126,6 +5150,411 @@ Return ONLY the JSON object, no markdown.'
             } else {
                 jsonResponse(false, null, 'Failed to write splash config');
             }
+            break;
+
+        // ========================================
+        // PHYSICAL MEDIA EDITIONS (UMDB)
+        // Universal edition definitions & components
+        // ========================================
+
+        case 'get_editions':
+            // Get all editions for a movie (UMDB data)
+            $movieId = intval($input['movie_id'] ?? 0);
+            if (empty($movieId)) {
+                jsonResponse(false, null, 'Movie ID required');
+            }
+
+            $stmt = $db->prepare("
+                SELECT me.*,
+                    u.username as created_by_username,
+                    (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = me.id) as component_count
+                FROM media_editions me
+                LEFT JOIN users u ON me.created_by = u.id
+                WHERE me.movie_id = ?
+                ORDER BY me.created_at DESC
+            ");
+            $stmt->execute([$movieId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'get_edition':
+            // Get a single edition with all its components
+            $editionId = intval($input['edition_id'] ?? 0);
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            $stmt = $db->prepare("SELECT * FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            // Get components
+            $stmt = $db->prepare("
+                SELECT * FROM edition_components
+                WHERE edition_id = ?
+                ORDER BY position ASC, id ASC
+            ");
+            $stmt->execute([$editionId]);
+            $edition['components'] = $stmt->fetchAll();
+
+            jsonResponse(true, $edition);
+            break;
+
+        case 'create_edition':
+            // Create a new media edition (UMDB)
+            $movieId = intval($input['movie_id'] ?? 0);
+            $name = sanitize($input['name'] ?? '', 200);
+            $format = sanitize($input['format'] ?? '', 50);
+            $packageType = sanitize($input['package_type'] ?? '', 50);
+            $region = sanitize($input['region'] ?? '', 50);
+            $barcode = sanitize($input['barcode'] ?? '', 50);
+            $releaseDate = sanitize($input['release_date'] ?? '', 20);
+            $distributor = sanitize($input['distributor'] ?? '', 200);
+            $country = sanitize($input['country'] ?? '', 100);
+            $discCount = intval($input['disc_count'] ?? 1);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (empty($movieId) || empty($name)) {
+                jsonResponse(false, null, 'Movie ID and edition name required');
+            }
+
+            // Verify movie exists
+            $stmt = $db->prepare("SELECT id FROM movies WHERE id = ?");
+            $stmt->execute([$movieId]);
+            if (!$stmt->fetch()) {
+                jsonResponse(false, null, 'Movie not found');
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO media_editions (movie_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $movieId, $name, $format ?: null, $packageType ?: null, $region ?: null,
+                $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
+                $discCount, $notes ?: null, $userId
+            ]);
+
+            $editionId = $db->lastInsertId();
+
+            // Auto-create default components if provided
+            $components = $input['components'] ?? [];
+            if (!empty($components) && is_array($components)) {
+                $compStmt = $db->prepare("
+                    INSERT INTO edition_components (edition_id, component_type, component_name, description, position)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                foreach ($components as $i => $comp) {
+                    $compStmt->execute([
+                        $editionId,
+                        sanitize($comp['component_type'] ?? 'other', 50),
+                        sanitize($comp['component_name'] ?? 'Component', 200),
+                        sanitize($comp['description'] ?? '', 500),
+                        intval($comp['position'] ?? $i)
+                    ]);
+                }
+            }
+
+            logAction($db, $userId, 'edition_created', 'media_edition', $editionId);
+            jsonResponse(true, ['edition_id' => $editionId]);
+            break;
+
+        case 'update_edition':
+            $editionId = intval($input['edition_id'] ?? 0);
+            $name = sanitize($input['name'] ?? '', 200);
+            $format = sanitize($input['format'] ?? '', 50);
+            $packageType = sanitize($input['package_type'] ?? '', 50);
+            $region = sanitize($input['region'] ?? '', 50);
+            $barcode = sanitize($input['barcode'] ?? '', 50);
+            $releaseDate = sanitize($input['release_date'] ?? '', 20);
+            $distributor = sanitize($input['distributor'] ?? '', 200);
+            $country = sanitize($input['country'] ?? '', 100);
+            $discCount = intval($input['disc_count'] ?? 1);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (empty($editionId) || empty($name)) {
+                jsonResponse(false, null, 'Edition ID and name required');
+            }
+
+            $stmt = $db->prepare("
+                UPDATE media_editions
+                SET name = ?, format = ?, package_type = ?, region = ?, barcode = ?,
+                    release_date = ?, distributor = ?, country = ?, disc_count = ?, notes = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $name, $format ?: null, $packageType ?: null, $region ?: null,
+                $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
+                $discCount, $notes ?: null, $editionId
+            ]);
+
+            logAction($db, $userId, 'edition_updated', 'media_edition', $editionId);
+            jsonResponse(true, ['edition_id' => $editionId]);
+            break;
+
+        case 'delete_edition':
+            $editionId = intval($input['edition_id'] ?? 0);
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            // Unlink any copies that reference this edition
+            $stmt = $db->prepare("UPDATE copies SET edition_id = NULL WHERE edition_id = ?");
+            $stmt->execute([$editionId]);
+
+            // Delete edition (cascades to components and copy_components)
+            $stmt = $db->prepare("DELETE FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+
+            logAction($db, $userId, 'edition_deleted', 'media_edition', $editionId);
+            jsonResponse(true, ['deleted' => $editionId]);
+            break;
+
+        // ========================================
+        // EDITION COMPONENTS (UMDB)
+        // ========================================
+
+        case 'add_edition_component':
+            $editionId = intval($input['edition_id'] ?? 0);
+            $componentType = sanitize($input['component_type'] ?? '', 50);
+            $componentName = sanitize($input['component_name'] ?? '', 200);
+            $description = sanitize($input['description'] ?? '', 500);
+            $position = intval($input['position'] ?? 0);
+
+            if (empty($editionId) || empty($componentType) || empty($componentName)) {
+                jsonResponse(false, null, 'Edition ID, component type, and component name required');
+            }
+
+            // Verify edition exists
+            $stmt = $db->prepare("SELECT id FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+            if (!$stmt->fetch()) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO edition_components (edition_id, component_type, component_name, description, position)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$editionId, $componentType, $componentName, $description ?: null, $position]);
+
+            $componentId = $db->lastInsertId();
+
+            // Auto-create copy_components for all copies linked to this edition
+            $stmt = $db->prepare("SELECT id FROM copies WHERE edition_id = ?");
+            $stmt->execute([$editionId]);
+            $linkedCopies = $stmt->fetchAll();
+
+            if (!empty($linkedCopies)) {
+                $insertStmt = $db->prepare("
+                    INSERT OR IGNORE INTO copy_components (copy_id, edition_component_id, is_present, condition)
+                    VALUES (?, ?, 1, 'Good')
+                ");
+                foreach ($linkedCopies as $copy) {
+                    $insertStmt->execute([$copy['id'], $componentId]);
+                }
+            }
+
+            jsonResponse(true, ['component_id' => $componentId]);
+            break;
+
+        case 'update_edition_component':
+            $componentId = intval($input['component_id'] ?? 0);
+            $componentType = sanitize($input['component_type'] ?? '', 50);
+            $componentName = sanitize($input['component_name'] ?? '', 200);
+            $description = sanitize($input['description'] ?? '', 500);
+            $position = intval($input['position'] ?? 0);
+
+            if (empty($componentId) || empty($componentName)) {
+                jsonResponse(false, null, 'Component ID and name required');
+            }
+
+            $stmt = $db->prepare("
+                UPDATE edition_components
+                SET component_type = ?, component_name = ?, description = ?, position = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$componentType, $componentName, $description ?: null, $position, $componentId]);
+
+            jsonResponse(true, ['component_id' => $componentId]);
+            break;
+
+        case 'delete_edition_component':
+            $componentId = intval($input['component_id'] ?? 0);
+            if (empty($componentId)) {
+                jsonResponse(false, null, 'Component ID required');
+            }
+
+            // Cascades to copy_components
+            $stmt = $db->prepare("DELETE FROM edition_components WHERE id = ?");
+            $stmt->execute([$componentId]);
+
+            jsonResponse(true, ['deleted' => $componentId]);
+            break;
+
+        // ========================================
+        // COPY COMPONENTS (CineShelf - User-Specific)
+        // Track which components user has + condition
+        // ========================================
+
+        case 'get_copy_components':
+            // Get all component tracking for a specific copy
+            $copyId = intval($input['copy_id'] ?? 0);
+            if (empty($copyId)) {
+                jsonResponse(false, null, 'Copy ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id, edition_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Copy not found or not authorized');
+            }
+
+            if (empty($copy['edition_id'])) {
+                jsonResponse(true, ['components' => [], 'edition' => null]);
+                break;
+            }
+
+            // Get edition info
+            $stmt = $db->prepare("SELECT * FROM media_editions WHERE id = ?");
+            $stmt->execute([$copy['edition_id']]);
+            $edition = $stmt->fetch();
+
+            // Get all edition components with user's tracking data
+            $stmt = $db->prepare("
+                SELECT
+                    ec.id as edition_component_id,
+                    ec.component_type,
+                    ec.component_name,
+                    ec.description,
+                    ec.position,
+                    COALESCE(cc.is_present, 1) as is_present,
+                    COALESCE(cc.condition, 'Good') as user_condition,
+                    cc.notes as user_notes,
+                    cc.id as copy_component_id
+                FROM edition_components ec
+                LEFT JOIN copy_components cc ON cc.edition_component_id = ec.id AND cc.copy_id = ?
+                WHERE ec.edition_id = ?
+                ORDER BY ec.position ASC, ec.id ASC
+            ");
+            $stmt->execute([$copyId, $copy['edition_id']]);
+
+            jsonResponse(true, [
+                'edition' => $edition,
+                'components' => $stmt->fetchAll()
+            ]);
+            break;
+
+        case 'update_copy_component':
+            // Toggle is_present or update condition for a user's component
+            $copyId = intval($input['copy_id'] ?? 0);
+            $editionComponentId = intval($input['edition_component_id'] ?? 0);
+            $isPresent = isset($input['is_present']) ? intval($input['is_present']) : 1;
+            $condition = sanitize($input['condition'] ?? 'Good', 50);
+            $notes = sanitize($input['notes'] ?? '', 500);
+
+            if (empty($copyId) || empty($editionComponentId)) {
+                jsonResponse(false, null, 'Copy ID and edition component ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Not authorized');
+            }
+
+            // Upsert the copy_component record
+            $stmt = $db->prepare("
+                INSERT INTO copy_components (copy_id, edition_component_id, is_present, condition, notes, updated_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(copy_id, edition_component_id)
+                DO UPDATE SET is_present = ?, condition = ?, notes = ?, updated_at = datetime('now')
+            ");
+            $stmt->execute([
+                $copyId, $editionComponentId, $isPresent, $condition, $notes ?: null,
+                $isPresent, $condition, $notes ?: null
+            ]);
+
+            jsonResponse(true, ['updated' => true]);
+            break;
+
+        case 'initialize_copy_components':
+            // When linking a copy to an edition, create tracking records for all components
+            $copyId = intval($input['copy_id'] ?? 0);
+            $editionId = intval($input['edition_id'] ?? 0);
+
+            if (empty($copyId) || empty($editionId)) {
+                jsonResponse(false, null, 'Copy ID and edition ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Not authorized');
+            }
+
+            // Link copy to edition
+            $stmt = $db->prepare("UPDATE copies SET edition_id = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$editionId, $copyId, $userId]);
+
+            // Get all edition components
+            $stmt = $db->prepare("SELECT id FROM edition_components WHERE edition_id = ?");
+            $stmt->execute([$editionId]);
+            $editionComponents = $stmt->fetchAll();
+
+            // Create copy_component records (default: all present, good condition)
+            $insertStmt = $db->prepare("
+                INSERT OR IGNORE INTO copy_components (copy_id, edition_component_id, is_present, condition)
+                VALUES (?, ?, 1, 'Good')
+            ");
+            foreach ($editionComponents as $comp) {
+                $insertStmt->execute([$copyId, $comp['id']]);
+            }
+
+            logAction($db, $userId, 'copy_edition_linked', 'copy', $copyId);
+            jsonResponse(true, ['linked' => true, 'components_initialized' => count($editionComponents)]);
+            break;
+
+        case 'unlink_copy_edition':
+            // Remove a copy's link to an edition (and clean up component tracking)
+            $copyId = intval($input['copy_id'] ?? 0);
+
+            if (empty($copyId)) {
+                jsonResponse(false, null, 'Copy ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM copies WHERE id = ?");
+            $stmt->execute([$copyId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy || $copy['user_id'] != $userId) {
+                jsonResponse(false, null, 'Not authorized');
+            }
+
+            // Remove component tracking records
+            $stmt = $db->prepare("DELETE FROM copy_components WHERE copy_id = ?");
+            $stmt->execute([$copyId]);
+
+            // Unlink edition
+            $stmt = $db->prepare("UPDATE copies SET edition_id = NULL WHERE id = ? AND user_id = ?");
+            $stmt->execute([$copyId, $userId]);
+
+            jsonResponse(true, ['unlinked' => true]);
             break;
 
         default:
