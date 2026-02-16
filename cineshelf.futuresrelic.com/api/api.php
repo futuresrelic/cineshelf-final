@@ -6019,6 +6019,10 @@ Return ONLY the JSON object, no markdown.'
 
         case 'push_edition_to_umdb':
             // Push a locally-created edition to UMDB and store the returned rel-{uuid}
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured. Set it in Railway environment variables to enable pushing editions to UMDB.');
+            }
+
             $editionId = intval($input['edition_id'] ?? 0);
 
             if (empty($editionId)) {
