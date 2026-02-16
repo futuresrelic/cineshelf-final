@@ -6342,6 +6342,210 @@ Return ONLY the JSON object, no markdown.'
             jsonResponse(true, ['edition_id' => $editionId, 'unlinked' => true]);
             break;
 
+        case 'seed_fight_club_test':
+            // Admin-only: Create 3 Fight Club editions for testing
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+
+            $tmdbId = '550'; // Fight Club TMDB ID
+
+            // 1. Find or create the Fight Club movie
+            $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
+            $stmt->execute([$tmdbId]);
+            $movie = $stmt->fetch();
+
+            if (!$movie) {
+                $detail = buildDetailUrl($tmdbId, 'movie', 'credits,release_dates');
+                $response = fetchUrl($detail['url'], $detail['headers']);
+                if ($response === false) {
+                    jsonResponse(false, null, 'Failed to fetch Fight Club from TMDB');
+                }
+                $data = json_decode($response, true);
+                $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
+                $director = '';
+                foreach (($data['credits']['crew'] ?? []) as $person) {
+                    if ($person['job'] === 'Director') { $director = $person['name']; break; }
+                }
+                $actors = implode(', ', array_column(array_slice($data['credits']['cast'] ?? [], 0, 5), 'name'));
+                $studio = $data['production_companies'][0]['name'] ?? '';
+                $certification = '';
+                foreach (($data['release_dates']['results'] ?? []) as $country) {
+                    if ($country['iso_3166_1'] === 'US') {
+                        foreach ($country['release_dates'] as $rel) {
+                            if (!empty($rel['certification'])) { $certification = $rel['certification']; break 2; }
+                        }
+                    }
+                }
+                $stmt = $db->prepare("
+                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, studio, certification, media_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'movie')
+                ");
+                $stmt->execute([
+                    $tmdbId, $data['title'],
+                    intval(substr($data['release_date'] ?? '', 0, 4)),
+                    resolveImageUrl($data['poster_path'] ?? null),
+                    $data['overview'] ?? null, $data['vote_average'] ?? null,
+                    $data['runtime'] ?? null, $genres, $director, $actors, $studio, $certification
+                ]);
+                $movieId = $db->lastInsertId();
+            } else {
+                $movieId = $movie['id'];
+            }
+
+            // 2. Define the 3 editions
+            $editions = [
+                [
+                    'name'         => 'Fight Club DVD (1999)',
+                    'format'       => 'DVD',
+                    'package_type' => 'Keep Case',
+                    'region'       => 'Region 1',
+                    'country'      => 'US',
+                    'distributor'  => '20th Century Fox',
+                    'disc_count'   => 1,
+                    'barcode'      => '024543005483',
+                    'release_date' => '2000-06-06',
+                    'notes'        => 'Standard DVD release',
+                    'copy_format'  => 'DVD',
+                    'copy_edition' => '',
+                    'copy_condition'=> 'Good',
+                    'copy_extras'  => ['aspect_ratio' => 'Widescreen', 'feature_count' => 'Single'],
+                    'components'   => [
+                        ['type' => 'disc',   'name' => 'Feature Film DVD'],
+                        ['type' => 'case',   'name' => 'Keep Case'],
+                        ['type' => 'insert', 'name' => 'Chapter Insert'],
+                    ],
+                ],
+                [
+                    'name'         => 'Fight Club Steelbook',
+                    'format'       => 'Blu-ray',
+                    'package_type' => 'Steelbook',
+                    'region'       => 'Region A',
+                    'country'      => 'US',
+                    'distributor'  => '20th Century Fox',
+                    'disc_count'   => 1,
+                    'barcode'      => '024543656159',
+                    'release_date' => '2014-10-07',
+                    'notes'        => 'Steelbook edition with collector booklet',
+                    'copy_format'  => 'Blu-ray',
+                    'copy_edition' => '',
+                    'copy_condition'=> 'Like New',
+                    'copy_extras'  => ['aspect_ratio' => 'Widescreen', 'feature_count' => 'Single', 'has_booklet' => 1],
+                    'components'   => [
+                        ['type' => 'disc',     'name' => 'Feature Film Blu-ray'],
+                        ['type' => 'case',     'name' => 'Steelbook Case'],
+                        ['type' => 'booklet',  'name' => 'Collector\'s Booklet'],
+                    ],
+                ],
+                [
+                    'name'         => 'Fight Club 10th Anniversary Collector\'s Edition',
+                    'format'       => 'Blu-ray',
+                    'package_type' => 'Digipack',
+                    'region'       => 'Region A',
+                    'country'      => 'US',
+                    'distributor'  => '20th Century Fox',
+                    'disc_count'   => 2,
+                    'barcode'      => '024543622543',
+                    'release_date' => '2009-11-10',
+                    'notes'        => 'Collector\'s Edition with bonus disc, booklet, and slipcover sleeve',
+                    'copy_format'  => 'Blu-ray',
+                    'copy_edition' => "Collector's Edition",
+                    'copy_condition'=> 'Mint',
+                    'copy_extras'  => [
+                        'aspect_ratio' => 'Widescreen', 'feature_count' => 'Single + Bonus',
+                        'has_booklet' => 1, 'has_slipcover' => 1, 'has_bonus_disc' => 1, 'bonus_disc_count' => 1
+                    ],
+                    'components'   => [
+                        ['type' => 'disc',      'name' => 'Feature Film Blu-ray'],
+                        ['type' => 'disc',      'name' => 'Bonus Features Disc'],
+                        ['type' => 'booklet',   'name' => 'Collector\'s Booklet'],
+                        ['type' => 'slipcover', 'name' => 'Slipcover Sleeve'],
+                        ['type' => 'case',      'name' => 'Digipack Case'],
+                    ],
+                ],
+            ];
+
+            $results = [];
+
+            foreach ($editions as $ed) {
+                // Check if edition already exists (by name + movie)
+                $chk = $db->prepare("SELECT id FROM media_editions WHERE movie_id = ? AND name = ?");
+                $chk->execute([$movieId, $ed['name']]);
+                $existing = $chk->fetch();
+
+                if ($existing) {
+                    $editionId = $existing['id'];
+                } else {
+                    // Create edition
+                    $stmt = $db->prepare("
+                        INSERT INTO media_editions (movie_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $movieId, $ed['name'], $ed['format'], $ed['package_type'],
+                        $ed['region'], $ed['barcode'], $ed['release_date'],
+                        $ed['distributor'], $ed['country'], $ed['disc_count'],
+                        $ed['notes'], $userId
+                    ]);
+                    $editionId = $db->lastInsertId();
+
+                    // Create components
+                    $compStmt = $db->prepare("
+                        INSERT INTO edition_components (edition_id, component_type, component_name, position)
+                        VALUES (?, ?, ?, ?)
+                    ");
+                    foreach ($ed['components'] as $i => $comp) {
+                        $compStmt->execute([$editionId, $comp['type'], $comp['name'], $i]);
+                    }
+                }
+
+                // Create copy linked to edition
+                $extras = $ed['copy_extras'];
+                $stmt = $db->prepare("
+                    INSERT INTO copies (user_id, movie_id, edition_id, format, edition, region, condition,
+                        aspect_ratio, package_type, feature_count,
+                        has_slipcover, has_booklet, has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                ");
+                $stmt->execute([
+                    $userId, $movieId, $editionId,
+                    $ed['copy_format'], $ed['copy_edition'], $ed['region'], $ed['copy_condition'],
+                    $extras['aspect_ratio'] ?? null, $ed['package_type'] ?? null,
+                    $extras['feature_count'] ?? 'Single',
+                    intval($extras['has_slipcover'] ?? 0), intval($extras['has_booklet'] ?? 0),
+                    intval($extras['has_bonus_disc'] ?? 0), intval($extras['bonus_disc_count'] ?? 0)
+                ]);
+                $copyId = $db->lastInsertId();
+
+                // Initialize copy_components (mark all as present)
+                $compStmt = $db->prepare("SELECT id FROM edition_components WHERE edition_id = ?");
+                $compStmt->execute([$editionId]);
+                $editionComps = $compStmt->fetchAll();
+                $initStmt = $db->prepare("
+                    INSERT OR IGNORE INTO copy_components (copy_id, edition_component_id, is_present, condition)
+                    VALUES (?, ?, 1, ?)
+                ");
+                foreach ($editionComps as $comp) {
+                    $initStmt->execute([$copyId, $comp['id'], $ed['copy_condition']]);
+                }
+
+                logAction($db, $userId, 'copy_added', 'copy', $copyId);
+
+                $results[] = [
+                    'edition_name' => $ed['name'],
+                    'edition_id'   => $editionId,
+                    'copy_id'      => $copyId,
+                    'components'   => count($ed['components']),
+                ];
+            }
+
+            jsonResponse(true, [
+                'movie_id' => $movieId,
+                'editions' => $results,
+                'message'  => 'Created 3 Fight Club test editions with copies and component tracking'
+            ]);
+            break;
+
         default:
             jsonResponse(false, null, 'Unknown action: ' . $action);
     }
