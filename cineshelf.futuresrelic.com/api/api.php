@@ -6029,9 +6029,12 @@ Return ONLY the JSON object, no markdown.'
                 jsonResponse(false, null, 'Edition ID required');
             }
 
-            // Get the local edition
+            // Get the local edition (include extra movie fields for auto-creation in UMDB)
             $stmt = $db->prepare("
-                SELECT me.*, m.tmdb_id, m.imdb_id, m.title as movie_title
+                SELECT me.*, m.tmdb_id, m.imdb_id, m.title as movie_title,
+                       m.year as movie_year, m.poster_url, m.overview, m.runtime,
+                       m.director, m.genre, m.rating as movie_rating,
+                       m.media_type, m.certification
                 FROM media_editions me
                 JOIN movies m ON m.id = me.movie_id
                 WHERE me.id = ?
@@ -6091,17 +6094,61 @@ Return ONLY the JSON object, no markdown.'
                 }, $localComponents);
             }
 
+            $movieAutoCreated = false;
             $umdbResult = umdbPost('/releases', $payload);
 
             if (!$umdbResult) {
                 $detail = $GLOBALS['_umdb_last_error'] ?? '';
-                // Surface specific 422 message when movie isn't in UMDB yet
-                if (strpos($detail, '422') !== false) {
-                    jsonResponse(false, null, 'This movie needs to be added to UMDB before editions can be pushed. ' . $detail);
+
+                // If 422 because movie isn't in UMDB, auto-create the movie and retry
+                if (strpos($detail, '422') !== false && strpos($detail, 'Could not resolve movie') !== false) {
+                    // Build movie payload from local data
+                    $moviePayload = [
+                        'title' => $edition['movie_title'],
+                        'year' => intval($edition['movie_year'] ?? 0),
+                        'overview' => $edition['overview'] ?? '',
+                        'runtime' => intval($edition['runtime'] ?? 0),
+                        'director' => $edition['director'] ?? '',
+                        'genre' => $edition['genre'] ?? '',
+                        'rating' => floatval($edition['movie_rating'] ?? 0),
+                        'media_type' => $edition['media_type'] ?: 'movie',
+                        'certification' => $edition['certification'] ?? '',
+                        'poster_url' => $edition['poster_url'] ?? '',
+                    ];
+                    if (!empty($edition['tmdb_id']) && !isUmdbId($edition['tmdb_id'])) {
+                        $moviePayload['tmdb_id'] = $edition['tmdb_id'];
+                    }
+                    if (!empty($edition['imdb_id'])) {
+                        $moviePayload['imdb_id'] = $edition['imdb_id'];
+                    }
+
+                    $GLOBALS['_umdb_last_error'] = null;
+                    $movieResult = umdbPost('/movies', $moviePayload);
+
+                    if ($movieResult && !empty($movieResult['id'])) {
+                        // Movie created — retry release push with the new UMDB movie ID
+                        $payload['movie_id'] = $movieResult['id'];
+                        unset($payload['tmdb_id']);
+                        unset($payload['imdb_id']);
+
+                        $GLOBALS['_umdb_last_error'] = null;
+                        $umdbResult = umdbPost('/releases', $payload);
+
+                        if (!$umdbResult) {
+                            $retryDetail = $GLOBALS['_umdb_last_error'] ?? '';
+                            jsonResponse(false, null, 'Movie was added to UMDB but edition push failed' . ($retryDetail ? " — $retryDetail" : ''));
+                        }
+                        $movieAutoCreated = true;
+                        // $umdbResult is now set — fall through to success handling below
+                    } else {
+                        $movieErr = $GLOBALS['_umdb_last_error'] ?? '';
+                        jsonResponse(false, null, 'Could not auto-add movie to UMDB' . ($movieErr ? " — $movieErr" : '') . '. Original error: ' . $detail);
+                    }
+                } else {
+                    $msg = 'Failed to push edition to UMDB';
+                    $msg .= $detail ? " — $detail" : ' — the UMDB service may be unavailable';
+                    jsonResponse(false, null, $msg);
                 }
-                $msg = 'Failed to push edition to UMDB';
-                $msg .= $detail ? " — $detail" : ' — the UMDB service may be unavailable';
-                jsonResponse(false, null, $msg);
             }
 
             // API returns { "duplicate": bool, "edition": { "id": "rel-...", ... } }
@@ -6128,12 +6175,14 @@ Return ONLY the JSON object, no markdown.'
 
             logAction($db, $userId, 'edition_pushed_to_umdb', 'media_edition', $editionId, [
                 'umdb_release_id' => $umdbReleaseId,
-                'duplicate' => $isDuplicate
+                'duplicate' => $isDuplicate,
+                'movie_auto_created' => $movieAutoCreated
             ]);
             jsonResponse(true, [
                 'edition_id' => $editionId,
                 'umdb_release_id' => $umdbReleaseId,
-                'duplicate' => $isDuplicate
+                'duplicate' => $isDuplicate,
+                'movie_auto_created' => $movieAutoCreated
             ]);
             break;
 
