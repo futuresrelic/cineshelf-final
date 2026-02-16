@@ -6067,8 +6067,13 @@ Return ONLY the JSON object, no markdown.'
             ];
 
             // Include external IDs for UMDB to link the movie
-            if (!empty($edition['tmdb_id']) && !isUmdbId($edition['tmdb_id'])) {
-                $payload['tmdb_id'] = $edition['tmdb_id'];
+            if (!empty($edition['tmdb_id'])) {
+                if (isUmdbId($edition['tmdb_id'])) {
+                    // Movie was imported from UMDB — send the UMDB movie ID so it can resolve
+                    $payload['movie_id'] = $edition['tmdb_id'];
+                } else {
+                    $payload['tmdb_id'] = $edition['tmdb_id'];
+                }
             }
             if (!empty($edition['imdb_id'])) {
                 $payload['imdb_id'] = $edition['imdb_id'];

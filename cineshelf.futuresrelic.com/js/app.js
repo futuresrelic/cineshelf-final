@@ -1908,6 +1908,115 @@ function renderCollection() {
                     </div>
                 `).join('')}
             </div>
+
+            <!-- Add Copy Button & Inline Form -->
+            <button class="btn" id="addCopyBtn" onclick="App.showAddCopyForm(${movieId})" style="margin-top: 1rem; width: 100%;">+ Add Another Copy</button>
+
+            <div id="addCopyFormInline" style="display: none; margin-top: 1rem;" class="copy-item">
+                <div class="copy-header"><strong>New Copy</strong></div>
+                <div class="copy-edit-form" style="display: block;">
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Format *</label>
+                            <select id="new-copy-format" class="form-control">
+                                <option value="DVD">DVD</option>
+                                <option value="Blu-ray" selected>Blu-ray</option>
+                                <option value="4K UHD">4K UHD</option>
+                                <option value="4K Ultra HD">4K Ultra HD</option>
+                                <option value="Digital">Digital</option>
+                                <option value="VHS">VHS</option>
+                                <option value="LaserDisc">LaserDisc</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Aspect Ratio</label>
+                            <select id="new-copy-aspect-ratio" class="form-control">
+                                <option value="">Not Specified</option>
+                                <option value="Widescreen">Widescreen</option>
+                                <option value="Full Screen">Full Screen</option>
+                                <option value="Letterbox">Letterbox</option>
+                                <option value="Pan & Scan">Pan & Scan</option>
+                                <option value="IMAX">IMAX</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Edition</label>
+                            <input type="text" id="new-copy-edition" class="form-control" placeholder="e.g., Director's Cut">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Package Type</label>
+                            <select id="new-copy-package-type" class="form-control">
+                                <option value="">Standard Amaray</option>
+                                <option value="Steelbook">Steelbook</option>
+                                <option value="Digibook">Digibook</option>
+                                <option value="Digipack">Digipack</option>
+                                <option value="Slipcase">Slipcase</option>
+                                <option value="Mediabook">Mediabook</option>
+                                <option value="Snap Case">Snap Case</option>
+                                <option value="Eco Case">Eco Case</option>
+                                <option value="Keep Case">Keep Case</option>
+                                <option value="Tin Case">Tin Case</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Feature Count</label>
+                            <select id="new-copy-feature-count" class="form-control">
+                                <option value="Single" selected>Single Feature</option>
+                                <option value="Single + Bonus">Single + Bonus Disc</option>
+                                <option value="Double Feature">Double Feature</option>
+                                <option value="Triple Feature">Triple Feature</option>
+                                <option value="Quadruple Feature">Quadruple Feature</option>
+                                <option value="Collection">Collection</option>
+                                <option value="Complete Series">Complete Series</option>
+                                <option value="Full Saga">Full Saga</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Condition</label>
+                            <select id="new-copy-condition" class="form-control">
+                                <option value="">Not specified</option>
+                                <option value="Mint">Mint</option>
+                                <option value="Excellent">Excellent</option>
+                                <option value="Good" selected>Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Poor">Poor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" id="new-copy-region" class="form-control" value="${settings.defaultPhysicalRegion || ''}" placeholder="e.g., Region 1">
+                    </div>
+                    <div class="form-group">
+                        <label>Packaging Extras</label>
+                        <div class="packaging-extras-grid">
+                            <label class="toggle-chip"><input type="checkbox" id="new-copy-slipcover"><span>Slipcover</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="new-copy-booklet"><span>Booklet</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="new-copy-bonus-disc"><span>Bonus Disc</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="new-copy-digital-copy"><span>Digital Copy</span></label>
+                            <label class="toggle-chip"><input type="checkbox" id="new-copy-3d"><span>3D</span></label>
+                        </div>
+                    </div>
+                    ${isTV ? `
+                    <div class="form-group">
+                        <label>Seasons Owned</label>
+                        <input type="text" id="new-copy-seasons" class="form-control" placeholder="e.g., 1, 2, 3">
+                    </div>
+                    ` : ''}
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="new-copy-notes" class="form-control" rows="2" placeholder="Any additional notes..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" onclick="App.saveNewCopy(${movieId})">Add Copy</button>
+                        <button class="btn-secondary" onclick="App.hideAddCopyForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
         `;
 
         document.getElementById('copyManagerModal').classList.add('active');
@@ -1926,7 +2035,67 @@ function closeCopyManager() {
     }
     copyManagerMovieId = null;
 }
-    
+
+function showAddCopyForm(movieId) {
+    document.getElementById('addCopyBtn').style.display = 'none';
+    document.getElementById('addCopyFormInline').style.display = 'block';
+    // Scroll the form into view
+    document.getElementById('addCopyFormInline').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideAddCopyForm() {
+    document.getElementById('addCopyFormInline').style.display = 'none';
+    document.getElementById('addCopyBtn').style.display = 'block';
+}
+
+async function saveNewCopy(movieId) {
+    const format = document.getElementById('new-copy-format').value;
+    const aspectRatio = document.getElementById('new-copy-aspect-ratio')?.value || '';
+    const edition = document.getElementById('new-copy-edition').value.trim();
+    const packageType = document.getElementById('new-copy-package-type')?.value || '';
+    const featureCount = document.getElementById('new-copy-feature-count')?.value || 'Single';
+    const condition = document.getElementById('new-copy-condition').value;
+    const region = document.getElementById('new-copy-region').value.trim();
+    const hasSlipcover = document.getElementById('new-copy-slipcover')?.checked ? 1 : 0;
+    const hasBooklet = document.getElementById('new-copy-booklet')?.checked ? 1 : 0;
+    const hasBonusDisc = document.getElementById('new-copy-bonus-disc')?.checked ? 1 : 0;
+    const hasDigitalCopy = document.getElementById('new-copy-digital-copy')?.checked ? 1 : 0;
+    const has3d = document.getElementById('new-copy-3d')?.checked ? 1 : 0;
+    const seasonsEl = document.getElementById('new-copy-seasons');
+    const seasonsOwned = seasonsEl ? seasonsEl.value.trim() : '';
+    const notes = document.getElementById('new-copy-notes').value.trim();
+
+    try {
+        await apiCall('add_copy', {
+            movie_id: movieId,
+            format,
+            edition,
+            region,
+            condition,
+            notes,
+            seasons_owned: seasonsOwned,
+            cert_region: settings.certRegion || 'US',
+            aspect_ratio: aspectRatio,
+            package_type: packageType,
+            feature_count: featureCount,
+            has_slipcover: hasSlipcover,
+            has_booklet: hasBooklet,
+            has_bonus_disc: hasBonusDisc,
+            bonus_disc_count: hasBonusDisc ? 1 : 0,
+            has_digital_copy: hasDigitalCopy,
+            has_3d: has3d
+        });
+
+        showToast('Copy added!', 'success');
+        loadCollection();
+        // Refresh the copy manager to show the new copy
+        await openCopyManager(movieId);
+    } catch (error) {
+        console.error('Failed to add copy:', error);
+        showToast(error.message || 'Failed to add copy', 'error');
+    }
+}
+
 function editCopy(copyId) {
     // Hide view mode, show edit mode
     document.getElementById(`copy-view-${copyId}`).style.display = 'none';
@@ -10022,6 +10191,9 @@ return {
     editCopy,
     cancelCopyEdit,
     saveCopyEdit,
+    showAddCopyForm,
+    hideAddCopyForm,
+    saveNewCopy,
     // Physical Media Editions & Component Tracking (v4.0.0)
     openEditionPicker,
     linkCopyToEdition,
