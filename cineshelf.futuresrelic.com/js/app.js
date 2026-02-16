@@ -2643,7 +2643,10 @@ async function deleteCopy(copyId, movieId) {
         try {
             const result = await apiCall('push_edition_to_umdb', { edition_id: editionId });
             if (result && result.umdb_release_id) {
-                showToast(`Pushed to UMDB: ${result.umdb_release_id}`, 'success');
+                const msg = result.duplicate
+                    ? `Linked to existing UMDB release (duplicate barcode): ${result.umdb_release_id}`
+                    : `Pushed to UMDB: ${result.umdb_release_id}`;
+                showToast(msg, 'success');
                 await openCopyManager(movieId);
             }
         } catch (error) {

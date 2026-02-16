@@ -6086,13 +6086,28 @@ Return ONLY the JSON object, no markdown.'
 
             if (!$umdbResult) {
                 $detail = $GLOBALS['_umdb_last_error'] ?? '';
+                // Surface specific 422 message when movie isn't in UMDB yet
+                if (strpos($detail, '422') !== false) {
+                    jsonResponse(false, null, 'This movie needs to be added to UMDB before editions can be pushed. ' . $detail);
+                }
                 $msg = 'Failed to push edition to UMDB';
                 $msg .= $detail ? " — $detail" : ' — the UMDB service may be unavailable';
                 jsonResponse(false, null, $msg);
             }
 
-            // Extract the rel-{uuid} from the response
-            $umdbReleaseId = $umdbResult['id'] ?? $umdbResult['release_id'] ?? null;
+            // API returns { "duplicate": bool, "edition": { "id": "rel-...", ... } }
+            $isDuplicate = !empty($umdbResult['duplicate']);
+            $editionData = $umdbResult['edition'] ?? null;
+
+            // Extract the rel-{uuid} from the nested edition object, with fallbacks
+            $umdbReleaseId = null;
+            if ($editionData && is_array($editionData)) {
+                $umdbReleaseId = $editionData['id'] ?? $editionData['release_id'] ?? null;
+            }
+            // Fallback: check top-level keys for backwards compatibility
+            if (empty($umdbReleaseId)) {
+                $umdbReleaseId = $umdbResult['id'] ?? $umdbResult['release_id'] ?? null;
+            }
 
             if (empty($umdbReleaseId)) {
                 jsonResponse(false, null, 'UMDB did not return a release ID');
@@ -6103,11 +6118,13 @@ Return ONLY the JSON object, no markdown.'
             $stmt->execute([$umdbReleaseId, $editionId]);
 
             logAction($db, $userId, 'edition_pushed_to_umdb', 'media_edition', $editionId, [
-                'umdb_release_id' => $umdbReleaseId
+                'umdb_release_id' => $umdbReleaseId,
+                'duplicate' => $isDuplicate
             ]);
             jsonResponse(true, [
                 'edition_id' => $editionId,
-                'umdb_release_id' => $umdbReleaseId
+                'umdb_release_id' => $umdbReleaseId,
+                'duplicate' => $isDuplicate
             ]);
             break;
 
