@@ -402,6 +402,7 @@ CREATE INDEX IF NOT EXISTS idx_trivia_stats_best_score ON trivia_stats(best_scor
 CREATE TABLE IF NOT EXISTS media_editions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     movie_id INTEGER NOT NULL,
+    umdb_release_id TEXT,
     name TEXT NOT NULL,
     format TEXT,
     package_type TEXT,
@@ -421,6 +422,7 @@ CREATE TABLE IF NOT EXISTS media_editions (
 
 CREATE INDEX IF NOT EXISTS idx_media_editions_movie ON media_editions(movie_id);
 CREATE INDEX IF NOT EXISTS idx_media_editions_barcode ON media_editions(barcode);
+CREATE INDEX IF NOT EXISTS idx_media_editions_umdb_release ON media_editions(umdb_release_id);
 
 -- ============================================
 -- UMDB: EDITION COMPONENTS

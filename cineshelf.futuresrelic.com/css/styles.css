@@ -5376,6 +5376,44 @@ body.modal-open {
     text-transform: uppercase;
 }
 
+/* UMDB link badge — shown on editions linked to UMDB rel-{uuid} */
+.umdb-link-badge {
+    display: inline-block;
+    background: rgba(102, 187, 234, 0.25);
+    color: #8fd4f7;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* UMDB action buttons */
+.btn-umdb {
+    background: rgba(102, 187, 234, 0.2);
+    color: #8fd4f7;
+    border: 1px solid rgba(102, 187, 234, 0.4);
+}
+.btn-umdb:hover {
+    background: rgba(102, 187, 234, 0.35);
+}
+
+.btn-umdb-sm {
+    background: rgba(102, 187, 234, 0.15);
+    color: #8fd4f7;
+    border: 1px solid rgba(102, 187, 234, 0.3);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-umdb-sm:hover {
+    background: rgba(102, 187, 234, 0.3);
+}
+
 /* Season info display in cards/detail */
 .season-info {
     font-size: 0.8rem;

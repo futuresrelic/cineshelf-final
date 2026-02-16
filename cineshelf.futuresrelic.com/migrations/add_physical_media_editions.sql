@@ -16,6 +16,7 @@
 CREATE TABLE IF NOT EXISTS media_editions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     movie_id INTEGER NOT NULL,
+    umdb_release_id TEXT,                      -- UMDB rel-{uuid} for two-way linking
     name TEXT NOT NULL,                         -- "4K UHD Steelbook (2023)" or "Criterion Collection #123"
     format TEXT,                                -- DVD, Blu-ray, 4K UHD, etc.
     package_type TEXT,                          -- Steelbook, Keep Case, Digibook, etc.
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS media_editions (
 CREATE INDEX IF NOT EXISTS idx_media_editions_movie ON media_editions(movie_id);
 CREATE INDEX IF NOT EXISTS idx_media_editions_barcode ON media_editions(barcode);
 CREATE INDEX IF NOT EXISTS idx_media_editions_format ON media_editions(format);
+CREATE INDEX IF NOT EXISTS idx_media_editions_umdb_release ON media_editions(umdb_release_id);
 
 -- ============================================
 -- UMDB: EDITION COMPONENTS

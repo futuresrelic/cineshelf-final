@@ -54,6 +54,63 @@ function umdbFetch($path) {
 }
 
 /**
+ * Make an HTTP POST request to the UMDB API (for push/create operations).
+ *
+ * @param string $path  API path (e.g. "/releases")
+ * @param array  $body  Request body (will be JSON-encoded)
+ * @return array|false  Decoded JSON response, or false on failure
+ */
+function umdbPost($path, $body) {
+    return umdbRequest('POST', $path, $body);
+}
+
+/**
+ * Make an HTTP PUT request to the UMDB API (for update operations).
+ *
+ * @param string $path  API path (e.g. "/releases/rel-abc123")
+ * @param array  $body  Request body (will be JSON-encoded)
+ * @return array|false  Decoded JSON response, or false on failure
+ */
+function umdbPut($path, $body) {
+    return umdbRequest('PUT', $path, $body);
+}
+
+/**
+ * Generic UMDB request helper for POST/PUT.
+ *
+ * @param string $method  HTTP method (POST or PUT)
+ * @param string $path    API path
+ * @param array  $body    Request body (will be JSON-encoded)
+ * @return array|false    Decoded JSON response, or false on failure
+ */
+function umdbRequest($method, $path, $body) {
+    $url = UMDB_BASE_URL . $path;
+    $json = json_encode($body);
+
+    $headerStr = "Accept: application/json\r\nContent-Type: application/json\r\nContent-Length: " . strlen($json) . "\r\n";
+    if (!empty(UMDB_API_KEY)) {
+        $headerStr .= "X-API-Key: " . UMDB_API_KEY . "\r\n";
+    }
+
+    $opts = ['http' => [
+        'method'  => $method,
+        'timeout' => 15,
+        'header'  => $headerStr,
+        'content' => $json,
+    ]];
+
+    $ctx = stream_context_create($opts);
+    $response = @file_get_contents($url, false, $ctx);
+
+    if ($response === false) {
+        error_log("CineShelf: UMDB $method request failed – $url");
+        return false;
+    }
+
+    return json_decode($response, true);
+}
+
+/**
  * Build the correct detail-fetch URL for a movie/tv id.
  * Returns [url, source] where source is 'umdb' or 'tmdb'.
  *
@@ -1020,6 +1077,7 @@ case 'update_copy':
                     me.name as edition_name,
                     me.distributor as edition_distributor,
                     me.disc_count as edition_disc_count,
+                    me.umdb_release_id as edition_umdb_release_id,
                     (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = c.edition_id) as edition_component_count,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id AND cc.is_present = 1) as components_present,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total
@@ -5434,6 +5492,7 @@ Return ONLY the JSON object, no markdown.'
             $country = sanitize($input['country'] ?? '', 100);
             $discCount = intval($input['disc_count'] ?? 1);
             $notes = sanitize($input['notes'] ?? '', 500);
+            $umdbReleaseId = sanitize($input['umdb_release_id'] ?? '', 80);
 
             if (empty($movieId) || empty($name)) {
                 jsonResponse(false, null, 'Movie ID and edition name required');
@@ -5447,11 +5506,11 @@ Return ONLY the JSON object, no markdown.'
             }
 
             $stmt = $db->prepare("
-                INSERT INTO media_editions (movie_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $movieId, $name, $format ?: null, $packageType ?: null, $region ?: null,
+                $movieId, $umdbReleaseId ?: null, $name, $format ?: null, $packageType ?: null, $region ?: null,
                 $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
                 $discCount, $notes ?: null, $userId
             ]);
@@ -5853,10 +5912,344 @@ Return ONLY the JSON object, no markdown.'
             jsonResponse(true, $umdbData);
             break;
 
+        // ========================================
+        // UMDB TWO-WAY SYNC (v4.1.0)
+        // Import, push, sync, and link editions
+        // ========================================
+
+        case 'import_umdb_release':
+            // Pull a UMDB release into a local media_edition, storing the rel-{uuid} link
+            $releaseId = sanitize($input['release_id'] ?? '', 80);
+            $movieId = intval($input['movie_id'] ?? 0);
+
+            if (empty($releaseId) || empty($movieId)) {
+                jsonResponse(false, null, 'UMDB release ID and movie ID required');
+            }
+
+            // Check if this release is already imported
+            $stmt = $db->prepare("SELECT id FROM media_editions WHERE umdb_release_id = ?");
+            $stmt->execute([$releaseId]);
+            $existing = $stmt->fetch();
+            if ($existing) {
+                jsonResponse(false, null, 'This UMDB release is already imported as edition #' . $existing['id']);
+            }
+
+            // Verify movie exists locally
+            $stmt = $db->prepare("SELECT id FROM movies WHERE id = ?");
+            $stmt->execute([$movieId]);
+            if (!$stmt->fetch()) {
+                jsonResponse(false, null, 'Movie not found');
+            }
+
+            // Fetch release data from UMDB
+            $umdbRelease = umdbFetch('/releases/' . urlencode($releaseId));
+            if (!$umdbRelease) {
+                jsonResponse(false, null, 'Failed to fetch release from UMDB');
+            }
+
+            // Map UMDB release fields to local media_edition
+            $name = sanitize($umdbRelease['name'] ?? $umdbRelease['title'] ?? 'Imported Release', 200);
+            $format = sanitize($umdbRelease['format'] ?? '', 50);
+            $packageType = sanitize($umdbRelease['package_type'] ?? '', 50);
+            $region = sanitize($umdbRelease['region'] ?? '', 50);
+            $barcode = sanitize($umdbRelease['barcode'] ?? $umdbRelease['upc'] ?? '', 50);
+            $releaseDate = sanitize($umdbRelease['release_date'] ?? '', 20);
+            $distributor = sanitize($umdbRelease['distributor'] ?? $umdbRelease['label'] ?? '', 200);
+            $country = sanitize($umdbRelease['country'] ?? '', 100);
+            $discCount = intval($umdbRelease['disc_count'] ?? $umdbRelease['discs'] ?? 1);
+            $notes = sanitize($umdbRelease['notes'] ?? '', 500);
+
+            $stmt = $db->prepare("
+                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $movieId, $releaseId, $name, $format ?: null, $packageType ?: null, $region ?: null,
+                $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
+                $discCount, $notes ?: null, $userId
+            ]);
+
+            $editionId = $db->lastInsertId();
+
+            // Import components if UMDB provides them
+            $components = $umdbRelease['components'] ?? $umdbRelease['contents'] ?? [];
+            if (!empty($components) && is_array($components)) {
+                $compStmt = $db->prepare("
+                    INSERT INTO edition_components (edition_id, component_type, component_name, description, position)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                foreach ($components as $i => $comp) {
+                    $compStmt->execute([
+                        $editionId,
+                        sanitize($comp['component_type'] ?? $comp['type'] ?? 'other', 50),
+                        sanitize($comp['component_name'] ?? $comp['name'] ?? 'Component', 200),
+                        sanitize($comp['description'] ?? '', 500),
+                        intval($comp['position'] ?? $i)
+                    ]);
+                }
+            }
+
+            logAction($db, $userId, 'umdb_release_imported', 'media_edition', $editionId, [
+                'umdb_release_id' => $releaseId
+            ]);
+            jsonResponse(true, [
+                'edition_id' => $editionId,
+                'umdb_release_id' => $releaseId,
+                'components_imported' => count($components)
+            ]);
+            break;
+
+        case 'push_edition_to_umdb':
+            // Push a locally-created edition to UMDB and store the returned rel-{uuid}
+            $editionId = intval($input['edition_id'] ?? 0);
+
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            // Get the local edition
+            $stmt = $db->prepare("
+                SELECT me.*, m.tmdb_id, m.imdb_id, m.title as movie_title
+                FROM media_editions me
+                JOIN movies m ON m.id = me.movie_id
+                WHERE me.id = ?
+            ");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            if (!empty($edition['umdb_release_id'])) {
+                jsonResponse(false, null, 'This edition is already linked to UMDB release: ' . $edition['umdb_release_id']);
+            }
+
+            // Get components
+            $stmt = $db->prepare("SELECT * FROM edition_components WHERE edition_id = ? ORDER BY position ASC");
+            $stmt->execute([$editionId]);
+            $localComponents = $stmt->fetchAll();
+
+            // Build UMDB release payload
+            $payload = [
+                'name' => $edition['name'],
+                'format' => $edition['format'],
+                'package_type' => $edition['package_type'],
+                'region' => $edition['region'],
+                'barcode' => $edition['barcode'],
+                'release_date' => $edition['release_date'],
+                'distributor' => $edition['distributor'],
+                'country' => $edition['country'],
+                'disc_count' => intval($edition['disc_count']),
+                'notes' => $edition['notes'],
+            ];
+
+            // Include external IDs for UMDB to link the movie
+            if (!empty($edition['tmdb_id']) && !isUmdbId($edition['tmdb_id'])) {
+                $payload['tmdb_id'] = $edition['tmdb_id'];
+            }
+            if (!empty($edition['imdb_id'])) {
+                $payload['imdb_id'] = $edition['imdb_id'];
+            }
+
+            // Include components
+            if (!empty($localComponents)) {
+                $payload['components'] = array_map(function($c) {
+                    return [
+                        'type' => $c['component_type'],
+                        'name' => $c['component_name'],
+                        'description' => $c['description'],
+                        'position' => intval($c['position']),
+                    ];
+                }, $localComponents);
+            }
+
+            $umdbResult = umdbPost('/releases', $payload);
+
+            if (!$umdbResult) {
+                jsonResponse(false, null, 'Failed to push edition to UMDB — the UMDB service may be unavailable');
+            }
+
+            // Extract the rel-{uuid} from the response
+            $umdbReleaseId = $umdbResult['id'] ?? $umdbResult['release_id'] ?? null;
+
+            if (empty($umdbReleaseId)) {
+                jsonResponse(false, null, 'UMDB did not return a release ID');
+            }
+
+            // Store the link
+            $stmt = $db->prepare("UPDATE media_editions SET umdb_release_id = ?, updated_at = datetime('now') WHERE id = ?");
+            $stmt->execute([$umdbReleaseId, $editionId]);
+
+            logAction($db, $userId, 'edition_pushed_to_umdb', 'media_edition', $editionId, [
+                'umdb_release_id' => $umdbReleaseId
+            ]);
+            jsonResponse(true, [
+                'edition_id' => $editionId,
+                'umdb_release_id' => $umdbReleaseId
+            ]);
+            break;
+
+        case 'sync_edition_from_umdb':
+            // Re-pull data from UMDB for an already-linked edition
+            $editionId = intval($input['edition_id'] ?? 0);
+
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            $stmt = $db->prepare("SELECT * FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            if (empty($edition['umdb_release_id'])) {
+                jsonResponse(false, null, 'This edition is not linked to UMDB');
+            }
+
+            // Fetch fresh data from UMDB
+            $umdbRelease = umdbFetch('/releases/' . urlencode($edition['umdb_release_id']));
+            if (!$umdbRelease) {
+                jsonResponse(false, null, 'Failed to fetch release from UMDB');
+            }
+
+            // Update local edition with UMDB data
+            $stmt = $db->prepare("
+                UPDATE media_editions
+                SET name = ?, format = ?, package_type = ?, region = ?, barcode = ?,
+                    release_date = ?, distributor = ?, country = ?, disc_count = ?, notes = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                sanitize($umdbRelease['name'] ?? $umdbRelease['title'] ?? $edition['name'], 200),
+                sanitize($umdbRelease['format'] ?? $edition['format'] ?? '', 50) ?: null,
+                sanitize($umdbRelease['package_type'] ?? $edition['package_type'] ?? '', 50) ?: null,
+                sanitize($umdbRelease['region'] ?? $edition['region'] ?? '', 50) ?: null,
+                sanitize($umdbRelease['barcode'] ?? $umdbRelease['upc'] ?? $edition['barcode'] ?? '', 50) ?: null,
+                sanitize($umdbRelease['release_date'] ?? $edition['release_date'] ?? '', 20) ?: null,
+                sanitize($umdbRelease['distributor'] ?? $umdbRelease['label'] ?? $edition['distributor'] ?? '', 200) ?: null,
+                sanitize($umdbRelease['country'] ?? $edition['country'] ?? '', 100) ?: null,
+                intval($umdbRelease['disc_count'] ?? $umdbRelease['discs'] ?? $edition['disc_count'] ?? 1),
+                sanitize($umdbRelease['notes'] ?? $edition['notes'] ?? '', 500) ?: null,
+                $editionId
+            ]);
+
+            // Sync components: merge UMDB components with existing local ones
+            $umdbComponents = $umdbRelease['components'] ?? $umdbRelease['contents'] ?? [];
+            $componentsAdded = 0;
+
+            if (!empty($umdbComponents) && is_array($umdbComponents)) {
+                // Get existing component names to avoid duplicates
+                $stmt = $db->prepare("SELECT component_name FROM edition_components WHERE edition_id = ?");
+                $stmt->execute([$editionId]);
+                $existingNames = array_column($stmt->fetchAll(), 'component_name');
+
+                $compStmt = $db->prepare("
+                    INSERT INTO edition_components (edition_id, component_type, component_name, description, position)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                foreach ($umdbComponents as $i => $comp) {
+                    $compName = sanitize($comp['component_name'] ?? $comp['name'] ?? 'Component', 200);
+                    if (!in_array($compName, $existingNames)) {
+                        $compStmt->execute([
+                            $editionId,
+                            sanitize($comp['component_type'] ?? $comp['type'] ?? 'other', 50),
+                            $compName,
+                            sanitize($comp['description'] ?? '', 500),
+                            intval($comp['position'] ?? $i)
+                        ]);
+                        $componentsAdded++;
+                    }
+                }
+            }
+
+            logAction($db, $userId, 'edition_synced_from_umdb', 'media_edition', $editionId, [
+                'umdb_release_id' => $edition['umdb_release_id'],
+                'components_added' => $componentsAdded
+            ]);
+            jsonResponse(true, [
+                'edition_id' => $editionId,
+                'umdb_release_id' => $edition['umdb_release_id'],
+                'components_added' => $componentsAdded
+            ]);
+            break;
+
+        case 'link_edition_to_umdb':
+            // Manually link an existing local edition to a UMDB release ID
+            $editionId = intval($input['edition_id'] ?? 0);
+            $releaseId = sanitize($input['release_id'] ?? '', 80);
+
+            if (empty($editionId) || empty($releaseId)) {
+                jsonResponse(false, null, 'Edition ID and UMDB release ID required');
+            }
+
+            // Verify edition exists
+            $stmt = $db->prepare("SELECT id, umdb_release_id FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            // Check this release ID isn't already used by another edition
+            $stmt = $db->prepare("SELECT id FROM media_editions WHERE umdb_release_id = ? AND id != ?");
+            $stmt->execute([$releaseId, $editionId]);
+            if ($stmt->fetch()) {
+                jsonResponse(false, null, 'This UMDB release is already linked to another edition');
+            }
+
+            // Verify the release exists on UMDB
+            $umdbRelease = umdbFetch('/releases/' . urlencode($releaseId));
+            if (!$umdbRelease) {
+                jsonResponse(false, null, 'UMDB release not found — verify the release ID');
+            }
+
+            $stmt = $db->prepare("UPDATE media_editions SET umdb_release_id = ?, updated_at = datetime('now') WHERE id = ?");
+            $stmt->execute([$releaseId, $editionId]);
+
+            logAction($db, $userId, 'edition_linked_to_umdb', 'media_edition', $editionId, [
+                'umdb_release_id' => $releaseId
+            ]);
+            jsonResponse(true, [
+                'edition_id' => $editionId,
+                'umdb_release_id' => $releaseId
+            ]);
+            break;
+
+        case 'unlink_edition_from_umdb':
+            // Remove the UMDB link from a local edition (keeps local data)
+            $editionId = intval($input['edition_id'] ?? 0);
+
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            $stmt = $db->prepare("SELECT id, umdb_release_id FROM media_editions WHERE id = ?");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+
+            $stmt = $db->prepare("UPDATE media_editions SET umdb_release_id = NULL, updated_at = datetime('now') WHERE id = ?");
+            $stmt->execute([$editionId]);
+
+            logAction($db, $userId, 'edition_unlinked_from_umdb', 'media_edition', $editionId, [
+                'old_umdb_release_id' => $edition['umdb_release_id']
+            ]);
+            jsonResponse(true, ['edition_id' => $editionId, 'unlinked' => true]);
+            break;
+
         default:
             jsonResponse(false, null, 'Unknown action: ' . $action);
     }
-    
+
 } catch (Exception $e) {
     error_log('CineShelf API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());

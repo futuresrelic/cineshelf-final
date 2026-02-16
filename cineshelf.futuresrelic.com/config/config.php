@@ -217,6 +217,10 @@ function getDb() {
         // Add edition_id column to copies table
         try { $db->exec("ALTER TABLE copies ADD COLUMN edition_id INTEGER REFERENCES media_editions(id) ON DELETE SET NULL"); } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB two-way linking (v4.1.0)
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN umdb_release_id TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("CREATE INDEX IF NOT EXISTS idx_media_editions_umdb_release ON media_editions(umdb_release_id)"); } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

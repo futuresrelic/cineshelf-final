@@ -1756,6 +1756,7 @@ function renderCollection() {
                                 ${copy.edition_id ? `
                                     <div class="edition-badge">
                                         <span class="edition-badge-label">${copy.edition_name || 'Linked Edition'}</span>
+                                        ${copy.edition_umdb_release_id ? `<span class="umdb-link-badge" title="${copy.edition_umdb_release_id}">UMDB</span>` : ''}
                                         ${copy.edition_distributor ? `<span class="edition-badge-dist">${copy.edition_distributor}</span>` : ''}
                                         ${copy.components_total > 0 ? `
                                             <span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>
@@ -1763,7 +1764,13 @@ function renderCollection() {
                                     </div>
                                     <div class="edition-actions">
                                         <button class="btn-sm" onclick="App.openComponentChecklist(${copy.id}, ${movieId})">Checklist</button>
-                                        <button class="btn-sm btn-sm-muted" onclick="App.unlinkCopyEdition(${copy.id}, ${movieId})">Unlink</button>
+                                        ${copy.edition_umdb_release_id
+                                            ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Re-pull from UMDB">Sync</button>
+                                               <button class="btn-sm btn-sm-muted" onclick="App.unlinkEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Remove UMDB link">Unlink UMDB</button>`
+                                            : `<button class="btn-sm btn-umdb-sm" onclick="App.pushEditionToUmdb(${copy.edition_id}, ${movieId})" title="Push to UMDB">Push to UMDB</button>
+                                               <button class="btn-sm btn-sm-muted" onclick="App.linkEditionToUmdb(${copy.edition_id}, ${movieId})" title="Link to existing UMDB release">Link UMDB</button>`
+                                        }
+                                        <button class="btn-sm btn-sm-muted" onclick="App.unlinkCopyEdition(${copy.id}, ${movieId})">Unlink Edition</button>
                                     </div>
                                 ` : `
                                     <button class="btn-sm btn-sm-outline" onclick="App.openEditionPicker(${copy.id}, ${movieId})">+ Link Physical Edition</button>
@@ -2067,9 +2074,12 @@ async function deleteCopy(copyId, movieId) {
             if (editions && editions.length > 0) {
                 html += `<div class="edition-list">`;
                 for (const ed of editions) {
+                    const umdbBadge = ed.umdb_release_id
+                        ? `<span class="umdb-link-badge" title="Linked: ${ed.umdb_release_id}">UMDB</span>`
+                        : '';
                     html += `
                         <div class="edition-option" onclick="App.linkCopyToEdition(${copyId}, ${ed.id}, ${movieId})">
-                            <div class="edition-option-name">${ed.name}</div>
+                            <div class="edition-option-name">${ed.name} ${umdbBadge}</div>
                             <div class="edition-option-meta">
                                 ${ed.format ? `<span>${ed.format}</span>` : ''}
                                 ${ed.distributor ? `<span>${ed.distributor}</span>` : ''}
@@ -2085,8 +2095,9 @@ async function deleteCopy(copyId, movieId) {
             }
 
             html += `
-                    <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+                    <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button class="btn" onclick="App.showCreateEdition(${copyId}, ${movieId})">+ Create New Edition</button>
+                        <button class="btn btn-umdb" onclick="App.showImportFromUmdb(${copyId}, ${movieId})">Import from UMDB</button>
                         <button class="btn-secondary" onclick="App.openCopyManager(${movieId})">Cancel</button>
                     </div>
                 </div>
@@ -2463,13 +2474,238 @@ async function deleteCopy(copyId, movieId) {
     }
 
     // ========================================
+    // UMDB TWO-WAY SYNC (v4.1.0)
+    // Import from UMDB, push to UMDB, sync, link/unlink
+    // ========================================
+
+    async function showImportFromUmdb(copyId, movieId) {
+        const modal = document.getElementById('copyManagerContent');
+
+        // Get the movie's tmdb_id or imdb_id for UMDB lookup
+        const group = collection.find(c => c.movie.movie_id === movieId);
+        if (!group) {
+            showToast('Movie not found in collection', 'error');
+            return;
+        }
+
+        const tmdbId = group.movie.tmdb_id;
+        const imdbId = group.movie.imdb_id;
+
+        modal.innerHTML = `
+            <div class="edition-picker">
+                <h4>Import from UMDB</h4>
+                <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+                    Search UMDB for physical releases to import as a local edition.
+                </p>
+                <div class="form-group">
+                    <label>Search by title or barcode</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="text" id="umdb-import-query" class="form-control" placeholder="Search releases..."
+                               value="${group.movie.title || ''}" style="flex:1;">
+                        <button class="btn" onclick="App.searchUmdbReleases(${copyId}, ${movieId})">Search</button>
+                    </div>
+                </div>
+                ${imdbId ? `<button class="btn-secondary" style="margin-bottom:1rem; font-size:0.85rem;"
+                    onclick="App.searchUmdbByExternalId(${copyId}, ${movieId}, '${imdbId}')">
+                    Find by IMDb ID (${imdbId})</button>` : ''}
+                <div id="umdb-import-results" style="margin-top:0.5rem;">
+                    <p class="text-muted" style="font-size:0.85rem;">Enter a search term and click Search to find UMDB releases.</p>
+                </div>
+                <div style="margin-top:1rem;">
+                    <button class="btn-secondary" onclick="App.openEditionPicker(${copyId}, ${movieId})">Back</button>
+                </div>
+            </div>
+        `;
+
+        // Auto-search if we have a title
+        if (group.movie.title) {
+            searchUmdbReleases(copyId, movieId);
+        }
+    }
+
+    async function searchUmdbReleases(copyId, movieId) {
+        const query = document.getElementById('umdb-import-query')?.value.trim();
+        const resultsDiv = document.getElementById('umdb-import-results');
+        if (!query || !resultsDiv) return;
+
+        resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">Searching UMDB...</p>';
+
+        try {
+            const data = await apiCall('search_releases', { query });
+            const releases = data?.results || data || [];
+
+            if (!Array.isArray(releases) || releases.length === 0) {
+                resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">No releases found on UMDB.</p>';
+                return;
+            }
+
+            let html = '<div class="edition-list">';
+            for (const rel of releases) {
+                const relId = rel.id || rel.release_id || '';
+                const name = rel.name || rel.title || 'Unnamed Release';
+                const format = rel.format || '';
+                const distributor = rel.distributor || rel.label || '';
+                const barcode = rel.barcode || rel.upc || '';
+                html += `
+                    <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
+                        <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
+                        <div class="edition-option-meta">
+                            ${format ? `<span>${format}</span>` : ''}
+                            ${distributor ? `<span>${distributor}</span>` : ''}
+                            ${barcode ? `<span>UPC: ${barcode}</span>` : ''}
+                            ${relId ? `<span class="text-muted">${relId}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        } catch (error) {
+            console.error('UMDB search failed:', error);
+            resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">UMDB search failed. The service may be unavailable.</p>';
+        }
+    }
+
+    async function searchUmdbByExternalId(copyId, movieId, externalId) {
+        const resultsDiv = document.getElementById('umdb-import-results');
+        if (!resultsDiv) return;
+
+        resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">Looking up UMDB by external ID...</p>';
+
+        try {
+            const data = await apiCall('find_by_external_id', { external_id: externalId, external_source: 'imdb_id' });
+
+            // Try to get releases from the found movie
+            const movieResults = data?.movie_results || [];
+            if (movieResults.length > 0) {
+                const umdbMovieId = movieResults[0].id || movieResults[0].tmdb_id;
+                if (umdbMovieId) {
+                    const relData = await apiCall('get_releases', { umdb_id: umdbMovieId });
+                    const releases = relData?.results || relData || [];
+
+                    if (Array.isArray(releases) && releases.length > 0) {
+                        let html = '<div class="edition-list">';
+                        for (const rel of releases) {
+                            const relId = rel.id || rel.release_id || '';
+                            const name = rel.name || rel.title || 'Unnamed Release';
+                            html += `
+                                <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
+                                    <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
+                                    <div class="edition-option-meta">
+                                        ${rel.format ? `<span>${rel.format}</span>` : ''}
+                                        ${rel.distributor || rel.label ? `<span>${rel.distributor || rel.label}</span>` : ''}
+                                        ${relId ? `<span class="text-muted">${relId}</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        html += '</div>';
+                        resultsDiv.innerHTML = html;
+                        return;
+                    }
+                }
+            }
+            resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">No UMDB releases found for this external ID.</p>';
+        } catch (error) {
+            console.error('UMDB lookup failed:', error);
+            resultsDiv.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">UMDB lookup failed.</p>';
+        }
+    }
+
+    async function importUmdbRelease(copyId, movieId, releaseId) {
+        if (!releaseId) {
+            showToast('No release ID', 'error');
+            return;
+        }
+        try {
+            const result = await apiCall('import_umdb_release', {
+                release_id: releaseId,
+                movie_id: movieId
+            });
+
+            if (result && result.edition_id) {
+                showToast(`Imported from UMDB (${result.components_imported} components)`, 'success');
+                // Auto-link if we have a copy context
+                if (copyId) {
+                    await linkCopyToEdition(copyId, result.edition_id, movieId);
+                } else {
+                    await openCopyManager(movieId);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to import UMDB release:', error);
+            showToast(error.message || 'Failed to import UMDB release', 'error');
+        }
+    }
+
+    async function pushEditionToUmdb(editionId, movieId) {
+        if (!confirm('Push this edition to UMDB? It will be shared with the universal database.')) return;
+        try {
+            const result = await apiCall('push_edition_to_umdb', { edition_id: editionId });
+            if (result && result.umdb_release_id) {
+                showToast(`Pushed to UMDB: ${result.umdb_release_id}`, 'success');
+                await openCopyManager(movieId);
+            }
+        } catch (error) {
+            console.error('Failed to push to UMDB:', error);
+            showToast(error.message || 'Failed to push edition to UMDB', 'error');
+        }
+    }
+
+    async function syncEditionFromUmdb(editionId, movieId) {
+        try {
+            const result = await apiCall('sync_edition_from_umdb', { edition_id: editionId });
+            if (result) {
+                const msg = result.components_added > 0
+                    ? `Synced from UMDB (+${result.components_added} new components)`
+                    : 'Synced from UMDB (up to date)';
+                showToast(msg, 'success');
+                await openCopyManager(movieId);
+            }
+        } catch (error) {
+            console.error('Failed to sync from UMDB:', error);
+            showToast(error.message || 'Failed to sync from UMDB', 'error');
+        }
+    }
+
+    async function linkEditionToUmdb(editionId, movieId) {
+        const releaseId = prompt('Enter the UMDB release ID (e.g., rel-abc123):');
+        if (!releaseId || !releaseId.trim()) return;
+        try {
+            const result = await apiCall('link_edition_to_umdb', {
+                edition_id: editionId,
+                release_id: releaseId.trim()
+            });
+            if (result) {
+                showToast(`Linked to UMDB: ${result.umdb_release_id}`, 'success');
+                await openCopyManager(movieId);
+            }
+        } catch (error) {
+            console.error('Failed to link to UMDB:', error);
+            showToast(error.message || 'Failed to link edition to UMDB', 'error');
+        }
+    }
+
+    async function unlinkEditionFromUmdb(editionId, movieId) {
+        if (!confirm('Unlink this edition from UMDB? Local data will be kept.')) return;
+        try {
+            await apiCall('unlink_edition_from_umdb', { edition_id: editionId });
+            showToast('Unlinked from UMDB', 'info');
+            await openCopyManager(movieId);
+        } catch (error) {
+            console.error('Failed to unlink from UMDB:', error);
+            showToast(error.message || 'Failed to unlink from UMDB', 'error');
+        }
+    }
+
+    // ========================================
     // MOVIE DETAILS
     // ========================================
 
 /**
  * REPLACE viewMovieDetails() function in app.js
  * Location: Around line 950-1000
- * 
+ *
  * This adds a "Manage Copies" button to the movie detail view
  */
 async function editDisplayTitle(movieId) {
@@ -9793,6 +10029,15 @@ return {
     openComponentChecklist,
     toggleComponent,
     updateComponentCondition,
+    // UMDB Two-Way Sync (v4.1.0)
+    showImportFromUmdb,
+    searchUmdbReleases,
+    searchUmdbByExternalId,
+    importUmdbRelease,
+    pushEditionToUmdb,
+    syncEditionFromUmdb,
+    linkEditionToUmdb,
+    unlinkEditionFromUmdb,
     editDisplayTitle,
     changePoster,
     closePosterSelector,
