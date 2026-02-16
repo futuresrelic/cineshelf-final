@@ -97,13 +97,31 @@ function umdbRequest($method, $path, $body) {
         'timeout' => 15,
         'header'  => $headerStr,
         'content' => $json,
+        'ignore_errors' => true,   // Return body even on 4xx/5xx so we can read error details
     ]];
 
     $ctx = stream_context_create($opts);
     $response = @file_get_contents($url, false, $ctx);
 
+    // Capture HTTP status from the magic $http_response_header variable
+    $statusCode = 0;
+    if (isset($http_response_header) && is_array($http_response_header) && !empty($http_response_header[0])) {
+        preg_match('/\d{3}/', $http_response_header[0], $m);
+        $statusCode = intval($m[0] ?? 0);
+    }
+
     if ($response === false) {
-        error_log("CineShelf: UMDB $method request failed – $url");
+        $lastErr = error_get_last();
+        $errMsg = $lastErr['message'] ?? 'unknown error';
+        error_log("CineShelf: UMDB $method connection failed – $url – $errMsg");
+        return false;
+    }
+
+    // Log and fail on non-2xx responses
+    if ($statusCode >= 400) {
+        error_log("CineShelf: UMDB $method returned HTTP $statusCode – $url – Response: " . substr($response, 0, 500));
+        // Store error details so callers can surface them
+        $GLOBALS['_umdb_last_error'] = "HTTP $statusCode: " . substr($response, 0, 300);
         return false;
     }
 
@@ -6067,7 +6085,10 @@ Return ONLY the JSON object, no markdown.'
             $umdbResult = umdbPost('/releases', $payload);
 
             if (!$umdbResult) {
-                jsonResponse(false, null, 'Failed to push edition to UMDB — the UMDB service may be unavailable');
+                $detail = $GLOBALS['_umdb_last_error'] ?? '';
+                $msg = 'Failed to push edition to UMDB';
+                $msg .= $detail ? " — $detail" : ' — the UMDB service may be unavailable';
+                jsonResponse(false, null, $msg);
             }
 
             // Extract the rel-{uuid} from the response
