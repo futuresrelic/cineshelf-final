@@ -65,23 +65,23 @@ This is the MOST IMPORTANT step - where we hide your API keys!
 #### Variable 1: TMDB_API_KEY
 ```
 Variable Name: TMDB_API_KEY
-Value: 8039283176a74ffd71a1658c6f84a051
+Value: YOUR_TMDB_API_KEY
 ```
-(Or use your own TMDB key if you have one)
+(Your TMDB API key from https://www.themoviedb.org/settings/api)
 
 #### Variable 2: GOOGLE_CLIENT_ID
 ```
 Variable Name: GOOGLE_CLIENT_ID
-Value: 754407099284-tqu2gj2b2ifm01ti34eqto6mejou75pr.apps.googleusercontent.com
+Value: YOUR_GOOGLE_CLIENT_ID
 ```
-(Your current Google Client ID)
+(Your Google OAuth Client ID from Google Cloud Console)
 
 #### Variable 3: GOOGLE_CLIENT_SECRET
 ```
 Variable Name: GOOGLE_CLIENT_SECRET
-Value: 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
+Value: YOUR_GOOGLE_CLIENT_SECRET
 ```
-(Your current Google Client Secret)
+(Your Google OAuth Client Secret from Google Cloud Console)
 
 #### Variable 4: GOOGLE_REDIRECT_URI
 ```

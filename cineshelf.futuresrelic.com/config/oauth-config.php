@@ -29,12 +29,12 @@ if (!$googleClientId || !$googleClientSecret || !$googleRedirectUri) {
 
 // Fallback for legacy setups (will show warning if used)
 if (!$googleClientId) {
-    $googleClientId = '754407099284-tqu2gj2b2ifm01ti34eqto6mejou75pr.apps.googleusercontent.com';
-    error_log('WARNING: Using hardcoded GOOGLE_CLIENT_ID. Please set environment variable!');
+    $googleClientId = '';
+    error_log('WARNING: GOOGLE_CLIENT_ID is not set. Please set environment variable!');
 }
 if (!$googleClientSecret) {
-    $googleClientSecret = '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';
-    error_log('WARNING: Using hardcoded GOOGLE_CLIENT_SECRET. Please set environment variable IMMEDIATELY!');
+    $googleClientSecret = '';
+    error_log('WARNING: GOOGLE_CLIENT_SECRET is not set. Please set environment variable!');
 }
 if (!$googleRedirectUri) {
     $googleRedirectUri = 'https://cineshelf.futuresrelic.com/api/auth.php';

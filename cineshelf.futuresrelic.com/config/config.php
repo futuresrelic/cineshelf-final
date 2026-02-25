@@ -15,11 +15,11 @@ define('DB_PATH', $dbPath);
 define('DATA_DIR', dirname(DB_PATH));
 
 // TMDB API Configuration
-// Read from environment variable or fall back to hardcoded key (not recommended)
+// Read from environment variable (set TMDB_API_KEY in Railway or local .env)
 $tmdbKey = getenv('TMDB_API_KEY');
 if (!$tmdbKey) {
-    // Fallback for local development only - DO NOT USE IN PRODUCTION
-    $tmdbKey = '8039283176a74ffd71a1658c6f84a051';
+    // No hardcoded fallback — set TMDB_API_KEY environment variable
+    $tmdbKey = '';
 }
 define('TMDB_API_KEY', $tmdbKey);
 define('TMDB_BASE_URL', 'https://api.themoviedb.org/3');

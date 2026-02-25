@@ -97,7 +97,7 @@ cineshelf-final/
 
 ### External Services
 - **TMDB API** - Movie metadata provider
-  - API Key: `8039283176a74ffd71a1658c6f84a051`
+  - API Key: set via `TMDB_API_KEY` environment variable (Railway)
   - Used for: search, posters, directors, ratings, certifications
 - **Google OAuth 2.0** - User authentication
   - Credentials in `/config/oauth-config.php`
