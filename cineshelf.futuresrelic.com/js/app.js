@@ -207,6 +207,7 @@ const App = (function() {
     loadWishlist();
     loadGroups();
     loadShelves(); // Load shelves to populate dropdown
+    loadLayoutProfiles(); // Load layout profiles for selector
     _initPackagingToggles(); // Wire up packaging checkbox toggles
 
         // Apply saved view preferences
@@ -3430,6 +3431,7 @@ function getCertColor(cert) {
         // Load shelves when switching to shelves tab
         if (tabName === 'shelves') {
             loadShelves();
+            loadLayoutProfiles();
         }
 
         // Restore collection sub-view when switching to collection tab
@@ -10174,6 +10176,267 @@ async function getCurrentUserId() {
     }
 
     // ========================================
+    // SHELF LAYOUT PROFILES (v5.0.0)
+    // ========================================
+
+    let layoutProfiles = [];
+    let _wizardPlan = null; // last generated plan
+
+    async function loadLayoutProfiles() {
+        try {
+            layoutProfiles = await apiCall('list_shelf_layouts');
+            _renderLayoutSelector();
+        } catch (e) {
+            console.warn('Could not load layout profiles:', e);
+            layoutProfiles = [];
+        }
+    }
+
+    function _renderLayoutSelector() {
+        const sel = document.getElementById('layoutProfileSelect');
+        if (!sel) return;
+        const activeId = (layoutProfiles.find(l => l.is_active == 1) || {}).id || '';
+        sel.innerHTML = '<option value="">Default (current)</option>' +
+            layoutProfiles.map(l =>
+                `<option value="${l.id}" ${l.is_active == 1 ? 'selected' : ''}>${escapeHtml(l.name)}${l.is_active == 1 ? ' ✓' : ''}</option>`
+            ).join('');
+    }
+
+    async function onLayoutProfileChange(val) {
+        if (!val) {
+            // Revert to default (deactivate all)
+            await apiCall('set_active_shelf_layout', { layout_id: null });
+            showToast('Switched to default layout', 'success');
+        } else {
+            const layoutId = parseInt(val);
+            if (!confirm('Apply this layout? Your current shelf arrangement will be replaced by this profile.')) {
+                _renderLayoutSelector(); // re-render to restore previous selection
+                return;
+            }
+            try {
+                await apiCall('apply_shelf_layout', { layout_id: layoutId });
+                await apiCall('set_active_shelf_layout', { layout_id: layoutId });
+                showToast('Layout applied!', 'success');
+                await loadShelves();
+            } catch (e) {
+                showToast('Failed to apply layout: ' + e.message, 'error');
+                _renderLayoutSelector();
+            }
+        }
+        await loadLayoutProfiles();
+    }
+
+    function showManageLayoutsModal() {
+        const modal = document.getElementById('manageLayoutsModal');
+        if (modal) modal.style.display = 'flex';
+        _renderManageLayoutsList();
+    }
+
+    function closeManageLayoutsModal() {
+        const modal = document.getElementById('manageLayoutsModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function _renderManageLayoutsList() {
+        const container = document.getElementById('layoutProfilesList');
+        if (!container) return;
+        if (!layoutProfiles.length) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.5);">No saved layouts yet. Save your current arrangement to get started.</p>';
+            return;
+        }
+        container.innerHTML = layoutProfiles.map(l => `
+            <div style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem 1rem; ${l.is_active == 1 ? 'border:1px solid #667eea;' : ''}">
+                <span style="flex:1; font-weight:${l.is_active == 1 ? '600' : '400'};">
+                    ${l.is_active == 1 ? '✓ ' : ''}${escapeHtml(l.name)}
+                    <span style="color:rgba(255,255,255,0.4); font-size:0.8rem; margin-left:0.5rem;">${l.entry_count || 0} items</span>
+                </span>
+                <button class="btn-ghost" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="App.applyLayoutProfile(${l.id})" title="Apply this layout">Apply</button>
+                <button class="btn-ghost" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="App.renameLayoutProfile(${l.id}, '${escapeHtml(l.name).replace(/'/g, "\\'")}')" title="Rename">✏️</button>
+                <button class="btn-ghost" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="App.duplicateLayoutProfile(${l.id})" title="Duplicate">⧉</button>
+                <button class="btn-ghost" style="padding:0.25rem 0.5rem; font-size:0.8rem; color:#ef4444;" onclick="App.deleteLayoutProfile(${l.id})" title="Delete">🗑️</button>
+            </div>
+        `).join('');
+    }
+
+    async function promptSaveCurrentLayout() {
+        const name = prompt('Name for this layout:', 'My Layout ' + new Date().toLocaleDateString());
+        if (!name) return;
+        try {
+            const res = await apiCall('create_shelf_layout', { name });
+            await apiCall('save_current_to_layout', { layout_id: res.layout_id });
+            showToast('Layout "' + name + '" saved!', 'success');
+            await loadLayoutProfiles();
+            _renderManageLayoutsList();
+        } catch (e) {
+            showToast('Failed to save layout: ' + e.message, 'error');
+        }
+    }
+
+    async function applyLayoutProfile(layoutId) {
+        if (!confirm('Apply this layout? Your current shelf arrangement will be replaced.')) return;
+        try {
+            await apiCall('apply_shelf_layout', { layout_id: layoutId });
+            await apiCall('set_active_shelf_layout', { layout_id: layoutId });
+            showToast('Layout applied!', 'success');
+            await loadShelves();
+            await loadLayoutProfiles();
+            closeManageLayoutsModal();
+        } catch (e) {
+            showToast('Failed to apply layout: ' + e.message, 'error');
+        }
+    }
+
+    async function deleteLayoutProfile(layoutId) {
+        if (!confirm('Delete this layout profile? This cannot be undone.')) return;
+        try {
+            await apiCall('delete_shelf_layout', { layout_id: layoutId });
+            showToast('Layout deleted', 'success');
+            await loadLayoutProfiles();
+            _renderManageLayoutsList();
+        } catch (e) {
+            showToast('Failed to delete layout: ' + e.message, 'error');
+        }
+    }
+
+    async function renameLayoutProfile(layoutId, currentName) {
+        const newName = prompt('New name:', currentName);
+        if (!newName || newName === currentName) return;
+        try {
+            await apiCall('rename_shelf_layout', { layout_id: layoutId, name: newName });
+            showToast('Layout renamed', 'success');
+            await loadLayoutProfiles();
+            _renderManageLayoutsList();
+        } catch (e) {
+            showToast('Failed to rename: ' + e.message, 'error');
+        }
+    }
+
+    async function duplicateLayoutProfile(layoutId) {
+        const name = prompt('Name for the duplicate:', '');
+        if (name === null) return; // cancelled
+        try {
+            await apiCall('duplicate_shelf_layout', { layout_id: layoutId, name });
+            showToast('Layout duplicated', 'success');
+            await loadLayoutProfiles();
+            _renderManageLayoutsList();
+        } catch (e) {
+            showToast('Failed to duplicate: ' + e.message, 'error');
+        }
+    }
+
+    // ========================================
+    // AI ORGANIZATION WIZARD (v5.0.0)
+    // ========================================
+
+    function showAIWizardModal() {
+        const modal = document.getElementById('aiWizardModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        // Populate target shelves selector
+        const sel = document.getElementById('wizardTargetShelves');
+        if (sel && shelves) {
+            sel.innerHTML = shelves.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        }
+        // Reset to step 1
+        _aiWizardShowStep(1);
+    }
+
+    function closeAIWizardModal() {
+        const modal = document.getElementById('aiWizardModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function _aiWizardShowStep(step) {
+        document.getElementById('aiWizardStep1').style.display = step === 1 ? 'block' : 'none';
+        document.getElementById('aiWizardStep2').style.display = step === 2 ? 'block' : 'none';
+        document.getElementById('aiWizardLoading').style.display = step === 'loading' ? 'block' : 'none';
+    }
+
+    async function generateWizardPlan() {
+        const strategy = document.querySelector('input[name="wizardStrategy"]:checked')?.value || 'genre';
+        const includeWishlist = document.getElementById('wizardIncludeWishlist')?.checked || false;
+        const includeBoxsets = document.getElementById('wizardIncludeBoxsets')?.checked || false;
+        const minRating = parseFloat(document.getElementById('wizardMinRating')?.value || '0');
+        const useAI = document.getElementById('wizardUseAI')?.checked !== false;
+        const targetSel = document.getElementById('wizardTargetShelves');
+        const targetShelves = targetSel ? Array.from(targetSel.selectedOptions).map(o => parseInt(o.value)) : [];
+
+        _aiWizardShowStep('loading');
+
+        try {
+            const action = useAI ? 'generate_shelf_plan_ai' : 'generate_shelf_plan';
+            const plan = await apiCall(action, {
+                strategy,
+                include_wishlist: includeWishlist,
+                include_boxsets: includeBoxsets,
+                min_rating: minRating,
+                target_shelves: targetShelves,
+            });
+            _wizardPlan = plan;
+            _renderWizardPreview(plan, strategy);
+            _aiWizardShowStep(2);
+        } catch (e) {
+            _aiWizardShowStep(1);
+            showToast('Failed to generate plan: ' + e.message, 'error');
+        }
+    }
+
+    function _renderWizardPreview(plan, strategy) {
+        const summary = document.getElementById('aiWizardPlanSummary');
+        const preview = document.getElementById('aiWizardPlanPreview');
+        const badge = document.getElementById('aiWizardAIBadge');
+        if (badge) badge.style.display = plan.ai_enhanced ? 'inline-block' : 'none';
+
+        if (summary) {
+            summary.textContent = `${plan.total_items} items organized into ${plan.sections.length} sections across ${plan.shelves_used} shelf${plan.shelves_used !== 1 ? 'ves' : ''}.`;
+        }
+
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10);
+        const nameInput = document.getElementById('aiWizardLayoutName');
+        if (nameInput && !nameInput.value) {
+            nameInput.value = `AI: ${strategy.charAt(0).toUpperCase() + strategy.slice(1)} ${dateStr}`;
+        }
+
+        if (!preview) return;
+        preview.innerHTML = plan.placement.map(p => `
+            <div style="margin-bottom:0.75rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem;">
+                <div style="font-weight:600; margin-bottom:0.4rem; color:#a78bfa;">📚 ${escapeHtml(p.shelf_name)}</div>
+                <div style="color:rgba(255,255,255,0.7); font-size:0.85rem; line-height:1.6;">
+                    ${p.ordered_items.map(i => escapeHtml(i.title)).join(' · ')}
+                </div>
+            </div>
+        `).join('') || '<p style="color:rgba(255,255,255,0.5);">No items could be placed (no shelves or empty collection).</p>';
+    }
+
+    function aiWizardBackToStep1() {
+        _wizardPlan = null;
+        _aiWizardShowStep(1);
+    }
+
+    async function applyWizardPlan() {
+        if (!_wizardPlan) return;
+        const name = document.getElementById('aiWizardLayoutName')?.value?.trim();
+        if (!name) { showToast('Please enter a layout name', 'error'); return; }
+        const setActive = document.getElementById('aiWizardSetActive')?.checked || false;
+
+        try {
+            const res = await apiCall('apply_wizard_plan', {
+                name,
+                placement: _wizardPlan.placement,
+                set_active: setActive,
+            });
+            showToast(`Layout "${name}" saved with ${res.entries} entries!`, 'success');
+            _wizardPlan = null;
+            closeAIWizardModal();
+            await loadLayoutProfiles();
+            if (setActive) await loadShelves();
+        } catch (e) {
+            showToast('Failed to save layout: ' + e.message, 'error');
+        }
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
 
@@ -10412,7 +10675,29 @@ return {
     toggleMovieSelection,
     selectAllUnassigned,
     deselectAllUnassigned,
-    onUnassignedFilterChange
+    onUnassignedFilterChange,
+
+    // ========================================
+    // SHELF LAYOUT PROFILES PUBLIC API (v5.0.0)
+    // ========================================
+    loadLayoutProfiles,
+    onLayoutProfileChange,
+    showManageLayoutsModal,
+    closeManageLayoutsModal,
+    promptSaveCurrentLayout,
+    deleteLayoutProfile,
+    renameLayoutProfile,
+    duplicateLayoutProfile,
+    applyLayoutProfile,
+
+    // ========================================
+    // AI ORGANIZER WIZARD PUBLIC API (v5.0.0)
+    // ========================================
+    showAIWizardModal,
+    closeAIWizardModal,
+    generateWizardPlan,
+    aiWizardBackToStep1,
+    applyWizardPlan
 };
 
 })();

@@ -6546,6 +6546,597 @@ Return ONLY the JSON object, no markdown.'
             ]);
             break;
 
+        // ================================================================
+        // SHELF LAYOUT PROFILES (v5.0.0)
+        // ================================================================
+
+        case 'list_shelf_layouts':
+            // Return all layout profiles for the current user
+            $stmt = $db->prepare("
+                SELECT slp.*, COUNT(sle.id) as entry_count
+                FROM shelf_layout_profiles slp
+                LEFT JOIN shelf_layout_entries sle ON slp.id = sle.layout_id
+                WHERE slp.user_id = ?
+                GROUP BY slp.id
+                ORDER BY slp.created_at ASC
+            ");
+            $stmt->execute([$userId]);
+            $layouts = $stmt->fetchAll();
+            jsonResponse(true, $layouts);
+            break;
+
+        case 'create_shelf_layout':
+            $layoutName = sanitize($input['name'] ?? '', 100);
+            if (empty($layoutName)) {
+                jsonResponse(false, null, 'Layout name required');
+            }
+            // Deactivate any current active layout
+            $db->prepare("UPDATE shelf_layout_profiles SET is_active = 0 WHERE user_id = ?")->execute([$userId]);
+            $stmt = $db->prepare("
+                INSERT INTO shelf_layout_profiles (user_id, name, is_active)
+                VALUES (?, ?, 1)
+            ");
+            $stmt->execute([$userId, $layoutName]);
+            $layoutId = $db->lastInsertId();
+            jsonResponse(true, ['layout_id' => $layoutId, 'name' => $layoutName]);
+            break;
+
+        case 'rename_shelf_layout':
+            $layoutId = intval($input['layout_id'] ?? 0);
+            $layoutName = sanitize($input['name'] ?? '', 100);
+            if (!$layoutId || empty($layoutName)) {
+                jsonResponse(false, null, 'Layout ID and name required');
+            }
+            $stmt = $db->prepare("SELECT user_id FROM shelf_layout_profiles WHERE id = ?");
+            $stmt->execute([$layoutId]);
+            $layout = $stmt->fetch();
+            if (!$layout || $layout['user_id'] != $userId) {
+                jsonResponse(false, null, 'Layout not found or access denied');
+            }
+            $db->prepare("UPDATE shelf_layout_profiles SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$layoutName, $layoutId]);
+            jsonResponse(true, ['layout_id' => $layoutId]);
+            break;
+
+        case 'delete_shelf_layout':
+            $layoutId = intval($input['layout_id'] ?? 0);
+            if (!$layoutId) {
+                jsonResponse(false, null, 'Layout ID required');
+            }
+            $stmt = $db->prepare("SELECT user_id, is_active FROM shelf_layout_profiles WHERE id = ?");
+            $stmt->execute([$layoutId]);
+            $layout = $stmt->fetch();
+            if (!$layout || $layout['user_id'] != $userId) {
+                jsonResponse(false, null, 'Layout not found or access denied');
+            }
+            $db->prepare("DELETE FROM shelf_layout_profiles WHERE id = ?")->execute([$layoutId]);
+            jsonResponse(true, ['deleted' => $layoutId]);
+            break;
+
+        case 'set_active_shelf_layout':
+            // layout_id = integer to activate, or null/"" to revert to default (no active layout)
+            $layoutId = isset($input['layout_id']) && $input['layout_id'] !== '' ? intval($input['layout_id']) : null;
+            // Deactivate all layouts for this user first
+            $db->prepare("UPDATE shelf_layout_profiles SET is_active = 0 WHERE user_id = ?")->execute([$userId]);
+            if ($layoutId !== null) {
+                $stmt = $db->prepare("SELECT user_id FROM shelf_layout_profiles WHERE id = ?");
+                $stmt->execute([$layoutId]);
+                $layout = $stmt->fetch();
+                if (!$layout || $layout['user_id'] != $userId) {
+                    jsonResponse(false, null, 'Layout not found or access denied');
+                }
+                $db->prepare("UPDATE shelf_layout_profiles SET is_active = 1 WHERE id = ?")->execute([$layoutId]);
+            }
+            jsonResponse(true, ['active_layout_id' => $layoutId]);
+            break;
+
+        case 'duplicate_shelf_layout':
+            $layoutId = intval($input['layout_id'] ?? 0);
+            $newName = sanitize($input['name'] ?? '', 100);
+            if (!$layoutId) {
+                jsonResponse(false, null, 'Layout ID required');
+            }
+            $stmt = $db->prepare("SELECT * FROM shelf_layout_profiles WHERE id = ? AND user_id = ?");
+            $stmt->execute([$layoutId, $userId]);
+            $srcLayout = $stmt->fetch();
+            if (!$srcLayout) {
+                jsonResponse(false, null, 'Layout not found or access denied');
+            }
+            $copyName = $newName ?: ($srcLayout['name'] . ' (copy)');
+            $db->prepare("INSERT INTO shelf_layout_profiles (user_id, name, is_active) VALUES (?, ?, 0)")
+               ->execute([$userId, $copyName]);
+            $newLayoutId = $db->lastInsertId();
+            // Copy entries
+            $stmt = $db->prepare("SELECT * FROM shelf_layout_entries WHERE layout_id = ?");
+            $stmt->execute([$layoutId]);
+            $entries = $stmt->fetchAll();
+            $ins = $db->prepare("INSERT INTO shelf_layout_entries (layout_id, shelf_id, copy_id, container_id, is_container, position_in_shelf) VALUES (?, ?, ?, ?, ?, ?)");
+            foreach ($entries as $e) {
+                $ins->execute([$newLayoutId, $e['shelf_id'], $e['copy_id'], $e['container_id'], $e['is_container'], $e['position_in_shelf']]);
+            }
+            jsonResponse(true, ['layout_id' => $newLayoutId, 'name' => $copyName]);
+            break;
+
+        case 'save_current_to_layout':
+            // Snapshot current shelf_assignments into the given layout (overwrites existing entries)
+            $layoutId = intval($input['layout_id'] ?? 0);
+            if (!$layoutId) {
+                jsonResponse(false, null, 'Layout ID required');
+            }
+            $stmt = $db->prepare("SELECT user_id FROM shelf_layout_profiles WHERE id = ?");
+            $stmt->execute([$layoutId]);
+            $layout = $stmt->fetch();
+            if (!$layout || $layout['user_id'] != $userId) {
+                jsonResponse(false, null, 'Layout not found or access denied');
+            }
+            // Clear existing entries for this layout
+            $db->prepare("DELETE FROM shelf_layout_entries WHERE layout_id = ?")->execute([$layoutId]);
+            // Copy current shelf_assignments (only for shelves owned by this user)
+            $stmt = $db->prepare("
+                SELECT sa.shelf_id, sa.copy_id, sa.container_id, sa.is_container, sa.position_in_shelf
+                FROM shelf_assignments sa
+                JOIN shelves s ON sa.shelf_id = s.id
+                WHERE s.user_id = ?
+                ORDER BY sa.shelf_id, sa.position_in_shelf
+            ");
+            $stmt->execute([$userId]);
+            $assignments = $stmt->fetchAll();
+            $ins = $db->prepare("INSERT INTO shelf_layout_entries (layout_id, shelf_id, copy_id, container_id, is_container, position_in_shelf) VALUES (?, ?, ?, ?, ?, ?)");
+            foreach ($assignments as $a) {
+                $ins->execute([$layoutId, $a['shelf_id'], $a['copy_id'], $a['container_id'], $a['is_container'], $a['position_in_shelf']]);
+            }
+            $db->prepare("UPDATE shelf_layout_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$layoutId]);
+            jsonResponse(true, ['saved' => count($assignments)]);
+            break;
+
+        case 'apply_shelf_layout':
+            // Apply a saved layout: replace shelf_assignments with entries from this layout
+            $layoutId = intval($input['layout_id'] ?? 0);
+            if (!$layoutId) {
+                jsonResponse(false, null, 'Layout ID required');
+            }
+            $stmt = $db->prepare("SELECT user_id FROM shelf_layout_profiles WHERE id = ?");
+            $stmt->execute([$layoutId]);
+            $layout = $stmt->fetch();
+            if (!$layout || $layout['user_id'] != $userId) {
+                jsonResponse(false, null, 'Layout not found or access denied');
+            }
+            // Get entries for this layout
+            $stmt = $db->prepare("SELECT * FROM shelf_layout_entries WHERE layout_id = ? ORDER BY shelf_id, position_in_shelf");
+            $stmt->execute([$layoutId]);
+            $entries = $stmt->fetchAll();
+
+            $db->beginTransaction();
+            try {
+                // Remove all current assignments for this user's shelves
+                $stmt = $db->prepare("
+                    DELETE FROM shelf_assignments
+                    WHERE shelf_id IN (SELECT id FROM shelves WHERE user_id = ?)
+                ");
+                $stmt->execute([$userId]);
+                // Reinsert from layout entries
+                $ins = $db->prepare("
+                    INSERT OR REPLACE INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                foreach ($entries as $e) {
+                    $ins->execute([$e['shelf_id'], $e['copy_id'], $e['container_id'], $e['is_container'], $e['position_in_shelf']]);
+                }
+                $db->commit();
+            } catch (Exception $ex) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Failed to apply layout: ' . $ex->getMessage());
+            }
+            jsonResponse(true, ['applied' => count($entries)]);
+            break;
+
+        case 'get_active_shelf_layout':
+            // Return the active layout id and name for this user (or null)
+            $stmt = $db->prepare("SELECT id, name FROM shelf_layout_profiles WHERE user_id = ? AND is_active = 1 LIMIT 1");
+            $stmt->execute([$userId]);
+            $active = $stmt->fetch();
+            jsonResponse(true, $active ?: null);
+            break;
+
+        // ================================================================
+        // AI ORGANIZATION WIZARD - DETERMINISTIC PLANNER (v5.0.0)
+        // ================================================================
+
+        case 'generate_shelf_plan':
+            // Deterministic planner: groups the user's collection by strategy,
+            // then assigns items to shelves respecting capacity.
+            $strategy   = sanitize($input['strategy'] ?? 'genre', 50);
+            $includeWishlist  = !empty($input['include_wishlist']);
+            $includeBoxsets   = !empty($input['include_boxsets']);
+            $expandBoxsets    = !empty($input['expand_boxsets']);
+            $minRating  = isset($input['min_rating']) ? floatval($input['min_rating']) : 0;
+            $targetShelves = $input['target_shelves'] ?? []; // array of shelf IDs; empty = all user shelves
+
+            // --- Fetch movies in the collection ---
+            $sql = "
+                SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company,
+                       m.vote_average, m.release_date, m.collection_id, m.collection_name,
+                       c.id as copy_id, c.format, c.container_id
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                JOIN users u ON c.user_id = u.id
+                WHERE c.user_id = ?
+            ";
+            $params = [$userId];
+            if ($minRating > 0) {
+                $sql .= " AND (m.vote_average IS NULL OR m.vote_average >= ?)";
+                $params[] = $minRating;
+            }
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $copies = $stmt->fetchAll();
+
+            // Optionally include wishlist items
+            if ($includeWishlist) {
+                $wStmt = $db->prepare("
+                    SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company,
+                           m.vote_average, m.release_date, m.collection_id, m.collection_name,
+                           NULL as copy_id, NULL as format, NULL as container_id
+                    FROM wishlists w JOIN movies m ON w.movie_id = m.id
+                    WHERE w.user_id = ?
+                ");
+                $wStmt->execute([$userId]);
+                $copies = array_merge($copies, $wStmt->fetchAll());
+            }
+
+            // Include/exclude boxsets
+            $boxsets = [];
+            if ($includeBoxsets) {
+                $bStmt = $db->prepare("SELECT id, title FROM containers WHERE user_id = ?");
+                $bStmt->execute([$userId]);
+                $boxsets = $bStmt->fetchAll();
+            }
+
+            // --- Group by strategy ---
+            $groups = [];
+            $GENRES = [
+                12 => 'Adventure', 14 => 'Fantasy', 16 => 'Animation', 18 => 'Drama',
+                27 => 'Horror', 28 => 'Action', 35 => 'Comedy', 36 => 'History',
+                37 => 'Western', 53 => 'Thriller', 80 => 'Crime', 99 => 'Documentary',
+                878 => 'Sci-Fi', 9648 => 'Mystery', 10402 => 'Music', 10749 => 'Romance',
+                10751 => 'Family', 10752 => 'War', 10770 => 'TV Movie'
+            ];
+
+            foreach ($copies as $c) {
+                $key = 'Uncategorized';
+                switch ($strategy) {
+                    case 'genre':
+                        $ids = json_decode($c['genre_ids'] ?? '[]', true);
+                        $key = !empty($ids) ? ($GENRES[intval($ids[0])] ?? 'Other') : 'Uncategorized';
+                        break;
+                    case 'director':
+                        $key = !empty($c['director']) ? $c['director'] : 'Unknown Director';
+                        break;
+                    case 'studio':
+                        $key = !empty($c['production_company']) ? $c['production_company'] : 'Unknown Studio';
+                        break;
+                    case 'franchise':
+                        $key = !empty($c['collection_name']) ? $c['collection_name'] : 'Standalone';
+                        break;
+                    case 'decade':
+                        $year = intval(substr($c['release_date'] ?? '0000', 0, 4));
+                        $key = $year > 0 ? (floor($year / 10) * 10) . 's' : 'Unknown';
+                        break;
+                    case 'awards':
+                        // Heuristic: high-rated = potential awards
+                        $rating = floatval($c['vote_average'] ?? 0);
+                        $key = $rating >= 8.0 ? 'Top Rated (8+)' : ($rating >= 7.0 ? 'Highly Rated (7-8)' : 'Other');
+                        break;
+                    default:
+                        $key = 'Collection';
+                }
+                if (!isset($groups[$key])) $groups[$key] = [];
+                $groups[$key][] = ['copy_id' => $c['copy_id'], 'title' => $c['title'], 'container_id' => null, 'is_container' => 0];
+            }
+
+            // Add boxsets as a unit if requested
+            if ($includeBoxsets && !$expandBoxsets) {
+                if (!isset($groups['Box Sets'])) $groups['Box Sets'] = [];
+                foreach ($boxsets as $b) {
+                    $groups['Box Sets'][] = ['copy_id' => null, 'title' => $b['title'], 'container_id' => $b['id'], 'is_container' => 1];
+                }
+            }
+
+            // Sort groups alphabetically; sort items within group by title
+            ksort($groups);
+            foreach ($groups as &$g) {
+                usort($g, fn($a, $b) => strcmp($a['title'], $b['title']));
+            }
+            unset($g);
+
+            // Remove empty groups
+            $groups = array_filter($groups, fn($g) => count($g) > 0);
+
+            // --- Fetch target shelves ---
+            if (!empty($targetShelves)) {
+                $placeholders = implode(',', array_fill(0, count($targetShelves), '?'));
+                $shStmt = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND id IN ($placeholders) ORDER BY position");
+                $shStmt->execute(array_merge([$userId], array_map('intval', $targetShelves)));
+            } else {
+                $shStmt = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? ORDER BY position");
+                $shStmt->execute([$userId]);
+            }
+            $availableShelves = $shStmt->fetchAll();
+            $defaultCapacity = 25;
+
+            // --- Place items into shelves (left-to-right, wrap to next shelf) ---
+            $placement = []; // [shelf_id => [items...]]
+            foreach ($availableShelves as $sh) {
+                $placement[$sh['id']] = ['shelf' => $sh, 'items' => []];
+            }
+
+            $shelfQueue = array_values($availableShelves);
+            $shelfIdx = 0;
+            $sections = [];
+
+            foreach ($groups as $groupName => $items) {
+                $section = ['name' => $groupName, 'items' => []];
+                foreach ($items as $item) {
+                    // Advance to a shelf with space
+                    while ($shelfIdx < count($shelfQueue)) {
+                        $sh = $shelfQueue[$shelfIdx];
+                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defaultCapacity;
+                        if (count($placement[$sh['id']]['items']) < $cap) break;
+                        $shelfIdx++;
+                    }
+                    if ($shelfIdx >= count($shelfQueue)) break; // No more shelf space
+                    $placement[$shelfQueue[$shelfIdx]['id']]['items'][] = $item;
+                    $section['items'][] = $item;
+                }
+                if (!empty($section['items'])) $sections[] = $section;
+            }
+
+            // Build placement output
+            $placementOut = [];
+            foreach ($placement as $shelfId => $data) {
+                if (!empty($data['items'])) {
+                    $placementOut[] = [
+                        'shelf_id' => $shelfId,
+                        'shelf_name' => $data['shelf']['name'],
+                        'ordered_items' => array_values($data['items'])
+                    ];
+                }
+            }
+
+            jsonResponse(true, [
+                'strategy' => $strategy,
+                'sections' => array_values($sections),
+                'placement' => $placementOut,
+                'total_items' => array_sum(array_map('count', $groups)),
+                'shelves_used' => count($placementOut),
+            ]);
+            break;
+
+        case 'apply_wizard_plan':
+            // Create a new layout profile from a generated plan and optionally set it active
+            $planName   = sanitize($input['name'] ?? '', 100);
+            $placement  = $input['placement'] ?? [];
+            $setActive  = !empty($input['set_active']);
+
+            if (empty($planName)) {
+                jsonResponse(false, null, 'Plan name required');
+            }
+            if (empty($placement)) {
+                jsonResponse(false, null, 'Placement data required');
+            }
+
+            $db->beginTransaction();
+            try {
+                if ($setActive) {
+                    $db->prepare("UPDATE shelf_layout_profiles SET is_active = 0 WHERE user_id = ?")->execute([$userId]);
+                }
+                $db->prepare("INSERT INTO shelf_layout_profiles (user_id, name, is_active) VALUES (?, ?, ?)")
+                   ->execute([$userId, $planName, $setActive ? 1 : 0]);
+                $newLayoutId = $db->lastInsertId();
+
+                $ins = $db->prepare("INSERT INTO shelf_layout_entries (layout_id, shelf_id, copy_id, container_id, is_container, position_in_shelf) VALUES (?, ?, ?, ?, ?, ?)");
+                $pos = 0;
+                $total = 0;
+                foreach ($placement as $shelfPlan) {
+                    $shelfId = intval($shelfPlan['shelf_id'] ?? 0);
+                    if (!$shelfId) continue;
+                    // Verify shelf belongs to user
+                    $chk = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+                    $chk->execute([$shelfId, $userId]);
+                    if (!$chk->fetch()) continue;
+                    $pos = 0;
+                    foreach (($shelfPlan['ordered_items'] ?? []) as $item) {
+                        $copyId = !empty($item['copy_id']) ? intval($item['copy_id']) : null;
+                        $containerId = !empty($item['container_id']) ? intval($item['container_id']) : null;
+                        $isContainer = !empty($item['is_container']) ? 1 : 0;
+                        $ins->execute([$newLayoutId, $shelfId, $copyId, $containerId, $isContainer, $pos++]);
+                        $total++;
+                    }
+                }
+                $db->commit();
+            } catch (Exception $ex) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Failed to save plan: ' . $ex->getMessage());
+            }
+
+            jsonResponse(true, ['layout_id' => $newLayoutId, 'name' => $planName, 'entries' => $total]);
+            break;
+
+        case 'generate_shelf_plan_ai':
+            // AI-enhanced planner: calls OpenAI to generate theme-based group names,
+            // then runs the same deterministic placement algorithm.
+            // Falls back to generate_shelf_plan result if AI is unavailable.
+            $strategy  = sanitize($input['strategy'] ?? 'genre', 50);
+            $targetShelves = $input['target_shelves'] ?? [];
+            $includeWishlist = !empty($input['include_wishlist']);
+            $minRating = isset($input['min_rating']) ? floatval($input['min_rating']) : 0;
+
+            // 1. Run deterministic plan first (always available as fallback)
+            $deterministicInput = [
+                'strategy' => $strategy,
+                'target_shelves' => $targetShelves,
+                'include_wishlist' => $includeWishlist,
+                'min_rating' => $minRating,
+                'include_boxsets' => $input['include_boxsets'] ?? false,
+                'expand_boxsets' => $input['expand_boxsets'] ?? false,
+            ];
+
+            // Build the deterministic result inline (reuse logic via recursive call simulation)
+            // We call our own endpoint internally to reuse the generate_shelf_plan handler
+            $deterministicResult = null;
+            $internalInput = $deterministicInput;
+            $origAction = $action;
+
+            // Re-run deterministic plan by temporarily overriding input and catching output
+            // Since we can't call ourselves, we duplicate the core grouping logic here
+            $GENRES_AI = [
+                12 => 'Adventure', 14 => 'Fantasy', 16 => 'Animation', 18 => 'Drama',
+                27 => 'Horror', 28 => 'Action', 35 => 'Comedy', 36 => 'History',
+                37 => 'Western', 53 => 'Thriller', 80 => 'Crime', 99 => 'Documentary',
+                878 => 'Science Fiction', 9648 => 'Mystery', 10402 => 'Music',
+                10749 => 'Romance', 10751 => 'Family', 10752 => 'War'
+            ];
+
+            $sqlAI = "SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company, m.vote_average, m.release_date, m.collection_name, c.id as copy_id FROM copies c JOIN movies m ON c.movie_id = m.id WHERE c.user_id = ?";
+            $paramsAI = [$userId];
+            if ($minRating > 0) { $sqlAI .= " AND (m.vote_average IS NULL OR m.vote_average >= ?)"; $paramsAI[] = $minRating; }
+            $stmtAI = $db->prepare($sqlAI);
+            $stmtAI->execute($paramsAI);
+            $copiesAI = $stmtAI->fetchAll();
+
+            $groupsAI = [];
+            foreach ($copiesAI as $c) {
+                $key = 'Uncategorized';
+                if ($strategy === 'genre') {
+                    $ids = json_decode($c['genre_ids'] ?? '[]', true);
+                    $key = !empty($ids) ? ($GENRES_AI[intval($ids[0])] ?? 'Other') : 'Uncategorized';
+                } elseif ($strategy === 'director') {
+                    $key = !empty($c['director']) ? $c['director'] : 'Unknown Director';
+                } elseif ($strategy === 'franchise') {
+                    $key = !empty($c['collection_name']) ? $c['collection_name'] : 'Standalone';
+                } elseif ($strategy === 'decade') {
+                    $year = intval(substr($c['release_date'] ?? '0000', 0, 4));
+                    $key = $year > 0 ? (floor($year / 10) * 10) . 's' : 'Unknown';
+                }
+                if (!isset($groupsAI[$key])) $groupsAI[$key] = [];
+                $groupsAI[$key][] = $c['title'];
+            }
+            ksort($groupsAI);
+
+            // 2. Try AI enhancement if OpenAI key is available
+            $aiEnhanced = false;
+            $aiSectionNames = [];
+            if (!empty(OPENAI_API_KEY) && count($groupsAI) > 0) {
+                $groupSummary = [];
+                foreach ($groupsAI as $gname => $titles) {
+                    $sample = array_slice($titles, 0, 5);
+                    $groupSummary[] = "$gname: " . implode(', ', $sample) . (count($titles) > 5 ? '...' : '');
+                }
+
+                // Prompt template (kept minimal for cost — gpt-4o-mini)
+                $prompt = "You are a creative film librarian. Given these movie groups for a physical shelf organizer, suggest an improved, evocative section name for each group (max 30 chars). Keep the same grouping, just rename them creatively. Return ONLY a JSON object mapping old name to new name.\n\nGroups:\n" . implode("\n", $groupSummary);
+
+                $aiPayload = json_encode([
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'Return only valid JSON. No explanation.'],
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
+                    'max_tokens' => 500,
+                    'temperature' => 0.7,
+                ]);
+
+                $ch = curl_init(OPENAI_API_URL);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $aiPayload);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . OPENAI_API_KEY,
+                ]);
+                $aiRaw = curl_exec($ch);
+                $aiHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($aiHttpCode === 200 && $aiRaw) {
+                    $aiResp = json_decode($aiRaw, true);
+                    $aiText = $aiResp['choices'][0]['message']['content'] ?? '';
+                    // Strip markdown code fences if present
+                    $aiText = preg_replace('/^```(?:json)?\s*/i', '', trim($aiText));
+                    $aiText = preg_replace('/\s*```$/', '', $aiText);
+                    $nameMap = json_decode($aiText, true);
+                    if (is_array($nameMap)) {
+                        $aiSectionNames = $nameMap;
+                        $aiEnhanced = true;
+                    }
+                }
+            }
+
+            // Rename groups using AI names (fall back to original if not mapped)
+            $renamedGroups = [];
+            foreach ($groupsAI as $orig => $titles) {
+                $newName = $aiEnhanced && isset($aiSectionNames[$orig]) ? $aiSectionNames[$orig] : $orig;
+                $renamedGroups[$newName] = $titles;
+            }
+
+            // Fetch shelves for placement
+            if (!empty($targetShelves)) {
+                $ph = implode(',', array_fill(0, count($targetShelves), '?'));
+                $shStmtAI = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND id IN ($ph) ORDER BY position");
+                $shStmtAI->execute(array_merge([$userId], array_map('intval', $targetShelves)));
+            } else {
+                $shStmtAI = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? ORDER BY position");
+                $shStmtAI->execute([$userId]);
+            }
+            $availableShelvesAI = $shStmtAI->fetchAll();
+            $defCap = 25;
+
+            $placementAI = [];
+            foreach ($availableShelvesAI as $sh) {
+                $placementAI[$sh['id']] = ['shelf' => $sh, 'items' => []];
+            }
+            $shQueueAI = array_values($availableShelvesAI);
+            $shIdxAI = 0;
+            $sectionsAI = [];
+
+            // Rebuild items array from grouped titles (copy_id lookup)
+            $titleToCopy = [];
+            foreach ($copiesAI as $c) { $titleToCopy[$c['title']] = $c['copy_id']; }
+
+            foreach ($renamedGroups as $gname => $titles) {
+                $section = ['name' => $gname, 'items' => []];
+                foreach ($titles as $title) {
+                    while ($shIdxAI < count($shQueueAI)) {
+                        $sh = $shQueueAI[$shIdxAI];
+                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defCap;
+                        if (count($placementAI[$sh['id']]['items']) < $cap) break;
+                        $shIdxAI++;
+                    }
+                    if ($shIdxAI >= count($shQueueAI)) break;
+                    $item = ['copy_id' => $titleToCopy[$title] ?? null, 'title' => $title, 'container_id' => null, 'is_container' => 0];
+                    $placementAI[$shQueueAI[$shIdxAI]['id']]['items'][] = $item;
+                    $section['items'][] = $item;
+                }
+                if (!empty($section['items'])) $sectionsAI[] = $section;
+            }
+
+            $placementOutAI = [];
+            foreach ($placementAI as $shelfId => $data) {
+                if (!empty($data['items'])) {
+                    $placementOutAI[] = ['shelf_id' => $shelfId, 'shelf_name' => $data['shelf']['name'], 'ordered_items' => array_values($data['items'])];
+                }
+            }
+
+            jsonResponse(true, [
+                'strategy' => $strategy,
+                'ai_enhanced' => $aiEnhanced,
+                'sections' => array_values($sectionsAI),
+                'placement' => $placementOutAI,
+                'total_items' => array_sum(array_map('count', $groupsAI)),
+                'shelves_used' => count($placementOutAI),
+            ]);
+            break;
+
         default:
             jsonResponse(false, null, 'Unknown action: ' . $action);
     }

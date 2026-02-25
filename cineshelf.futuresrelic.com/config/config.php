@@ -221,6 +221,36 @@ function getDb() {
         try { $db->exec("ALTER TABLE media_editions ADD COLUMN umdb_release_id TEXT"); } catch (PDOException $e) {}
         try { $db->exec("CREATE INDEX IF NOT EXISTS idx_media_editions_umdb_release ON media_editions(umdb_release_id)"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Shelf Layout Profiles (v5.0.0)
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS shelf_layout_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                is_active INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_shelf_layout_profiles_user ON shelf_layout_profiles(user_id)");
+        } catch (PDOException $e) {}
+
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS shelf_layout_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                layout_id INTEGER NOT NULL,
+                shelf_id INTEGER NOT NULL,
+                copy_id INTEGER,
+                container_id INTEGER,
+                is_container INTEGER DEFAULT 0,
+                position_in_shelf INTEGER DEFAULT 0,
+                FOREIGN KEY (layout_id) REFERENCES shelf_layout_profiles(id) ON DELETE CASCADE,
+                FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_shelf_layout_entries_layout ON shelf_layout_entries(layout_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_shelf_layout_entries_shelf ON shelf_layout_entries(layout_id, shelf_id)");
+        } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

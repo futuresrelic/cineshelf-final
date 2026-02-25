@@ -23,6 +23,9 @@ Tracks which features exist, their status, and where their code lives.
 | Admin seed data | ✅ Live | — | `api.php` → `admin_seed_fight_club` |
 | User data export | ✅ Live | `user-data-manager.html` | `api.php` |
 
+| Shelf Layout Profiles | ✅ Live | `index.html` (selector + manage modal) | `api.php` → `list/create/rename/delete/duplicate/set_active/save/apply_shelf_layout` |
+| AI Organization Wizard | ✅ Live | `index.html` (AI Wizard modal) | `api.php` → `generate_shelf_plan`, `generate_shelf_plan_ai`, `apply_wizard_plan` |
+
 ## Optional / Conditional Features
 
 | Feature | Requires | Graceful if missing? |
@@ -30,6 +33,7 @@ Tracks which features exist, their status, and where their code lives.
 | AI scanning | `OPENAI_API_KEY` | Yes — button hidden |
 | UMDB push | `UMDB_API_KEY` | Yes — push disabled |
 | Google login | `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` | No — app requires auth |
+| AI Wizard names | `OPENAI_API_KEY` | Yes — falls back to deterministic grouping |
 
 ## Versions (from CHANGELOG.md)
 
@@ -37,3 +41,4 @@ Tracks which features exist, their status, and where their code lives.
 - v2.8.0 — TV show support
 - v4.0.0 — Physical media editions system
 - v4.1.0 — UMDB two-way linking
+- v5.0.0 — Shelf Layout Profiles + AI Organization Wizard

@@ -50,6 +50,32 @@
 | `scan_boxset_cover_fields` | `image_data` (base64) | Requires `OPENAI_API_KEY` |
 | `extract_article_with_ai` | `url` | Requires `OPENAI_API_KEY` |
 
+### Shelf Layout Profiles (v5.0.0)
+
+| Action | Required Params | Returns |
+|--------|----------------|---------|
+| `list_shelf_layouts` | — | Array of layout profiles (id, name, is_active, entry_count) |
+| `create_shelf_layout` | `name` | `{ layout_id, name }` |
+| `rename_shelf_layout` | `layout_id`, `name` | `{ layout_id }` |
+| `delete_shelf_layout` | `layout_id` | `{ deleted: layout_id }` |
+| `set_active_shelf_layout` | `layout_id` (or null for default) | `{ active_layout_id }` |
+| `get_active_shelf_layout` | — | `{ id, name }` or null |
+| `duplicate_shelf_layout` | `layout_id`, `name` (opt) | `{ layout_id, name }` |
+| `save_current_to_layout` | `layout_id` | `{ saved: count }` — snapshots current `shelf_assignments` into layout |
+| `apply_shelf_layout` | `layout_id` | `{ applied: count }` — replaces `shelf_assignments` from layout entries |
+
+### AI Organization Wizard (v5.0.0)
+
+| Action | Required Params | Optional Params | Returns |
+|--------|----------------|-----------------|---------|
+| `generate_shelf_plan` | `strategy` | `target_shelves[]`, `include_wishlist`, `include_boxsets`, `expand_boxsets`, `min_rating` | `{ strategy, sections[], placement[], total_items, shelves_used }` |
+| `generate_shelf_plan_ai` | `strategy` | same as above | same + `ai_enhanced: bool` |
+| `apply_wizard_plan` | `name`, `placement[]` | `set_active` | `{ layout_id, name, entries }` |
+
+**strategy values**: `genre`, `director`, `studio`, `franchise`, `decade`, `awards`
+
+**placement item shape**: `{ shelf_id, ordered_items: [{ copy_id|null, container_id|null, is_container, title }] }`
+
 ### Auth
 
 - `GET /api/auth.php?action=login` — redirects to Google

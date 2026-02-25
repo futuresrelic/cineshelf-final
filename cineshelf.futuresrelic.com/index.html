@@ -546,9 +546,24 @@
                     <button class="btn" onclick="App.showShelfWizard()" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                         🧙 Setup Wizard
                     </button>
+                    <button class="btn" onclick="App.showAIWizardModal()" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                        🤖 AI Organizer
+                    </button>
                     <button class="btn-secondary" onclick="App.viewUnassignedCopies()">
                         📦 Unassigned Movies
                     </button>
+
+                    <!-- Layout Profile Selector -->
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <label style="color: rgba(255,255,255,0.7); font-size: 0.85rem; white-space: nowrap;">Layout:</label>
+                        <select id="layoutProfileSelect" onchange="App.onLayoutProfileChange(this.value)"
+                            style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 0.35rem 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                            <option value="">Default (current)</option>
+                        </select>
+                        <button class="btn-ghost" onclick="App.showManageLayoutsModal()" title="Manage layout profiles" style="padding: 0.3rem 0.5rem; font-size: 0.85rem;">
+                            ⚙️
+                        </button>
+                    </div>
 
                     <!-- View Toggle -->
                     <div style="display: flex; gap: 0.5rem; margin-left: auto;">
@@ -2123,6 +2138,128 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     }
 });
 </script>
+
+<!-- Manage Layout Profiles Modal -->
+<div id="manageLayoutsModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>📐 Manage Layout Profiles</h3>
+            <button class="modal-close" onclick="App.closeManageLayoutsModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:rgba(255,255,255,0.7); margin-bottom:1rem;">
+                Layout profiles let you save and switch between different shelf arrangements without losing any data.
+            </p>
+            <div style="display:flex; gap:0.5rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+                <button class="btn" onclick="App.promptSaveCurrentLayout()">💾 Save Current as New</button>
+            </div>
+            <div id="layoutProfilesList" style="display:flex; flex-direction:column; gap:0.75rem;">
+                <p style="color:rgba(255,255,255,0.5);">Loading layouts…</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end;">
+            <button class="btn-ghost" onclick="App.closeManageLayoutsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI Organizer Wizard Modal -->
+<div id="aiWizardModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>🤖 AI Organization Wizard</h3>
+            <button class="modal-close" onclick="App.closeAIWizardModal()">×</button>
+        </div>
+        <div class="modal-body" id="aiWizardBody">
+            <!-- Step 1: Strategy -->
+            <div id="aiWizardStep1">
+                <h4 style="margin-top:0;">Step 1: Choose organization strategy</h4>
+                <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.25rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="genre" checked> By Genre
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="director"> By Director
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="studio"> By Studio
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="franchise"> By Franchise / Series
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="decade"> By Decade
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="radio" name="wizardStrategy" value="awards"> Awards &amp; Prestige (rating &ge; 7)
+                    </label>
+                </div>
+
+                <h4>Step 2: Filters</h4>
+                <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.25rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="checkbox" id="wizardIncludeWishlist"> Include wishlist items
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="checkbox" id="wizardIncludeBoxsets" checked> Include box sets as a unit
+                    </label>
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                        <label>Minimum rating:</label>
+                        <input type="number" id="wizardMinRating" value="0" min="0" max="10" step="0.5"
+                            style="width:70px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.25rem 0.4rem;">
+                        <span style="color:rgba(255,255,255,0.6); font-size:0.85rem;">(0 = all)</span>
+                    </div>
+                </div>
+
+                <h4>Step 3: Target shelves</h4>
+                <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin-top:-0.25rem;">Leave empty to use all your shelves.</p>
+                <select id="wizardTargetShelves" multiple
+                    style="width:100%; min-height:100px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem; margin-bottom:1rem;">
+                </select>
+                <p style="color:rgba(255,255,255,0.5); font-size:0.8rem; margin-top:-0.5rem;">Ctrl/Cmd+click to select multiple shelves</p>
+
+                <label style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; cursor:pointer;">
+                    <input type="checkbox" id="wizardUseAI" checked> Use AI for creative section names (falls back automatically if unavailable)
+                </label>
+
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <button class="btn-ghost" onclick="App.closeAIWizardModal()">Cancel</button>
+                    <button class="btn" onclick="App.generateWizardPlan()" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
+                        &#10024; Generate Plan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Preview (hidden initially) -->
+            <div id="aiWizardStep2" style="display:none;">
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+                    <button class="btn-ghost" onclick="App.aiWizardBackToStep1()">&#8592; Back</button>
+                    <h4 style="margin:0; flex:1;">Plan Preview</h4>
+                    <span id="aiWizardAIBadge" style="display:none; background:linear-gradient(135deg,#f093fb,#f5576c); color:white; padding:0.2rem 0.6rem; border-radius:12px; font-size:0.8rem;">&#10024; AI Enhanced</span>
+                </div>
+                <div id="aiWizardPlanSummary" style="margin-bottom:1rem; color:rgba(255,255,255,0.7); font-size:0.9rem;"></div>
+                <div id="aiWizardPlanPreview" style="max-height:350px; overflow-y:auto; margin-bottom:1rem;"></div>
+                <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <label style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Layout name:</label>
+                    <input type="text" id="aiWizardLayoutName" placeholder="AI: Genre 2026-02-25"
+                        style="flex:1; min-width:180px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem 0.6rem;">
+                    <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                        <input type="checkbox" id="aiWizardSetActive"> Set as active
+                    </label>
+                    <button class="btn" onclick="App.applyWizardPlan()" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+                        &#10003; Save Layout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="aiWizardLoading" style="display:none; text-align:center; padding:3rem;">
+                <div style="font-size:2.5rem; margin-bottom:1rem;">&#8987;</div>
+                <p style="color:rgba(255,255,255,0.7);">Generating plan…</p>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Global Loading Indicator -->
 <div id="globalLoader" class="global-loader">
