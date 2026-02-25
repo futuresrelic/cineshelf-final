@@ -6752,18 +6752,18 @@ Return ONLY the JSON object, no markdown.'
             $targetShelves = $input['target_shelves'] ?? []; // array of shelf IDs; empty = all user shelves
 
             // --- Fetch movies in the collection ---
+            // Uses actual DB columns: genre (TEXT, comma-sep), rating (REAL), year (INT), studio (TEXT)
             $sql = "
-                SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company,
-                       m.vote_average, m.release_date, m.collection_id, m.collection_name,
-                       c.id as copy_id, c.format, c.container_id
+                SELECT m.id as movie_id, m.title, m.genre, m.director,
+                       m.studio, m.rating, m.year,
+                       c.id as copy_id, c.format
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id
-                JOIN users u ON c.user_id = u.id
                 WHERE c.user_id = ?
             ";
             $params = [$userId];
             if ($minRating > 0) {
-                $sql .= " AND (m.vote_average IS NULL OR m.vote_average >= ?)";
+                $sql .= " AND (m.rating IS NULL OR m.rating >= ?)";
                 $params[] = $minRating;
             }
             $stmt = $db->prepare($sql);
@@ -6773,9 +6773,9 @@ Return ONLY the JSON object, no markdown.'
             // Optionally include wishlist items
             if ($includeWishlist) {
                 $wStmt = $db->prepare("
-                    SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company,
-                           m.vote_average, m.release_date, m.collection_id, m.collection_name,
-                           NULL as copy_id, NULL as format, NULL as container_id
+                    SELECT m.id as movie_id, m.title, m.genre, m.director,
+                           m.studio, m.rating, m.year,
+                           NULL as copy_id, NULL as format
                     FROM wishlists w JOIN movies m ON w.movie_id = m.id
                     WHERE w.user_id = ?
                 ");
@@ -6783,48 +6783,44 @@ Return ONLY the JSON object, no markdown.'
                 $copies = array_merge($copies, $wStmt->fetchAll());
             }
 
-            // Include/exclude boxsets
+            // Include/exclude boxsets (containers.name is the correct column)
             $boxsets = [];
             if ($includeBoxsets) {
-                $bStmt = $db->prepare("SELECT id, title FROM containers WHERE user_id = ?");
+                $bStmt = $db->prepare("SELECT id, name FROM containers WHERE user_id = ?");
                 $bStmt->execute([$userId]);
                 $boxsets = $bStmt->fetchAll();
             }
 
             // --- Group by strategy ---
             $groups = [];
-            $GENRES = [
-                12 => 'Adventure', 14 => 'Fantasy', 16 => 'Animation', 18 => 'Drama',
-                27 => 'Horror', 28 => 'Action', 35 => 'Comedy', 36 => 'History',
-                37 => 'Western', 53 => 'Thriller', 80 => 'Crime', 99 => 'Documentary',
-                878 => 'Sci-Fi', 9648 => 'Mystery', 10402 => 'Music', 10749 => 'Romance',
-                10751 => 'Family', 10752 => 'War', 10770 => 'TV Movie'
-            ];
 
             foreach ($copies as $c) {
                 $key = 'Uncategorized';
                 switch ($strategy) {
                     case 'genre':
-                        $ids = json_decode($c['genre_ids'] ?? '[]', true);
-                        $key = !empty($ids) ? ($GENRES[intval($ids[0])] ?? 'Other') : 'Uncategorized';
+                        // genre stored as comma-separated text: "Action, Thriller"
+                        $genreStr = trim($c['genre'] ?? '');
+                        $key = !empty($genreStr)
+                            ? trim(explode(',', $genreStr)[0])
+                            : 'Uncategorized';
                         break;
                     case 'director':
-                        $key = !empty($c['director']) ? $c['director'] : 'Unknown Director';
+                        $key = !empty($c['director']) ? trim($c['director']) : 'Unknown Director';
                         break;
                     case 'studio':
-                        $key = !empty($c['production_company']) ? $c['production_company'] : 'Unknown Studio';
+                        $key = !empty($c['studio']) ? trim($c['studio']) : 'Unknown Studio';
                         break;
                     case 'franchise':
-                        $key = !empty($c['collection_name']) ? $c['collection_name'] : 'Standalone';
+                        // No collection/franchise field in DB; group by title first letter
+                        $key = !empty($c['title']) ? strtoupper(substr($c['title'], 0, 1)) : '#';
                         break;
                     case 'decade':
-                        $year = intval(substr($c['release_date'] ?? '0000', 0, 4));
-                        $key = $year > 0 ? (floor($year / 10) * 10) . 's' : 'Unknown';
+                        $yr = intval($c['year'] ?? 0);
+                        $key = $yr > 0 ? (floor($yr / 10) * 10) . 's' : 'Unknown';
                         break;
                     case 'awards':
-                        // Heuristic: high-rated = potential awards
-                        $rating = floatval($c['vote_average'] ?? 0);
-                        $key = $rating >= 8.0 ? 'Top Rated (8+)' : ($rating >= 7.0 ? 'Highly Rated (7-8)' : 'Other');
+                        $rating = floatval($c['rating'] ?? 0);
+                        $key = $rating >= 8.0 ? 'Top Rated (8+)' : ($rating >= 7.0 ? 'Highly Rated (7+)' : 'Other');
                         break;
                     default:
                         $key = 'Collection';
@@ -6837,7 +6833,7 @@ Return ONLY the JSON object, no markdown.'
             if ($includeBoxsets && !$expandBoxsets) {
                 if (!isset($groups['Box Sets'])) $groups['Box Sets'] = [];
                 foreach ($boxsets as $b) {
-                    $groups['Box Sets'][] = ['copy_id' => null, 'title' => $b['title'], 'container_id' => $b['id'], 'is_container' => 1];
+                    $groups['Box Sets'][] = ['copy_id' => null, 'title' => $b['name'], 'container_id' => $b['id'], 'is_container' => 1];
                 }
             }
 
@@ -6861,7 +6857,7 @@ Return ONLY the JSON object, no markdown.'
                 $shStmt->execute([$userId]);
             }
             $availableShelves = $shStmt->fetchAll();
-            $defaultCapacity = 25;
+            $defaultCapacity = 65; // user preference; overridden per-shelf by shelf.capacity
 
             // --- Place items into shelves (left-to-right, wrap to next shelf) ---
             $placement = []; // [shelf_id => [items...]]
@@ -6996,9 +6992,9 @@ Return ONLY the JSON object, no markdown.'
                 10749 => 'Romance', 10751 => 'Family', 10752 => 'War'
             ];
 
-            $sqlAI = "SELECT m.id as movie_id, m.title, m.genre_ids, m.director, m.production_company, m.vote_average, m.release_date, m.collection_name, c.id as copy_id FROM copies c JOIN movies m ON c.movie_id = m.id WHERE c.user_id = ?";
+            $sqlAI = "SELECT m.id as movie_id, m.title, m.genre, m.director, m.studio, m.rating, m.year, c.id as copy_id FROM copies c JOIN movies m ON c.movie_id = m.id WHERE c.user_id = ?";
             $paramsAI = [$userId];
-            if ($minRating > 0) { $sqlAI .= " AND (m.vote_average IS NULL OR m.vote_average >= ?)"; $paramsAI[] = $minRating; }
+            if ($minRating > 0) { $sqlAI .= " AND (m.rating IS NULL OR m.rating >= ?)"; $paramsAI[] = $minRating; }
             $stmtAI = $db->prepare($sqlAI);
             $stmtAI->execute($paramsAI);
             $copiesAI = $stmtAI->fetchAll();
@@ -7007,15 +7003,20 @@ Return ONLY the JSON object, no markdown.'
             foreach ($copiesAI as $c) {
                 $key = 'Uncategorized';
                 if ($strategy === 'genre') {
-                    $ids = json_decode($c['genre_ids'] ?? '[]', true);
-                    $key = !empty($ids) ? ($GENRES_AI[intval($ids[0])] ?? 'Other') : 'Uncategorized';
+                    $genreStrAI = trim($c['genre'] ?? '');
+                    $key = !empty($genreStrAI) ? trim(explode(',', $genreStrAI)[0]) : 'Uncategorized';
                 } elseif ($strategy === 'director') {
-                    $key = !empty($c['director']) ? $c['director'] : 'Unknown Director';
+                    $key = !empty($c['director']) ? trim($c['director']) : 'Unknown Director';
+                } elseif ($strategy === 'studio') {
+                    $key = !empty($c['studio']) ? trim($c['studio']) : 'Unknown Studio';
                 } elseif ($strategy === 'franchise') {
-                    $key = !empty($c['collection_name']) ? $c['collection_name'] : 'Standalone';
+                    $key = !empty($c['title']) ? strtoupper(substr($c['title'], 0, 1)) : '#';
                 } elseif ($strategy === 'decade') {
-                    $year = intval(substr($c['release_date'] ?? '0000', 0, 4));
-                    $key = $year > 0 ? (floor($year / 10) * 10) . 's' : 'Unknown';
+                    $yr = intval($c['year'] ?? 0);
+                    $key = $yr > 0 ? (floor($yr / 10) * 10) . 's' : 'Unknown';
+                } elseif ($strategy === 'awards') {
+                    $rating = floatval($c['rating'] ?? 0);
+                    $key = $rating >= 8.0 ? 'Top Rated (8+)' : ($rating >= 7.0 ? 'Highly Rated (7+)' : 'Other');
                 }
                 if (!isset($groupsAI[$key])) $groupsAI[$key] = [];
                 $groupsAI[$key][] = $c['title'];
@@ -7089,7 +7090,7 @@ Return ONLY the JSON object, no markdown.'
                 $shStmtAI->execute([$userId]);
             }
             $availableShelvesAI = $shStmtAI->fetchAll();
-            $defCap = 25;
+            $defCap = 65;
 
             $placementAI = [];
             foreach ($availableShelvesAI as $sh) {

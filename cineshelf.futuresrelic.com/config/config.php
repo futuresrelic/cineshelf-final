@@ -251,6 +251,16 @@ function getDb() {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_shelf_layout_entries_shelf ON shelf_layout_entries(layout_id, shelf_id)");
         } catch (PDOException $e) {}
 
+        // Auto-migrate: shelves.parent_shelf_id (used by app but not in original schema.sql)
+        try { $db->exec("ALTER TABLE shelves ADD COLUMN parent_shelf_id INTEGER DEFAULT NULL REFERENCES shelves(id) ON DELETE SET NULL"); } catch (PDOException $e) {}
+
+        // Auto-migrate: shelf_assignments container columns (ensures these exist even if box-set migration hasn't run)
+        try { $db->exec("ALTER TABLE shelf_assignments ADD COLUMN container_id INTEGER DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE shelf_assignments ADD COLUMN is_container INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
+        // Auto-migrate: shelf_layout_profiles.recipe_json (v5.1.0)
+        try { $db->exec("ALTER TABLE shelf_layout_profiles ADD COLUMN recipe_json TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

@@ -63,6 +63,17 @@ function formatRuntime(minutes) {
     return `${mins}m`;
 }
 
+// Safe HTML escaping — used throughout the UI for untrusted strings
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const App = (function() {
     
     // State
