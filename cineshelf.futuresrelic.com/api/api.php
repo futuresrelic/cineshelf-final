@@ -7407,6 +7407,136 @@ Return ONLY the JSON object, no markdown.'
             break;
         }
 
+        // ---------------------------------------------------------------
+        // METADATA CLOUD — word cloud with counts for picker modal
+        // ---------------------------------------------------------------
+        case 'list_metadata_cloud':
+        case 'search_metadata_cloud': {
+            $type  = trim($input['type'] ?? '');
+            $q     = trim($input['q'] ?? '');
+            $limit = max(1, min(500, intval($input['limit'] ?? 200)));
+            $allowed = ['director', 'studio', 'genre', 'cert', 'tag'];
+            if (!in_array($type, $allowed)) {
+                jsonResponse(false, null, 'Invalid type');
+            }
+            $likeQ  = '%' . $q . '%';
+            $results = [];
+            switch ($type) {
+                case 'director':
+                    $st = $db->prepare(
+                        "SELECT mp.name, COUNT(DISTINCT c.id) as cnt
+                         FROM movie_people mp
+                         JOIN copies c ON mp.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND mp.role = 'director'
+                           AND (? = '' OR mp.name LIKE ?)
+                         GROUP BY mp.name ORDER BY cnt DESC, mp.name ASC LIMIT ?"
+                    );
+                    $st->execute([$userId, $q, $likeQ, $limit]);
+                    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+                    if (empty($rows)) {
+                        $st2 = $db->prepare(
+                            "SELECT m.director as name, COUNT(DISTINCT c.id) as cnt
+                             FROM movies m JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.director != ''
+                               AND (? = '' OR m.director LIKE ?)
+                             GROUP BY m.director ORDER BY cnt DESC, m.director ASC LIMIT ?"
+                        );
+                        $st2->execute([$userId, $q, $likeQ, $limit]);
+                        $rows = $st2->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                    $results = $rows;
+                    break;
+                case 'studio':
+                    $st = $db->prepare(
+                        "SELECT ms.name, COUNT(DISTINCT c.id) as cnt
+                         FROM movie_studios ms
+                         JOIN copies c ON ms.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR ms.name LIKE ?)
+                         GROUP BY ms.name ORDER BY cnt DESC, ms.name ASC LIMIT ?"
+                    );
+                    $st->execute([$userId, $q, $likeQ, $limit]);
+                    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+                    if (empty($rows)) {
+                        $st2 = $db->prepare(
+                            "SELECT m.studio as name, COUNT(DISTINCT c.id) as cnt
+                             FROM movies m JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.studio != ''
+                               AND (? = '' OR m.studio LIKE ?)
+                             GROUP BY m.studio ORDER BY cnt DESC, m.studio ASC LIMIT ?"
+                        );
+                        $st2->execute([$userId, $q, $likeQ, $limit]);
+                        $rows = $st2->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                    $results = $rows;
+                    break;
+                case 'genre':
+                    $st = $db->prepare(
+                        "SELECT mg.name, COUNT(DISTINCT c.id) as cnt
+                         FROM movie_genres mg
+                         JOIN copies c ON mg.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR mg.name LIKE ?)
+                         GROUP BY mg.name ORDER BY cnt DESC, mg.name ASC LIMIT ?"
+                    );
+                    $st->execute([$userId, $q, $likeQ, $limit]);
+                    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+                    if (empty($rows)) {
+                        $st2 = $db->prepare(
+                            "SELECT m.genre as name, COUNT(DISTINCT c.id) as cnt
+                             FROM movies m JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.genre != ''
+                               AND (? = '' OR m.genre LIKE ?)
+                             GROUP BY m.genre ORDER BY cnt DESC, m.genre ASC LIMIT ?"
+                        );
+                        $st2->execute([$userId, $q, $likeQ, $limit]);
+                        $rows = $st2->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                    $results = $rows;
+                    break;
+                case 'cert':
+                    $st = $db->prepare(
+                        "SELECT mc.certification as name, COUNT(DISTINCT c.id) as cnt
+                         FROM movie_certifications mc
+                         JOIN copies c ON mc.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR mc.certification LIKE ?)
+                         GROUP BY mc.certification ORDER BY cnt DESC, mc.certification ASC LIMIT ?"
+                    );
+                    $st->execute([$userId, $q, $likeQ, $limit]);
+                    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+                    if (empty($rows)) {
+                        $st2 = $db->prepare(
+                            "SELECT m.certification as name, COUNT(DISTINCT c.id) as cnt
+                             FROM movies m JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.certification != ''
+                               AND (? = '' OR m.certification LIKE ?)
+                             GROUP BY m.certification ORDER BY cnt DESC, m.certification ASC LIMIT ?"
+                        );
+                        $st2->execute([$userId, $q, $likeQ, $limit]);
+                        $rows = $st2->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                    $results = $rows;
+                    break;
+                case 'tag':
+                    $st = $db->prepare(
+                        "SELECT ut.name,
+                                (SELECT COUNT(*) FROM user_tag_links utl WHERE utl.tag_id = ut.id) as cnt
+                         FROM user_tags ut
+                         WHERE ut.user_id = ? AND (? = '' OR ut.name LIKE ?)
+                         ORDER BY cnt DESC, ut.name ASC LIMIT ?"
+                    );
+                    $st->execute([$userId, $q, $likeQ, $limit]);
+                    $results = $st->fetchAll(PDO::FETCH_ASSOC);
+                    break;
+            }
+            $empty = empty($results);
+            jsonResponse(true, [
+                'items'      => array_values($results), // [{name, cnt}]
+                'type'       => $type,
+                'q'          => $q,
+                'empty_hint' => $empty ? 'No values found. Run Metadata Backfill in Admin Tools for best results.' : null,
+            ]);
+            break;
+        }
+
         case 'apply_recipe_as_new_layout':
             $recipeData   = $input['recipe'] ?? null;
             $planData     = $input['plan'] ?? [];

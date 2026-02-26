@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.4';
+const APP_VERSION = '2.8.5';
 
 async function checkVersionGuard() {
     try {
@@ -10445,15 +10445,17 @@ async function getCurrentUserId() {
                     <div id="wz-chips-${sec.id}" style="display:flex; flex-wrap:wrap; gap:0.3rem; align-items:center; min-height:1.6rem;">
                         ${_renderChips(sec)}
                     </div>
-                    <!-- typeahead input -->
-                    <div style="position:relative;">
+                    <!-- typeahead input + pick button -->
+                    <div style="display:flex; gap:0.4rem; align-items:center;">
                         <input type="text" id="wz-input-${sec.id}" list="wz-list-${sec.id}"
                             placeholder="Type to search, Enter to add (blank = match all)…"
-                            style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.5rem; font-size:0.82rem;"
+                            style="flex:1; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.5rem; font-size:0.82rem;"
                             oninput="App._wizardTypeaheadSearch('${sec.id}','${sec.type}',this)"
                             onchange="App.wizardAddChip('${sec.id}',this)"
                             onkeydown="if(event.key==='Enter'){event.preventDefault();App.wizardAddChip('${sec.id}',this);}">
                         <datalist id="wz-list-${sec.id}"></datalist>
+                        <button onclick="App.openCloudPicker('${sec.id}','${sec.type}')"
+                            style="background:rgba(167,139,250,0.2); border:1px solid rgba(167,139,250,0.5); color:#c4b5fd; border-radius:4px; padding:0.3rem 0.6rem; font-size:0.8rem; cursor:pointer; white-space:nowrap;">Pick…</button>
                     </div>
                 </div>
                 <button onclick="App.wizardRemoveSection('${sec.id}')" title="Remove section"
@@ -10525,6 +10527,131 @@ async function getCurrentUserId() {
                 banner.style.display = 'none';
             }
         } catch (_) { banner.style.display = 'none'; }
+    }
+
+    // ==========================================
+    // WORD CLOUD PICKER (v6.2.0)
+    // ==========================================
+
+    let _cloudPickerSid   = null;   // section ID awaiting selection
+    let _cloudPickerType  = null;   // type string
+    let _cloudPickerItems = [];     // [{name, cnt}] full list
+    let _cloudPickerSel   = new Set(); // selected names
+
+    async function openCloudPicker(sid, type) {
+        _cloudPickerSid  = sid;
+        _cloudPickerType = type;
+        _cloudPickerSel  = new Set();
+        _cloudPickerItems = [];
+
+        const modal = document.getElementById('cloudPickerModal');
+        if (!modal) return;
+
+        // Set title
+        const typeLabels = { genre:'Genre', director:'Director', studio:'Studio',
+            certification:'Rating (cert.)', user_tag:'User Tags' };
+        const titleEl = document.getElementById('cloudPickerTitle');
+        if (titleEl) titleEl.textContent = 'Pick ' + (typeLabels[type] || type);
+
+        // Reset UI
+        const searchEl = document.getElementById('cloudPickerSearch');
+        if (searchEl) searchEl.value = '';
+        const sortEl = document.getElementById('cloudPickerSortAZ');
+        if (sortEl) sortEl.checked = false;
+        _updateCloudSelCount();
+
+        modal.style.display = 'flex';
+        document.getElementById('cloudPickerList').innerHTML = '<span style="color:rgba(255,255,255,0.4); font-size:0.85rem;">Loading…</span>';
+
+        // Map type to API type
+        const apiType = type === 'certification' ? 'cert' : type === 'user_tag' ? 'tag' : type;
+        try {
+            const res = await apiCall('list_metadata_cloud', { type: apiType, limit: 200 });
+            _cloudPickerItems = res.items || [];
+            if (_cloudPickerItems.length === 0 && res.empty_hint) {
+                document.getElementById('cloudPickerList').innerHTML =
+                    `<p style="color:rgba(251,191,36,0.8); font-size:0.85rem;">${escapeHtml(res.empty_hint)}</p>`;
+                return;
+            }
+            _renderCloudPickerList();
+        } catch (e) {
+            document.getElementById('cloudPickerList').innerHTML =
+                `<p style="color:rgba(255,100,100,0.8); font-size:0.85rem;">Error: ${escapeHtml(e.message)}</p>`;
+        }
+    }
+
+    function closeCloudPicker() {
+        const modal = document.getElementById('cloudPickerModal');
+        if (modal) modal.style.display = 'none';
+        _cloudPickerSid = null;
+    }
+
+    function _renderCloudPickerList(filterQ, sortAZ) {
+        const list = document.getElementById('cloudPickerList');
+        if (!list) return;
+        let items = _cloudPickerItems.slice();
+        if (filterQ) {
+            const lc = filterQ.toLowerCase();
+            items = items.filter(i => i.name.toLowerCase().includes(lc));
+        }
+        if (sortAZ) items.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (items.length === 0) {
+            list.innerHTML = '<span style="color:rgba(255,255,255,0.4); font-size:0.85rem;">No results.</span>';
+            return;
+        }
+
+        const maxCnt = Math.max(1, ...items.map(i => i.cnt || 0));
+        list.innerHTML = items.map(i => {
+            const selected = _cloudPickerSel.has(i.name);
+            const fontSize = 0.75 + ((i.cnt || 0) / maxCnt) * 0.55; // 0.75–1.3rem
+            const safe = escapeHtml(i.name);
+            const esc  = i.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return `<button onclick="App._cloudPickerToggle('${esc}')"
+                style="background:${selected ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.07)'};
+                       border:1px solid ${selected ? 'rgba(167,139,250,0.7)' : 'rgba(255,255,255,0.18)'};
+                       color:${selected ? '#e9d5ff' : 'rgba(255,255,255,0.8)'};
+                       border-radius:20px; padding:0.25rem 0.65rem;
+                       font-size:${fontSize.toFixed(2)}rem; cursor:pointer; transition:all 0.15s;">
+                ${safe} <span style="opacity:0.5; font-size:0.75em;">${i.cnt || 0}</span>
+            </button>`;
+        }).join('');
+    }
+
+    function _cloudPickerToggle(name) {
+        if (_cloudPickerSel.has(name)) _cloudPickerSel.delete(name);
+        else _cloudPickerSel.add(name);
+        _updateCloudSelCount();
+        // Re-render to update button styles (filter/sort state preserved)
+        const searchEl = document.getElementById('cloudPickerSearch');
+        const sortEl   = document.getElementById('cloudPickerSortAZ');
+        _renderCloudPickerList(searchEl?.value || '', sortEl?.checked || false);
+    }
+
+    function _updateCloudSelCount() {
+        const el = document.getElementById('cloudPickerSelCount');
+        if (el) el.textContent = _cloudPickerSel.size > 0 ? `${_cloudPickerSel.size} selected` : '';
+    }
+
+    function _cloudPickerSearch(q) {
+        const sortEl = document.getElementById('cloudPickerSortAZ');
+        _renderCloudPickerList(q, sortEl?.checked || false);
+    }
+
+    function _cloudPickerSort(az) {
+        const searchEl = document.getElementById('cloudPickerSearch');
+        _renderCloudPickerList(searchEl?.value || '', az);
+    }
+
+    function _cloudPickerConfirm() {
+        if (!_cloudPickerSid) { closeCloudPicker(); return; }
+        const sec = _wizardSections.find(s => s.id === _cloudPickerSid);
+        if (sec) {
+            _cloudPickerSel.forEach(v => { if (!sec.values.includes(v)) sec.values.push(v); });
+            const chipsEl = document.getElementById('wz-chips-' + _cloudPickerSid);
+            if (chipsEl) chipsEl.innerHTML = _renderChips(sec);
+        }
+        closeCloudPicker();
     }
 
     function _wizardSectionChange(el) {
@@ -10948,7 +11075,7 @@ return {
     applyLayoutProfile,
 
     // ========================================
-    // RECIPE WIZARD PUBLIC API (v6.1.0)
+    // RECIPE WIZARD PUBLIC API (v6.2.0)
     // ========================================
     showAIWizardModal,
     closeAIWizardModal,
@@ -10962,7 +11089,14 @@ return {
     // typeahead
     _wizardTypeaheadSearch,
     wizardAddChip,
-    wizardRemoveChip
+    wizardRemoveChip,
+    // word cloud picker
+    openCloudPicker,
+    closeCloudPicker,
+    _cloudPickerToggle,
+    _cloudPickerSearch,
+    _cloudPickerSort,
+    _cloudPickerConfirm
 };
 
 })();
