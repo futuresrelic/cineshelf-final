@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.7';
+const APP_VERSION = '2.8.8';
 
 async function checkVersionGuard() {
     try {
@@ -8460,7 +8460,20 @@ async function getCurrentUserId() {
 
         if (!shelves || shelves.length === 0) {
             container.innerHTML = '';
-            if (emptyState) emptyState.style.display = 'block';
+            if (emptyState) {
+                // Tailor message when an empty layout profile is active
+                const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+                const heading = document.getElementById('emptyShelvesHeading');
+                const text    = document.getElementById('emptyShelvesText');
+                if (activeLayout) {
+                    if (heading) heading.textContent = 'This layout has no shelves yet.';
+                    if (text)    text.textContent    = 'Add shelves manually or run the wizard to auto-populate this layout.';
+                } else {
+                    if (heading) heading.textContent = 'No shelves yet';
+                    if (text)    text.textContent    = 'Create your first shelf to organize your physical collection!';
+                }
+                emptyState.style.display = 'block';
+            }
             return;
         }
 
@@ -10244,14 +10257,19 @@ async function getCurrentUserId() {
     function _renderLayoutSelector() {
         const sel = document.getElementById('layoutProfileSelect');
         if (!sel) return;
-        const activeId = (layoutProfiles.find(l => l.is_active == 1) || {}).id || '';
         sel.innerHTML = '<option value="">Default (current)</option>' +
             layoutProfiles.map(l =>
                 `<option value="${l.id}" ${l.is_active == 1 ? 'selected' : ''}>${escapeHtml(l.name)}${l.is_active == 1 ? ' ✓' : ''}</option>`
-            ).join('');
+            ).join('') +
+            '<option value="__new__" style="color:#a78bfa;">➕ New Empty Layout…</option>';
     }
 
     async function onLayoutProfileChange(val) {
+        if (val === '__new__') {
+            _renderLayoutSelector(); // reset selector back to previous state
+            showNewEmptyLayoutModal();
+            return;
+        }
         if (!val) {
             // Revert to default (deactivate all)
             await apiCall('set_active_shelf_layout', { layout_id: null });
@@ -10273,6 +10291,37 @@ async function getCurrentUserId() {
             }
         }
         await loadLayoutProfiles();
+    }
+
+    function showNewEmptyLayoutModal() {
+        const modal = document.getElementById('newEmptyLayoutModal');
+        if (!modal) return;
+        const nameEl = document.getElementById('newEmptyLayoutName');
+        if (nameEl) nameEl.value = '';
+        const activeEl = document.getElementById('newEmptyLayoutSetActive');
+        if (activeEl) activeEl.checked = false;
+        modal.style.display = 'flex';
+        if (nameEl) setTimeout(() => nameEl.focus(), 50);
+    }
+
+    function closeNewEmptyLayoutModal() {
+        const modal = document.getElementById('newEmptyLayoutModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function confirmNewEmptyLayout() {
+        const name = document.getElementById('newEmptyLayoutName')?.value?.trim();
+        if (!name) { showToast('Please enter a layout name', 'error'); return; }
+        const setActive = document.getElementById('newEmptyLayoutSetActive')?.checked || false;
+        try {
+            const res = await apiCall('create_empty_layout', { name, set_active: setActive });
+            closeNewEmptyLayoutModal();
+            await loadLayoutProfiles();
+            await loadShelves();
+            showToast(`Layout "${res.name}" created!`, 'success');
+        } catch (e) {
+            showToast('Failed to create layout: ' + e.message, 'error');
+        }
     }
 
     function showManageLayoutsModal() {
@@ -11147,6 +11196,10 @@ return {
     renameLayoutProfile,
     duplicateLayoutProfile,
     applyLayoutProfile,
+    // empty layout creation
+    showNewEmptyLayoutModal,
+    closeNewEmptyLayoutModal,
+    confirmNewEmptyLayout,
 
     // ========================================
     // RECIPE WIZARD PUBLIC API (v6.2.0)

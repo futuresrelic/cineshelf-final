@@ -6681,6 +6681,25 @@ Return ONLY the JSON object, no markdown.'
             jsonResponse(true, ['layout_id' => $layoutId, 'name' => $layoutName]);
             break;
 
+        case 'create_empty_layout':
+            // Create a blank layout profile with no entries (no cloning of shelves or entries)
+            $layoutName = sanitize($input['name'] ?? '', 100);
+            if (empty($layoutName)) {
+                jsonResponse(false, null, 'Layout name required');
+            }
+            $setActive = !empty($input['set_active']);
+            if ($setActive) {
+                $db->prepare("UPDATE shelf_layout_profiles SET is_active = 0 WHERE user_id = ?")->execute([$userId]);
+            }
+            $stmt = $db->prepare("
+                INSERT INTO shelf_layout_profiles (user_id, name, is_active)
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([$userId, $layoutName, $setActive ? 1 : 0]);
+            $newLayoutId = $db->lastInsertId();
+            jsonResponse(true, ['layout_id' => $newLayoutId, 'name' => $layoutName, 'is_active' => $setActive]);
+            break;
+
         case 'rename_shelf_layout':
             $layoutId = intval($input['layout_id'] ?? 0);
             $layoutName = sanitize($input['name'] ?? '', 100);

@@ -592,9 +592,12 @@
                 <!-- Empty State -->
                 <div id="emptyShelves" class="empty-state" style="display: none;">
                     <div class="empty-icon">📚</div>
-                    <h3>No shelves yet</h3>
-                    <p>Create your first shelf to organize your physical collection!</p>
-                    <button class="btn" onclick="App.showCreateShelfModal()">Create First Shelf</button>
+                    <h3 id="emptyShelvesHeading">No shelves yet</h3>
+                    <p id="emptyShelvesText">Create your first shelf to organize your physical collection!</p>
+                    <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+                        <button class="btn" onclick="App.showCreateShelfModal()">Create Shelf</button>
+                        <button class="btn-ghost" onclick="App.showAIWizardModal()">&#10024; Run Wizard</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -2318,6 +2321,29 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
         <div style="padding:0.75rem 1.25rem; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:flex-end; gap:0.5rem; flex-shrink:0;">
             <button class="btn-ghost" onclick="App.closeCloudPicker()">Cancel</button>
             <button class="btn" onclick="App._cloudPickerConfirm()">Add Selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Empty Layout Dialog -->
+<div id="newEmptyLayoutModal" class="modal" style="z-index:1050;">
+    <div class="modal-content" style="max-width:400px;">
+        <div class="modal-header">
+            <h3>➕ New Empty Layout</h3>
+            <button class="modal-close" onclick="App.closeNewEmptyLayoutModal()">&#215;</button>
+        </div>
+        <div class="modal-body" style="padding:1.25rem;">
+            <label style="display:block; font-size:0.9rem; margin-bottom:0.3rem;">Layout name <span style="color:rgba(255,100,100,0.8);">*</span></label>
+            <input type="text" id="newEmptyLayoutName" placeholder="e.g. Living Room Shelf 2026"
+                style="width:100%; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.5rem 0.65rem; font-size:0.9rem; box-sizing:border-box;"
+                onkeydown="if(event.key==='Enter') App.confirmNewEmptyLayout()">
+            <label style="display:flex; align-items:center; gap:0.5rem; margin-top:0.9rem; font-size:0.88rem; cursor:pointer;">
+                <input type="checkbox" id="newEmptyLayoutSetActive"> Set as active layout immediately
+            </label>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+            <button class="btn-ghost" onclick="App.closeNewEmptyLayoutModal()">Cancel</button>
+            <button class="btn" onclick="App.confirmNewEmptyLayout()" style="background:linear-gradient(135deg,#667eea,#764ba2);">Create Layout</button>
         </div>
     </div>
 </div>
