@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.5';
+const APP_VERSION = '2.8.6';
 
 async function checkVersionGuard() {
     try {
@@ -10797,6 +10797,54 @@ async function getCurrentUserId() {
         _aiWizardShowStep(1);
     }
 
+    // ---- Shelf Unit Config (v6.2.0) ----
+
+    function updateWizardCapacity() {
+        const sc  = parseInt(document.getElementById('wizardShelfCount')?.value)    || 5;
+        const ips = parseInt(document.getElementById('wizardItemsPerShelf')?.value) || 25;
+        const total = document.getElementById('wizardCapacityTotal');
+        if (total) total.textContent = (sc * ips).toLocaleString();
+    }
+
+    async function loadWizardShelfUnitConfig() {
+        const targetSel = document.getElementById('wizardTargetShelves');
+        const selected  = targetSel ? Array.from(targetSel.selectedOptions) : [];
+        if (selected.length !== 1) {
+            showToast('Select exactly one shelf to load its config', 'info');
+            return;
+        }
+        const shelfId = parseInt(selected[0].value);
+        try {
+            const cfg = await apiCall('get_shelf_unit_config', { shelf_id: shelfId });
+            const scEl  = document.getElementById('wizardShelfCount');
+            const ipsEl = document.getElementById('wizardItemsPerShelf');
+            if (scEl  && cfg.shelf_count)      scEl.value  = cfg.shelf_count;
+            if (ipsEl && cfg.items_per_shelf)  ipsEl.value = cfg.items_per_shelf;
+            updateWizardCapacity();
+            showToast(`Loaded: ${cfg.shelf_count}×${cfg.items_per_shelf} from "${cfg.name}"`, 'success');
+        } catch (e) {
+            showToast('Failed to load shelf config: ' + e.message, 'error');
+        }
+    }
+
+    async function saveWizardShelfUnitConfig() {
+        const targetSel = document.getElementById('wizardTargetShelves');
+        const selected  = targetSel ? Array.from(targetSel.selectedOptions) : [];
+        if (selected.length !== 1) {
+            showToast('Select exactly one shelf to save its config', 'info');
+            return;
+        }
+        const shelfId = parseInt(selected[0].value);
+        const sc  = parseInt(document.getElementById('wizardShelfCount')?.value)    || 5;
+        const ips = parseInt(document.getElementById('wizardItemsPerShelf')?.value) || 25;
+        try {
+            await apiCall('save_shelf_unit_config', { shelf_id: shelfId, shelf_count: sc, items_per_shelf: ips });
+            showToast(`Saved: ${sc} shelves × ${ips} items/shelf`, 'success');
+        } catch (e) {
+            showToast('Failed to save shelf config: ' + e.message, 'error');
+        }
+    }
+
     async function applyWizardPlan() {
         if (!_wizardPlan) return;
         const name = document.getElementById('aiWizardLayoutName')?.value?.trim();
@@ -11096,7 +11144,11 @@ return {
     _cloudPickerToggle,
     _cloudPickerSearch,
     _cloudPickerSort,
-    _cloudPickerConfirm
+    _cloudPickerConfirm,
+    // shelf unit config
+    updateWizardCapacity,
+    loadWizardShelfUnitConfig,
+    saveWizardShelfUnitConfig
 };
 
 })();

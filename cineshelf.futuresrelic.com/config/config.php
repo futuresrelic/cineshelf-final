@@ -345,8 +345,16 @@ function getDb() {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_tag_links_tag ON user_tag_links(tag_id)");
         } catch (PDOException $e) {}
 
+        // Auto-migrate: Shelf Unit Config (v6.2.0)
+        // shelf_count      — how many child shelves this unit contains (for wizard planning)
+        // items_per_shelf  — default capacity per child shelf (for wizard planning)
+        // capacity_mode    — placeholder for future width-mode; currently always 'quantity'
+        try { $db->exec("ALTER TABLE shelves ADD COLUMN shelf_count INTEGER DEFAULT 5"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE shelves ADD COLUMN items_per_shelf INTEGER DEFAULT 25"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE shelves ADD COLUMN capacity_mode TEXT DEFAULT 'quantity'"); } catch (PDOException $e) {}
+
         return $db;
-        
+
     } catch (PDOException $e) {
         error_log('CineShelf: Database connection failed: ' . $e->getMessage());
         throw new Exception('Database connection failed');

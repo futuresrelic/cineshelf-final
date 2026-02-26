@@ -4108,6 +4108,9 @@ case 'resolve_movie':
             $theme = sanitize($input['theme'] ?? '', 100);
             $color = sanitize($input['color'] ?? '#667eea', 20);
             $parentShelfId = isset($input['parent_shelf_id']) && $input['parent_shelf_id'] !== '' ? intval($input['parent_shelf_id']) : null;
+            $shelfCount    = max(1, intval($input['shelf_count']    ?? 5));
+            $itemsPerShelf = max(1, intval($input['items_per_shelf'] ?? 25));
+            $capacityMode  = in_array($input['capacity_mode'] ?? '', ['quantity']) ? 'quantity' : 'quantity';
 
             if (empty($name)) {
                 jsonResponse(false, null, 'Shelf name required');
@@ -4128,13 +4131,51 @@ case 'resolve_movie':
             $position = $stmt->fetchColumn();
 
             $stmt = $db->prepare("
-                INSERT INTO shelves (user_id, name, position, capacity, description, theme, color, parent_shelf_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO shelves (user_id, name, position, capacity, description, theme, color,
+                                     parent_shelf_id, shelf_count, items_per_shelf, capacity_mode)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$userId, $name, $position, $capacity, $description, $theme, $color, $parentShelfId]);
+            $stmt->execute([$userId, $name, $position, $capacity, $description, $theme, $color,
+                             $parentShelfId, $shelfCount, $itemsPerShelf, $capacityMode]);
 
             jsonResponse(true, ['shelf_id' => $db->lastInsertId()]);
             break;
+
+        case 'save_shelf_unit_config': {
+            // Update shelf_count + items_per_shelf on a parent (shelf unit) record.
+            // Used by the wizard "Save as default for this shelf unit" option.
+            $shelfId       = intval($input['shelf_id'] ?? 0);
+            $shelfCount    = max(1, intval($input['shelf_count']    ?? 5));
+            $itemsPerShelf = max(1, intval($input['items_per_shelf'] ?? 25));
+            if (!$shelfId) jsonResponse(false, null, 'shelf_id required');
+            $stmt = $db->prepare("SELECT user_id FROM shelves WHERE id = ?");
+            $stmt->execute([$shelfId]);
+            $row = $stmt->fetch();
+            if (!$row || $row['user_id'] != $userId) jsonResponse(false, null, 'Shelf not found');
+            $db->prepare("UPDATE shelves SET shelf_count = ?, items_per_shelf = ? WHERE id = ? AND user_id = ?")
+               ->execute([$shelfCount, $itemsPerShelf, $shelfId, $userId]);
+            jsonResponse(true, ['shelf_id' => $shelfId, 'shelf_count' => $shelfCount, 'items_per_shelf' => $itemsPerShelf]);
+            break;
+        }
+
+        case 'get_shelf_unit_config': {
+            // Return shelf unit config for display in wizard
+            $shelfId = intval($input['shelf_id'] ?? 0);
+            if (!$shelfId) jsonResponse(false, null, 'shelf_id required');
+            $stmt = $db->prepare("SELECT id, name, shelf_count, items_per_shelf, capacity_mode FROM shelves WHERE id = ? AND user_id = ?");
+            $stmt->execute([$shelfId, $userId]);
+            $row = $stmt->fetch();
+            if (!$row) jsonResponse(false, null, 'Shelf not found');
+            jsonResponse(true, [
+                'shelf_id'       => $row['id'],
+                'name'           => $row['name'],
+                'shelf_count'    => $row['shelf_count']    ?? 5,
+                'items_per_shelf'=> $row['items_per_shelf'] ?? 25,
+                'capacity_mode'  => $row['capacity_mode']  ?? 'quantity',
+                'total_capacity' => (($row['shelf_count'] ?? 5) * ($row['items_per_shelf'] ?? 25)),
+            ]);
+            break;
+        }
 
         case 'update_shelf':
             $shelfId = intval($input['shelf_id'] ?? 0);

@@ -2216,6 +2216,39 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                     </div>
                 </div>
 
+                <!-- Shelf Unit Config -->
+                <div id="wizardShelfUnitConfig" style="margin-bottom:1rem; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:0.75rem;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.6rem;">
+                        <strong style="font-size:0.9rem;">&#128195; Shelf Unit Capacity</strong>
+                        <button onclick="App.loadWizardShelfUnitConfig()"
+                            style="font-size:0.75rem; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:rgba(255,255,255,0.65); border-radius:4px; padding:0.2rem 0.55rem; cursor:pointer;">
+                            &#8595; Load from selected shelf
+                        </button>
+                    </div>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+                        <label style="font-size:0.85rem;">
+                            Shelves
+                            <input type="number" id="wizardShelfCount" min="1" max="50" value="5"
+                                oninput="App.updateWizardCapacity()"
+                                style="display:block; width:70px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; margin-top:0.2rem;">
+                        </label>
+                        <label style="font-size:0.85rem;">
+                            Items / shelf
+                            <input type="number" id="wizardItemsPerShelf" min="1" max="500" value="25"
+                                oninput="App.updateWizardCapacity()"
+                                style="display:block; width:80px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; margin-top:0.2rem;">
+                        </label>
+                        <div style="font-size:0.85rem; color:rgba(255,255,255,0.5); padding-bottom:0.1rem;">
+                            Total: <span id="wizardCapacityTotal" style="color:rgba(167,139,250,0.9); font-weight:600;">125</span> items
+                        </div>
+                        <button onclick="App.saveWizardShelfUnitConfig()"
+                            style="font-size:0.75rem; background:rgba(102,126,234,0.18); border:1px solid rgba(102,126,234,0.35); color:rgba(167,139,250,0.9); border-radius:4px; padding:0.3rem 0.6rem; cursor:pointer;">
+                            &#128190; Save to shelf
+                        </button>
+                    </div>
+                    <p style="color:rgba(255,255,255,0.35); font-size:0.75rem; margin:0.4rem 0 0;">Select one shelf above, then &#8595; Load to prefill from saved config.</p>
+                </div>
+
                 <!-- Target shelves -->
                 <div style="margin-bottom:1rem;">
                     <label style="font-size:0.9rem; display:block; margin-bottom:0.35rem;">Target shelves <span style="color:rgba(255,255,255,0.5); font-size:0.8rem;">(leave empty = all your shelves)</span></label>
