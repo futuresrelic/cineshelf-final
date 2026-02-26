@@ -7036,8 +7036,14 @@ Return ONLY the JSON object, no markdown.'
                 $allContainers = $bPool->fetchAll();
             }
 
+            if (empty($allCopies)) {
+                jsonResponse(false, null, 'No items found in your collection. Add some movies first.');
+            }
+
             // Enrich copies with metadata table values for precise matching
-            $movieIds = array_unique(array_column($allCopies, 'movie_id'));
+            // array_values() is required: array_unique() preserves original keys, causing
+            // PDO positional binding to use key as 1-based index → SQLITE_RANGE error.
+            $movieIds = array_values(array_unique(array_column($allCopies, 'movie_id')));
             $enriched = []; // movie_id => [directors[], genres[], studios[], cert]
             if (!empty($movieIds)) {
                 $ph = implode(',', array_fill(0, count($movieIds), '?'));
@@ -7065,20 +7071,21 @@ Return ONLY the JSON object, no markdown.'
             foreach ($tagLinksStmt->fetchAll() as $r) { $tagsByMovie[$r['entity_id']][] = $r['tag_id']; }
 
             // Helper: does a copy match a section?
+            // Empty values[] means "match any item that has ANY value for this type".
             $itemMatchesSection = function($copy, $section) use ($enriched, $tagsByMovie) {
                 $movieId = $copy['movie_id'];
                 $type    = $section['type'] ?? '';
                 $values  = $section['values'] ?? [];
-                if (empty($values)) return false;
                 $lc = fn($s) => strtolower(trim((string)$s));
 
                 switch ($type) {
                     case 'genre':
                         $genres = array_map($lc, $enriched[$movieId]['genres'] ?? []);
                         if (empty($genres)) {
-                            // Fall back to movies.genre text field
-                            $genres = array_map($lc, array_filter(array_map('trim', explode(',', $copy['genre'] ?? ''))));
+                            $genres = array_values(array_filter(array_map('trim', explode(',', $copy['genre'] ?? ''))));
+                            $genres = array_map($lc, $genres);
                         }
+                        if (empty($values)) return !empty($genres);
                         foreach ($values as $v) { if (in_array($lc($v), $genres)) return true; }
                         return false;
 
@@ -7087,6 +7094,7 @@ Return ONLY the JSON object, no markdown.'
                         if (empty($dirs) && !empty($copy['director'])) {
                             $dirs = array_map($lc, array_filter(array_map('trim', explode(',', $copy['director']))));
                         }
+                        if (empty($values)) return !empty($dirs);
                         foreach ($values as $v) { if (in_array($lc($v), $dirs)) return true; }
                         return false;
 
@@ -7095,16 +7103,19 @@ Return ONLY the JSON object, no markdown.'
                         if (empty($studios) && !empty($copy['studio'])) {
                             $studios = [strtolower(trim($copy['studio']))];
                         }
+                        if (empty($values)) return !empty($studios);
                         foreach ($values as $v) { if (in_array($lc($v), $studios)) return true; }
                         return false;
 
                     case 'certification':
                         $cert = $enriched[$movieId]['cert'] ?? $copy['certification'] ?? '';
+                        if (empty($values)) return !empty(trim($cert));
                         foreach ($values as $v) { if ($lc($cert) === $lc($v)) return true; }
                         return false;
 
                     case 'user_tag':
                         $myTags = $tagsByMovie[$movieId] ?? [];
+                        if (empty($values)) return !empty($myTags);
                         foreach ($values as $v) { if (in_array(intval($v), $myTags)) return true; }
                         return false;
                 }
@@ -7184,11 +7195,14 @@ Return ONLY the JSON object, no markdown.'
                 $shQ->execute([$userId]);
             }
             $recipeShelfList = $shQ->fetchAll();
+            if (empty($recipeShelfList)) {
+                jsonResponse(false, null, 'No shelves found. Create at least one shelf in the Shelves tab first.');
+            }
             $defCap = 65;
 
             // For bottom sections: reserve space at the END of the last shelf
             $totalBottom = array_sum(array_map(fn($s) => count($s['items']), $bottomSections));
-            $totalCapacity = array_sum(array_map(fn($sh) => ($sh['capacity'] > 0 ? $sh['capacity'] : $defCap), $recipeShelfList));
+            $totalCapacity = array_sum(array_map(fn($sh) => (max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap)), $recipeShelfList));
 
             // --- Fill shelves ---
             $recipePlacement = [];
@@ -7205,9 +7219,9 @@ Return ONLY the JSON object, no markdown.'
                 foreach ($section['items'] as $item) {
                     while ($shIdxR < count($shQueueR)) {
                         $sh = $shQueueR[$shIdxR];
-                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defCap;
+                        $cap = max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap);
                         $usable = ($placedTop < $usableCapacity) ? min($cap, $usableCapacity - $placedTop) : 0;
-                        if (count($recipePlacement[$sh['id']]['items']) < $usable || $usable <= 0 && count($recipePlacement[$sh['id']]['items']) < $cap) break;
+                        if (count($recipePlacement[$sh['id']]['items']) < $usable || ($usable <= 0 && count($recipePlacement[$sh['id']]['items']) < $cap)) break;
                         $shIdxR++;
                     }
                     if ($shIdxR >= count($shQueueR)) break;
@@ -7221,7 +7235,7 @@ Return ONLY the JSON object, no markdown.'
                 foreach ($bSec['items'] as $item) {
                     while ($shIdxR < count($shQueueR)) {
                         $sh = $shQueueR[$shIdxR];
-                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defCap;
+                        $cap = max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap);
                         if (count($recipePlacement[$sh['id']]['items']) < $cap) break;
                         $shIdxR++;
                     }
@@ -7247,6 +7261,126 @@ Return ONLY the JSON object, no markdown.'
                 'unplaced_estimate'=> $unplaced,
             ]);
             break;
+
+        // ---------------------------------------------------------------
+        // METADATA VALUE SEARCH — for typeahead in recipe wizard
+        // ---------------------------------------------------------------
+        case 'search_metadata_values':
+        case 'list_metadata_values': {
+            $type = trim($input['type'] ?? '');
+            $q    = trim($input['q'] ?? '');
+            $allowed = ['director', 'studio', 'genre', 'cert', 'tag'];
+            if (!in_array($type, $allowed)) {
+                jsonResponse(false, null, 'Invalid type. Must be one of: ' . implode(', ', $allowed));
+            }
+            $likeQ   = '%' . $q . '%';
+            $results = [];
+            switch ($type) {
+                case 'director':
+                    $st = $db->prepare(
+                        "SELECT DISTINCT mp.name FROM movie_people mp
+                         JOIN copies c ON mp.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND mp.role = 'director'
+                           AND (? = '' OR mp.name LIKE ?)
+                         ORDER BY mp.name LIMIT 30"
+                    );
+                    $st->execute([$userId, $q, $likeQ]);
+                    $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st->fetchAll(PDO::FETCH_ASSOC));
+                    if (empty($results)) {
+                        // Fallback: movies.director text field
+                        $st2 = $db->prepare(
+                            "SELECT DISTINCT m.director as name FROM movies m
+                             JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.director != ''
+                               AND (? = '' OR m.director LIKE ?)
+                             ORDER BY m.director LIMIT 30"
+                        );
+                        $st2->execute([$userId, $q, $likeQ]);
+                        $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st2->fetchAll(PDO::FETCH_ASSOC));
+                    }
+                    break;
+                case 'studio':
+                    $st = $db->prepare(
+                        "SELECT DISTINCT ms.name FROM movie_studios ms
+                         JOIN copies c ON ms.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR ms.name LIKE ?)
+                         ORDER BY ms.name LIMIT 30"
+                    );
+                    $st->execute([$userId, $q, $likeQ]);
+                    $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st->fetchAll(PDO::FETCH_ASSOC));
+                    if (empty($results)) {
+                        $st2 = $db->prepare(
+                            "SELECT DISTINCT m.studio as name FROM movies m
+                             JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.studio != ''
+                               AND (? = '' OR m.studio LIKE ?)
+                             ORDER BY m.studio LIMIT 30"
+                        );
+                        $st2->execute([$userId, $q, $likeQ]);
+                        $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st2->fetchAll(PDO::FETCH_ASSOC));
+                    }
+                    break;
+                case 'genre':
+                    $st = $db->prepare(
+                        "SELECT DISTINCT mg.name FROM movie_genres mg
+                         JOIN copies c ON mg.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR mg.name LIKE ?)
+                         ORDER BY mg.name LIMIT 30"
+                    );
+                    $st->execute([$userId, $q, $likeQ]);
+                    $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st->fetchAll(PDO::FETCH_ASSOC));
+                    if (empty($results)) {
+                        $st2 = $db->prepare(
+                            "SELECT DISTINCT m.genre as name FROM movies m
+                             JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.genre != ''
+                               AND (? = '' OR m.genre LIKE ?)
+                             ORDER BY m.genre LIMIT 30"
+                        );
+                        $st2->execute([$userId, $q, $likeQ]);
+                        $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st2->fetchAll(PDO::FETCH_ASSOC));
+                    }
+                    break;
+                case 'cert':
+                    $st = $db->prepare(
+                        "SELECT DISTINCT mc.certification as name FROM movie_certifications mc
+                         JOIN copies c ON mc.movie_id = c.movie_id
+                         WHERE c.user_id = ? AND (? = '' OR mc.certification LIKE ?)
+                         ORDER BY mc.certification LIMIT 20"
+                    );
+                    $st->execute([$userId, $q, $likeQ]);
+                    $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st->fetchAll(PDO::FETCH_ASSOC));
+                    if (empty($results)) {
+                        $st2 = $db->prepare(
+                            "SELECT DISTINCT m.certification as name FROM movies m
+                             JOIN copies c ON m.id = c.movie_id
+                             WHERE c.user_id = ? AND m.certification != ''
+                               AND (? = '' OR m.certification LIKE ?)
+                             ORDER BY m.certification LIMIT 20"
+                        );
+                        $st2->execute([$userId, $q, $likeQ]);
+                        $results = array_map(fn($r) => ['id' => $r['name'], 'name' => $r['name']], $st2->fetchAll(PDO::FETCH_ASSOC));
+                    }
+                    break;
+                case 'tag':
+                    $st = $db->prepare(
+                        "SELECT id, name FROM user_tags
+                         WHERE user_id = ? AND (? = '' OR name LIKE ?)
+                         ORDER BY name LIMIT 30"
+                    );
+                    $st->execute([$userId, $q, $likeQ]);
+                    $results = $st->fetchAll(PDO::FETCH_ASSOC);
+                    break;
+            }
+            $empty = empty($results);
+            jsonResponse(true, [
+                'results'    => array_values($results),
+                'type'       => $type,
+                'q'          => $q,
+                'empty_hint' => $empty ? 'No values found. Run Metadata Backfill in Admin Tools for best results.' : null,
+            ]);
+            break;
+        }
 
         case 'apply_recipe_as_new_layout':
             $recipeData   = $input['recipe'] ?? null;
