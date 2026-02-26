@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.6';
+const APP_VERSION = '2.8.7';
 
 async function checkVersionGuard() {
     try {
@@ -3385,6 +3385,26 @@ function getCertColor(cert) {
             } else if (shelfNavMovieList.length) {
                 shelfMovieNav(dir);
             }
+        }
+    });
+
+    // ESC key: close topmost modal first (cloud picker → wizard → others)
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const picker = document.getElementById('cloudPickerModal');
+        if (picker && picker.style.display === 'flex') {
+            e.stopPropagation();
+            closeCloudPicker();
+            return;
+        }
+        const wizard = document.getElementById('aiWizardModal');
+        if (wizard && wizard.style.display === 'flex') {
+            closeAIWizardModal();
+            return;
+        }
+        const newLayoutModal = document.getElementById('newEmptyLayoutModal');
+        if (newLayoutModal && newLayoutModal.style.display === 'flex') {
+            closeNewEmptyLayoutModal();
         }
     });
 
@@ -10561,6 +10581,9 @@ async function getCurrentUserId() {
         _updateCloudSelCount();
 
         modal.style.display = 'flex';
+        // Deactivate wizard behind picker (z-index 1000 < picker 1100)
+        const wizardModal = document.getElementById('aiWizardModal');
+        if (wizardModal) wizardModal.classList.add('modal--inactive');
         document.getElementById('cloudPickerList').innerHTML = '<span style="color:rgba(255,255,255,0.4); font-size:0.85rem;">Loading…</span>';
 
         // Map type to API type
@@ -10583,6 +10606,9 @@ async function getCurrentUserId() {
     function closeCloudPicker() {
         const modal = document.getElementById('cloudPickerModal');
         if (modal) modal.style.display = 'none';
+        // Re-activate wizard
+        const wizardModal = document.getElementById('aiWizardModal');
+        if (wizardModal) wizardModal.classList.remove('modal--inactive');
         _cloudPickerSid = null;
     }
 

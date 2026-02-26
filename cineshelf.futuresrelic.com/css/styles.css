@@ -1755,6 +1755,12 @@ body.modal-open {
     z-index: 2100;
 }
 
+/* Modal stack: wizard sits below cloud picker so picker appears on top */
+#aiWizardModal    { z-index: 1000; }
+#cloudPickerModal { z-index: 1100; }
+/* Wizard becomes non-interactive while cloud picker is open */
+#aiWizardModal.modal--inactive { pointer-events: none; }
+
 .modal-content {
     background: var(--bg-card);
     border-radius: var(--radius);
