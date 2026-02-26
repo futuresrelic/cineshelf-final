@@ -2,6 +2,21 @@
 // Clean architecture inspired by ChoreQuest
 // Version: Managed by version-manager.html (see version.json)
 
+// VersionGuard: this constant must match version.json on every frontend-touching commit.
+const APP_VERSION = '2.8.2';
+
+async function checkVersionGuard() {
+    try {
+        const r = await fetch('/get-version.php?t=' + Date.now());
+        if (!r.ok) return;
+        const data = await r.json();
+        const serverVer = data.version || '';
+        if (serverVer && serverVer !== APP_VERSION) {
+            console.warn('[VersionGuard] Version mismatch — server=' + serverVer + ' script=' + APP_VERSION + '. version.json was not bumped after a frontend change.');
+        }
+    } catch (_) { /* network errors are non-fatal */ }
+}
+
 // Genre Emoji Mapping
 const GENRE_EMOJIS = {
     'Action': '💥',
@@ -10191,9 +10206,10 @@ async function getCurrentUserId() {
     // ========================================
 
     let layoutProfiles = [];
-    let _wizardPlan = null;        // last generated plan
-    let _wizardSections = [];      // recipe sections being built
-    let _sectionIdCounter = 0;     // auto-increment for section IDs
+    let _wizardPlan = null;          // last generated plan
+    let _wizardSections = [];        // recipe sections being built
+    let _sectionIdCounter = 0;       // auto-increment for section IDs
+    let _typeaheadTimer = null;      // debounce handle for typeahead search
 
     async function loadLayoutProfiles() {
         try {
@@ -10338,7 +10354,7 @@ async function getCurrentUserId() {
     }
 
     // ========================================
-    // RECIPE LAYOUT WIZARD (v6.0.0)
+    // RECIPE LAYOUT WIZARD (v6.1.0)
     // ========================================
 
     function showAIWizardModal() {
@@ -10352,6 +10368,8 @@ async function getCurrentUserId() {
         }
         // Start with one blank section if none exist
         if (_wizardSections.length === 0) wizardAddSection();
+        // Non-blocking metadata coverage check
+        _checkWizardMetadataStatus();
         _renderWizardSections();
         _aiWizardShowStep(1);
     }
@@ -10367,6 +10385,23 @@ async function getCurrentUserId() {
         document.getElementById('aiWizardLoading').style.display = step === 'loading' ? 'block' : 'none';
     }
 
+    // ------ chip rendering helpers ------
+
+    function _renderChips(sec) {
+        if (!sec.values.length) {
+            return '<span style="color:rgba(255,255,255,0.35); font-size:0.78rem; font-style:italic; padding:0.2rem 0;">blank = match all</span>';
+        }
+        return sec.values.map(v => {
+            const safe = escapeHtml(v);
+            const escapedJs = v.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.5);border-radius:12px;padding:0.15rem 0.45rem;font-size:0.8rem;">
+                ${safe}
+                <button onmousedown="event.preventDefault();App.wizardRemoveChip('${sec.id}','${escapedJs}')"
+                    style="background:none;border:none;color:rgba(255,140,140,0.9);cursor:pointer;padding:0;line-height:1;font-size:0.9rem;">×</button>
+            </span>`;
+        }).join('');
+    }
+
     function _renderWizardSections() {
         const list = document.getElementById('wizardSectionList');
         if (!list) return;
@@ -10374,40 +10409,122 @@ async function getCurrentUserId() {
             list.innerHTML = '<p style="color:rgba(255,255,255,0.4); font-size:0.85rem; text-align:center; padding:0.75rem 0;">No sections yet — add one or pick a preset.</p>';
             return;
         }
+        // Render each section row. Values use chip+typeahead instead of plain text.
+        // Chips are updated in-place by wizardAddChip/wizardRemoveChip without re-rendering
+        // the whole list (preserves focus on the typeahead input).
         list.innerHTML = _wizardSections.map((sec, idx) => `
-            <div class="wizard-section-row" style="background:rgba(255,255,255,0.07); border-radius:8px; padding:0.65rem 0.75rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-                <span style="color:rgba(255,255,255,0.4); font-size:0.8rem; min-width:1.2rem;">${idx + 1}.</span>
-                <select data-sid="${sec.id}" data-field="type"
-                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
-                    onchange="App._wizardSectionChange(this)">
-                    <option value="genre"${sec.type==='genre'?' selected':''}>Genre</option>
-                    <option value="director"${sec.type==='director'?' selected':''}>Director</option>
-                    <option value="studio"${sec.type==='studio'?' selected':''}>Studio</option>
-                    <option value="certification"${sec.type==='certification'?' selected':''}>Rating (cert.)</option>
-                    <option value="user_tag"${sec.type==='user_tag'?' selected':''}>User Tag</option>
-                </select>
-                <input type="text" data-sid="${sec.id}" data-field="values"
-                    value="${escapeHtml(sec.values.join(', '))}"
-                    placeholder="Values (comma-sep, blank=all)"
-                    style="flex:1; min-width:140px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
-                    onchange="App._wizardSectionChange(this)">
-                <select data-sid="${sec.id}" data-field="sort"
-                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
-                    onchange="App._wizardSectionChange(this)">
-                    <option value="title"${sec.sort==='title'?' selected':''}>A-Z</option>
-                    <option value="year"${sec.sort==='year'?' selected':''}>Year</option>
-                    <option value="rating"${sec.sort==='rating'?' selected':''}>Rating ↓</option>
-                </select>
-                <select data-sid="${sec.id}" data-field="direction"
-                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
-                    onchange="App._wizardSectionChange(this)">
-                    <option value="top"${sec.direction==='top'?' selected':''}>Top shelves</option>
-                    <option value="bottom"${sec.direction==='bottom'?' selected':''}>Bottom shelves</option>
-                </select>
+            <div class="wizard-section-row" data-sid="${sec.id}"
+                style="background:rgba(255,255,255,0.07); border-radius:8px; padding:0.65rem 0.75rem; display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
+                <span style="color:rgba(255,255,255,0.4); font-size:0.8rem; min-width:1.2rem; padding-top:0.35rem;">${idx + 1}.</span>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1; min-width:280px;">
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+                        <select data-sid="${sec.id}" data-field="type"
+                            style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                            onchange="App._wizardSectionChange(this)">
+                            <option value="genre"${sec.type==='genre'?' selected':''}>Genre</option>
+                            <option value="director"${sec.type==='director'?' selected':''}>Director</option>
+                            <option value="studio"${sec.type==='studio'?' selected':''}>Studio</option>
+                            <option value="certification"${sec.type==='certification'?' selected':''}>Rating (cert.)</option>
+                            <option value="user_tag"${sec.type==='user_tag'?' selected':''}>User Tag</option>
+                        </select>
+                        <select data-sid="${sec.id}" data-field="sort"
+                            style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                            onchange="App._wizardSectionChange(this)">
+                            <option value="title"${sec.sort==='title'?' selected':''}>A-Z</option>
+                            <option value="year"${sec.sort==='year'?' selected':''}>Year</option>
+                            <option value="rating"${sec.sort==='rating'?' selected':''}>Rating ↓</option>
+                        </select>
+                        <select data-sid="${sec.id}" data-field="direction"
+                            style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                            onchange="App._wizardSectionChange(this)">
+                            <option value="top"${sec.direction==='top'?' selected':''}>Top shelves</option>
+                            <option value="bottom"${sec.direction==='bottom'?' selected':''}>Bottom shelves</option>
+                        </select>
+                    </div>
+                    <!-- chip display -->
+                    <div id="wz-chips-${sec.id}" style="display:flex; flex-wrap:wrap; gap:0.3rem; align-items:center; min-height:1.6rem;">
+                        ${_renderChips(sec)}
+                    </div>
+                    <!-- typeahead input -->
+                    <div style="position:relative;">
+                        <input type="text" id="wz-input-${sec.id}" list="wz-list-${sec.id}"
+                            placeholder="Type to search, Enter to add (blank = match all)…"
+                            style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.5rem; font-size:0.82rem;"
+                            oninput="App._wizardTypeaheadSearch('${sec.id}','${sec.type}',this)"
+                            onchange="App.wizardAddChip('${sec.id}',this)"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();App.wizardAddChip('${sec.id}',this);}">
+                        <datalist id="wz-list-${sec.id}"></datalist>
+                    </div>
+                </div>
                 <button onclick="App.wizardRemoveSection('${sec.id}')" title="Remove section"
-                    style="background:transparent; border:none; color:rgba(255,100,100,0.8); font-size:1.1rem; cursor:pointer; padding:0.2rem 0.4rem; line-height:1;">&#10005;</button>
+                    style="background:transparent; border:none; color:rgba(255,100,100,0.8); font-size:1.1rem; cursor:pointer; padding:0.2rem 0.4rem; line-height:1; align-self:flex-start; margin-top:0.2rem;">&#10005;</button>
             </div>
         `).join('');
+    }
+
+    // ------ typeahead helpers ------
+
+    function _wizardTypeaheadSearch(sid, type, inputEl) {
+        clearTimeout(_typeaheadTimer);
+        _typeaheadTimer = setTimeout(async () => {
+            const q = (inputEl.value || '').trim();
+            // Map 'certification' → 'cert' for API
+            const apiType = type === 'certification' ? 'cert' : type === 'user_tag' ? 'tag' : type;
+            try {
+                const res = await apiCall('search_metadata_values', { type: apiType, q });
+                const listEl = document.getElementById('wz-list-' + sid);
+                if (!listEl) return;
+                listEl.innerHTML = (res.results || []).map(r => `<option value="${escapeHtml(r.name)}">`).join('');
+                if (res.empty_hint && q === '') {
+                    // Show hint in the input placeholder
+                    const inputEl2 = document.getElementById('wz-input-' + sid);
+                    if (inputEl2) inputEl2.placeholder = res.empty_hint;
+                }
+            } catch (_) { /* typeahead failures are non-fatal */ }
+        }, 250);
+    }
+
+    function wizardAddChip(sid, inputEl) {
+        const val = (inputEl.value || '').trim();
+        if (!val) return;
+        const sec = _wizardSections.find(s => s.id === sid);
+        if (!sec) return;
+        if (!sec.values.includes(val)) {
+            sec.values.push(val);
+            const chipsEl = document.getElementById('wz-chips-' + sid);
+            if (chipsEl) chipsEl.innerHTML = _renderChips(sec);
+        }
+        inputEl.value = '';
+    }
+
+    function wizardRemoveChip(sid, val) {
+        const sec = _wizardSections.find(s => s.id === sid);
+        if (!sec) return;
+        sec.values = sec.values.filter(v => v !== val);
+        const chipsEl = document.getElementById('wz-chips-' + sid);
+        if (chipsEl) chipsEl.innerHTML = _renderChips(sec);
+    }
+
+    // ------ metadata status banner ------
+
+    async function _checkWizardMetadataStatus() {
+        const banner = document.getElementById('wizardMetadataBanner');
+        if (!banner) return;
+        try {
+            const status = await apiCall('get_metadata_status');
+            const total = status.movies_total || 0;
+            const enriched = Math.max(
+                status.people_enriched || 0,
+                status.genres_enriched || 0,
+                status.studios_enriched || 0
+            );
+            if (total > 0 && enriched < total * 0.5) {
+                banner.style.display = 'block';
+                banner.textContent = `⚠ Metadata incomplete (${enriched}/${total} movies enriched) — run Backfill in Admin Tools for best typeahead results.`;
+            } else {
+                banner.style.display = 'none';
+            }
+        } catch (_) { banner.style.display = 'none'; }
     }
 
     function _wizardSectionChange(el) {
@@ -10415,8 +10532,21 @@ async function getCurrentUserId() {
         const field = el.dataset.field;
         const sec = _wizardSections.find(s => s.id === sid);
         if (!sec) return;
-        if (field === 'values') {
-            sec.values = el.value.split(',').map(v => v.trim()).filter(Boolean);
+        if (field === 'type') {
+            // Clear chips when switching type — values are type-specific
+            sec.type = el.value;
+            sec.values = [];
+            const chipsEl = document.getElementById('wz-chips-' + sid);
+            if (chipsEl) chipsEl.innerHTML = _renderChips(sec);
+            // Reset datalist and placeholder
+            const listEl = document.getElementById('wz-list-' + sid);
+            if (listEl) listEl.innerHTML = '';
+            const inputEl = document.getElementById('wz-input-' + sid);
+            if (inputEl) {
+                inputEl.value = '';
+                inputEl.placeholder = 'Type to search, Enter to add (blank = match all)…';
+                inputEl.setAttribute('oninput', `App._wizardTypeaheadSearch('${sid}','${el.value}',this)`);
+            }
         } else {
             sec[field] = el.value;
         }
@@ -10800,7 +10930,7 @@ return {
     applyLayoutProfile,
 
     // ========================================
-    // RECIPE WIZARD PUBLIC API (v6.0.0)
+    // RECIPE WIZARD PUBLIC API (v6.1.0)
     // ========================================
     showAIWizardModal,
     closeAIWizardModal,
@@ -10810,10 +10940,16 @@ return {
     wizardApplyPreset,
     wizardAddSection,
     wizardRemoveSection,
-    _wizardSectionChange
+    _wizardSectionChange,
+    // typeahead
+    _wizardTypeaheadSearch,
+    wizardAddChip,
+    wizardRemoveChip
 };
 
 })();
 
 // Note: App.init() is now called by the script loader in index.html
-// after all scripts have finished loading
+// after all scripts have finished loading.
+// Run VersionGuard after DOM ready (non-blocking).
+document.addEventListener('DOMContentLoaded', () => checkVersionGuard());
