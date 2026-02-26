@@ -7088,7 +7088,8 @@ Return ONLY the JSON object, no markdown.'
              * }
              */
             $recipe         = $input['recipe'] ?? [];
-            $targetShelves  = $input['target_shelf_ids'] ?? [];
+            // Accept both 'target_shelves' (frontend) and legacy 'target_shelf_ids'
+            $targetShelves  = $input['target_shelves'] ?? $input['target_shelf_ids'] ?? [];
             $includeWishlist = !empty($input['options']['include_wishlist'] ?? $input['include_wishlist'] ?? false);
             $includeBoxsets  = !empty($input['options']['include_boxsets'] ?? $input['include_boxsets'] ?? false);
 
@@ -7270,20 +7271,72 @@ Return ONLY the JSON object, no markdown.'
             // --- Build ordered item stream: top sections, remainder, bottom sections ---
             $orderedSections = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]], $bottomSections);
 
-            // --- Fetch target shelves ---
+            // --- Fetch target shelves (include shelf_count/items_per_shelf for unit expansion) ---
+            $defCap = 65;
             if (!empty($targetShelves)) {
                 $ph = implode(',', array_fill(0, count($targetShelves), '?'));
-                $shQ = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND id IN ($ph) ORDER BY position");
+                $shQ = $db->prepare("SELECT id, name, capacity, shelf_count, items_per_shelf FROM shelves WHERE user_id = ? AND id IN ($ph) ORDER BY position");
                 $shQ->execute(array_merge([$userId], array_map('intval', $targetShelves)));
             } else {
-                $shQ = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND parent_shelf_id IS NULL ORDER BY position");
+                $shQ = $db->prepare("SELECT id, name, capacity, shelf_count, items_per_shelf FROM shelves WHERE user_id = ? AND parent_shelf_id IS NULL ORDER BY position");
                 $shQ->execute([$userId]);
             }
-            $recipeShelfList = $shQ->fetchAll();
-            if (empty($recipeShelfList)) {
+            $rawShelfList = $shQ->fetchAll();
+            if (empty($rawShelfList)) {
                 jsonResponse(false, null, 'No shelves found. Create at least one shelf in the Shelves tab first.');
             }
-            $defCap = 65;
+
+            // --- Expand parent shelf units into child shelves ---
+            // A shelf unit (shelf_count > 1) should distribute items across N child shelves,
+            // each with capacity = items_per_shelf. Missing child shelves are created additively.
+            $recipeShelfList = [];
+            foreach ($rawShelfList as $sh) {
+                $shelfCount = intval($sh['shelf_count'] ?? 1);
+                $ips        = max(1, intval($sh['items_per_shelf'] ?: $defCap));
+
+                if ($shelfCount > 1) {
+                    // Fetch existing child shelves
+                    $childQ = $db->prepare("SELECT id, name, capacity FROM shelves WHERE parent_shelf_id = ? AND user_id = ? ORDER BY position");
+                    $childQ->execute([$sh['id'], $userId]);
+                    $children = $childQ->fetchAll();
+
+                    // Auto-create missing child shelves (idempotent)
+                    $existing = count($children);
+                    if ($existing < $shelfCount) {
+                        $posStmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM shelves WHERE user_id = ?");
+                        $posStmt->execute([$userId]);
+                        $nextPos = intval($posStmt->fetchColumn());
+                        $insChild = $db->prepare(
+                            "INSERT INTO shelves (user_id, name, position, capacity, parent_shelf_id, shelf_count, items_per_shelf, capacity_mode)
+                             VALUES (?, ?, ?, ?, ?, 1, ?, 'quantity')"
+                        );
+                        for ($i = $existing + 1; $i <= $shelfCount; $i++) {
+                            $insChild->execute([$userId, $sh['name'] . ' – Row ' . $i, $nextPos++, $ips, $sh['id'], $ips]);
+                            $children[] = ['id' => $db->lastInsertId(), 'name' => $sh['name'] . ' – Row ' . $i, 'capacity' => $ips];
+                        }
+                    }
+
+                    // Use up to shelf_count children for placement
+                    foreach (array_slice($children, 0, $shelfCount) as $child) {
+                        $recipeShelfList[] = [
+                            'id'       => $child['id'],
+                            'name'     => $child['name'],
+                            'capacity' => max(1, intval($child['capacity']) ?: $ips),
+                        ];
+                    }
+                } else {
+                    // Single shelf or no unit config — use as-is
+                    $recipeShelfList[] = [
+                        'id'       => $sh['id'],
+                        'name'     => $sh['name'],
+                        'capacity' => $sh['capacity'] > 0 ? intval($sh['capacity']) : $defCap,
+                    ];
+                }
+            }
+
+            if (empty($recipeShelfList)) {
+                jsonResponse(false, null, 'No usable shelves found after expanding shelf units.');
+            }
 
             // For bottom sections: reserve space at the END of the last shelf
             $totalBottom = array_sum(array_map(fn($s) => count($s['items']), $bottomSections));

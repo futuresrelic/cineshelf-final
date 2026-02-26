@@ -6,6 +6,37 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-26 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: distribute wizard plan across shelf unit shelves by capacity (v2.8.10)
+
+**Root cause — two bugs in `generate_recipe_plan` (api.php)**:
+
+1. **Param name mismatch** (line 7091): Backend read `$input['target_shelf_ids']` but
+   frontend (`generateWizardPlan`) sends `target_shelves`. So `$targetShelves` was
+   always `[]`, falling to the "get all parent shelves" default.
+
+2. **No parent→children expansion**: Both code paths returned only parent-level shelf
+   rows (`parent_shelf_id IS NULL`). A shelf unit with `shelf_count=8` is a single row,
+   so all 688 items were crammed into 1 `shelf_id` → "688 items across 1 shelf".
+
+**Fix** (api.php, ~lines 7091 and 7274–7340):
+- Accept `target_shelves` with `target_shelf_ids` as fallback.
+- SELECT now includes `shelf_count` and `items_per_shelf` from the shelf record.
+- New expansion loop: for each shelf in the raw list, if `shelf_count > 1`, fetch its
+  child shelves. If fewer than `shelf_count` exist, auto-create the missing ones
+  (`INSERT INTO shelves` with `parent_shelf_id`, `capacity = items_per_shelf`). Then
+  use the full list of child shelf IDs for placement distribution.
+- Single shelves (no unit config) pass through unchanged.
+
+**Before**: unique `shelf_id` count in plan = 1 (always)
+**After**: unique `shelf_id` count = `shelf_count` of the unit (e.g. 8 for 8×65 config)
+
+| File | Change |
+|------|--------|
+| `api/api.php` | 2 edits in `generate_recipe_plan`: param name fix + shelf expansion block |
+| `js/app.js` | APP_VERSION → 2.8.10 |
+| `version.json` | 2.8.9 → 2.8.10 |
+
+
 ### fix: pick modal layered above wizard modal (v2.8.7)
 
 **Root cause**: `.modal` CSS class sets `z-index: 2000`. `#aiWizardModal` inherits
