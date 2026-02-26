@@ -4,6 +4,119 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-26 (branch: claude/version-sync-wizard-shelfunit-livingroom)
+
+### fix: unify version system and auto-sync on deploy (v2.8.3)
+
+**Root cause**: `get-version.php` only read `data/version.json` (Railway
+volume), so a fresh deploy with new code still reported the old volume
+version.  The version-manager was showing 2.2.27 while app code was 2.8.x.
+
+**Fix**: `get-version.php` is now the single source of truth:
+1. Reads `version.json` (repo) → `$repoVersion`
+2. Reads/creates `data/version.json` → `$persistedVersion`
+3. If data file missing → seed from repo
+4. If `repo > persisted` (via `version_compare`) → auto-upgrade data file
+5. Returns full diagnostic payload: `{version, effective_version,
+   repo_version, persisted_version, source, updated, auto_upgraded, seeded}`
+
+| File | Change |
+|------|--------|
+| `get-version.php` | Fully rewritten — single source of truth with auto-sync |
+| `admin/version-manager.html` | Shows Repo / Persisted / Effective in 3-column grid; mismatch banner + "Sync to Repo Version" button |
+| `api/api.php` | Added `admin_sync_version` action (admin-only) |
+| `version.json` | Bumped to 2.8.3 |
+
+### feat: wizard preview improvements (v2.8.4)
+
+- Default layout name: `"Living Room Movie Shelf – <preset> – <date>"`
+  instead of plain `"Recipe: My Layout <date>"`.
+- Overflow count in summary: `⚠ N items overflow (shelf capacity exceeded)`
+  shown in amber when `plan.unplaced_estimate > 0`.
+- Per-shelf item count shown on each shelf row in the preview.
+- Added `_wizardPresetLabel()` helper in `app.js`.
+
+| File | Change |
+|------|--------|
+| `js/app.js` | `_renderWizardPreview` + `_wizardPresetLabel`; APP_VERSION → 2.8.4 |
+| `version.json` | Bumped to 2.8.4 |
+
+### feat: word cloud picker modal (v2.8.5)
+
+Per-section "Pick…" button opens a modal with a word cloud of all values
+for that type (director / studio / genre / cert / tag). Font size scales
+0.75–1.3 rem proportional to count.  Multi-select with toggle, search
+filter, and A-Z / count sort.  "Add Selected" appends to chip list.
+
+#### New API actions
+| Action | Params | Returns |
+|--------|--------|---------|
+| `list_metadata_cloud` | `type` | `[{name, cnt}]` sorted by cnt desc, top 200 |
+| `search_metadata_cloud` | `type`, `q` | filtered `[{name, cnt}]` |
+
+Both use `COUNT(DISTINCT copies.id)` with fallback to `movies` text columns.
+
+#### New JS functions
+| Function | Purpose |
+|----------|---------|
+| `openCloudPicker(sid,type)` | Fetches cloud, renders modal |
+| `closeCloudPicker()` | Hides modal, clears state |
+| `_renderCloudPickerList(q,az)` | Renders size-weighted toggle buttons |
+| `_cloudPickerToggle(name)` | Toggle selected state |
+| `_cloudPickerSearch(q)` | Re-renders with filter |
+| `_cloudPickerSort(az)` | Re-renders with sort |
+| `_cloudPickerConfirm()` | Appends selected values as chips, closes modal |
+
+| File | Change |
+|------|--------|
+| `api/api.php` | Added `list_metadata_cloud`, `search_metadata_cloud` |
+| `js/app.js` | Cloud picker state + 7 functions; APP_VERSION → 2.8.5 |
+| `index.html` | Added `#cloudPickerModal` |
+| `version.json` | Bumped to 2.8.5 |
+
+### feat: shelf unit capacity config (defaults 5×25) (v2.8.6)
+
+New wizard "Shelf Unit Capacity" panel lets users configure how many
+physical shelves their unit has (`shelf_count`) and how many items fit per
+shelf (`items_per_shelf`), then save those as defaults on the shelf record.
+Supports user's real-world case of 8×65.
+
+`capacity_mode = 'quantity'` column is a placeholder for a future
+"width-based" mode — no implementation yet.
+
+#### DB changes (additive auto-migrations on `shelves` table)
+| Column | Default |
+|--------|---------|
+| `shelf_count` | 5 |
+| `items_per_shelf` | 25 |
+| `capacity_mode` | `'quantity'` |
+
+#### New API actions
+| Action | Params | Returns |
+|--------|--------|---------|
+| `get_shelf_unit_config` | `shelf_id` | `{shelf_id, name, shelf_count, items_per_shelf, capacity_mode, total_capacity}` |
+| `save_shelf_unit_config` | `shelf_id`, `shelf_count`, `items_per_shelf` | `{ok:true}` |
+
+`create_shelf` also now accepts `shelf_count`, `items_per_shelf`,
+`capacity_mode` on creation.
+
+#### New JS functions
+| Function | Purpose |
+|----------|---------|
+| `updateWizardCapacity()` | Live total = shelf_count × items_per_shelf |
+| `loadWizardShelfUnitConfig()` | Calls `get_shelf_unit_config`, fills inputs |
+| `saveWizardShelfUnitConfig()` | Calls `save_shelf_unit_config` |
+
+| File | Change |
+|------|--------|
+| `config/config.php` | 3 auto-migrations for new shelves columns |
+| `api/api.php` | `get_shelf_unit_config`, `save_shelf_unit_config`; updated `create_shelf` |
+| `index.html` | Shelf Unit Capacity panel in wizard Step 1 |
+| `js/app.js` | 3 new functions; APP_VERSION → 2.8.6 |
+| `version.json` | Bumped to 2.8.6 |
+
+---
+
 ## 2026-02-26 (branch: claude/fix-wizard-sql-typeahead-version-auto)
 
 ### fix: wizard plan SQL binding and validation (v2.8.1)

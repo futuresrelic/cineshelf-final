@@ -28,6 +28,9 @@ Tracks which features exist, their status, and where their code lives.
 | Recipe Layout Wizard | ✅ Live | `index.html` (`#aiWizardModal` — chip typeahead builder) | `api.php` → `generate_recipe_plan`, `apply_recipe_as_new_layout`, `search_metadata_values` |
 | Persistent Metadata Tables | ✅ Live | — (backfill via API) | `api.php` → `backfill_movie_metadata`, `get_metadata_status` |
 | User Tagging | ✅ Live | — (tags used as wizard section criteria) | `api.php` → `list/create/delete_user_tag`, `set/get_entity_tags` |
+| Version Auto-Sync | ✅ Live | `admin/version-manager.html` (3-column version grid) | `get-version.php` (auto-sync on request), `api.php` → `admin_sync_version` |
+| Word Cloud Picker | ✅ Live | `index.html` (`#cloudPickerModal` — per-section "Pick…" button) | `api.php` → `list_metadata_cloud`, `search_metadata_cloud` |
+| Shelf Unit Capacity Config | ✅ Live | `index.html` (wizard Step 1 Shelf Unit Capacity panel) | `api.php` → `get_shelf_unit_config`, `save_shelf_unit_config` |
 
 ## Optional / Conditional Features
 
@@ -48,3 +51,4 @@ Tracks which features exist, their status, and where their code lives.
 - v5.0.0 — Shelf Layout Profiles + AI Organization Wizard
 - v6.0.0 — Recipe Layout Wizard, Persistent Metadata Tables, User Tagging
 - v6.1.0 / v2.8.1-2 — SQL bind fix, typeahead chip selectors, VersionGuard, metadata status banner
+- v6.2.0 / v2.8.3-6 — Version auto-sync, wizard preview improvements, word cloud picker, shelf unit capacity config

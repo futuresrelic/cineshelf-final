@@ -115,6 +115,42 @@
 - Falls back to `movies` text columns when metadata tables are empty.
 - `empty_hint` is set when no results found, directing user to run Backfill.
 
+### Metadata Word Cloud Picker (v6.2.0)
+
+| Action | Required Params | Optional | Returns |
+|--------|----------------|----------|---------|
+| `list_metadata_cloud` | `type` | — | `[{name, cnt}]` sorted by cnt desc, top 200 |
+| `search_metadata_cloud` | `type` | `q` | filtered `[{name, cnt}]` |
+
+**type values**: same as typeahead — `director`, `studio`, `genre`, `cert`, `tag`
+
+- Uses `COUNT(DISTINCT copies.id)` per value.
+- Falls back to `movies` text columns when metadata tables are empty.
+- `cnt` is used by the frontend to scale font size (0.75–1.3 rem proportional to max cnt).
+
+### Version System (v6.2.0)
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /get-version.php` | `{version, effective_version, repo_version, persisted_version, source, updated, auto_upgraded, seeded}` |
+
+| Action | Auth | Returns |
+|--------|------|---------|
+| `admin_sync_version` | admin | `{ok:true, version}` — copies repo `version.json` to `data/version.json` |
+
+Auto-sync logic: on every `GET /get-version.php` call, if `repo_version > persisted_version`, the data file is upgraded automatically.
+
+### Shelf Unit Config (v6.2.0)
+
+| Action | Required Params | Optional | Returns |
+|--------|----------------|----------|---------|
+| `get_shelf_unit_config` | `shelf_id` | — | `{shelf_id, name, shelf_count, items_per_shelf, capacity_mode, total_capacity}` |
+| `save_shelf_unit_config` | `shelf_id`, `shelf_count`, `items_per_shelf` | — | `{ok:true}` |
+
+- Requires the caller to own (or admin) the shelf.
+- `total_capacity = shelf_count × items_per_shelf`.
+- `capacity_mode` is always `'quantity'` (width-based mode not yet implemented).
+
 ### Metadata & User Tags (v6.0.0)
 
 | Action | Required Params | Optional Params | Returns |
