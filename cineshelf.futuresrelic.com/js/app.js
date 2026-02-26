@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.2';
+const APP_VERSION = '2.8.4';
 
 async function checkVersionGuard() {
     try {
@@ -10617,27 +10617,45 @@ async function getCurrentUserId() {
         }
     }
 
+    function _wizardPresetLabel() {
+        // Derive a human-readable label from current sections for the default layout name
+        if (_wizardSections.length === 0) return 'Custom';
+        const types = [...new Set(_wizardSections.map(s => {
+            if (s.type === 'certification') return 'Rating';
+            if (s.type === 'user_tag')      return 'Tags';
+            return s.type.charAt(0).toUpperCase() + s.type.slice(1);
+        }))];
+        return types.join('+');
+    }
+
     function _renderWizardPreview(plan) {
         const summary = document.getElementById('aiWizardPlanSummary');
         const preview = document.getElementById('aiWizardPlanPreview');
         const badge = document.getElementById('aiWizardAIBadge');
         if (badge) badge.style.display = 'none';
 
+        const unplaced = plan.unplaced_estimate || 0;
         if (summary) {
-            summary.textContent = `${plan.total_items} items organized across ${plan.shelves_used} shelf${plan.shelves_used !== 1 ? 'ves' : ''}.`;
+            let txt = `${plan.total_items} items across ${plan.shelves_used} shelf${plan.shelves_used !== 1 ? 'ves' : ''}`;
+            if (unplaced > 0) txt += ` · ⚠ ${unplaced} item${unplaced !== 1 ? 's' : ''} overflow (shelf capacity exceeded)`;
+            summary.textContent = txt;
+            summary.style.color = unplaced > 0 ? 'rgba(251,191,36,0.9)' : 'rgba(255,255,255,0.7)';
         }
 
         const now = new Date();
         const dateStr = now.toISOString().slice(0, 10);
         const nameInput = document.getElementById('aiWizardLayoutName');
         if (nameInput && !nameInput.value) {
-            nameInput.value = `Recipe: Layout ${dateStr}`;
+            nameInput.value = `Living Room Movie Shelf – ${_wizardPresetLabel()} – ${dateStr}`;
         }
 
         if (!preview) return;
         preview.innerHTML = plan.placement.map(p => `
             <div style="margin-bottom:0.75rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem;">
-                <div style="font-weight:600; margin-bottom:0.4rem; color:#a78bfa;">📚 ${escapeHtml(p.shelf_name)}</div>
+                <div style="font-weight:600; margin-bottom:0.4rem; color:#a78bfa; display:flex; justify-content:space-between;">
+                    <span>📚 ${escapeHtml(p.shelf_name)}</span>
+                    <span style="font-weight:400; font-size:0.8rem; color:rgba(255,255,255,0.45);">${p.ordered_items.length} item${p.ordered_items.length !== 1 ? 's' : ''}</span>
+                </div>
                 <div style="color:rgba(255,255,255,0.7); font-size:0.85rem; line-height:1.6;">
                     ${p.ordered_items.map(i => escapeHtml(i.title)).join(' · ')}
                 </div>
