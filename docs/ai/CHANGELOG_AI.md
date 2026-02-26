@@ -4,6 +4,62 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-26 (branch: claude/fix-wizard-sql-typeahead-version-auto)
+
+### fix: wizard plan SQL binding and validation (v2.8.1)
+
+**Root cause of `SQLSTATE[HY000]: General error: 25`:**
+`array_unique()` preserves original array keys. PHP PDO uses the numeric
+key as the 1-based SQLite bind index when executing positional `?`
+statements. With non-sequential keys (e.g. `[0, 2]` for 2 unique movies
+from 3 copies) PDO tries to bind at index 3 for a 2-placeholder query →
+`SQLITE_RANGE` (error 25). Fix: `array_values(array_unique(...))`.
+
+**Other fixes in `api.php` → `generate_recipe_plan`:**
+- Empty `values[]` in a recipe section now matches any item that HAS any
+  value for that type (instead of matching nothing). Makes Genre A-Z and
+  R/Kids presets work as expected.
+- Added clear `400` errors: "No items found" and "No shelves found".
+- Clamped shelf capacity to `max(1, ...)` everywhere in fill logic.
+- Fixed operator-precedence bug in fill-loop condition (added parens).
+
+**New API actions:**
+- `search_metadata_values` — `{type, q}` → `{results:[{id,name}], empty_hint?}`
+- `list_metadata_values` — alias of above with `q=''`
+  Both fall back to `movies` table text fields when metadata tables are
+  empty, and include `empty_hint` pointing to Admin Backfill.
+
+### feat: metadata typeahead selectors + VersionGuard + status banner (v2.8.2)
+
+#### VersionGuard rule (new mandatory rule for all future commits)
+Every commit that changes JS, HTML, CSS, service worker, or API
+behaviour affecting frontend data **must** bump `version.json` PATCH +1
+and update `APP_VERSION` in `app.js` to match.
+
+`checkVersionGuard()` runs on `DOMContentLoaded`, fetches
+`/get-version.php`, and `console.warn`s if server version ≠ script
+version.
+
+#### Typeahead chip selectors (wizard section builder)
+| Function | File | Purpose |
+|----------|------|---------|
+| `_renderChips(sec)` | `app.js` | Renders removable purple chip spans |
+| `_wizardTypeaheadSearch(sid,type,el)` | `app.js` | Debounced 250ms, calls `search_metadata_values`, populates `<datalist>` |
+| `wizardAddChip(sid,el)` | `app.js` | Adds chip in-place (no full re-render) |
+| `wizardRemoveChip(sid,val)` | `app.js` | Removes chip in-place |
+| `_wizardSectionChange` | `app.js` | Now clears chips + datalist on type switch |
+
+Section rows now use chip display + `<input list="...">` + `<datalist>`
+instead of a plain comma-separated text field.
+Empty chip list shows "blank = match all" hint.
+
+#### Metadata status banner (Part 4)
+- `#wizardMetadataBanner` added to `index.html` (hidden by default)
+- `_checkWizardMetadataStatus()` called on `showAIWizardModal()`; shows
+  amber warning if < 50% of movies are enriched — never blocks.
+
+---
+
 ## 2026-02-25
 
 ### chore: add AI project memory system

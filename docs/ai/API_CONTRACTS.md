@@ -103,6 +103,18 @@
 
 **placement item shape**: `{ shelf_id, shelf_name, ordered_items: [{ copy_id|null, container_id|null, is_container, title }] }`
 
+### Metadata Value Search — Typeahead (v6.1.0)
+
+| Action | Required Params | Optional | Returns |
+|--------|----------------|----------|---------|
+| `search_metadata_values` | `type` | `q` (search string, default `''`) | `{ results:[{id,name}], type, q, empty_hint? }` |
+| `list_metadata_values` | `type` | — | same as above with `q=''` (top 30 values) |
+
+**type values**: `director`, `studio`, `genre`, `cert`, `tag`
+
+- Falls back to `movies` text columns when metadata tables are empty.
+- `empty_hint` is set when no results found, directing user to run Backfill.
+
 ### Metadata & User Tags (v6.0.0)
 
 | Action | Required Params | Optional Params | Returns |

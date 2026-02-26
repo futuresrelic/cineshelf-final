@@ -59,3 +59,16 @@ UMDB_API_KEY            UMDB key (optional, for edition push)
 DEBUG_MODE              true/false
 PORT                    Set by Railway automatically
 ```
+
+## Versioning Rule (mandatory since v2.8.1)
+
+Every commit touching `js/*.js`, `index.html`, `css/`, `service-worker*.js`, or
+API behaviour visible to the frontend **must**:
+1. Bump `version.json` PATCH +1 (e.g. 2.8.1 → 2.8.2).
+2. Update `APP_VERSION` constant in `js/app.js` to match.
+3. Include `version.json` in the same commit.
+
+Docs-only commits do NOT bump the version.
+
+`checkVersionGuard()` (called on DOMContentLoaded) fetches `/get-version.php`
+and `console.warn`s if server version ≠ script version.

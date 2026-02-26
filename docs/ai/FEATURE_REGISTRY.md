@@ -25,7 +25,7 @@ Tracks which features exist, their status, and where their code lives.
 
 | Shelf Layout Profiles | ✅ Live | `index.html` (selector + manage modal) | `api.php` → `list/create/rename/delete/duplicate/set_active/save/apply_shelf_layout` |
 | AI Organization Wizard | ✅ Live | `index.html` (AI Wizard modal) | `api.php` → `generate_shelf_plan`, `generate_shelf_plan_ai`, `apply_wizard_plan` |
-| Recipe Layout Wizard | ✅ Live | `index.html` (`#aiWizardModal` — recipe builder) | `api.php` → `generate_recipe_plan`, `apply_recipe_as_new_layout` |
+| Recipe Layout Wizard | ✅ Live | `index.html` (`#aiWizardModal` — chip typeahead builder) | `api.php` → `generate_recipe_plan`, `apply_recipe_as_new_layout`, `search_metadata_values` |
 | Persistent Metadata Tables | ✅ Live | — (backfill via API) | `api.php` → `backfill_movie_metadata`, `get_metadata_status` |
 | User Tagging | ✅ Live | — (tags used as wizard section criteria) | `api.php` → `list/create/delete_user_tag`, `set/get_entity_tags` |
 
@@ -47,3 +47,4 @@ Tracks which features exist, their status, and where their code lives.
 - v4.1.0 — UMDB two-way linking
 - v5.0.0 — Shelf Layout Profiles + AI Organization Wizard
 - v6.0.0 — Recipe Layout Wizard, Persistent Metadata Tables, User Tagging
+- v6.1.0 / v2.8.1-2 — SQL bind fix, typeahead chip selectors, VersionGuard, metadata status banner
