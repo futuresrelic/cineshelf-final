@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CineShelf Version Manager</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,84 +15,77 @@
             justify-content: center;
             padding: 20px;
         }
-        
         .container {
             background: white;
             border-radius: 16px;
             padding: 3rem;
-            max-width: 500px;
+            max-width: 520px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        
-        h1 {
-            color: #667eea;
-            margin-bottom: 0.5rem;
-            font-size: 2rem;
+        h1 { color: #667eea; margin-bottom: 0.5rem; font-size: 2rem; }
+        .subtitle { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+
+        /* Version grid */
+        .version-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
         }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 2rem;
-            font-size: 0.9rem;
-        }
-        
-        .version-display {
+        .ver-box {
             background: #f5f5f5;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
+            border-radius: 10px;
+            padding: 1rem 0.75rem;
             text-align: center;
         }
-        
-        .version-label {
+        .ver-box.highlight { background: #eff6ff; border: 2px solid #667eea; }
+        .ver-label {
             color: #666;
-            font-size: 0.85rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 0.5rem;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.4rem;
         }
-        
-        .version-number {
-            font-size: 3rem;
+        .ver-number {
+            font-size: 1.55rem;
             font-weight: 700;
             color: #667eea;
             font-family: 'Courier New', monospace;
         }
-        
-        .last-updated {
-            color: #999;
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
+        .last-updated { color: #999; font-size: 0.78rem; margin-top: 0.4rem; }
+
+        /* Mismatch banner */
+        .mismatch-banner {
+            display: none;
+            background: #fff7ed;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #92400e;
         }
-        
+
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
+            color: white; border: none;
             padding: 1rem 2rem;
             border-radius: 8px;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 600;
             cursor: pointer;
             width: 100%;
             transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
         }
-        
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            margin-top: 0.75rem;
         }
-        
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
+
         .status {
             margin-top: 1.5rem;
             padding: 1rem;
@@ -105,142 +93,162 @@
             font-size: 0.9rem;
             display: none;
         }
-        
-        .status.success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #10b981;
-        }
-        
-        .status.error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #ef4444;
-        }
-        
+        .status.success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .status.error   { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+
         .info-box {
             background: #eff6ff;
             border: 1px solid #3b82f6;
             border-radius: 8px;
             padding: 1rem;
-            margin-top: 2rem;
-            font-size: 0.85rem;
+            margin-top: 1.5rem;
+            font-size: 0.82rem;
             color: #1e40af;
         }
-        
-        .info-box strong {
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-        
+        .info-box strong { display: block; margin-bottom: 0.4rem; }
         .back-link {
             display: inline-block;
             margin-top: 1.5rem;
             color: #667eea;
             text-decoration: none;
             font-size: 0.9rem;
-            transition: opacity 0.2s;
         }
-        
-        .back-link:hover {
-            opacity: 0.7;
-        }
+        .back-link:hover { opacity: 0.7; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎬 Version Manager</h1>
-        <p class="subtitle">CineShelf Cache Busting Tool</p>
-        
-        <div class="version-display">
-            <div class="version-label">Current Version</div>
-            <div class="version-number" id="currentVersion">Loading...</div>
+<div class="container">
+    <h1>🎬 Version Manager</h1>
+    <p class="subtitle">CineShelf Cache Busting Tool</p>
+
+    <!-- Three-version display -->
+    <div class="version-grid">
+        <div class="ver-box">
+            <div class="ver-label">Repo</div>
+            <div class="ver-number" id="repoVersion">…</div>
+            <div class="last-updated" style="font-size:0.7rem; color:#aaa;">source code</div>
+        </div>
+        <div class="ver-box">
+            <div class="ver-label">Persisted</div>
+            <div class="ver-number" id="persistedVersion">…</div>
+            <div class="last-updated" style="font-size:0.7rem; color:#aaa;">data volume</div>
+        </div>
+        <div class="ver-box highlight">
+            <div class="ver-label">Effective</div>
+            <div class="ver-number" id="effectiveVersion">…</div>
             <div class="last-updated" id="lastUpdated"></div>
         </div>
-        
-        <button class="btn" id="bumpBtn" onclick="bumpVersion()">
-            <span>⬆️</span>
-            <span>Bump Version & Clear Cache</span>
-        </button>
-        
-        <div class="status" id="status"></div>
-        
-        <div class="info-box">
-            <strong>What this does:</strong>
-            • Increments patch version (e.g., 2.1.1 → 2.1.2)<br>
-            • Forces all users to reload CSS/JS files<br>
-            • Clears service worker cache<br>
-            • Use after deploying CSS/JS changes
-        </div>
-        
-        <a href="/" class="back-link">← Back to CineShelf</a>
     </div>
-    
-    <script>
-        // Load current version on page load
-        loadVersion();
-        
-        function loadVersion() {
-            fetch('/get-version.php')
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('currentVersion').textContent = data.version;
-                    
-                    if (data.updated) {
-                        const date = new Date(data.updated);
-                        document.getElementById('lastUpdated').textContent = 
-                            'Updated: ' + date.toLocaleString();
-                    }
-                })
-                .catch(err => {
-                    document.getElementById('currentVersion').textContent = 'Error';
-                    showStatus('Failed to load version', 'error');
-                });
-        }
-        
-        function bumpVersion() {
-            const btn = document.getElementById('bumpBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span><span>Bumping version...</span>';
-            
-            fetch('/admin/bump-version.php', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus(data.message, 'success');
-                        
-                        // Update display
-                        document.getElementById('currentVersion').textContent = data.newVersion;
-                        document.getElementById('lastUpdated').textContent = 
-                            'Updated: ' + new Date().toLocaleString();
-                        
-                        // Show additional instruction
-                        setTimeout(() => {
-                            showStatus(
-                                'Version bumped! Users will get fresh files on next visit. ' +
-                                'You may need to hard refresh (Ctrl+Shift+R) to see changes.',
-                                'success'
-                            );
-                        }, 1500);
-                    } else {
-                        showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
-                    }
-                })
-                .catch(err => {
-                    showStatus('Network error: ' + err.message, 'error');
-                })
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<span>⬆️</span><span>Bump Version & Clear Cache</span>';
-                });
-        }
-        
-        function showStatus(message, type) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = 'status ' + type;
-            status.style.display = 'block';
-        }
-    </script>
+
+    <!-- Mismatch alert -->
+    <div class="mismatch-banner" id="mismatchBanner">
+        ⚠ Repo version is newer than persisted version. Click <strong>Sync to Repo Version</strong> to align.
+    </div>
+
+    <button class="btn" id="bumpBtn" onclick="bumpVersion()">
+        <span>⬆️</span><span>Bump Version &amp; Clear Cache</span>
+    </button>
+
+    <button class="btn btn-secondary" id="syncBtn" onclick="syncVersion()" style="display:none;">
+        <span>🔄</span><span>Sync to Repo Version</span>
+    </button>
+
+    <div class="status" id="status"></div>
+
+    <div class="info-box">
+        <strong>How it works:</strong>
+        <b>Repo</b> = version.json in source code (set by developer commits).<br>
+        <b>Persisted</b> = data/version.json on Railway volume (survives deploys).<br>
+        <b>Effective</b> = what users actually see (= persisted after auto-sync).<br><br>
+        On each deploy: if Repo &gt; Persisted, the system auto-upgrades Persisted.<br>
+        <b>Bump</b> increments Persisted patch for manual cache busting.
+    </div>
+
+    <a href="/" class="back-link">← Back to CineShelf</a>
+</div>
+
+<script>
+    loadVersion();
+
+    function loadVersion() {
+        fetch('/get-version.php?t=' + Date.now())
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('repoVersion').textContent      = data.repo_version      || data.version || '?';
+                document.getElementById('persistedVersion').textContent = data.persisted_version || data.version || '?';
+                document.getElementById('effectiveVersion').textContent = data.effective_version || data.version || '?';
+
+                if (data.updated) {
+                    document.getElementById('lastUpdated').textContent =
+                        new Date(data.updated).toLocaleString();
+                }
+
+                const repoV      = data.repo_version      || '';
+                const persistedV = data.persisted_version || '';
+                const mismatch   = repoV && persistedV && repoV !== persistedV;
+                document.getElementById('mismatchBanner').style.display = mismatch ? 'block' : 'none';
+                document.getElementById('syncBtn').style.display        = mismatch ? 'block' : 'none';
+            })
+            .catch(() => {
+                document.getElementById('effectiveVersion').textContent = 'Error';
+                showStatus('Failed to load version', 'error');
+            });
+    }
+
+    function bumpVersion() {
+        const btn = document.getElementById('bumpBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Bumping…</span>';
+
+        fetch('/admin/bump-version.php', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    setTimeout(loadVersion, 300);
+                } else {
+                    showStatus('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            })
+            .catch(err => showStatus('Network error: ' + err.message, 'error'))
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<span>⬆️</span><span>Bump Version &amp; Clear Cache</span>';
+            });
+    }
+
+    function syncVersion() {
+        const btn = document.getElementById('syncBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Syncing…</span>';
+
+        fetch('/api/api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'admin_sync_version' })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    showStatus('Synced to v' + data.data.synced_version, 'success');
+                    setTimeout(loadVersion, 300);
+                } else {
+                    showStatus('Sync error: ' + (data.error || 'Unknown'), 'error');
+                }
+            })
+            .catch(err => showStatus('Network error: ' + err.message, 'error'))
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🔄</span><span>Sync to Repo Version</span>';
+            });
+    }
+
+    function showStatus(msg, type) {
+        const el = document.getElementById('status');
+        el.textContent = msg;
+        el.className = 'status ' + type;
+        el.style.display = 'block';
+    }
+</script>
 </body>
 </html>

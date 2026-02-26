@@ -2836,6 +2836,31 @@ case 'resolve_movie':
         // ADMIN USER DATA MANAGEMENT
         // ========================================
 
+        case 'admin_sync_version': {
+            // Sync persisted data/version.json to repo version.json (admin only)
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin access required');
+            }
+            $sourceFile = __DIR__ . '/../version.json';
+            $volumeFile = __DIR__ . '/../../data/version.json';
+            // Try the volume path relative to app root
+            $altVolume  = dirname(__DIR__) . '/data/version.json';
+            $vFile = file_exists($altVolume) ? $altVolume : $volumeFile;
+
+            if (!file_exists($sourceFile)) {
+                jsonResponse(false, null, 'Source version.json not found');
+            }
+            $repoData = json_decode(file_get_contents($sourceFile), true) ?: [];
+            $repoVersion = $repoData['version'] ?? '2.0.0';
+            $dir = dirname($vFile);
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            $repoData['updated'] = date('c');
+            $repoData['source']  = 'admin-sync';
+            file_put_contents($vFile, json_encode($repoData, JSON_PRETTY_PRINT));
+            jsonResponse(true, ['synced_version' => $repoVersion, 'file' => $vFile]);
+            break;
+        }
+
         case 'admin_list_users':
             // List all users with their collection/wishlist counts (admin only)
             if (!$currentUser['is_admin']) {
