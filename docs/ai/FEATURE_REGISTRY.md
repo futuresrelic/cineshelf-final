@@ -23,7 +23,7 @@ Tracks which features exist, their status, and where their code lives.
 | Admin seed data | ✅ Live | — | `api.php` → `admin_seed_fight_club` |
 | User data export | ✅ Live | `user-data-manager.html` | `api.php` |
 
-| Shelf Layout Profiles | ✅ Live | `index.html` (selector + manage modal) | `api.php` → `list/create/rename/delete/duplicate/set_active/save/apply_shelf_layout` |
+| Shelf Layout Profiles | ✅ Live | `index.html` (selector + manage modal + ➕ New Empty Layout dialog) | `api.php` → `list/create/rename/delete/duplicate/set_active/save/apply_shelf_layout`, `create_empty_layout` |
 | AI Organization Wizard | ✅ Live | `index.html` (AI Wizard modal) | `api.php` → `generate_shelf_plan`, `generate_shelf_plan_ai`, `apply_wizard_plan` |
 | Recipe Layout Wizard | ✅ Live | `index.html` (`#aiWizardModal` — chip typeahead builder) | `api.php` → `generate_recipe_plan`, `apply_recipe_as_new_layout`, `search_metadata_values` |
 | Persistent Metadata Tables | ✅ Live | — (backfill via API) | `api.php` → `backfill_movie_metadata`, `get_metadata_status` |
@@ -52,3 +52,4 @@ Tracks which features exist, their status, and where their code lives.
 - v6.0.0 — Recipe Layout Wizard, Persistent Metadata Tables, User Tagging
 - v6.1.0 / v2.8.1-2 — SQL bind fix, typeahead chip selectors, VersionGuard, metadata status banner
 - v6.2.0 / v2.8.3-6 — Version auto-sync, wizard preview improvements, word cloud picker, shelf unit capacity config
+- v6.3.0 / v2.8.7-8 — Pick modal z-index fix, new empty layout creation flow, empty layout state UX

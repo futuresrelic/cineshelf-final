@@ -4,6 +4,62 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-26 (branch: claude/continue-cineshelf-setup-acofW)
+
+### fix: pick modal layered above wizard modal (v2.8.7)
+
+**Root cause**: `.modal` CSS class sets `z-index: 2000`. `#aiWizardModal` inherits
+this. `#cloudPickerModal` had an inline `z-index: 1100` which is less than 2000,
+so the wizard overlays the picker.
+
+**Fix**:
+- `css/styles.css`: Override `#aiWizardModal { z-index: 1000; }` and
+  `#cloudPickerModal { z-index: 1100; }`. Add `.modal--inactive { pointer-events: none; }`.
+- `index.html`: Remove now-redundant inline `z-index:1100` from `#cloudPickerModal`.
+- `js/app.js`:
+  - `openCloudPicker()`: adds `modal--inactive` class to wizard so it can't
+    receive clicks while picker is open.
+  - `closeCloudPicker()`: removes `modal--inactive` class, restoring wizard interaction.
+  - New global ESC key handler closes topmost open modal in order:
+    cloud picker → wizard → new-empty-layout dialog.
+
+### feat: new empty layout from layout selector + empty layout state UI (v2.8.8)
+
+#### Part 2 — New Empty Layout UI (index.html + app.js)
+- `#layoutProfileSelect` now has `➕ New Empty Layout…` option (`value="__new__"`).
+- Selecting it resets the dropdown and opens `#newEmptyLayoutModal`.
+- `#newEmptyLayoutModal`: name input (required), "Set as active immediately" checkbox,
+  Create + Cancel buttons. Enter key submits.
+- New JS functions: `showNewEmptyLayoutModal`, `closeNewEmptyLayoutModal`,
+  `confirmNewEmptyLayout` (calls `create_empty_layout` API → refresh list + shelves).
+
+#### Part 3 — create_empty_layout API (api.php)
+| Action | Params | Returns |
+|--------|--------|---------|
+| `create_empty_layout` | `name` (required), `set_active` (bool, optional) | `{layout_id, name, is_active}` |
+
+- Inserts a new `shelf_layout_profiles` row with NO entries (empty layout).
+- If `set_active=true`: deactivates all other layouts first.
+- Does NOT clone shelves or layout entries.
+
+#### Part 4 — Empty layout state UX (index.html + app.js)
+- `#emptyShelves` heading and text are now dynamic (IDs: `emptyShelvesHeading`,
+  `emptyShelvesText`).
+- `renderShelves()`: when `shelves.length === 0`, checks `layoutProfiles` for an
+  active profile. If found → "This layout has no shelves yet." / wizard tip.
+  If not → original "No shelves yet" message.
+- Both states show **Create Shelf** + **✨ Run Wizard** buttons.
+
+| File | Change |
+|------|--------|
+| `css/styles.css` | z-index stack rules for wizard/picker modals |
+| `index.html` | #newEmptyLayoutModal; enhanced #emptyShelves; cloudPickerModal inline z-index removed |
+| `js/app.js` | openCloudPicker/closeCloudPicker modal--inactive; ESC handler; _renderLayoutSelector option; onLayoutProfileChange handler; show/close/confirmNewEmptyLayout; renderShelves empty-state logic; APP_VERSION → 2.8.7 → 2.8.8 |
+| `api/api.php` | create_empty_layout action |
+| `version.json` | 2.8.7 → 2.8.8 |
+
+---
+
 ## 2026-02-26 (branch: claude/version-sync-wizard-shelfunit-livingroom)
 
 ### fix: unify version system and auto-sync on deploy (v2.8.3)

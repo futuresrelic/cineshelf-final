@@ -63,6 +63,9 @@
 | `duplicate_shelf_layout` | `layout_id`, `name` (opt) | `{ layout_id, name }` |
 | `save_current_to_layout` | `layout_id` | `{ saved: count }` — snapshots current `shelf_assignments` into layout |
 | `apply_shelf_layout` | `layout_id` | `{ applied: count }` — replaces `shelf_assignments` from layout entries |
+| `create_empty_layout` | `name` | `{ layout_id, name, is_active }` — blank profile, no entries cloned |
+
+`create_empty_layout` optional param: `set_active` (bool). If true, deactivates all other layouts first.
 
 ### AI Organization Wizard (v5.0.0 — single-strategy, kept for backward compat)
 
