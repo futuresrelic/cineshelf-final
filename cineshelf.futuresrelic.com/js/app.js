@@ -10191,7 +10191,9 @@ async function getCurrentUserId() {
     // ========================================
 
     let layoutProfiles = [];
-    let _wizardPlan = null; // last generated plan
+    let _wizardPlan = null;        // last generated plan
+    let _wizardSections = [];      // recipe sections being built
+    let _sectionIdCounter = 0;     // auto-increment for section IDs
 
     async function loadLayoutProfiles() {
         try {
@@ -10336,7 +10338,7 @@ async function getCurrentUserId() {
     }
 
     // ========================================
-    // AI ORGANIZATION WIZARD (v5.0.0)
+    // RECIPE LAYOUT WIZARD (v6.0.0)
     // ========================================
 
     function showAIWizardModal() {
@@ -10348,7 +10350,9 @@ async function getCurrentUserId() {
         if (sel && shelves) {
             sel.innerHTML = shelves.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         }
-        // Reset to step 1
+        // Start with one blank section if none exist
+        if (_wizardSections.length === 0) wizardAddSection();
+        _renderWizardSections();
         _aiWizardShowStep(1);
     }
 
@@ -10363,28 +10367,119 @@ async function getCurrentUserId() {
         document.getElementById('aiWizardLoading').style.display = step === 'loading' ? 'block' : 'none';
     }
 
+    function _renderWizardSections() {
+        const list = document.getElementById('wizardSectionList');
+        if (!list) return;
+        if (_wizardSections.length === 0) {
+            list.innerHTML = '<p style="color:rgba(255,255,255,0.4); font-size:0.85rem; text-align:center; padding:0.75rem 0;">No sections yet — add one or pick a preset.</p>';
+            return;
+        }
+        list.innerHTML = _wizardSections.map((sec, idx) => `
+            <div class="wizard-section-row" style="background:rgba(255,255,255,0.07); border-radius:8px; padding:0.65rem 0.75rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                <span style="color:rgba(255,255,255,0.4); font-size:0.8rem; min-width:1.2rem;">${idx + 1}.</span>
+                <select data-sid="${sec.id}" data-field="type"
+                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                    onchange="App._wizardSectionChange(this)">
+                    <option value="genre"${sec.type==='genre'?' selected':''}>Genre</option>
+                    <option value="director"${sec.type==='director'?' selected':''}>Director</option>
+                    <option value="studio"${sec.type==='studio'?' selected':''}>Studio</option>
+                    <option value="certification"${sec.type==='certification'?' selected':''}>Rating (cert.)</option>
+                    <option value="user_tag"${sec.type==='user_tag'?' selected':''}>User Tag</option>
+                </select>
+                <input type="text" data-sid="${sec.id}" data-field="values"
+                    value="${escapeHtml(sec.values.join(', '))}"
+                    placeholder="Values (comma-sep, blank=all)"
+                    style="flex:1; min-width:140px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                    onchange="App._wizardSectionChange(this)">
+                <select data-sid="${sec.id}" data-field="sort"
+                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                    onchange="App._wizardSectionChange(this)">
+                    <option value="title"${sec.sort==='title'?' selected':''}>A-Z</option>
+                    <option value="year"${sec.sort==='year'?' selected':''}>Year</option>
+                    <option value="rating"${sec.sort==='rating'?' selected':''}>Rating ↓</option>
+                </select>
+                <select data-sid="${sec.id}" data-field="direction"
+                    style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                    onchange="App._wizardSectionChange(this)">
+                    <option value="top"${sec.direction==='top'?' selected':''}>Top shelves</option>
+                    <option value="bottom"${sec.direction==='bottom'?' selected':''}>Bottom shelves</option>
+                </select>
+                <button onclick="App.wizardRemoveSection('${sec.id}')" title="Remove section"
+                    style="background:transparent; border:none; color:rgba(255,100,100,0.8); font-size:1.1rem; cursor:pointer; padding:0.2rem 0.4rem; line-height:1;">&#10005;</button>
+            </div>
+        `).join('');
+    }
+
+    function _wizardSectionChange(el) {
+        const sid = el.dataset.sid;
+        const field = el.dataset.field;
+        const sec = _wizardSections.find(s => s.id === sid);
+        if (!sec) return;
+        if (field === 'values') {
+            sec.values = el.value.split(',').map(v => v.trim()).filter(Boolean);
+        } else {
+            sec[field] = el.value;
+        }
+    }
+
+    function wizardAddSection() {
+        _sectionIdCounter++;
+        _wizardSections.push({ id: 's' + _sectionIdCounter, type: 'genre', values: [], sort: 'title', direction: 'top' });
+        _renderWizardSections();
+    }
+
+    function wizardRemoveSection(id) {
+        _wizardSections = _wizardSections.filter(s => s.id !== id);
+        _renderWizardSections();
+    }
+
+    function wizardApplyPreset(name) {
+        _wizardSections = [];
+        _sectionIdCounter = 0;
+        if (name === 'r-kids-rest') {
+            _wizardSections = [
+                { id: 's1', type: 'certification', values: ['R'], sort: 'title', direction: 'top' },
+                { id: 's2', type: 'certification', values: ['G', 'PG', 'PG-13'], sort: 'title', direction: 'bottom' },
+            ];
+            _sectionIdCounter = 2;
+        } else if (name === 'directors-studios-rest') {
+            _wizardSections = [
+                { id: 's1', type: 'director', values: [], sort: 'rating', direction: 'top' },
+                { id: 's2', type: 'studio', values: [], sort: 'title', direction: 'top' },
+            ];
+            _sectionIdCounter = 2;
+        } else if (name === 'genre-az') {
+            _wizardSections = [
+                { id: 's1', type: 'genre', values: [], sort: 'title', direction: 'top' },
+            ];
+            _sectionIdCounter = 1;
+        }
+        const remSort = document.getElementById('wizardRemainderSort');
+        if (remSort) remSort.value = 'title';
+        _renderWizardSections();
+    }
+
     async function generateWizardPlan() {
-        const strategy = document.querySelector('input[name="wizardStrategy"]:checked')?.value || 'genre';
+        const sections = _wizardSections.map(s => ({ ...s }));
+        const remainderSort = document.getElementById('wizardRemainderSort')?.value || 'title';
         const includeWishlist = document.getElementById('wizardIncludeWishlist')?.checked || false;
         const includeBoxsets = document.getElementById('wizardIncludeBoxsets')?.checked || false;
-        const minRating = parseFloat(document.getElementById('wizardMinRating')?.value || '0');
-        const useAI = document.getElementById('wizardUseAI')?.checked !== false;
         const targetSel = document.getElementById('wizardTargetShelves');
         const targetShelves = targetSel ? Array.from(targetSel.selectedOptions).map(o => parseInt(o.value)) : [];
 
-        _aiWizardShowStep('loading');
+        const recipe = {
+            sections,
+            remainder: { sort: remainderSort, include_wishlist: includeWishlist, include_boxsets: includeBoxsets },
+        };
 
+        _aiWizardShowStep('loading');
         try {
-            const action = useAI ? 'generate_shelf_plan_ai' : 'generate_shelf_plan';
-            const plan = await apiCall(action, {
-                strategy,
-                include_wishlist: includeWishlist,
-                include_boxsets: includeBoxsets,
-                min_rating: minRating,
+            const plan = await apiCall('generate_recipe_plan', {
+                recipe,
                 target_shelves: targetShelves,
             });
             _wizardPlan = plan;
-            _renderWizardPreview(plan, strategy);
+            _renderWizardPreview(plan);
             _aiWizardShowStep(2);
         } catch (e) {
             _aiWizardShowStep(1);
@@ -10392,21 +10487,21 @@ async function getCurrentUserId() {
         }
     }
 
-    function _renderWizardPreview(plan, strategy) {
+    function _renderWizardPreview(plan) {
         const summary = document.getElementById('aiWizardPlanSummary');
         const preview = document.getElementById('aiWizardPlanPreview');
         const badge = document.getElementById('aiWizardAIBadge');
-        if (badge) badge.style.display = plan.ai_enhanced ? 'inline-block' : 'none';
+        if (badge) badge.style.display = 'none';
 
         if (summary) {
-            summary.textContent = `${plan.total_items} items organized into ${plan.sections.length} sections across ${plan.shelves_used} shelf${plan.shelves_used !== 1 ? 'ves' : ''}.`;
+            summary.textContent = `${plan.total_items} items organized across ${plan.shelves_used} shelf${plan.shelves_used !== 1 ? 'ves' : ''}.`;
         }
 
         const now = new Date();
         const dateStr = now.toISOString().slice(0, 10);
         const nameInput = document.getElementById('aiWizardLayoutName');
         if (nameInput && !nameInput.value) {
-            nameInput.value = `AI: ${strategy.charAt(0).toUpperCase() + strategy.slice(1)} ${dateStr}`;
+            nameInput.value = `Recipe: Layout ${dateStr}`;
         }
 
         if (!preview) return;
@@ -10422,6 +10517,8 @@ async function getCurrentUserId() {
 
     function aiWizardBackToStep1() {
         _wizardPlan = null;
+        const nameInput = document.getElementById('aiWizardLayoutName');
+        if (nameInput) nameInput.value = '';
         _aiWizardShowStep(1);
     }
 
@@ -10432,13 +10529,14 @@ async function getCurrentUserId() {
         const setActive = document.getElementById('aiWizardSetActive')?.checked || false;
 
         try {
-            const res = await apiCall('apply_wizard_plan', {
+            const res = await apiCall('apply_recipe_as_new_layout', {
                 name,
                 placement: _wizardPlan.placement,
                 set_active: setActive,
             });
             showToast(`Layout "${name}" saved with ${res.entries} entries!`, 'success');
             _wizardPlan = null;
+            _wizardSections = [];
             closeAIWizardModal();
             await loadLayoutProfiles();
             if (setActive) await loadShelves();
@@ -10702,13 +10800,17 @@ return {
     applyLayoutProfile,
 
     // ========================================
-    // AI ORGANIZER WIZARD PUBLIC API (v5.0.0)
+    // RECIPE WIZARD PUBLIC API (v6.0.0)
     // ========================================
     showAIWizardModal,
     closeAIWizardModal,
     generateWizardPlan,
     aiWizardBackToStep1,
-    applyWizardPlan
+    applyWizardPlan,
+    wizardApplyPreset,
+    wizardAddSection,
+    wizardRemoveSection,
+    _wizardSectionChange
 };
 
 })();

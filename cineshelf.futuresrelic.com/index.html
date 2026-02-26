@@ -2163,64 +2163,62 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     </div>
 </div>
 
-<!-- AI Organizer Wizard Modal -->
+<!-- Recipe Wizard Modal (replaces simple AI Wizard) -->
 <div id="aiWizardModal" class="modal">
-    <div class="modal-content modal-large">
+    <div class="modal-content modal-large" style="max-width:760px;">
         <div class="modal-header">
-            <h3>🤖 AI Organization Wizard</h3>
-            <button class="modal-close" onclick="App.closeAIWizardModal()">×</button>
+            <h3>🤖 Recipe Layout Wizard</h3>
+            <button class="modal-close" onclick="App.closeAIWizardModal()">&#215;</button>
         </div>
-        <div class="modal-body" id="aiWizardBody">
-            <!-- Step 1: Strategy -->
+        <div class="modal-body" id="aiWizardBody" style="padding:1.25rem;">
+
+            <!-- ── STEP 1: Build recipe ── -->
             <div id="aiWizardStep1">
-                <h4 style="margin-top:0;">Step 1: Choose organization strategy</h4>
-                <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.25rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="genre" checked> By Genre
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="director"> By Director
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="studio"> By Studio
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="franchise"> By Franchise / Series
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="decade"> By Decade
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="radio" name="wizardStrategy" value="awards"> Awards &amp; Prestige (rating &ge; 7)
-                    </label>
+
+                <!-- Presets -->
+                <div style="margin-bottom:1rem;">
+                    <span style="color:rgba(255,255,255,0.6); font-size:0.85rem; margin-right:0.5rem;">Presets:</span>
+                    <button class="btn-ghost" style="font-size:0.82rem; padding:0.25rem 0.6rem;" onclick="App.wizardApplyPreset('r-kids-rest')">R top / Kids bottom / Rest A-Z</button>
+                    <button class="btn-ghost" style="font-size:0.82rem; padding:0.25rem 0.6rem; margin-left:0.35rem;" onclick="App.wizardApplyPreset('directors-studios-rest')">Directors + Studios + Rest A-Z</button>
+                    <button class="btn-ghost" style="font-size:0.82rem; padding:0.25rem 0.6rem; margin-left:0.35rem;" onclick="App.wizardApplyPreset('genre-az')">Genre A-Z</button>
                 </div>
 
-                <h4>Step 2: Filters</h4>
-                <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.25rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="checkbox" id="wizardIncludeWishlist"> Include wishlist items
-                    </label>
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="checkbox" id="wizardIncludeBoxsets" checked> Include box sets as a unit
-                    </label>
-                    <div style="display:flex; align-items:center; gap:0.6rem;">
-                        <label>Minimum rating:</label>
-                        <input type="number" id="wizardMinRating" value="0" min="0" max="10" step="0.5"
-                            style="width:70px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.25rem 0.4rem;">
-                        <span style="color:rgba(255,255,255,0.6); font-size:0.85rem;">(0 = all)</span>
+                <!-- Section builder -->
+                <div style="margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
+                    <strong style="flex:1;">Sections <span style="color:rgba(255,255,255,0.5); font-weight:400; font-size:0.85rem;">(processed top-to-bottom; unmatched items go into remainder)</span></strong>
+                    <button class="btn" style="padding:0.3rem 0.75rem; font-size:0.85rem;" onclick="App.wizardAddSection()">+ Add Section</button>
+                </div>
+                <div id="wizardSectionList" style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem; min-height:40px;">
+                    <!-- sections injected here -->
+                </div>
+
+                <!-- Remainder -->
+                <div style="background:rgba(255,255,255,0.05); border-radius:8px; padding:0.75rem; margin-bottom:1rem;">
+                    <strong style="font-size:0.9rem;">Remainder</strong>
+                    <div style="display:flex; gap:1rem; margin-top:0.5rem; flex-wrap:wrap;">
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer;">
+                            Sort:
+                            <select id="wizardRemainderSort" style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.2rem 0.4rem;">
+                                <option value="title">A-Z by title</option>
+                                <option value="year">Year</option>
+                                <option value="rating">Rating (high first)</option>
+                            </select>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" id="wizardIncludeWishlist"> Include wishlist
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" id="wizardIncludeBoxsets"> Include box sets
+                        </label>
                     </div>
                 </div>
 
-                <h4>Step 3: Target shelves</h4>
-                <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin-top:-0.25rem;">Leave empty to use all your shelves.</p>
-                <select id="wizardTargetShelves" multiple
-                    style="width:100%; min-height:100px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem; margin-bottom:1rem;">
-                </select>
-                <p style="color:rgba(255,255,255,0.5); font-size:0.8rem; margin-top:-0.5rem;">Ctrl/Cmd+click to select multiple shelves</p>
-
-                <label style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; cursor:pointer;">
-                    <input type="checkbox" id="wizardUseAI" checked> Use AI for creative section names (falls back automatically if unavailable)
-                </label>
+                <!-- Target shelves -->
+                <div style="margin-bottom:1rem;">
+                    <label style="font-size:0.9rem; display:block; margin-bottom:0.35rem;">Target shelves <span style="color:rgba(255,255,255,0.5); font-size:0.8rem;">(leave empty = all your shelves)</span></label>
+                    <select id="wizardTargetShelves" multiple style="width:100%; min-height:80px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem;"></select>
+                    <p style="color:rgba(255,255,255,0.4); font-size:0.78rem; margin-top:0.25rem;">Ctrl/Cmd+click to select multiple</p>
+                </div>
 
                 <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
                     <button class="btn-ghost" onclick="App.closeAIWizardModal()">Cancel</button>
@@ -2230,20 +2228,19 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 </div>
             </div>
 
-            <!-- Step 2: Preview (hidden initially) -->
+            <!-- ── STEP 2: Preview ── -->
             <div id="aiWizardStep2" style="display:none;">
-                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
                     <button class="btn-ghost" onclick="App.aiWizardBackToStep1()">&#8592; Back</button>
                     <h4 style="margin:0; flex:1;">Plan Preview</h4>
                     <span id="aiWizardAIBadge" style="display:none; background:linear-gradient(135deg,#f093fb,#f5576c); color:white; padding:0.2rem 0.6rem; border-radius:12px; font-size:0.8rem;">&#10024; AI Enhanced</span>
                 </div>
-                <div id="aiWizardPlanSummary" style="margin-bottom:1rem; color:rgba(255,255,255,0.7); font-size:0.9rem;"></div>
-                <div id="aiWizardPlanPreview" style="max-height:350px; overflow-y:auto; margin-bottom:1rem;"></div>
+                <div id="aiWizardPlanSummary" style="margin-bottom:0.75rem; color:rgba(255,255,255,0.7); font-size:0.9rem;"></div>
+                <div id="aiWizardPlanPreview" style="max-height:320px; overflow-y:auto; margin-bottom:1rem;"></div>
                 <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-                    <label style="color:rgba(255,255,255,0.8); font-size:0.9rem;">Layout name:</label>
-                    <input type="text" id="aiWizardLayoutName" placeholder="AI: Genre 2026-02-25"
+                    <input type="text" id="aiWizardLayoutName" placeholder="Recipe: My Layout 2026-02-25"
                         style="flex:1; min-width:180px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem 0.6rem;">
-                    <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                    <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; font-size:0.9rem;">
                         <input type="checkbox" id="aiWizardSetActive"> Set as active
                     </label>
                     <button class="btn" onclick="App.applyWizardPlan()" style="background:linear-gradient(135deg,#667eea,#764ba2);">
@@ -2252,7 +2249,7 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 </div>
             </div>
 
-            <!-- Loading state -->
+            <!-- ── Loading ── -->
             <div id="aiWizardLoading" style="display:none; text-align:center; padding:3rem;">
                 <div style="font-size:2.5rem; margin-bottom:1rem;">&#8987;</div>
                 <p style="color:rgba(255,255,255,0.7);">Generating plan…</p>
