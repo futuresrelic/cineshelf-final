@@ -261,6 +261,90 @@ function getDb() {
         // Auto-migrate: shelf_layout_profiles.recipe_json (v5.1.0)
         try { $db->exec("ALTER TABLE shelf_layout_profiles ADD COLUMN recipe_json TEXT DEFAULT NULL"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Persistent Movie Metadata (v5.1.0)
+        // movie_people: directors, actors, writers per movie (role='director' used by wizard)
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS movie_people (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'director',
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_people_movie ON movie_people(movie_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_people_role ON movie_people(role)");
+            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_people_uniq ON movie_people(movie_id, name, role)");
+        } catch (PDOException $e) {}
+
+        // movie_studios: normalized studio list per movie
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS movie_studios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_studios_movie ON movie_studios(movie_id)");
+            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_studios_uniq ON movie_studios(movie_id, name)");
+        } catch (PDOException $e) {}
+
+        // movie_genres: normalized genre list per movie
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS movie_genres (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                tmdb_genre_id INTEGER,
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_genres_movie ON movie_genres(movie_id)");
+            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_genres_uniq ON movie_genres(movie_id, name)");
+        } catch (PDOException $e) {}
+
+        // movie_certifications: age ratings per region
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS movie_certifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_id INTEGER NOT NULL,
+                region TEXT NOT NULL DEFAULT 'US',
+                certification TEXT NOT NULL,
+                source TEXT DEFAULT 'tmdb',
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_certs_movie ON movie_certifications(movie_id)");
+            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_certs_uniq ON movie_certifications(movie_id, region)");
+        } catch (PDOException $e) {}
+
+        // Auto-migrate: User Tagging System (v5.1.0)
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS user_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#667eea',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_tags_uniq ON user_tags(user_id, name)");
+        } catch (PDOException $e) {}
+
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS user_tag_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                entity_type TEXT NOT NULL CHECK(entity_type IN ('movie','copy','container')),
+                entity_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES user_tags(id) ON DELETE CASCADE,
+                UNIQUE(user_id, entity_type, entity_id, tag_id)
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_tag_links_entity ON user_tag_links(entity_type, entity_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_tag_links_tag ON user_tag_links(tag_id)");
+        } catch (PDOException $e) {}
+
         return $db;
         
     } catch (PDOException $e) {

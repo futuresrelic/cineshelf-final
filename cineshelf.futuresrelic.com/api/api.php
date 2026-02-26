@@ -199,6 +199,40 @@ function resolveImageUrl($path) {
 }
 
 /**
+ * Seed enriched metadata tables from fields already stored in the movies table.
+ * Used when TMDB API is unavailable or as a quick first pass.
+ * @param PDO $db
+ * @param array $movie  Row from movies table (id, director, genre, studio, certification)
+ */
+function _backfillFromExistingFields($db, $movie) {
+    $movieId = intval($movie['id']);
+    // Director (stored as comma-sep or single name)
+    if (!empty($movie['director'])) {
+        foreach (array_filter(array_map('trim', explode(',', $movie['director']))) as $i => $name) {
+            try { $db->prepare("INSERT OR IGNORE INTO movie_people (movie_id, name, role, sort_order) VALUES (?, ?, 'director', ?)")
+                     ->execute([$movieId, $name, $i]); } catch (Exception $e) {}
+        }
+    }
+    // Genre (comma-separated text)
+    if (!empty($movie['genre'])) {
+        foreach (array_filter(array_map('trim', explode(',', $movie['genre']))) as $name) {
+            try { $db->prepare("INSERT OR IGNORE INTO movie_genres (movie_id, name) VALUES (?, ?)")
+                     ->execute([$movieId, $name]); } catch (Exception $e) {}
+        }
+    }
+    // Studio
+    if (!empty($movie['studio'])) {
+        try { $db->prepare("INSERT OR IGNORE INTO movie_studios (movie_id, name, sort_order) VALUES (?, ?, 0)")
+                 ->execute([$movieId, trim($movie['studio'])]); } catch (Exception $e) {}
+    }
+    // Certification
+    if (!empty($movie['certification'])) {
+        try { $db->prepare("INSERT OR IGNORE INTO movie_certifications (movie_id, region, certification, source) VALUES (?, 'US', ?, 'movies_table')")
+                 ->execute([$movieId, trim($movie['certification'])]); } catch (Exception $e) {}
+    }
+}
+
+/**
  * Extract movie titles and years from HTML content using OpenAI
  * @param string $htmlContent The HTML content to parse
  * @param string $articleTitle Optional article title for context
@@ -6735,6 +6769,526 @@ Return ONLY the JSON object, no markdown.'
             $stmt->execute([$userId]);
             $active = $stmt->fetch();
             jsonResponse(true, $active ?: null);
+            break;
+
+        // ================================================================
+        // USER TAGGING SYSTEM (v5.1.0)
+        // ================================================================
+
+        case 'list_user_tags':
+            $stmt = $db->prepare("SELECT * FROM user_tags WHERE user_id = ? ORDER BY name");
+            $stmt->execute([$userId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        case 'create_user_tag':
+            $tagName = sanitize($input['name'] ?? '', 60);
+            $tagColor = sanitize($input['color'] ?? '#667eea', 20);
+            if (empty($tagName)) { jsonResponse(false, null, 'Tag name required'); }
+            try {
+                $db->prepare("INSERT INTO user_tags (user_id, name, color) VALUES (?, ?, ?)")->execute([$userId, $tagName, $tagColor]);
+                jsonResponse(true, ['tag_id' => $db->lastInsertId(), 'name' => $tagName]);
+            } catch (PDOException $e) {
+                jsonResponse(false, null, 'Tag already exists');
+            }
+            break;
+
+        case 'delete_user_tag':
+            $tagId = intval($input['tag_id'] ?? 0);
+            if (!$tagId) { jsonResponse(false, null, 'Tag ID required'); }
+            $chk = $db->prepare("SELECT user_id FROM user_tags WHERE id = ?"); $chk->execute([$tagId]);
+            $t = $chk->fetch();
+            if (!$t || $t['user_id'] != $userId) { jsonResponse(false, null, 'Tag not found'); }
+            $db->prepare("DELETE FROM user_tags WHERE id = ?")->execute([$tagId]);
+            jsonResponse(true, ['deleted' => $tagId]);
+            break;
+
+        case 'set_entity_tags':
+            // Replace all tags for an entity with the given tag_ids array
+            $entityType = sanitize($input['entity_type'] ?? '', 20);
+            $entityId = intval($input['entity_id'] ?? 0);
+            $tagIds = array_map('intval', $input['tag_ids'] ?? []);
+            if (!in_array($entityType, ['movie','copy','container']) || !$entityId) {
+                jsonResponse(false, null, 'entity_type (movie|copy|container) and entity_id required');
+            }
+            $db->prepare("DELETE FROM user_tag_links WHERE user_id = ? AND entity_type = ? AND entity_id = ?")
+               ->execute([$userId, $entityType, $entityId]);
+            if (!empty($tagIds)) {
+                $ins = $db->prepare("INSERT OR IGNORE INTO user_tag_links (user_id, entity_type, entity_id, tag_id) VALUES (?, ?, ?, ?)");
+                foreach ($tagIds as $tid) { $ins->execute([$userId, $entityType, $entityId, $tid]); }
+            }
+            jsonResponse(true, ['entity_type' => $entityType, 'entity_id' => $entityId, 'tag_count' => count($tagIds)]);
+            break;
+
+        case 'get_entity_tags':
+            $entityType = sanitize($input['entity_type'] ?? '', 20);
+            $entityId = intval($input['entity_id'] ?? 0);
+            if (!in_array($entityType, ['movie','copy','container']) || !$entityId) {
+                jsonResponse(false, null, 'entity_type and entity_id required');
+            }
+            $stmt = $db->prepare("
+                SELECT ut.id, ut.name, ut.color
+                FROM user_tag_links utl
+                JOIN user_tags ut ON utl.tag_id = ut.id
+                WHERE utl.user_id = ? AND utl.entity_type = ? AND utl.entity_id = ?
+            ");
+            $stmt->execute([$userId, $entityType, $entityId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+
+        // ================================================================
+        // METADATA BACKFILL (v5.1.0)
+        // ================================================================
+
+        case 'get_metadata_status':
+            // Counts of movies in user library vs. how many have enriched metadata
+            $total = $db->prepare("SELECT COUNT(DISTINCT c.movie_id) FROM copies c WHERE c.user_id = ?");
+            $total->execute([$userId]); $totalCount = intval($total->fetchColumn());
+            $withDirs = $db->prepare("SELECT COUNT(DISTINCT mp.movie_id) FROM movie_people mp JOIN copies c ON mp.movie_id = c.movie_id WHERE c.user_id = ? AND mp.role = 'director'");
+            $withDirs->execute([$userId]); $dirsCount = intval($withDirs->fetchColumn());
+            $withGenres = $db->prepare("SELECT COUNT(DISTINCT mg.movie_id) FROM movie_genres mg JOIN copies c ON mg.movie_id = c.movie_id WHERE c.user_id = ?");
+            $withGenres->execute([$userId]); $genresCount = intval($withGenres->fetchColumn());
+            $withStudios = $db->prepare("SELECT COUNT(DISTINCT ms.movie_id) FROM movie_studios ms JOIN copies c ON ms.movie_id = c.movie_id WHERE c.user_id = ?");
+            $withStudios->execute([$userId]); $studiosCount = intval($withStudios->fetchColumn());
+            $withCerts = $db->prepare("SELECT COUNT(DISTINCT mc.movie_id) FROM movie_certifications mc JOIN copies c ON mc.movie_id = c.movie_id WHERE c.user_id = ?");
+            $withCerts->execute([$userId]); $certsCount = intval($withCerts->fetchColumn());
+            jsonResponse(true, [
+                'total_movies' => $totalCount,
+                'with_directors' => $dirsCount,
+                'with_genres' => $genresCount,
+                'with_studios' => $studiosCount,
+                'with_certifications' => $certsCount,
+                'complete_pct' => $totalCount > 0 ? round(($dirsCount / $totalCount) * 100) : 0,
+            ]);
+            break;
+
+        case 'backfill_movie_metadata':
+            // Fetch TMDB details for movies in this user's library that are missing enriched metadata.
+            // Processes up to $batchSize movies per request to avoid timeouts.
+            // Safe to call repeatedly — skips already-enriched movies.
+            $batchSize = intval($input['batch_size'] ?? 50);
+            if ($batchSize < 1 || $batchSize > 100) $batchSize = 50;
+
+            // Find movies in user library that don't have director metadata yet
+            $stmt = $db->prepare("
+                SELECT DISTINCT m.id, m.tmdb_id, m.media_type, m.director, m.genre, m.studio, m.certification
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.user_id = ?
+                  AND m.id NOT IN (SELECT DISTINCT movie_id FROM movie_people WHERE role = 'director')
+                LIMIT ?
+            ");
+            $stmt->execute([$userId, $batchSize]);
+            $toProcess = $stmt->fetchAll();
+
+            $processed = 0; $skipped = 0; $errors = [];
+
+            foreach ($toProcess as $movie) {
+                $tmdbId = $movie['tmdb_id'];
+                $mediaType = $movie['media_type'] ?? 'movie';
+
+                // Skip if no TMDB API key
+                if (empty(TMDB_API_KEY)) {
+                    // Fall back to parsing existing text fields from movies table
+                    _backfillFromExistingFields($db, $movie);
+                    $processed++;
+                    continue;
+                }
+
+                $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+                $url = TMDB_BASE_URL . '/' . $mediaType . '/' . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
+                $raw = @file_get_contents($url);
+                if (!$raw) { $errors[] = $tmdbId; $skipped++; continue; }
+                $data = json_decode($raw, true);
+                if (!$data) { $errors[] = $tmdbId; $skipped++; continue; }
+
+                $db->beginTransaction();
+                try {
+                    $movieId = $movie['id'];
+
+                    // Directors from credits
+                    $crew = $data['credits']['crew'] ?? [];
+                    foreach ($crew as $person) {
+                        if (($person['job'] ?? '') === 'Director' || ($person['department'] ?? '') === 'Directing') {
+                            $db->prepare("INSERT OR IGNORE INTO movie_people (movie_id, name, role, sort_order) VALUES (?, ?, 'director', ?)")
+                               ->execute([$movieId, $person['name'], $person['order'] ?? 0]);
+                        }
+                    }
+
+                    // Genres
+                    foreach (($data['genres'] ?? []) as $g) {
+                        $db->prepare("INSERT OR IGNORE INTO movie_genres (movie_id, name, tmdb_genre_id) VALUES (?, ?, ?)")
+                           ->execute([$movieId, $g['name'], $g['id']]);
+                    }
+
+                    // Studios / production companies (top 2)
+                    $companies = array_slice($data['production_companies'] ?? [], 0, 2);
+                    foreach ($companies as $i => $co) {
+                        $db->prepare("INSERT OR IGNORE INTO movie_studios (movie_id, name, sort_order) VALUES (?, ?, ?)")
+                           ->execute([$movieId, $co['name'], $i]);
+                    }
+
+                    // US certification
+                    $cert = '';
+                    if ($mediaType === 'tv') {
+                        foreach (($data['content_ratings']['results'] ?? []) as $r) {
+                            if ($r['iso_3166_1'] === 'US') { $cert = $r['rating'] ?? ''; break; }
+                        }
+                    } else {
+                        foreach (($data['release_dates']['results'] ?? []) as $r) {
+                            if ($r['iso_3166_1'] === 'US') {
+                                foreach (($r['release_dates'] ?? []) as $rd) {
+                                    if (!empty($rd['certification'])) { $cert = $rd['certification']; break; }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (!empty($cert)) {
+                        $db->prepare("INSERT OR REPLACE INTO movie_certifications (movie_id, region, certification) VALUES (?, 'US', ?)")
+                           ->execute([$movieId, $cert]);
+                    } elseif (!empty($movie['certification'])) {
+                        // Fall back to certification already stored in movies.certification
+                        $db->prepare("INSERT OR IGNORE INTO movie_certifications (movie_id, region, certification, source) VALUES (?, 'US', ?, 'movies_table')")
+                           ->execute([$movieId, $movie['certification']]);
+                    }
+
+                    $db->commit();
+                    $processed++;
+                } catch (Exception $ex) {
+                    $db->rollBack();
+                    $errors[] = $tmdbId . ': ' . $ex->getMessage();
+                    $skipped++;
+                }
+            }
+
+            // Also seed from existing movies table fields for any remaining un-seeded movies
+            // (handles the no-TMDB-key case and pre-enriched movies)
+            $quickSeed = $db->prepare("
+                SELECT DISTINCT m.id, m.director, m.genre, m.studio, m.certification
+                FROM copies c JOIN movies m ON c.movie_id = m.id
+                WHERE c.user_id = ?
+                  AND m.id NOT IN (SELECT DISTINCT movie_id FROM movie_people WHERE role = 'director')
+                LIMIT 200
+            ");
+            $quickSeed->execute([$userId]);
+            foreach ($quickSeed->fetchAll() as $m) {
+                _backfillFromExistingFields($db, $m);
+            }
+
+            jsonResponse(true, [
+                'processed' => $processed,
+                'skipped' => $skipped,
+                'errors' => $errors,
+                'remaining' => max(0, count($toProcess) - $processed - $skipped),
+            ]);
+            break;
+
+        // ================================================================
+        // RECIPE-BASED LAYOUT WIZARD (v5.1.0)
+        // ================================================================
+
+        case 'generate_recipe_plan':
+            /*
+             * Recipe JSON format:
+             * {
+             *   "sections": [
+             *     { "id":"s1", "type":"genre|director|studio|certification|user_tag",
+             *       "values":["Action","Thriller"],   <- string values OR tag IDs (int) for user_tag
+             *       "sort":"title|year|rating",       <- item sort order within section
+             *       "direction":"top|bottom"          <- top = add from start, bottom = append at end
+             *     }, ...
+             *   ],
+             *   "remainder": { "sort":"title", "include_wishlist":false }
+             * }
+             */
+            $recipe         = $input['recipe'] ?? [];
+            $targetShelves  = $input['target_shelf_ids'] ?? [];
+            $includeWishlist = !empty($input['options']['include_wishlist'] ?? $input['include_wishlist'] ?? false);
+            $includeBoxsets  = !empty($input['options']['include_boxsets'] ?? $input['include_boxsets'] ?? false);
+
+            if (empty($recipe['sections'])) {
+                jsonResponse(false, null, 'recipe.sections required');
+            }
+
+            // --- Build full item pool ---
+            $poolSql = "
+                SELECT c.id as copy_id, m.id as movie_id, m.title, m.rating, m.year,
+                       m.director, m.genre, m.studio, m.certification
+                FROM copies c
+                JOIN movies m ON c.movie_id = m.id
+                WHERE c.user_id = ?
+            ";
+            $poolStmt = $db->prepare($poolSql);
+            $poolStmt->execute([$userId]);
+            $allCopies = $poolStmt->fetchAll();
+
+            if ($includeWishlist) {
+                $wPool = $db->prepare("SELECT NULL as copy_id, m.id as movie_id, m.title, m.rating, m.year, m.director, m.genre, m.studio, m.certification FROM wishlists w JOIN movies m ON w.movie_id = m.id WHERE w.user_id = ?");
+                $wPool->execute([$userId]);
+                $allCopies = array_merge($allCopies, $wPool->fetchAll());
+            }
+
+            $allContainers = [];
+            if ($includeBoxsets) {
+                $bPool = $db->prepare("SELECT id as container_id, name as title FROM containers WHERE user_id = ?");
+                $bPool->execute([$userId]);
+                $allContainers = $bPool->fetchAll();
+            }
+
+            // Enrich copies with metadata table values for precise matching
+            $movieIds = array_unique(array_column($allCopies, 'movie_id'));
+            $enriched = []; // movie_id => [directors[], genres[], studios[], cert]
+            if (!empty($movieIds)) {
+                $ph = implode(',', array_fill(0, count($movieIds), '?'));
+                $dirs = $db->prepare("SELECT movie_id, name FROM movie_people WHERE role = 'director' AND movie_id IN ($ph)");
+                $dirs->execute($movieIds);
+                foreach ($dirs->fetchAll() as $r) { $enriched[$r['movie_id']]['directors'][] = $r['name']; }
+
+                $gens = $db->prepare("SELECT movie_id, name FROM movie_genres WHERE movie_id IN ($ph)");
+                $gens->execute($movieIds);
+                foreach ($gens->fetchAll() as $r) { $enriched[$r['movie_id']]['genres'][] = $r['name']; }
+
+                $stus = $db->prepare("SELECT movie_id, name FROM movie_studios WHERE movie_id IN ($ph)");
+                $stus->execute($movieIds);
+                foreach ($stus->fetchAll() as $r) { $enriched[$r['movie_id']]['studios'][] = $r['name']; }
+
+                $certs = $db->prepare("SELECT movie_id, certification FROM movie_certifications WHERE region = 'US' AND movie_id IN ($ph)");
+                $certs->execute($movieIds);
+                foreach ($certs->fetchAll() as $r) { $enriched[$r['movie_id']]['cert'] = $r['certification']; }
+            }
+
+            // Fetch user tag links for this user
+            $tagLinksStmt = $db->prepare("SELECT entity_id, tag_id FROM user_tag_links WHERE user_id = ? AND entity_type = 'movie'");
+            $tagLinksStmt->execute([$userId]);
+            $tagsByMovie = []; // movie_id => [tag_id...]
+            foreach ($tagLinksStmt->fetchAll() as $r) { $tagsByMovie[$r['entity_id']][] = $r['tag_id']; }
+
+            // Helper: does a copy match a section?
+            $itemMatchesSection = function($copy, $section) use ($enriched, $tagsByMovie) {
+                $movieId = $copy['movie_id'];
+                $type    = $section['type'] ?? '';
+                $values  = $section['values'] ?? [];
+                if (empty($values)) return false;
+                $lc = fn($s) => strtolower(trim((string)$s));
+
+                switch ($type) {
+                    case 'genre':
+                        $genres = array_map($lc, $enriched[$movieId]['genres'] ?? []);
+                        if (empty($genres)) {
+                            // Fall back to movies.genre text field
+                            $genres = array_map($lc, array_filter(array_map('trim', explode(',', $copy['genre'] ?? ''))));
+                        }
+                        foreach ($values as $v) { if (in_array($lc($v), $genres)) return true; }
+                        return false;
+
+                    case 'director':
+                        $dirs = array_map($lc, $enriched[$movieId]['directors'] ?? []);
+                        if (empty($dirs) && !empty($copy['director'])) {
+                            $dirs = array_map($lc, array_filter(array_map('trim', explode(',', $copy['director']))));
+                        }
+                        foreach ($values as $v) { if (in_array($lc($v), $dirs)) return true; }
+                        return false;
+
+                    case 'studio':
+                        $studios = array_map($lc, $enriched[$movieId]['studios'] ?? []);
+                        if (empty($studios) && !empty($copy['studio'])) {
+                            $studios = [strtolower(trim($copy['studio']))];
+                        }
+                        foreach ($values as $v) { if (in_array($lc($v), $studios)) return true; }
+                        return false;
+
+                    case 'certification':
+                        $cert = $enriched[$movieId]['cert'] ?? $copy['certification'] ?? '';
+                        foreach ($values as $v) { if ($lc($cert) === $lc($v)) return true; }
+                        return false;
+
+                    case 'user_tag':
+                        $myTags = $tagsByMovie[$movieId] ?? [];
+                        foreach ($values as $v) { if (in_array(intval($v), $myTags)) return true; }
+                        return false;
+                }
+                return false;
+            };
+
+            // Sort helper
+            $sortItems = function(&$items, $sort) {
+                usort($items, function($a, $b) use ($sort) {
+                    switch ($sort) {
+                        case 'year':   return intval($a['year'] ?? 0) <=> intval($b['year'] ?? 0);
+                        case 'rating': return floatval($b['rating'] ?? 0) <=> floatval($a['rating'] ?? 0);
+                        default:       return strcmp($a['title'] ?? '', $b['title'] ?? '');
+                    }
+                });
+            };
+
+            // --- Assign items to sections ---
+            $claimed = []; // copy_id => true (or null for wishlist items)
+            $topSections    = []; // [['name'=>..., 'items'=>[...]]]
+            $bottomSections = [];
+
+            foreach ($recipe['sections'] as $section) {
+                $sectionItems = [];
+                foreach ($allCopies as $copy) {
+                    $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
+                    if (isset($claimed[$itemKey])) continue;
+                    if ($itemMatchesSection($copy, $section)) {
+                        $sectionItems[] = [
+                            'copy_id'      => $copy['copy_id'],
+                            'title'        => $copy['title'],
+                            'container_id' => null,
+                            'is_container' => 0,
+                        ];
+                        $claimed[$itemKey] = true;
+                    }
+                }
+                $sortItems($sectionItems, $section['sort'] ?? 'title');
+                $entry = ['name' => $section['id'] ?? 'Section', 'section_type' => $section['type'], 'items' => $sectionItems];
+                if (($section['direction'] ?? 'top') === 'bottom') {
+                    $bottomSections[] = $entry;
+                } else {
+                    $topSections[] = $entry;
+                }
+            }
+
+            // --- Remainder ---
+            $remainSort = $recipe['remainder']['sort'] ?? 'title';
+            $remainItems = [];
+            foreach ($allCopies as $copy) {
+                $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
+                if (!isset($claimed[$itemKey])) {
+                    $remainItems[] = ['copy_id' => $copy['copy_id'], 'title' => $copy['title'], 'container_id' => null, 'is_container' => 0];
+                    $claimed[$itemKey] = true;
+                }
+            }
+            // Add boxsets to remainder
+            foreach ($allContainers as $con) {
+                $cKey = 'c' . $con['container_id'];
+                if (!isset($claimed[$cKey])) {
+                    $remainItems[] = ['copy_id' => null, 'title' => $con['title'], 'container_id' => $con['container_id'], 'is_container' => 1];
+                    $claimed[$cKey] = true;
+                }
+            }
+            $sortItems($remainItems, $remainSort);
+
+            // --- Build ordered item stream: top sections, remainder, bottom sections ---
+            $orderedSections = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]], $bottomSections);
+
+            // --- Fetch target shelves ---
+            if (!empty($targetShelves)) {
+                $ph = implode(',', array_fill(0, count($targetShelves), '?'));
+                $shQ = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND id IN ($ph) ORDER BY position");
+                $shQ->execute(array_merge([$userId], array_map('intval', $targetShelves)));
+            } else {
+                $shQ = $db->prepare("SELECT id, name, capacity FROM shelves WHERE user_id = ? AND parent_shelf_id IS NULL ORDER BY position");
+                $shQ->execute([$userId]);
+            }
+            $recipeShelfList = $shQ->fetchAll();
+            $defCap = 65;
+
+            // For bottom sections: reserve space at the END of the last shelf
+            $totalBottom = array_sum(array_map(fn($s) => count($s['items']), $bottomSections));
+            $totalCapacity = array_sum(array_map(fn($sh) => ($sh['capacity'] > 0 ? $sh['capacity'] : $defCap), $recipeShelfList));
+
+            // --- Fill shelves ---
+            $recipePlacement = [];
+            foreach ($recipeShelfList as $sh) {
+                $recipePlacement[$sh['id']] = ['shelf' => $sh, 'items' => []];
+            }
+            $shQueueR = array_values($recipeShelfList);
+            $shIdxR   = 0;
+            $usableCapacity = $totalCapacity - $totalBottom;
+
+            $topAndRemainder = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]]);
+            $placedTop = 0;
+            foreach ($topAndRemainder as $section) {
+                foreach ($section['items'] as $item) {
+                    while ($shIdxR < count($shQueueR)) {
+                        $sh = $shQueueR[$shIdxR];
+                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defCap;
+                        $usable = ($placedTop < $usableCapacity) ? min($cap, $usableCapacity - $placedTop) : 0;
+                        if (count($recipePlacement[$sh['id']]['items']) < $usable || $usable <= 0 && count($recipePlacement[$sh['id']]['items']) < $cap) break;
+                        $shIdxR++;
+                    }
+                    if ($shIdxR >= count($shQueueR)) break;
+                    $recipePlacement[$shQueueR[$shIdxR]['id']]['items'][] = $item;
+                    $placedTop++;
+                }
+            }
+
+            // Place bottom sections at the END (append after remainder in reverse)
+            foreach ($bottomSections as $bSec) {
+                foreach ($bSec['items'] as $item) {
+                    while ($shIdxR < count($shQueueR)) {
+                        $sh = $shQueueR[$shIdxR];
+                        $cap = $sh['capacity'] > 0 ? $sh['capacity'] : $defCap;
+                        if (count($recipePlacement[$sh['id']]['items']) < $cap) break;
+                        $shIdxR++;
+                    }
+                    if ($shIdxR >= count($shQueueR)) break;
+                    $recipePlacement[$shQueueR[$shIdxR]['id']]['items'][] = $item;
+                }
+            }
+
+            // Build output
+            $recipePlacementOut = [];
+            foreach ($recipePlacement as $shelfId => $data) {
+                if (!empty($data['items'])) {
+                    $recipePlacementOut[] = ['shelf_id' => $shelfId, 'shelf_name' => $data['shelf']['name'], 'ordered_items' => array_values($data['items'])];
+                }
+            }
+            $unplaced = ($placedTop + $totalBottom) > $totalCapacity ? max(0, ($placedTop + $totalBottom) - $totalCapacity) : 0;
+
+            jsonResponse(true, [
+                'sections'         => array_values(array_filter($orderedSections, fn($s) => !empty($s['items']))),
+                'placement'        => $recipePlacementOut,
+                'total_items'      => array_sum(array_map(fn($s) => count($s['items']), $orderedSections)),
+                'shelves_used'     => count($recipePlacementOut),
+                'unplaced_estimate'=> $unplaced,
+            ]);
+            break;
+
+        case 'apply_recipe_as_new_layout':
+            $recipeData   = $input['recipe'] ?? null;
+            $planData     = $input['plan'] ?? [];
+            $layoutName   = sanitize($input['layout_name'] ?? '', 100);
+            $setActiveR   = !empty($input['set_active']);
+
+            if (empty($layoutName)) { jsonResponse(false, null, 'layout_name required'); }
+            if (empty($planData['placement'])) { jsonResponse(false, null, 'plan.placement required'); }
+
+            $db->beginTransaction();
+            try {
+                if ($setActiveR) {
+                    $db->prepare("UPDATE shelf_layout_profiles SET is_active = 0 WHERE user_id = ?")->execute([$userId]);
+                }
+                $db->prepare("INSERT INTO shelf_layout_profiles (user_id, name, is_active, recipe_json) VALUES (?, ?, ?, ?)")
+                   ->execute([$userId, $layoutName, $setActiveR ? 1 : 0, $recipeData ? json_encode($recipeData) : null]);
+                $newLid = $db->lastInsertId();
+
+                $ins = $db->prepare("INSERT INTO shelf_layout_entries (layout_id, shelf_id, copy_id, container_id, is_container, position_in_shelf) VALUES (?, ?, ?, ?, ?, ?)");
+                $totalR = 0;
+                foreach ($planData['placement'] as $shelfPlan) {
+                    $shelfId = intval($shelfPlan['shelf_id'] ?? 0);
+                    if (!$shelfId) continue;
+                    $chk = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+                    $chk->execute([$shelfId, $userId]);
+                    if (!$chk->fetch()) continue;
+                    $pos = 0;
+                    foreach (($shelfPlan['ordered_items'] ?? []) as $item) {
+                        $cId = !empty($item['copy_id']) ? intval($item['copy_id']) : null;
+                        $contId = !empty($item['container_id']) ? intval($item['container_id']) : null;
+                        $isCont = !empty($item['is_container']) ? 1 : 0;
+                        $ins->execute([$newLid, $shelfId, $cId, $contId, $isCont, $pos++]);
+                        $totalR++;
+                    }
+                }
+                $db->commit();
+            } catch (Exception $ex) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Failed: ' . $ex->getMessage());
+            }
+            jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'entries' => $totalR]);
             break;
 
         // ================================================================
