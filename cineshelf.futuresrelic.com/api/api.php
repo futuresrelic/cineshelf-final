@@ -7599,8 +7599,13 @@ Return ONLY the JSON object, no markdown.'
 
         case 'apply_recipe_as_new_layout':
             $recipeData   = $input['recipe'] ?? null;
+            // Accept plan as nested object OR flat placement array for robustness
             $planData     = $input['plan'] ?? [];
-            $layoutName   = sanitize($input['layout_name'] ?? '', 100);
+            if (empty($planData) && !empty($input['placement'])) {
+                $planData = ['placement' => $input['placement']];
+            }
+            // Accept layout_name with fallbacks (name, layoutName) for robustness
+            $layoutName   = sanitize($input['layout_name'] ?? $input['name'] ?? $input['layoutName'] ?? '', 100);
             $setActiveR   = !empty($input['set_active']);
 
             if (empty($layoutName)) { jsonResponse(false, null, 'layout_name required'); }
@@ -7637,7 +7642,7 @@ Return ONLY the JSON object, no markdown.'
                 $db->rollBack();
                 jsonResponse(false, null, 'Failed: ' . $ex->getMessage());
             }
-            jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'entries' => $totalR]);
+            jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'layout_name' => $layoutName, 'entries' => $totalR]);
             break;
 
         // ================================================================

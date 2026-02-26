@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.8';
+const APP_VERSION = '2.8.9';
 
 async function checkVersionGuard() {
     try {
@@ -10923,21 +10923,24 @@ async function getCurrentUserId() {
     async function applyWizardPlan() {
         if (!_wizardPlan) return;
         const name = document.getElementById('aiWizardLayoutName')?.value?.trim();
-        if (!name) { showToast('Please enter a layout name', 'error'); return; }
-        const setActive = document.getElementById('aiWizardSetActive')?.checked || false;
+        if (!name) { showToast('Layout name required', 'error'); return; }
+        const setActive = document.getElementById('aiWizardSetActive')?.checked ?? true;
 
         try {
             const res = await apiCall('apply_recipe_as_new_layout', {
-                name,
-                placement: _wizardPlan.placement,
+                layout_name: name,
+                plan: { placement: _wizardPlan.placement },
                 set_active: setActive,
             });
-            showToast(`Layout "${name}" saved with ${res.entries} entries!`, 'success');
+            showToast(`Layout "${res.name || name}" saved with ${res.entries} entries!`, 'success');
+            // Always apply the new layout so shelf view reflects the plan
+            await apiCall('apply_shelf_layout', { layout_id: res.layout_id });
+            await apiCall('set_active_shelf_layout', { layout_id: res.layout_id });
             _wizardPlan = null;
             _wizardSections = [];
             closeAIWizardModal();
             await loadLayoutProfiles();
-            if (setActive) await loadShelves();
+            await loadShelves();
         } catch (e) {
             showToast('Failed to save layout: ' + e.message, 'error');
         }
