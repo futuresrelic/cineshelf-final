@@ -32,6 +32,68 @@ To rotate: regenerate on each provider's dashboard, then update Railway env vars
 
 ---
 
+## 2026-02-26 (branch: claude/layout-recipe-wizard-metadata-volume)
+
+### fix: repair wizard runtime errors
+
+- **`js/app.js`** — added top-level `escapeHtml()` function (outside the App IIFE) so it can be called globally; was previously undefined causing modal render failures.
+- **`api/api.php`** — fixed all wrong SQL column names in `generate_shelf_plan` and `generate_shelf_plan_ai`: `m.genre_ids` → `m.genre`, `m.vote_average` → `m.rating`, `m.release_date` → `m.year`, `m.production_company` → `m.studio`; `containers.title` → `containers.name`.
+- **`config/config.php`** — added safe auto-migrations for `shelves.parent_shelf_id`, `shelf_assignments.container_id`, `shelf_assignments.is_container`, `shelf_layout_profiles.recipe_json`.
+- **`config/config.php`** — changed `DEFAULT_CAPACITY` from 25 → **65** (user preference for personal shelf limit).
+
+### feat: add persistent metadata tables and backfill actions
+
+#### New DB tables (auto-migrated, additive)
+| Table | Columns |
+|-------|---------|
+| `movie_people` | id, movie_id, name, role, role_detail |
+| `movie_studios` | id, movie_id, studio_name |
+| `movie_genres` | id, movie_id, genre_name |
+| `movie_certifications` | id, movie_id, certification, country |
+| `user_tags` | id, user_id, name, color, created_at |
+| `user_tag_links` | id, tag_id, entity_type, entity_id |
+
+#### New API actions
+- `get_metadata_status` — counts of enriched movies
+- `backfill_movie_metadata` — seeds normalized tables from TMDB API or existing text fields
+- `list_user_tags`, `create_user_tag`, `delete_user_tag`
+- `set_entity_tags`, `get_entity_tags`
+- `generate_recipe_plan` — deterministic planner using recipe JSON format
+- `apply_recipe_as_new_layout` — saves a recipe plan as a new layout profile
+
+#### New helper
+- `_backfillFromExistingFields($db, $movie)` in `api.php` — seeds metadata from existing `movies.director`/`genre`/`studio`/`certification` text fields without any TMDB API call (zero-cost fallback).
+
+### feat: add recipe-based shelf layout wizard
+
+Upgraded the AI wizard from single-strategy to a multi-section recipe builder.
+
+#### Files touched
+| File | Change |
+|------|--------|
+| `index.html` | Replaced simple strategy-picker `#aiWizardModal` with full recipe builder modal |
+| `js/app.js` | Rewrote wizard JS; new state: `_wizardSections[]`, `_sectionIdCounter` |
+
+#### New/updated JS functions
+| Function | Purpose |
+|----------|---------|
+| `wizardApplyPreset(name)` | Pre-fills sections from named preset |
+| `wizardAddSection()` | Appends blank section to builder |
+| `wizardRemoveSection(id)` | Removes section by ID |
+| `_wizardSectionChange(el)` | Syncs DOM field change back to `_wizardSections` state |
+| `_renderWizardSections()` | Re-renders `#wizardSectionList` from state |
+| `generateWizardPlan()` | Builds recipe JSON → calls `generate_recipe_plan` API |
+| `applyWizardPlan()` | Calls `apply_recipe_as_new_layout` API → saves layout |
+
+#### Presets
+| Preset ID | Sections |
+|-----------|---------|
+| `r-kids-rest` | cert=R (top) · cert=G/PG/PG-13 (bottom) · remainder A-Z |
+| `directors-studios-rest` | director=all (top, rating sort) · studio=all (top) · remainder A-Z |
+| `genre-az` | genre=all (top, A-Z sort) · remainder A-Z |
+
+---
+
 ## 2026-02-25 (branch: claude/shelf-layouts-ai-wizard-2026-02-25)
 
 ### feat: Shelf Layout Profiles + AI Organization Wizard (v5.0.0)

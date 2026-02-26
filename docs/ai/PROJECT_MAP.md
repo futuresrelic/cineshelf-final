@@ -38,9 +38,13 @@
 | OpenAI | `OPENAI_API_KEY` | AI cover scan, article extraction |
 | UMDB | `UMDB_API_KEY` | Physical media edition database |
 
-## Database Tables (14)
+## Database Tables (22)
 
-`users`, `sessions`, `movies`, `copies`, `wishlists`, `groups`, `group_members`, `group_movies`, `containers`, `container_contents`, `media_editions`, `edition_components`, `copy_components`, `audit_log`
+**Core (14):** `users`, `sessions`, `movies`, `copies`, `wishlists`, `groups`, `group_members`, `group_movies`, `containers`, `container_contents`, `media_editions`, `edition_components`, `copy_components`, `audit_log`
+
+**Shelves (v5.0.0, 2):** `shelf_layout_profiles`, `shelf_layout_entries`
+
+**Metadata (v6.0.0, 6):** `movie_people`, `movie_studios`, `movie_genres`, `movie_certifications`, `user_tags`, `user_tag_links`
 
 ## Key Environment Variables
 

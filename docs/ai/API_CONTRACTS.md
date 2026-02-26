@@ -64,17 +64,56 @@
 | `save_current_to_layout` | `layout_id` | `{ saved: count }` — snapshots current `shelf_assignments` into layout |
 | `apply_shelf_layout` | `layout_id` | `{ applied: count }` — replaces `shelf_assignments` from layout entries |
 
-### AI Organization Wizard (v5.0.0)
+### AI Organization Wizard (v5.0.0 — single-strategy, kept for backward compat)
 
 | Action | Required Params | Optional Params | Returns |
 |--------|----------------|-----------------|---------|
-| `generate_shelf_plan` | `strategy` | `target_shelves[]`, `include_wishlist`, `include_boxsets`, `expand_boxsets`, `min_rating` | `{ strategy, sections[], placement[], total_items, shelves_used }` |
+| `generate_shelf_plan` | `strategy` | `target_shelves[]`, `include_wishlist`, `include_boxsets`, `min_rating` | `{ strategy, sections[], placement[], total_items, shelves_used }` |
 | `generate_shelf_plan_ai` | `strategy` | same as above | same + `ai_enhanced: bool` |
 | `apply_wizard_plan` | `name`, `placement[]` | `set_active` | `{ layout_id, name, entries }` |
 
 **strategy values**: `genre`, `director`, `studio`, `franchise`, `decade`, `awards`
 
-**placement item shape**: `{ shelf_id, ordered_items: [{ copy_id|null, container_id|null, is_container, title }] }`
+### Recipe Layout Wizard (v6.0.0)
+
+| Action | Required Params | Optional Params | Returns |
+|--------|----------------|-----------------|---------|
+| `generate_recipe_plan` | `recipe` | `target_shelves[]` | `{ placement[], total_items, shelves_used }` |
+| `apply_recipe_as_new_layout` | `name`, `placement[]` | `set_active` | `{ layout_id, name, entries }` |
+
+**recipe shape**:
+```json
+{
+  "sections": [
+    {
+      "id": "s1",
+      "type": "genre|director|studio|certification|user_tag",
+      "values": ["Action", "Thriller"],
+      "sort": "title|year|rating",
+      "direction": "top|bottom"
+    }
+  ],
+  "remainder": { "sort": "title|year|rating", "include_wishlist": false, "include_boxsets": false }
+}
+```
+
+- `values` empty → match all items of that type (grouped into sub-sections per unique value)
+- `direction: top` → sections fill shelves from the top; `bottom` → fills from last shelf upward
+- `remainder` catches all items not matched by any section
+
+**placement item shape**: `{ shelf_id, shelf_name, ordered_items: [{ copy_id|null, container_id|null, is_container, title }] }`
+
+### Metadata & User Tags (v6.0.0)
+
+| Action | Required Params | Optional Params | Returns |
+|--------|----------------|-----------------|---------|
+| `get_metadata_status` | — | — | `{ movies_total, people_enriched, genres_enriched, studios_enriched }` |
+| `backfill_movie_metadata` | — | `use_tmdb` (bool, default true) | `{ processed, enriched, errors }` |
+| `list_user_tags` | — | — | Array of `{ id, name, color, count }` |
+| `create_user_tag` | `name` | `color` | `{ id, name, color }` |
+| `delete_user_tag` | `tag_id` | — | `ok: true` |
+| `set_entity_tags` | `entity_type`, `entity_id`, `tag_ids[]` | — | `ok: true` |
+| `get_entity_tags` | `entity_type`, `entity_id` | — | Array of tag objects |
 
 ### Auth
 
