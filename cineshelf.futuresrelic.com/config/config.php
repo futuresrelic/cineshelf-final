@@ -353,6 +353,29 @@ function getDb() {
         try { $db->exec("ALTER TABLE shelves ADD COLUMN items_per_shelf INTEGER DEFAULT 25"); } catch (PDOException $e) {}
         try { $db->exec("ALTER TABLE shelves ADD COLUMN capacity_mode TEXT DEFAULT 'quantity'"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Layout Sections (v6.3.0)
+        // layout_sections  — persisted wizard blocks; one row per named group on a shelf
+        // layout_section_id on shelf_layout_entries — links each entry to its section
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS layout_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                layout_id INTEGER NOT NULL,
+                shelf_id INTEGER NOT NULL,
+                section_key TEXT NOT NULL,
+                group_type TEXT,
+                group_value TEXT,
+                label TEXT NOT NULL,
+                sort_index INTEGER DEFAULT 0,
+                item_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (layout_id) REFERENCES shelf_layout_profiles(id) ON DELETE CASCADE,
+                FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_layout_sections_layout ON layout_sections(layout_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_layout_sections_shelf ON layout_sections(layout_id, shelf_id)");
+        } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE shelf_layout_entries ADD COLUMN layout_section_id INTEGER DEFAULT NULL"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {

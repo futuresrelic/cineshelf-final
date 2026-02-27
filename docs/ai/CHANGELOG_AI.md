@@ -6,6 +6,24 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat(db): add persisted layout sections (v2.8.14)
+
+**Goal A — additive DB migration for layout sections:**
+
+1. New `layout_sections` table in `config/config.php` (v6.3.0 migration block):
+   - Columns: `id`, `layout_id` (FK → `shelf_layout_profiles`), `shelf_id` (FK → `shelves`),
+     `section_key` (block_id from wizard), `group_type`, `group_value`, `label`,
+     `sort_index`, `item_count`, `created_at`
+   - Indexed by `layout_id` and `(layout_id, shelf_id)` for fast per-layout/per-shelf queries
+   - Cascade-deletes when the parent `shelf_layout_profiles` or `shelves` row is removed
+
+2. New nullable `layout_section_id INTEGER DEFAULT NULL` column on `shelf_layout_entries` —
+   links each placement entry back to its originating wizard block once the layout is saved.
+
+Both migrations are idempotent (`CREATE TABLE IF NOT EXISTS` + try/catch ALTER TABLE).
+
+---
+
 ### fix: plan from physical items + correct box-set inclusion + named blocks (v2.8.13)
 
 **Goal A — physical inventory as planning candidates:**
