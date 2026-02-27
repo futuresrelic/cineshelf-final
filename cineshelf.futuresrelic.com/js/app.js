@@ -10978,6 +10978,7 @@ async function getCurrentUserId() {
             const res = await apiCall('apply_recipe_as_new_layout', {
                 layout_name: name,
                 plan: { placement: _wizardPlan.placement },
+                blocks: _wizardPlan.blocks || [],
                 set_active: setActive,
             });
             showToast(`Layout "${res.name || name}" saved with ${res.entries} entries!`, 'success');

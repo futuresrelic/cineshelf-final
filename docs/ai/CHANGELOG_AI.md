@@ -6,6 +6,28 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat: persist wizard blocks as layout sections on save (v2.8.15)
+
+**Goal B — save wizard blocks as layout_sections + new get_layout_sections action:**
+
+1. `api/api.php` — block derivation pass: block items now include `container_id` so containers
+   (box sets) can be matched back to their layout_entry during section linking.
+
+2. `api/api.php` — `apply_recipe_as_new_layout` action:
+   - Now accepts `blocks[]` in the request body (wizard blocks from `generate_shelf_plan`).
+   - Tracks `lastInsertId()` per entry keyed by `"p{copy_id}"` / `"c{container_id}"` per shelf
+     (stored in `$entryIdsByShelfAndItem`).
+   - After inserting all entries, iterates blocks to INSERT `layout_sections` rows and then
+     UPDATE `shelf_layout_entries.layout_section_id` for each matched entry.
+
+3. `api/api.php` — new `get_layout_sections(layout_id)` action: returns all sections for a
+   layout ordered by `(shelf_id, sort_index)`, verifying user ownership before returning.
+
+4. `js/app.js` — `applyWizardPlan()`: now sends `blocks: _wizardPlan.blocks || []` alongside
+   the placement plan so the backend can persist section metadata.
+
+---
+
 ### feat(db): add persisted layout sections (v2.8.14)
 
 **Goal A — additive DB migration for layout sections:**

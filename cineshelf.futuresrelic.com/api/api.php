@@ -7548,7 +7548,7 @@ Return ONLY the JSON object, no markdown.'
                         $curKey = $key;
                     }
                     $curBlk['count']++;
-                    $curBlk['items'][] = ['title' => $item['title'], 'copy_id' => $item['copy_id'] ?? null];
+                    $curBlk['items'][] = ['title' => $item['title'], 'copy_id' => $item['copy_id'] ?? null, 'container_id' => $item['container_id'] ?? null];
                 }
                 if ($curBlk !== null) { $blocks[] = $curBlk; }
             }
@@ -7823,6 +7823,7 @@ Return ONLY the JSON object, no markdown.'
             // Accept layout_name with fallbacks (name, layoutName) for robustness
             $layoutName   = sanitize($input['layout_name'] ?? $input['name'] ?? $input['layoutName'] ?? '', 100);
             $setActiveR   = !empty($input['set_active']);
+            $blocksInput  = $input['blocks'] ?? [];  // wizard blocks to persist as layout_sections
 
             if (empty($layoutName)) { jsonResponse(false, null, 'layout_name required'); }
             if (empty($planData['placement'])) { jsonResponse(false, null, 'plan.placement required'); }
@@ -7838,6 +7839,7 @@ Return ONLY the JSON object, no markdown.'
 
                 $ins = $db->prepare("INSERT INTO shelf_layout_entries (layout_id, shelf_id, copy_id, container_id, is_container, position_in_shelf) VALUES (?, ?, ?, ?, ?, ?)");
                 $totalR = 0;
+                $entryIdsByShelfAndItem = []; // [shelf_id][item_key] => entry_id
                 foreach ($planData['placement'] as $shelfPlan) {
                     $shelfId = intval($shelfPlan['shelf_id'] ?? 0);
                     if (!$shelfId) continue;
@@ -7846,13 +7848,45 @@ Return ONLY the JSON object, no markdown.'
                     if (!$chk->fetch()) continue;
                     $pos = 0;
                     foreach (($shelfPlan['ordered_items'] ?? []) as $item) {
-                        $cId = !empty($item['copy_id']) ? intval($item['copy_id']) : null;
+                        $cId    = !empty($item['copy_id'])    ? intval($item['copy_id'])    : null;
                         $contId = !empty($item['container_id']) ? intval($item['container_id']) : null;
                         $isCont = !empty($item['is_container']) ? 1 : 0;
                         $ins->execute([$newLid, $shelfId, $cId, $contId, $isCont, $pos++]);
+                        $entryId = intval($db->lastInsertId());
+                        $itemKey = $contId !== null ? 'c' . $contId : 'p' . $cId;
+                        $entryIdsByShelfAndItem[$shelfId][$itemKey] = $entryId;
                         $totalR++;
                     }
                 }
+
+                // Persist wizard blocks as layout_sections and link entries via layout_section_id
+                if (!empty($blocksInput) && is_array($blocksInput)) {
+                    $insSec   = $db->prepare("INSERT INTO layout_sections (layout_id, shelf_id, section_key, group_type, group_value, label, sort_index, item_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $updEntry = $db->prepare("UPDATE shelf_layout_entries SET layout_section_id = ? WHERE id = ?");
+                    $sortCounters = []; // shelf_id => next sort_index
+                    foreach ($blocksInput as $blk) {
+                        $blkShelfId = intval($blk['shelf_id'] ?? 0);
+                        if (!$blkShelfId) continue;
+                        $secKey = sanitize($blk['block_id']    ?? '', 50);
+                        $gType  = sanitize($blk['group_type']  ?? '', 50);
+                        $gVal   = sanitize($blk['group_value'] ?? '', 100);
+                        $label  = sanitize($blk['label']       ?? 'Section', 200);
+                        $iCount = intval($blk['count']         ?? count($blk['items'] ?? []));
+                        $sIdx   = $sortCounters[$blkShelfId]   ?? 0;
+                        $sortCounters[$blkShelfId] = $sIdx + 1;
+                        $insSec->execute([$newLid, $blkShelfId, $secKey, $gType ?: null, $gVal ?: null, $label, $sIdx, $iCount]);
+                        $secId = intval($db->lastInsertId());
+                        // Link each block item's layout_entry to this section
+                        foreach (($blk['items'] ?? []) as $blkItem) {
+                            $bCopyId = !empty($blkItem['copy_id'])      ? intval($blkItem['copy_id'])      : null;
+                            $bContId = !empty($blkItem['container_id']) ? intval($blkItem['container_id']) : null;
+                            $bKey    = $bContId !== null ? 'c' . $bContId : 'p' . $bCopyId;
+                            $eId     = $entryIdsByShelfAndItem[$blkShelfId][$bKey] ?? null;
+                            if ($eId) { $updEntry->execute([$secId, $eId]); }
+                        }
+                    }
+                }
+
                 $db->commit();
             } catch (Exception $ex) {
                 $db->rollBack();
@@ -7860,6 +7894,19 @@ Return ONLY the JSON object, no markdown.'
             }
             jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'layout_name' => $layoutName, 'entries' => $totalR]);
             break;
+
+        case 'get_layout_sections': {
+            $layoutId = intval($input['layout_id'] ?? 0);
+            if (!$layoutId) { jsonResponse(false, null, 'layout_id required'); }
+            // Verify user owns this layout
+            $own = $db->prepare("SELECT id FROM shelf_layout_profiles WHERE id = ? AND user_id = ?");
+            $own->execute([$layoutId, $userId]);
+            if (!$own->fetch()) { jsonResponse(false, null, 'Not found'); }
+            $rows = $db->prepare("SELECT * FROM layout_sections WHERE layout_id = ? ORDER BY shelf_id, sort_index");
+            $rows->execute([$layoutId]);
+            jsonResponse(true, $rows->fetchAll(PDO::FETCH_ASSOC));
+            break;
+        }
 
         // ================================================================
         // AI ORGANIZATION WIZARD - DETERMINISTIC PLANNER (v5.0.0)
