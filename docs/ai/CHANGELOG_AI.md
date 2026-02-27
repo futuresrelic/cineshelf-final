@@ -6,6 +6,34 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat: per-shelf grouping blocks in wizard plan (v2.8.12)
+
+API now returns `blocks` (grouped runs) per child shelf to support future block-moving UI.
+
+**API change** (`generate_recipe_plan`, api.php):
+- Items in the section assignment loop now carry `group_type` (e.g. `"director"`,
+  `"studio"`) so block derivation can label them correctly.
+- After `$recipePlacementOut` is built, a new pass walks each shelf's `ordered_items`
+  in sequence. A new block starts whenever `group_type::bucket_label` changes. Each
+  block has: `block_id` (stable string like `blk_3`), `shelf_id`, `shelf_name`,
+  `group_type`, `group_value`, `label` (e.g. `"Director: Nolan — Shelf 1"`), `count`,
+  and `items[]` (title + copy_id).
+- `blocks` added as a new field in the `jsonResponse`; all existing fields unchanged.
+
+**Frontend change** (`_renderWizardPreview`, app.js):
+- When `plan.blocks` is present and non-empty, preview renders each shelf as a list
+  of named blocks (purple chip header + indented titles), rather than the flat
+  inline chip style.
+- Falls back to v2.8.11 inline chip behavior when `blocks` is absent (older API).
+
+| File | Change |
+|------|--------|
+| `api/api.php` | `group_type` on items; block derivation loop; `blocks` in response |
+| `js/app.js` | `_renderWizardPreview` blocks branch + fallback; APP_VERSION → 2.8.12 |
+| `version.json` | 2.8.11 → 2.8.12 |
+
+---
+
 ### fix: bucketed grouping + unplaced count in wizard plan (v2.8.11)
 
 **Root cause — two bugs in `generate_recipe_plan` (api.php)**:

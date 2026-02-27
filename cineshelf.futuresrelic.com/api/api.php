@@ -7245,6 +7245,7 @@ Return ONLY the JSON object, no markdown.'
                                     'container_id' => null,
                                     'is_container' => 0,
                                     'bucket_label' => $singleValue,
+                                    'group_type'   => $section['type'],
                                 ];
                                 $claimed[$itemKey] = true;
                             }
@@ -7270,6 +7271,7 @@ Return ONLY the JSON object, no markdown.'
                                 'title'        => $copy['title'],
                                 'container_id' => null,
                                 'is_container' => 0,
+                                'group_type'   => $section['type'],
                             ];
                             $claimed[$itemKey] = true;
                         }
@@ -7430,9 +7432,46 @@ Return ONLY the JSON object, no markdown.'
             }
             $unplaced = max(0, ($totalTopRemainder - $placedTop) + ($totalBottom - $placedBottom));
 
+            // --- Derive per-shelf blocks (contiguous runs sharing group_type + bucket_label) ---
+            // A block = a labelled, moveable unit: all items on one shelf for one director/studio/etc.
+            $blocks = [];
+            $blkIdx = 0;
+            foreach ($recipePlacementOut as $shEntry) {
+                $shId   = $shEntry['shelf_id'];
+                $shName = $shEntry['shelf_name'];
+                $curBlk = null;
+                $curKey = null;
+                foreach ($shEntry['ordered_items'] as $item) {
+                    $gType = $item['group_type'] ?? null;
+                    $gVal  = $item['bucket_label'] ?? null;
+                    $key   = ($gType ?? '') . '::' . ($gVal ?? '');
+                    if ($curKey !== $key) {
+                        if ($curBlk !== null) { $blocks[] = $curBlk; }
+                        $blkIdx++;
+                        $humanType = $gType ? (ucfirst($gType) . ': ') : '';
+                        $label     = ($humanType . ($gVal ?? 'Other')) . ' — ' . $shName;
+                        $curBlk = [
+                            'block_id'    => 'blk_' . $blkIdx,
+                            'shelf_id'    => $shId,
+                            'shelf_name'  => $shName,
+                            'group_type'  => $gType,
+                            'group_value' => $gVal,
+                            'label'       => $label,
+                            'count'       => 0,
+                            'items'       => [],
+                        ];
+                        $curKey = $key;
+                    }
+                    $curBlk['count']++;
+                    $curBlk['items'][] = ['title' => $item['title'], 'copy_id' => $item['copy_id'] ?? null];
+                }
+                if ($curBlk !== null) { $blocks[] = $curBlk; }
+            }
+
             jsonResponse(true, [
                 'sections'         => array_values(array_filter($orderedSections, fn($s) => !empty($s['items']))),
                 'placement'        => $recipePlacementOut,
+                'blocks'           => $blocks,
                 'total_items'      => array_sum(array_map(fn($s) => count($s['items']), $orderedSections)),
                 'shelves_used'     => count($recipePlacementOut),
                 'unplaced_estimate'=> $unplaced,
