@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.12';
+const APP_VERSION = '2.8.13';
 
 async function checkVersionGuard() {
     try {

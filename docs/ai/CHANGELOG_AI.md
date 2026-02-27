@@ -6,6 +6,49 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: plan from physical items + correct box-set inclusion + named blocks (v2.8.13)
+
+**Goal A — physical inventory as planning candidates:**
+
+1. `$includeBoxsets` / `$includeWishlist` were always false because the frontend nests
+   them in `recipe.remainder` but backend read them from `$input` top-level. Fixed: now
+   read from `$recipe['remainder']` first, then fall back to legacy locations.
+
+2. Container query extended: adds `contained_count` via LEFT JOIN on
+   `container_contents` so box-set items carry their disc count.
+
+3. New: after building `$allCopies`, query `container_contents` to identify copy IDs
+   that are physically inside a box set. These are filtered out of `$allCopies`
+   unconditionally — they're part of the container physical object and can't be placed
+   independently. If `include_boxsets=true`, the container itself is placed instead.
+
+4. Empty-pool check updated: fail only when BOTH `$allCopies` and `$allContainers` are
+   empty (previously failed if copies empty even when containers were present).
+
+5. All item objects now carry: `movie_id`, `year`, `rating`, `item_type`
+   (`single`|`boxset`). Box-set items also carry `contained_count`.
+
+**Goal B — named per-shelf blocks (auto-bucketing flat sections):**
+
+6. New `$getPrimaryValue` helper: for flat sections (`values=[]`), extracts the primary
+   director/studio/genre/cert from enriched metadata (falls back to `movies` table).
+
+7. Flat sections now set `bucket_label` from `$getPrimaryValue`. Items are sorted
+   bucket_label-first (contiguous groups per value), then secondary sort within each
+   bucket. This means `generate_recipe_plan` now produces meaningful block labels
+   (e.g. "Director: Christopher Nolan") even when no explicit values were specified.
+
+8. Box-set items in remainder carry `bucket_label: 'Box Sets'` so they form a distinct
+   named block in the preview rather than "Other".
+
+| File | Change |
+|------|--------|
+| `api/api.php` | 7 edits in `generate_recipe_plan` (param fix, container filter, item enrichment, auto-bucketing) |
+| `js/app.js` | APP_VERSION → 2.8.13 |
+| `version.json` | 2.8.12 → 2.8.13 |
+
+---
+
 ### feat: per-shelf grouping blocks in wizard plan (v2.8.12)
 
 API now returns `blocks` (grouped runs) per child shelf to support future block-moving UI.

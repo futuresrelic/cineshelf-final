@@ -7090,8 +7090,8 @@ Return ONLY the JSON object, no markdown.'
             $recipe         = $input['recipe'] ?? [];
             // Accept both 'target_shelves' (frontend) and legacy 'target_shelf_ids'
             $targetShelves  = $input['target_shelves'] ?? $input['target_shelf_ids'] ?? [];
-            $includeWishlist = !empty($input['options']['include_wishlist'] ?? $input['include_wishlist'] ?? false);
-            $includeBoxsets  = !empty($input['options']['include_boxsets'] ?? $input['include_boxsets'] ?? false);
+            $includeWishlist = !empty($recipe['remainder']['include_wishlist'] ?? $input['options']['include_wishlist'] ?? $input['include_wishlist'] ?? false);
+            $includeBoxsets  = !empty($recipe['remainder']['include_boxsets']  ?? $input['options']['include_boxsets']  ?? $input['include_boxsets']  ?? false);
 
             if (empty($recipe['sections'])) {
                 jsonResponse(false, null, 'recipe.sections required');
@@ -7117,12 +7117,39 @@ Return ONLY the JSON object, no markdown.'
 
             $allContainers = [];
             if ($includeBoxsets) {
-                $bPool = $db->prepare("SELECT id as container_id, name as title FROM containers WHERE user_id = ?");
+                $bPool = $db->prepare("
+                    SELECT con.id as container_id, con.name as title,
+                           COUNT(cc.id) as contained_count
+                    FROM containers con
+                    LEFT JOIN container_contents cc ON cc.container_id = con.id
+                    WHERE con.user_id = ?
+                    GROUP BY con.id
+                    ORDER BY con.name
+                ");
                 $bPool->execute([$userId]);
                 $allContainers = $bPool->fetchAll();
             }
 
-            if (empty($allCopies)) {
+            // Copies that live physically inside a container are not loose placeable items.
+            // Exclude them always: if include_boxsets=true the container itself is placed;
+            // if false, both container and its contents are omitted.
+            $containerMemberIds = [];
+            $cmStmt = $db->prepare("
+                SELECT DISTINCT cc.copy_id
+                FROM container_contents cc
+                JOIN containers c ON cc.container_id = c.id
+                WHERE c.user_id = ?
+            ");
+            $cmStmt->execute([$userId]);
+            foreach ($cmStmt->fetchAll() as $cmRow) { $containerMemberIds[$cmRow['copy_id']] = true; }
+            if (!empty($containerMemberIds)) {
+                $allCopies = array_values(array_filter(
+                    $allCopies,
+                    fn($c) => $c['copy_id'] === null || !isset($containerMemberIds[$c['copy_id']])
+                ));
+            }
+
+            if (empty($allCopies) && empty($allContainers)) {
                 jsonResponse(false, null, 'No items found in your collection. Add some movies first.');
             }
 
@@ -7219,6 +7246,31 @@ Return ONLY the JSON object, no markdown.'
                 });
             };
 
+            // Helper: extract the primary metadata value for auto-bucketing flat sections.
+            // Returns the first (most prominent) director/studio/genre/cert for an item.
+            $getPrimaryValue = function($copy, $sectionType) use ($enriched) {
+                $mid = $copy['movie_id'] ?? null;
+                if (!$mid) return null;
+                switch ($sectionType) {
+                    case 'director':
+                        $v = ($enriched[$mid]['directors'] ?? [])[0] ?? null;
+                        if (!$v && !empty($copy['director'])) $v = trim(explode(',', $copy['director'])[0]);
+                        return $v ?: null;
+                    case 'studio':
+                        $v = ($enriched[$mid]['studios'] ?? [])[0] ?? null;
+                        if (!$v && !empty($copy['studio'])) $v = trim($copy['studio']);
+                        return $v ?: null;
+                    case 'genre':
+                        $v = ($enriched[$mid]['genres'] ?? [])[0] ?? null;
+                        if (!$v && !empty($copy['genre'])) $v = trim(explode(',', $copy['genre'])[0]);
+                        return $v ?: null;
+                    case 'certification':
+                        return $enriched[$mid]['cert'] ?? $copy['certification'] ?? null;
+                    default:
+                        return null;
+                }
+            };
+
             // --- Assign items to sections ---
             $claimed = []; // copy_id => true (or null for wishlist items)
             $topSections    = []; // [['name'=>..., 'items'=>[...]]]
@@ -7241,9 +7293,13 @@ Return ONLY the JSON object, no markdown.'
                             if ($itemMatchesSection($copy, $bucketSection)) {
                                 $bucketItems[] = [
                                     'copy_id'      => $copy['copy_id'],
+                                    'movie_id'     => $copy['movie_id'],
                                     'title'        => $copy['title'],
+                                    'year'         => $copy['year'],
+                                    'rating'       => $copy['rating'],
                                     'container_id' => null,
                                     'is_container' => 0,
+                                    'item_type'    => 'single',
                                     'bucket_label' => $singleValue,
                                     'group_type'   => $section['type'],
                                 ];
@@ -7261,6 +7317,7 @@ Return ONLY the JSON object, no markdown.'
                     }
                 } else {
                     // No specific values: flat section (match anything of this type).
+                    // Auto-derive bucket_label from primary metadata so blocks are still named.
                     $sectionItems = [];
                     foreach ($allCopies as $copy) {
                         $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
@@ -7268,15 +7325,31 @@ Return ONLY the JSON object, no markdown.'
                         if ($itemMatchesSection($copy, $section)) {
                             $sectionItems[] = [
                                 'copy_id'      => $copy['copy_id'],
+                                'movie_id'     => $copy['movie_id'],
                                 'title'        => $copy['title'],
+                                'year'         => $copy['year'],
+                                'rating'       => $copy['rating'],
                                 'container_id' => null,
                                 'is_container' => 0,
+                                'item_type'    => 'single',
+                                'bucket_label' => $getPrimaryValue($copy, $section['type']),
                                 'group_type'   => $section['type'],
                             ];
                             $claimed[$itemKey] = true;
                         }
                     }
-                    $sortItems($sectionItems, $sort);
+                    // Sort by bucket_label first (groups same-value items together for block headers),
+                    // then apply section's secondary sort key within each bucket.
+                    usort($sectionItems, function($a, $b) use ($sort) {
+                        $la = strtolower($a['bucket_label'] ?? '');
+                        $lb = strtolower($b['bucket_label'] ?? '');
+                        if ($la !== $lb) return strcmp($la, $lb);
+                        switch ($sort) {
+                            case 'year':   return intval($a['year'] ?? 0) <=> intval($b['year'] ?? 0);
+                            case 'rating': return floatval($b['rating'] ?? 0) <=> floatval($a['rating'] ?? 0);
+                            default:       return strcmp($a['title'] ?? '', $b['title'] ?? '');
+                        }
+                    });
                     $entry = ['name' => $section['id'] ?? 'Section', 'section_type' => $section['type'], 'items' => $sectionItems];
                     if ($direction === 'bottom') {
                         $bottomSections[] = $entry;
@@ -7292,15 +7365,27 @@ Return ONLY the JSON object, no markdown.'
             foreach ($allCopies as $copy) {
                 $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
                 if (!isset($claimed[$itemKey])) {
-                    $remainItems[] = ['copy_id' => $copy['copy_id'], 'title' => $copy['title'], 'container_id' => null, 'is_container' => 0];
+                    $remainItems[] = ['copy_id' => $copy['copy_id'], 'movie_id' => $copy['movie_id'], 'title' => $copy['title'], 'year' => $copy['year'], 'rating' => $copy['rating'], 'container_id' => null, 'is_container' => 0, 'item_type' => 'single'];
                     $claimed[$itemKey] = true;
                 }
             }
-            // Add boxsets to remainder
+            // Add box sets to remainder (they're placed as single physical units)
             foreach ($allContainers as $con) {
                 $cKey = 'c' . $con['container_id'];
                 if (!isset($claimed[$cKey])) {
-                    $remainItems[] = ['copy_id' => null, 'title' => $con['title'], 'container_id' => $con['container_id'], 'is_container' => 1];
+                    $remainItems[] = [
+                        'copy_id'         => null,
+                        'movie_id'        => null,
+                        'title'           => $con['title'],
+                        'year'            => null,
+                        'rating'          => null,
+                        'container_id'    => $con['container_id'],
+                        'is_container'    => 1,
+                        'item_type'       => 'boxset',
+                        'bucket_label'    => 'Box Sets',
+                        'group_type'      => null,
+                        'contained_count' => intval($con['contained_count'] ?? 0),
+                    ];
                     $claimed[$cKey] = true;
                 }
             }
