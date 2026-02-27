@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.10';
+const APP_VERSION = '2.8.11';
 
 async function checkVersionGuard() {
     try {
@@ -10852,17 +10852,32 @@ async function getCurrentUserId() {
         }
 
         if (!preview) return;
-        preview.innerHTML = plan.placement.map(p => `
+        preview.innerHTML = plan.placement.map(p => {
+            let lastBucket = null;
+            const bits = [];
+            p.ordered_items.forEach(i => {
+                if (i.bucket_label && i.bucket_label !== lastBucket) {
+                    lastBucket = i.bucket_label;
+                    if (bits.length > 0) bits.push('<span style="color:rgba(255,255,255,0.25)"> &#x2502; </span>');
+                    bits.push(`<span style="background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.35);border-radius:3px;padding:1px 6px;font-size:0.72rem;color:#c4b5fd;margin-right:3px;">${escapeHtml(i.bucket_label)}</span>`);
+                } else if (bits.length > 0) {
+                    bits.push(' · ');
+                }
+                bits.push(escapeHtml(i.title));
+            });
+            const itemsHtml = bits.join('');
+            return `
             <div style="margin-bottom:0.75rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem;">
                 <div style="font-weight:600; margin-bottom:0.4rem; color:#a78bfa; display:flex; justify-content:space-between;">
                     <span>📚 ${escapeHtml(p.shelf_name)}</span>
                     <span style="font-weight:400; font-size:0.8rem; color:rgba(255,255,255,0.45);">${p.ordered_items.length} item${p.ordered_items.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div style="color:rgba(255,255,255,0.7); font-size:0.85rem; line-height:1.6;">
-                    ${p.ordered_items.map(i => escapeHtml(i.title)).join(' · ')}
+                    ${itemsHtml}
                 </div>
             </div>
-        `).join('') || '<p style="color:rgba(255,255,255,0.5);">No items could be placed (no shelves or empty collection).</p>';
+        `;
+        }).join('') || '<p style="color:rgba(255,255,255,0.5);">No items could be placed (no shelves or empty collection).</p>';
     }
 
     function aiWizardBackToStep1() {

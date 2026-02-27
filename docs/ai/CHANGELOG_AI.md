@@ -4,6 +4,44 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
+
+### fix: bucketed grouping + unplaced count in wizard plan (v2.8.11)
+
+**Root cause — two bugs in `generate_recipe_plan` (api.php)**:
+
+1. **Flat section assignment**: When a section had `values=["Nolan","Spielberg"]`,
+   all matching items were gathered into a single sorted list. Director/studio
+   boundaries were lost — items were globally sorted across all selected values.
+
+2. **`$unplaced` always 0**: Formula was `($placedTop + $totalBottom) > $totalCapacity`
+   but `$placedTop` is the count of *placed* items (not *attempted*), so the
+   difference was always ≤ 0.
+
+**Fix** (api.php):
+- Section assignment loop now checks `empty($values)`. When non-empty, iterates
+  each value individually, building a separate `$bucketItems` array per value
+  (claims from `$allCopies` one value at a time). Each bucket gets its own
+  `['name'=>$singleValue, ...]` entry in `$topSections`/`$bottomSections`.
+  Items carry a `bucket_label` field for frontend rendering.
+- Added `$totalTopRemainder` counter (sum of items in top+remainder sections)
+  before fill loop.
+- Added `$placedBottom` counter in bottom fill loop.
+- New formula: `$unplaced = max(0, ($totalTopRemainder - $placedTop) + ($totalBottom - $placedBottom));`
+
+**Fix** (js/app.js `_renderWizardPreview`):
+- Replaced flat `.map(i => escapeHtml(i.title)).join(' · ')` with a loop that
+  detects `bucket_label` transitions and inserts a purple chip (e.g. `Nolan`)
+  with a `│` visual separator before the first item of each new bucket.
+
+| File | Change |
+|------|--------|
+| `api/api.php` | Per-value bucketing in section assignment; `$totalTopRemainder`; `$placedBottom`; fixed `$unplaced` formula |
+| `js/app.js` | `_renderWizardPreview` bucket chip rendering; APP_VERSION → 2.8.11 |
+| `version.json` | 2.8.10 → 2.8.11 |
+
+---
+
 ## 2026-02-26 (branch: claude/continue-cineshelf-setup-acofW)
 
 ### fix: distribute wizard plan across shelf unit shelves by capacity (v2.8.10)

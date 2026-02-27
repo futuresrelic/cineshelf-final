@@ -7225,26 +7225,62 @@ Return ONLY the JSON object, no markdown.'
             $bottomSections = [];
 
             foreach ($recipe['sections'] as $section) {
-                $sectionItems = [];
-                foreach ($allCopies as $copy) {
-                    $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
-                    if (isset($claimed[$itemKey])) continue;
-                    if ($itemMatchesSection($copy, $section)) {
-                        $sectionItems[] = [
-                            'copy_id'      => $copy['copy_id'],
-                            'title'        => $copy['title'],
-                            'container_id' => null,
-                            'is_container' => 0,
-                        ];
-                        $claimed[$itemKey] = true;
+                $values    = $section['values'] ?? [];
+                $sort      = $section['sort'] ?? 'title';
+                $direction = $section['direction'] ?? 'top';
+
+                if (!empty($values)) {
+                    // Per-value bucketing: one contiguous sub-group per selected value,
+                    // preserving the order the user specified them.
+                    foreach ($values as $singleValue) {
+                        $bucketSection = array_merge($section, ['values' => [$singleValue]]);
+                        $bucketItems   = [];
+                        foreach ($allCopies as $copy) {
+                            $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
+                            if (isset($claimed[$itemKey])) continue;
+                            if ($itemMatchesSection($copy, $bucketSection)) {
+                                $bucketItems[] = [
+                                    'copy_id'      => $copy['copy_id'],
+                                    'title'        => $copy['title'],
+                                    'container_id' => null,
+                                    'is_container' => 0,
+                                    'bucket_label' => $singleValue,
+                                ];
+                                $claimed[$itemKey] = true;
+                            }
+                        }
+                        if (empty($bucketItems)) continue;
+                        $sortItems($bucketItems, $sort);
+                        $entry = ['name' => $singleValue, 'section_type' => $section['type'], 'items' => $bucketItems];
+                        if ($direction === 'bottom') {
+                            $bottomSections[] = $entry;
+                        } else {
+                            $topSections[] = $entry;
+                        }
                     }
-                }
-                $sortItems($sectionItems, $section['sort'] ?? 'title');
-                $entry = ['name' => $section['id'] ?? 'Section', 'section_type' => $section['type'], 'items' => $sectionItems];
-                if (($section['direction'] ?? 'top') === 'bottom') {
-                    $bottomSections[] = $entry;
                 } else {
-                    $topSections[] = $entry;
+                    // No specific values: flat section (match anything of this type).
+                    $sectionItems = [];
+                    foreach ($allCopies as $copy) {
+                        $itemKey = $copy['copy_id'] ?? ('w' . $copy['movie_id']);
+                        if (isset($claimed[$itemKey])) continue;
+                        if ($itemMatchesSection($copy, $section)) {
+                            $sectionItems[] = [
+                                'copy_id'      => $copy['copy_id'],
+                                'title'        => $copy['title'],
+                                'container_id' => null,
+                                'is_container' => 0,
+                            ];
+                            $claimed[$itemKey] = true;
+                        }
+                    }
+                    $sortItems($sectionItems, $sort);
+                    $entry = ['name' => $section['id'] ?? 'Section', 'section_type' => $section['type'], 'items' => $sectionItems];
+                    if ($direction === 'bottom') {
+                        $bottomSections[] = $entry;
+                    } else {
+                        $topSections[] = $entry;
+                    }
                 }
             }
 
@@ -7352,6 +7388,7 @@ Return ONLY the JSON object, no markdown.'
             $usableCapacity = $totalCapacity - $totalBottom;
 
             $topAndRemainder = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]]);
+            $totalTopRemainder = array_sum(array_map(fn($s) => count($s['items']), $topAndRemainder));
             $placedTop = 0;
             foreach ($topAndRemainder as $section) {
                 foreach ($section['items'] as $item) {
@@ -7369,6 +7406,7 @@ Return ONLY the JSON object, no markdown.'
             }
 
             // Place bottom sections at the END (append after remainder in reverse)
+            $placedBottom = 0;
             foreach ($bottomSections as $bSec) {
                 foreach ($bSec['items'] as $item) {
                     while ($shIdxR < count($shQueueR)) {
@@ -7379,6 +7417,7 @@ Return ONLY the JSON object, no markdown.'
                     }
                     if ($shIdxR >= count($shQueueR)) break;
                     $recipePlacement[$shQueueR[$shIdxR]['id']]['items'][] = $item;
+                    $placedBottom++;
                 }
             }
 
@@ -7389,7 +7428,7 @@ Return ONLY the JSON object, no markdown.'
                     $recipePlacementOut[] = ['shelf_id' => $shelfId, 'shelf_name' => $data['shelf']['name'], 'ordered_items' => array_values($data['items'])];
                 }
             }
-            $unplaced = ($placedTop + $totalBottom) > $totalCapacity ? max(0, ($placedTop + $totalBottom) - $totalCapacity) : 0;
+            $unplaced = max(0, ($totalTopRemainder - $placedTop) + ($totalBottom - $placedBottom));
 
             jsonResponse(true, [
                 'sections'         => array_values(array_filter($orderedSections, fn($s) => !empty($s['items']))),
