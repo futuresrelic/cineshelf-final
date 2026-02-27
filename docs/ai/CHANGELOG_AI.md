@@ -6,6 +6,31 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat: move a section between child shelves (v2.8.17)
+
+**Goal D — "Move Section" MVP:**
+
+1. `api/api.php` — new `move_layout_section(section_id, target_shelf_id)` action:
+   - Verifies user owns the section (via `shelf_layout_profiles.user_id`) and owns the
+     target shelf.
+   - Fetches the entry IDs belonging to the section (via `layout_section_id`).
+   - Moves those `shelf_layout_entries` rows to the target shelf, appending positions after
+     any entries already there.
+   - Re-numbers `position_in_shelf` on the source shelf for remaining entries.
+   - Updates `layout_sections.shelf_id` for the section row.
+   - Recompacts `sort_index` on the source shelf's sections.
+   - Appends the section at the end of the target shelf's `sort_index` sequence.
+   - Returns `{ moved, layout_id, sections[] }` with the full updated sections list.
+
+2. `js/app.js` — new `moveSectionToShelf(sectionId, targetShelfId, layoutId)` function:
+   - Calls `move_layout_section` and updates `_layoutSections` from the response.
+   - Re-calls `apply_shelf_layout` to resync `shelf_assignments` from the updated entries.
+   - Refreshes `shelfViewMoviesCache` for all shelves via parallel `get_shelf_contents` calls.
+   - Calls `renderShelfViewLevel()` to redraw and shows a success/error toast.
+   - Exported as `App.moveSectionToShelf` (called by the "Move to…" select in chips).
+
+---
+
 ### feat: display layout sections as headers in shelf view (v2.8.16)
 
 **Goal C — render section chips in the shelf-view browser:**

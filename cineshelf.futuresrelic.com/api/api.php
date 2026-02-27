@@ -7908,6 +7908,96 @@ Return ONLY the JSON object, no markdown.'
             break;
         }
 
+        case 'move_layout_section': {
+            $sectionId     = intval($input['section_id']     ?? 0);
+            $targetShelfId = intval($input['target_shelf_id'] ?? 0);
+            if (!$sectionId || !$targetShelfId) { jsonResponse(false, null, 'section_id and target_shelf_id required'); }
+
+            // Verify user owns the section via its parent layout
+            $secStmt = $db->prepare("
+                SELECT ls.*, slp.user_id AS owner_id
+                FROM layout_sections ls
+                JOIN shelf_layout_profiles slp ON slp.id = ls.layout_id
+                WHERE ls.id = ? AND slp.user_id = ?
+            ");
+            $secStmt->execute([$sectionId, $userId]);
+            $sec = $secStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$sec) { jsonResponse(false, null, 'Section not found'); }
+
+            // Verify user owns target shelf
+            $tChk = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+            $tChk->execute([$targetShelfId, $userId]);
+            if (!$tChk->fetch()) { jsonResponse(false, null, 'Target shelf not found'); }
+
+            $layoutId      = intval($sec['layout_id']);
+            $sourceShelfId = intval($sec['shelf_id']);
+
+            // No-op if already on target
+            if ($sourceShelfId === $targetShelfId) {
+                $rows = $db->prepare("SELECT * FROM layout_sections WHERE layout_id = ? ORDER BY shelf_id, sort_index");
+                $rows->execute([$layoutId]);
+                jsonResponse(true, ['moved' => 0, 'sections' => $rows->fetchAll(PDO::FETCH_ASSOC)]);
+            }
+
+            $db->beginTransaction();
+            try {
+                // Count existing entries on target shelf (position offset for appended entries)
+                $cntStmt = $db->prepare("SELECT COUNT(*) FROM shelf_layout_entries WHERE layout_id = ? AND shelf_id = ?");
+                $cntStmt->execute([$layoutId, $targetShelfId]);
+                $basePos = intval($cntStmt->fetchColumn());
+
+                // Get the entry IDs belonging to this section, ordered by current position
+                $secEntries = $db->prepare("SELECT id FROM shelf_layout_entries WHERE layout_id = ? AND layout_section_id = ? ORDER BY position_in_shelf");
+                $secEntries->execute([$layoutId, $sectionId]);
+                $secEntryIds = $secEntries->fetchAll(PDO::FETCH_COLUMN);
+
+                // Move entries to target shelf, appending after existing entries
+                $moveStmt = $db->prepare("UPDATE shelf_layout_entries SET shelf_id = ?, position_in_shelf = ? WHERE id = ?");
+                $targetPos = $basePos;
+                foreach ($secEntryIds as $eid) {
+                    $moveStmt->execute([$targetShelfId, $targetPos++, intval($eid)]);
+                }
+
+                // Re-number remaining entries on source shelf
+                $srcEntries = $db->prepare("SELECT id FROM shelf_layout_entries WHERE layout_id = ? AND shelf_id = ? ORDER BY position_in_shelf");
+                $srcEntries->execute([$layoutId, $sourceShelfId]);
+                $upPos = $db->prepare("UPDATE shelf_layout_entries SET position_in_shelf = ? WHERE id = ?");
+                $pos = 0;
+                foreach ($srcEntries->fetchAll(PDO::FETCH_COLUMN) as $eid) {
+                    $upPos->execute([$pos++, intval($eid)]);
+                }
+
+                // Move the section row to target shelf
+                $db->prepare("UPDATE layout_sections SET shelf_id = ? WHERE id = ?")->execute([$targetShelfId, $sectionId]);
+
+                // Recompact sort_index on source shelf
+                $srcSecs = $db->prepare("SELECT id FROM layout_sections WHERE layout_id = ? AND shelf_id = ? ORDER BY sort_index");
+                $srcSecs->execute([$layoutId, $sourceShelfId]);
+                $upIdx = $db->prepare("UPDATE layout_sections SET sort_index = ? WHERE id = ?");
+                $idx = 0;
+                foreach ($srcSecs->fetchAll(PDO::FETCH_COLUMN) as $sid) {
+                    $upIdx->execute([$idx++, intval($sid)]);
+                }
+
+                // Append sort_index on target shelf for the moved section
+                $maxIdxStmt = $db->prepare("SELECT COALESCE(MAX(sort_index), -1) FROM layout_sections WHERE layout_id = ? AND shelf_id = ? AND id != ?");
+                $maxIdxStmt->execute([$layoutId, $targetShelfId, $sectionId]);
+                $newIdx = intval($maxIdxStmt->fetchColumn()) + 1;
+                $db->prepare("UPDATE layout_sections SET sort_index = ? WHERE id = ?")->execute([$newIdx, $sectionId]);
+
+                $db->commit();
+            } catch (Exception $ex) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Failed: ' . $ex->getMessage());
+            }
+
+            // Return updated sections list for the layout
+            $rows = $db->prepare("SELECT * FROM layout_sections WHERE layout_id = ? ORDER BY shelf_id, sort_index");
+            $rows->execute([$layoutId]);
+            jsonResponse(true, ['moved' => 1, 'layout_id' => $layoutId, 'sections' => $rows->fetchAll(PDO::FETCH_ASSOC)]);
+            break;
+        }
+
         // ================================================================
         // AI ORGANIZATION WIZARD - DETERMINISTIC PLANNER (v5.0.0)
         // ================================================================

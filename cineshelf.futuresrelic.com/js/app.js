@@ -3880,6 +3880,38 @@ function getCertColor(cert) {
         renderShelfViewLevel();
     }
 
+    // Move a layout section to a different child shelf (Goal D)
+    async function moveSectionToShelf(sectionId, targetShelfId, layoutId) {
+        sectionId    = Number(sectionId);
+        targetShelfId = Number(targetShelfId);
+        layoutId      = Number(layoutId);
+        if (!sectionId || !targetShelfId) return;
+        try {
+            const res = await apiCall('move_layout_section', {
+                section_id:      sectionId,
+                target_shelf_id: targetShelfId,
+            });
+            if (res && res.sections) {
+                _layoutSections = res.sections;
+            }
+            // Resync shelf_assignments from the updated layout entries
+            if (layoutId) {
+                try { await apiCall('apply_shelf_layout', { layout_id: layoutId }); } catch(e) {}
+            }
+            // Refresh cached shelf contents for all shelves
+            await Promise.all(shelves.map(async shelf => {
+                try {
+                    const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                    shelfViewMoviesCache[shelf.id] = items || [];
+                } catch(e) { shelfViewMoviesCache[shelf.id] = []; }
+            }));
+            renderShelfViewLevel();
+            showToast('Section moved!', 'success');
+        } catch(e) {
+            showToast('Failed to move section: ' + (e.message || e), 'error');
+        }
+    }
+
     // ========================================
     // PHYSICAL MEDIA VIEW
     // Shows all physical copies grouped by shelf, format, or flat
@@ -11159,6 +11191,7 @@ return {
     shelfViewDrillIn,
     shelfViewBack,
     shelfViewGoTo,
+    moveSectionToShelf,
     renderPhysicalMedia,
     setPhysicalView,
     showRelatedMovies,
