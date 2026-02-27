@@ -6,6 +6,28 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat: display layout sections as headers in shelf view (v2.8.16)
+
+**Goal C — render section chips in the shelf-view browser:**
+
+1. `js/app.js` — new `_layoutSections = []` module-level variable tracks sections for the
+   active layout.
+
+2. `js/app.js` — `loadShelfViewBrowse()`: after pre-caching all shelf contents, queries
+   `get_layout_sections` for the currently active layout (if any) and stores the result in
+   `_layoutSections`.  Falls back to `[]` on error or when no layout is active.
+
+3. `js/app.js` — `renderShelfViewLevel()` parent view: for each child shelf row, inserts a
+   `.shelf-section-chips` bar between the `.shelf-row-header` and `.shelf-spine-row`.  Each
+   chip shows the section label and item count.  If sibling child shelves exist a "Move to…"
+   `<select>` is included on each chip (wired to `App.moveSectionToShelf`, implemented in
+   Goal D).
+
+4. `css/styles.css` — new styles for `.shelf-section-chips`, `.shelf-section-chip`,
+   `.chip-label`, `.chip-count`, and `.chip-move-select`.
+
+---
+
 ### feat: persist wizard blocks as layout sections on save (v2.8.15)
 
 **Goal B — save wizard blocks as layout_sections + new get_layout_sections action:**

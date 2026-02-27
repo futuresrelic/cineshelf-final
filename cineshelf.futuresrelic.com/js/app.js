@@ -3562,6 +3562,7 @@ function getCertColor(cert) {
 
     let shelfViewStack = []; // [{id: null, name: 'All Shelves'}, {id:5, name:'Living Room'}, ...]
     let shelfViewMoviesCache = {}; // keyed by shelf_id → array of items
+    let _layoutSections = [];     // sections for the active layout (populated by loadShelfViewBrowse)
 
     // Format → spine color mapping
     const SPINE_FORMAT_COLORS = {
@@ -3614,6 +3615,17 @@ function getCertColor(cert) {
                 shelfViewMoviesCache[shelf.id] = [];
             }
         }));
+
+        // Fetch layout sections for the active layout (Goal C)
+        const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+        if (activeLayout) {
+            try {
+                const sections = await apiCall('get_layout_sections', { layout_id: activeLayout.id });
+                _layoutSections = sections || [];
+            } catch(e) { _layoutSections = []; }
+        } else {
+            _layoutSections = [];
+        }
 
         await renderShelfViewLevel();
     }
@@ -3795,6 +3807,29 @@ function getCertColor(cert) {
                 const shelfMovies = getShelfMoviesRecursive(shelf.id);
                 const subSectionCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
                 const safeName = shelf.name.replace(/'/g, "\\'");
+
+                // Build section chips for this child shelf (Goal C)
+                const shelfSections = _layoutSections.filter(s => Number(s.shelf_id) === shelf.id);
+                let sectionChipsHtml = '';
+                if (shelfSections.length > 0) {
+                    const siblingOptions = childShelves
+                        .filter(s => s.id !== shelf.id)
+                        .map(s => `<option value="${s.id}">${s.name.replace(/"/g,'&quot;')}</option>`)
+                        .join('');
+                    const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+                    const layoutId = activeLayout ? activeLayout.id : 0;
+                    sectionChipsHtml = `<div class="shelf-section-chips">` +
+                        shelfSections.map(sec => `<span class="shelf-section-chip">
+                            <span class="chip-label">${sec.label.replace(/</g,'&lt;')}</span>
+                            <span class="chip-count">${sec.item_count}</span>
+                            ${siblingOptions ? `<select class="chip-move-select" title="Move section to another shelf"
+                                onchange="if(this.value){App.moveSectionToShelf(${sec.id},this.value,${layoutId});this.value='';}">
+                                <option value="">Move to…</option>${siblingOptions}
+                            </select>` : ''}
+                        </span>`).join('') +
+                        `</div>`;
+                }
+
                 html += `
                 <div class="shelf-row">
                     <div class="shelf-row-header" onclick="App.shelfViewDrillIn(${shelf.id}, '${safeName}')"
@@ -3807,6 +3842,7 @@ function getCertColor(cert) {
                         </span>
                         <span class="shelf-row-arrow">›</span>
                     </div>
+                    ${sectionChipsHtml}
                     <div class="shelf-spine-row" style="--shelf-color:${shelf.color || '#667eea'}">
                         ${renderSpineStrip(shelfMovies, shelf.color || '#667eea')}
                     </div>

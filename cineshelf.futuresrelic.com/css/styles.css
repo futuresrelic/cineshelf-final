@@ -609,6 +609,45 @@ select option {
 .shelf-spine-row::-webkit-scrollbar-track { background: transparent; }
 .shelf-spine-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 
+/* Layout section chips — shown between shelf header and spine strip (Goal C/D) */
+.shelf-section-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem 0.25rem;
+}
+.shelf-section-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.75);
+    white-space: nowrap;
+}
+.chip-label { font-weight: 500; }
+.chip-count {
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 0 0.35rem;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.55);
+}
+.chip-move-select {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.7rem;
+    padding: 0.05rem 0.4rem;
+    cursor: pointer;
+    outline: none;
+}
+.chip-move-select:hover { background: rgba(255,255,255,0.15); }
+
 .spine-empty-msg {
     color: rgba(255,255,255,0.25);
     font-size: 0.82rem;
