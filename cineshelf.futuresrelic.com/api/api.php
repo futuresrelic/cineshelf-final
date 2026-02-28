@@ -7461,9 +7461,15 @@ Return ONLY the JSON object, no markdown.'
                 jsonResponse(false, null, 'No usable shelves found after expanding shelf units.');
             }
 
-            // For bottom sections: reserve space at the END of the last shelf
-            $totalBottom = array_sum(array_map(fn($s) => count($s['items']), $bottomSections));
-            $totalCapacity = array_sum(array_map(fn($sh) => (max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap)), $recipeShelfList));
+            // Reserve total capacity at the end for bottom-section items.
+            // Each shelf fills to its physical cap; we stop placing top+remainder
+            // items once $placedTop reaches $usableCapacity (total - bottom slots).
+            // BUG FIX (v2.8.19): previous code used min($cap, $usableCapacity-$placedTop)
+            // as a per-shelf limit, which shrank on each iteration and caused $shIdxR to
+            // advance past shelves that still had physical space, leaving items unplaced.
+            $totalBottom    = array_sum(array_map(fn($s) => count($s['items']), $bottomSections));
+            $totalCapacity  = array_sum(array_map(fn($sh) => max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap), $recipeShelfList));
+            $usableCapacity = max(0, $totalCapacity - $totalBottom);
 
             // --- Fill shelves ---
             $recipePlacement = [];
@@ -7472,18 +7478,17 @@ Return ONLY the JSON object, no markdown.'
             }
             $shQueueR = array_values($recipeShelfList);
             $shIdxR   = 0;
-            $usableCapacity = $totalCapacity - $totalBottom;
 
-            $topAndRemainder = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]]);
+            $topAndRemainder   = array_merge($topSections, [['name' => 'Everything Else', 'section_type' => 'remainder', 'items' => $remainItems]]);
             $totalTopRemainder = array_sum(array_map(fn($s) => count($s['items']), $topAndRemainder));
             $placedTop = 0;
             foreach ($topAndRemainder as $section) {
                 foreach ($section['items'] as $item) {
+                    if ($placedTop >= $usableCapacity) break 2; // all slots reserved for top+remainder are filled
                     while ($shIdxR < count($shQueueR)) {
-                        $sh = $shQueueR[$shIdxR];
+                        $sh  = $shQueueR[$shIdxR];
                         $cap = max(1, $sh['capacity'] > 0 ? $sh['capacity'] : $defCap);
-                        $usable = ($placedTop < $usableCapacity) ? min($cap, $usableCapacity - $placedTop) : 0;
-                        if (count($recipePlacement[$sh['id']]['items']) < $usable || ($usable <= 0 && count($recipePlacement[$sh['id']]['items']) < $cap)) break;
+                        if (count($recipePlacement[$sh['id']]['items']) < $cap) break; // shelf has space
                         $shIdxR++;
                     }
                     if ($shIdxR >= count($shQueueR)) break;

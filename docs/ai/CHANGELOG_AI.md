@@ -6,6 +6,37 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/fix-persisted-sections-and-boxsets)
 
+### fix: fill-loop reservation leaves shelves half-empty with items remaining (v2.8.19)
+
+**Root cause:** In `generate_recipe_plan`, the top+remainder fill loop computed a per-shelf
+"usable" slot limit as `min($cap, $usableCapacity - $placedTop)`. Because `$placedTop`
+increases after each item placed, the per-shelf limit shrank on every iteration. This caused
+`$shIdxR` to advance past shelves that still had physical space, leaving items as "unplaced"
+even though capacity remained.
+
+**Example of the bug:** 2 shelves × cap 5 (total 10), 3 bottom items (reserved), 8
+top+remainder items. Previous code placed only 6 items (4 on shelf 1, 2 on shelf 2) and left
+2 unplaced, despite both shelves having free slots.
+
+**Fix (api.php — `generate_recipe_plan`):**
+- Removed the per-shelf `$usable = min($cap, $usableCapacity - $placedTop)` calculation.
+- Added a `break 2` guard at the start of each item's placement: if `$placedTop >=
+  $usableCapacity`, stop immediately (respecting the bottom-section reservation).
+- Shelf advance condition now uses physical `$cap` only — each shelf fills completely before
+  moving to the next.
+- With the fix, the same example places 7 items (5 on shelf 1, 2 on shelf 2), then 3 bottom
+  items fill the remaining shelf 2 slots, total = 10 ✓.
+
+**How to test:**
+- Configure a shelf unit with 2+ child shelves and capacity set (e.g. 10 each).
+- Add more movies than fit on one shelf. Run the AI Wizard and generate a plan.
+- Verify the plan uses consecutive shelves fully before starting a new one.
+- Verify `unplaced_estimate` is 0 (or only reflects genuine overflow above total capacity).
+- Add a "bottom" direction section (e.g. Wishlist). Verify it appears at the end while top
+  sections fill correctly from the front.
+
+---
+
 ### fix: section chips not visible after save + APP_VERSION sync (v2.8.18)
 
 **Root causes identified and fixed:**
