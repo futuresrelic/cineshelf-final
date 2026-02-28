@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.13';
+const APP_VERSION = '2.8.18';
 
 async function checkVersionGuard() {
     try {
@@ -3616,7 +3616,12 @@ function getCertColor(cert) {
             }
         }));
 
-        // Fetch layout sections for the active layout (Goal C)
+        // Ensure layout profiles are loaded (may not be if shelf view is first tab opened)
+        if (layoutProfiles.length === 0) {
+            try { await loadLayoutProfiles(); } catch(e) {}
+        }
+
+        // Fetch layout sections for the active layout
         const activeLayout = layoutProfiles.find(l => l.is_active == 1);
         if (activeLayout) {
             try {
@@ -11056,8 +11061,8 @@ async function getCurrentUserId() {
             _wizardPlan = null;
             _wizardSections = [];
             closeAIWizardModal();
-            await loadLayoutProfiles();
-            await loadShelves();
+            await loadLayoutProfiles();        // must come before refreshAllShelfViews so sections fetch uses updated active layout
+            await refreshAllShelfViews();      // reloads shelves + shelf-view browser (including section chips) if on that tab
         } catch (e) {
             showToast('Failed to save layout: ' + e.message, 'error');
         }

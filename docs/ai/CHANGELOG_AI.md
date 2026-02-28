@@ -4,6 +4,42 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-28 (branch: claude/fix-persisted-sections-and-boxsets)
+
+### fix: section chips not visible after save + APP_VERSION sync (v2.8.18)
+
+**Root causes identified and fixed:**
+
+1. **`APP_VERSION` was `'2.8.13'`** in `js/app.js` while `version.json` was `2.8.17`.
+   Every commit in the v2.8.14–v2.8.17 batch bumped `version.json` but omitted updating
+   the `APP_VERSION` constant (violating the project's versioning rule). Fixed: set to
+   `'2.8.18'` so `checkVersionGuard()` no longer reports a mismatch.
+
+2. **Shelf view not refreshed after wizard save** — `applyWizardPlan()` called
+   `loadLayoutProfiles()` then `loadShelves()`, but never reloaded the shelf-view browser.
+   Section chips therefore only appeared after the user manually navigated away and back.
+   Fixed: replaced `await loadShelves()` with `await refreshAllShelfViews()` which
+   conditionally calls `loadShelfViewBrowse()` when the shelf-view browser is active,
+   correctly using the already-refreshed `layoutProfiles` to fetch sections.
+
+3. **`layoutProfiles` empty on first shelf-view load** — `loadShelfViewBrowse()` reads
+   `layoutProfiles.find(l => l.is_active == 1)` to get the active layout ID for the
+   `get_layout_sections` fetch. If the user navigated directly to the shelf-view tab before
+   `loadLayoutProfiles()` was called by the app's init sequence, `layoutProfiles` was `[]`
+   and `activeLayout` was `undefined`, so sections were never fetched.
+   Fixed: added a guard at the start of the sections-fetch block that calls
+   `await loadLayoutProfiles()` when `layoutProfiles.length === 0`.
+
+**How to test:**
+- Open the AI Wizard, generate a plan, and save it (ensure "Set as active" is checked).
+- Without navigating away, check the Shelf View browser: section chips should now
+  appear on each child shelf row immediately after the modal closes.
+- Refresh the page, navigate directly to the Shelf View browser: section chips should
+  still appear without having to click any other tab first.
+- In DevTools console, confirm no `[VersionGuard] Version mismatch` warning.
+
+---
+
 ## 2026-02-27 (branch: claude/continue-cineshelf-setup-acofW)
 
 ### feat: move a section between child shelves (v2.8.17)
