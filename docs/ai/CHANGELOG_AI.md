@@ -6,6 +6,31 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: always load layout_sections for active layout in shelf view (v2.8.22)
+
+**Root causes:**
+
+1. **Stale `layoutProfiles` cache** — `loadShelfViewBrowse` only called `loadLayoutProfiles()` when `layoutProfiles.length === 0`. If the user visited shelf view before any layout was active, `layoutProfiles` was populated with all `is_active=0` entries and never refreshed. Subsequent visits found `layoutProfiles.length > 0`, skipped the refresh, and `layoutProfiles.find(l => l.is_active == 1)` returned undefined — so `get_layout_sections` was never called.
+
+2. **`refreshAllShelfViews` gated on current subview** — only called `loadShelfViewBrowse(false)` when `currentCollectionSubview === 'shelfview'`. If the user ran the wizard from the movies tab, sections were never fetched into `_layoutSections`, even though `layoutProfiles` was updated.
+
+**Fix:**
+
+New `loadActiveLayoutSections()` helper — always re-fetches `layoutProfiles` first (no cache check), then fetches `get_layout_sections` for the active layout. Collapse/expand state is purely visual; data is always loaded.
+
+- `loadShelfViewBrowse()`: replaced the guarded block with `await loadActiveLayoutSections()`.
+- `refreshAllShelfViews()`: added `await loadActiveLayoutSections()` **before** the `currentCollectionSubview` check — sections are now populated regardless of which tab is active when a layout is saved.
+
+**Part B (diagnostic):** `apply_recipe_as_new_layout` response now includes `sections_created: N` (count of rows inserted into `layout_sections`). The save toast shows "(N sections)" so persistence can be confirmed in DevTools without running SQL.
+
+| File | Change |
+|------|--------|
+| `api/api.php` | `apply_recipe_as_new_layout`: count newly created sections after commit, add `sections_created` to response |
+| `js/app.js` | New `loadActiveLayoutSections()` helper; updated `loadShelfViewBrowse` (removed stale-cache guard); updated `refreshAllShelfViews` (always loads sections); updated save toast to show `(N sections)`; exported `loadActiveLayoutSections`; APP_VERSION → `2.8.22` |
+| `version.json` | `2.8.21` → `2.8.22` |
+
+---
+
 ### feat(ui): section split modal, structural section rows, collapsible nav tree (v2.8.21)
 
 **Parts B, C, D — sections as real, movable first-class layout objects:**

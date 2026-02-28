@@ -7897,7 +7897,14 @@ Return ONLY the JSON object, no markdown.'
                 $db->rollBack();
                 jsonResponse(false, null, 'Failed: ' . $ex->getMessage());
             }
-            jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'layout_name' => $layoutName, 'entries' => $totalR]);
+            // Count how many sections were actually created (diagnostic field)
+            $secCount = 0;
+            if ($newLid) {
+                $scStmt = $db->prepare("SELECT COUNT(*) FROM layout_sections WHERE layout_id = ?");
+                $scStmt->execute([$newLid]);
+                $secCount = intval($scStmt->fetchColumn());
+            }
+            jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'layout_name' => $layoutName, 'entries' => $totalR, 'sections_created' => $secCount]);
             break;
 
         case 'get_layout_sections': {

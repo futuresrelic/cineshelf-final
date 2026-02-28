@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.21';
+const APP_VERSION = '2.8.22';
 
 async function checkVersionGuard() {
     try {
@@ -3600,6 +3600,25 @@ function getCertColor(cert) {
         });
     }
 
+    /**
+     * Always-fresh sections loader (v2.8.22).
+     * Re-fetches layoutProfiles unconditionally so we never use stale
+     * is_active data, then fetches get_layout_sections for the active layout.
+     * Collapse state is purely visual — sections are always loaded.
+     */
+    async function loadActiveLayoutSections() {
+        try { await loadLayoutProfiles(); } catch(e) {}
+        const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+        if (activeLayout) {
+            try {
+                const sections = await apiCall('get_layout_sections', { layout_id: activeLayout.id });
+                _layoutSections = sections || [];
+            } catch(e) { _layoutSections = []; }
+        } else {
+            _layoutSections = [];
+        }
+    }
+
     async function loadShelfViewBrowse(reset = true) {
         if (reset || shelfViewStack.length === 0) {
             shelfViewStack = [{ id: null, name: 'All Shelves' }];
@@ -3622,21 +3641,8 @@ function getCertColor(cert) {
             }
         }));
 
-        // Ensure layout profiles are loaded (may not be if shelf view is first tab opened)
-        if (layoutProfiles.length === 0) {
-            try { await loadLayoutProfiles(); } catch(e) {}
-        }
-
-        // Fetch layout sections for the active layout
-        const activeLayout = layoutProfiles.find(l => l.is_active == 1);
-        if (activeLayout) {
-            try {
-                const sections = await apiCall('get_layout_sections', { layout_id: activeLayout.id });
-                _layoutSections = sections || [];
-            } catch(e) { _layoutSections = []; }
-        } else {
-            _layoutSections = [];
-        }
+        // Always load fresh sections — gating on cached layoutProfiles caused missed fetches
+        await loadActiveLayoutSections();
 
         await renderShelfViewLevel();
     }
@@ -3645,6 +3651,8 @@ function getCertColor(cert) {
     async function refreshAllShelfViews() {
         await loadShelves();
         if (shelfView === 'visual') renderShelvesVisual();
+        // Always refresh sections regardless of which tab is active (v2.8.22 fix)
+        await loadActiveLayoutSections();
         // If the shelf-view browser is the active collection sub-view, reload its cache too
         if (currentCollectionSubview === 'shelfview') {
             await loadShelfViewBrowse(false);
@@ -11166,7 +11174,8 @@ async function getCurrentUserId() {
                 blocks: _wizardPlan.blocks || [],
                 set_active: setActive,
             });
-            showToast(`Layout "${res.name || name}" saved with ${res.entries} entries!`, 'success');
+            const secMsg = (res.sections_created > 0) ? ` (${res.sections_created} sections)` : '';
+            showToast(`Layout "${res.name || name}" saved with ${res.entries} entries${secMsg}!`, 'success');
             // Always apply the new layout so shelf view reflects the plan
             await apiCall('apply_shelf_layout', { layout_id: res.layout_id });
             await apiCall('set_active_shelf_layout', { layout_id: res.layout_id });
@@ -11304,6 +11313,7 @@ return {
     boxSetNav,
     get boxSetNavList() { return boxSetNavList; },
     set boxSetNavList(v) { boxSetNavList = v; },
+    loadActiveLayoutSections,
     loadShelfViewBrowse,
     shelfViewDrillIn,
     shelfViewBack,
