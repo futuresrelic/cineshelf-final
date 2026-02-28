@@ -4,6 +4,35 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
+
+### feat(api): split_move_layout_section (v2.8.20)
+
+New API action that moves `move_count` entries from a section to a target shelf.
+Supports both full moves (all items) and partial splits (creates a new section).
+
+**`split_move_layout_section(section_id, target_shelf_id, move_count, from_end=true)`:**
+- Validates ownership of section (via layout join) and target shelf.
+- Clamps `move_count` to `section.item_count`.
+- **Full move** (`move_count >= item_count`): inline logic identical to `move_layout_section` — moves all entries to target, recompacts positions on source, moves section row, recompacts sort_index on both shelves.
+- **Partial split** (`move_count < item_count`):
+  1. Selects last N (or first N if `from_end=false`) entry IDs from the section.
+  2. Creates a new `layout_sections` row on the target shelf (same `group_type`/`group_value`, label = `"{original} → {target shelf name}"`, `item_count = move_count`, `sort_index = max+1` on target).
+  3. Updates moved `shelf_layout_entries` rows: `shelf_id → target`, `layout_section_id → new section`, positions appended after existing target entries.
+  4. Repacks `position_in_shelf` on source shelf (remaining entries only).
+  5. Subtracts `move_count` from source `layout_sections.item_count`.
+- Returns `{ moved, layout_id, sections[] }` — full sections list ordered by `(shelf_id, sort_index)`.
+
+**Physical identity guarantee:** Entries are selected by `layout_section_id` (set during `apply_recipe_as_new_layout`). Box sets move as single `container_id` entries — container contents are never split.
+
+| File | Change |
+|------|--------|
+| `api/api.php` | New `case 'split_move_layout_section':` block (~130 lines, before dead `generate_shelf_plan` block) |
+| `js/app.js` | APP_VERSION → `2.8.20` |
+| `version.json` | `2.8.19` → `2.8.20` |
+
+---
+
 ## 2026-02-28 (branch: claude/fix-persisted-sections-and-boxsets)
 
 ### fix: fill-loop reservation leaves shelves half-empty with items remaining (v2.8.19)
