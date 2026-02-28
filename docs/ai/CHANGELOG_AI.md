@@ -6,6 +6,34 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### debug: debug_shelf_state API action + _shelfDebugSnapshot client helper (v2.8.23)
+
+**Temporary diagnostic tools to prove ghost-content root cause.**
+
+`debug_shelf_state` (new API action, authenticated, user-scoped):
+Accepts `shelf_id` (optional) and `layout_id` (optional).
+Returns:
+- `shelf_exists`, `shelf_name`, `shelf_parent_id` — row check for the given shelf
+- `shelf_assignments_count` — rows in `shelf_assignments` for this shelf
+- `total_shelf_assignments` — total across all user's shelves
+- `active_layout_id`, `active_layout_name` — currently active layout from DB
+- `total_layouts` — how many layout profiles this user has
+- `layout_sections_count`, `layout_entries_total`, `entries_with_section_id`, `layout_entries_for_shelf` — when `layout_id` provided
+
+`_shelfDebugSnapshot()` (new client function, call from DevTools: `App._shelfDebugSnapshot()`):
+- Logs `currentCollectionSubview`, `shelfViewStack`, `activeLayoutId/Name`, `layoutProfilesCount`, `layoutSectionsCount`, `shelfViewCacheEntries` (per-shelf movie counts), `expandedShelves`, `localStorage_expandedShelves`
+- Also fires `debug_shelf_state` for the first visible child shelf + active layout to get server-side counts
+
+**To use:** Open DevTools console, type `App._shelfDebugSnapshot()`. Check both the client log and the follow-up server log for counts.
+
+| File | Change |
+|------|--------|
+| `api/api.php` | New `case 'debug_shelf_state':` before `default:` |
+| `js/app.js` | New `_shelfDebugSnapshot()` function after `shelfViewGoTo`; exported; APP_VERSION → `2.8.23` |
+| `version.json` | `2.8.22` → `2.8.23` |
+
+---
+
 ### fix: always load layout_sections for active layout in shelf view (v2.8.22)
 
 **Root causes:**

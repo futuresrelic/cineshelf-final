@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.22';
+const APP_VERSION = '2.8.23';
 
 async function checkVersionGuard() {
     try {
@@ -3904,6 +3904,57 @@ function getCertColor(cert) {
     function shelfViewGoTo(stackIndex) {
         shelfViewStack = shelfViewStack.slice(0, stackIndex + 1);
         renderShelfViewLevel();
+    }
+
+    /**
+     * _shelfDebugSnapshot() — temporary diagnostic helper (v2.8.23)
+     * Call from DevTools: App._shelfDebugSnapshot()
+     * Logs a JSON snapshot of all in-memory shelf state and fires
+     * debug_shelf_state for the first child shelf in view (if any).
+     */
+    function _shelfDebugSnapshot() {
+        const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+        const current = shelfViewStack[shelfViewStack.length - 1];
+        const parentId = current ? current.id : null;
+        const childShelfIds = shelves
+            .filter(s => parentId === null ? !s.parent_shelf_id : s.parent_shelf_id === parentId)
+            .map(s => s.id);
+        const firstChildId = childShelfIds[0] || null;
+
+        const snap = {
+            currentCollectionSubview,
+            shelfViewStack: shelfViewStack.map(s => ({ id: s.id, name: s.name })),
+            activeLayoutId:   activeLayout ? activeLayout.id   : null,
+            activeLayoutName: activeLayout ? activeLayout.name : null,
+            layoutProfilesCount:  layoutProfiles.length,
+            layoutSectionsCount:  _layoutSections.length,
+            shelfViewCacheEntries: Object.fromEntries(
+                Object.entries(shelfViewMoviesCache).map(([k, v]) => [k, Array.isArray(v) ? v.length : '?'])
+            ),
+            expandedShelves:              _expandedShelves,
+            localStorage_expandedShelves: (() => {
+                try { return JSON.parse(localStorage.getItem('cineshelf_expandedShelves') || 'null'); }
+                catch(e) { return null; }
+            })(),
+        };
+        console.log('[CineShelf DebugSnapshot]', JSON.stringify(snap, null, 2));
+
+        // Fire server-side debug call for the first visible child shelf
+        if (firstChildId && activeLayout) {
+            apiCall('debug_shelf_state', {
+                shelf_id:  firstChildId,
+                layout_id: activeLayout.id,
+            }).then(res => {
+                console.log('[CineShelf DebugSnapshot server]', JSON.stringify(res, null, 2));
+            }).catch(e => {
+                console.warn('[CineShelf DebugSnapshot server error]', e.message || e);
+            });
+        } else if (!activeLayout) {
+            apiCall('debug_shelf_state', {}).then(res => {
+                console.log('[CineShelf DebugSnapshot server (no active layout)]', JSON.stringify(res, null, 2));
+            }).catch(() => {});
+        }
+        return snap;
     }
 
     // Move a layout section to a different child shelf (Goal D)
@@ -11314,6 +11365,7 @@ return {
     get boxSetNavList() { return boxSetNavList; },
     set boxSetNavList(v) { boxSetNavList = v; },
     loadActiveLayoutSections,
+    _shelfDebugSnapshot,
     loadShelfViewBrowse,
     shelfViewDrillIn,
     shelfViewBack,

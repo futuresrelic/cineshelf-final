@@ -8586,6 +8586,75 @@ Return ONLY the JSON object, no markdown.'
             ]);
             break;
 
+        // ================================================================
+        // DEBUG: SHELF STATE SNAPSHOT (v2.8.23, temporary diagnostic)
+        // Returns shelf_assignments counts, active layout info, entry/section
+        // counts — all scoped to the authenticated user.
+        // ================================================================
+
+        case 'debug_shelf_state': {
+            $shelfId  = intval($input['shelf_id']  ?? 0);
+            $layoutId = intval($input['layout_id'] ?? 0);
+            $out = [];
+
+            // --- Per-shelf counts ---
+            if ($shelfId) {
+                $shRow = $db->prepare("SELECT id, user_id, name, parent_shelf_id FROM shelves WHERE id = ?");
+                $shRow->execute([$shelfId]);
+                $shData = $shRow->fetch(PDO::FETCH_ASSOC);
+                $out['shelf_exists']    = !!($shData && $shData['user_id'] == $userId);
+                $out['shelf_name']      = $shData['name'] ?? null;
+                $out['shelf_parent_id'] = $shData['parent_shelf_id'] ?? null;
+                $saC = $db->prepare("SELECT COUNT(*) FROM shelf_assignments WHERE shelf_id = ?");
+                $saC->execute([$shelfId]);
+                $out['shelf_assignments_count'] = intval($saC->fetchColumn());
+            }
+
+            // --- User-wide shelf_assignments total ---
+            $allSaC = $db->prepare("
+                SELECT COUNT(*) FROM shelf_assignments
+                WHERE shelf_id IN (SELECT id FROM shelves WHERE user_id = ?)
+            ");
+            $allSaC->execute([$userId]);
+            $out['total_shelf_assignments'] = intval($allSaC->fetchColumn());
+
+            // --- Active layout ---
+            $actSt = $db->prepare("SELECT id, name FROM shelf_layout_profiles WHERE user_id = ? AND is_active = 1 LIMIT 1");
+            $actSt->execute([$userId]);
+            $actL = $actSt->fetch(PDO::FETCH_ASSOC);
+            $out['active_layout_id']   = $actL ? intval($actL['id'])   : null;
+            $out['active_layout_name'] = $actL ? $actL['name']         : null;
+
+            // --- Total layouts for user ---
+            $allLayC = $db->prepare("SELECT COUNT(*) FROM shelf_layout_profiles WHERE user_id = ?");
+            $allLayC->execute([$userId]);
+            $out['total_layouts'] = intval($allLayC->fetchColumn());
+
+            // --- Layout-specific counts ---
+            if ($layoutId) {
+                $secC = $db->prepare("SELECT COUNT(*) FROM layout_sections WHERE layout_id = ?");
+                $secC->execute([$layoutId]);
+                $out['layout_sections_count'] = intval($secC->fetchColumn());
+
+                $entC = $db->prepare("SELECT COUNT(*) FROM shelf_layout_entries WHERE layout_id = ?");
+                $entC->execute([$layoutId]);
+                $out['layout_entries_total'] = intval($entC->fetchColumn());
+
+                $entLinked = $db->prepare("SELECT COUNT(*) FROM shelf_layout_entries WHERE layout_id = ? AND layout_section_id IS NOT NULL");
+                $entLinked->execute([$layoutId]);
+                $out['entries_with_section_id'] = intval($entLinked->fetchColumn());
+
+                if ($shelfId) {
+                    $entShC = $db->prepare("SELECT COUNT(*) FROM shelf_layout_entries WHERE layout_id = ? AND shelf_id = ?");
+                    $entShC->execute([$layoutId, $shelfId]);
+                    $out['layout_entries_for_shelf'] = intval($entShC->fetchColumn());
+                }
+            }
+
+            jsonResponse(true, $out);
+            break;
+        }
+
         default:
             jsonResponse(false, null, 'Unknown action: ' . $action);
     }
