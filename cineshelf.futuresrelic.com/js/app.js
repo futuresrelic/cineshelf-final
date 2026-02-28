@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.23';
+const APP_VERSION = '2.8.24';
 
 async function checkVersionGuard() {
     try {
@@ -10515,7 +10515,7 @@ async function getCurrentUserId() {
             return;
         }
         if (!val) {
-            // Revert to default (deactivate all)
+            // Revert to default (deactivate all layouts)
             await apiCall('set_active_shelf_layout', { layout_id: null });
             showToast('Switched to default layout', 'success');
         } else {
@@ -10528,13 +10528,14 @@ async function getCurrentUserId() {
                 await apiCall('apply_shelf_layout', { layout_id: layoutId });
                 await apiCall('set_active_shelf_layout', { layout_id: layoutId });
                 showToast('Layout applied!', 'success');
-                await loadShelves();
             } catch (e) {
                 showToast('Failed to apply layout: ' + e.message, 'error');
                 _renderLayoutSelector();
+                return;
             }
         }
-        await loadLayoutProfiles();
+        // Refresh shelf view cache + sections after any layout change (v2.8.24 fix)
+        await refreshAllShelfViews();
     }
 
     function showNewEmptyLayoutModal() {
@@ -10560,8 +10561,13 @@ async function getCurrentUserId() {
         try {
             const res = await apiCall('create_empty_layout', { name, set_active: setActive });
             closeNewEmptyLayoutModal();
-            await loadLayoutProfiles();
-            await loadShelves();
+            if (setActive) {
+                // Apply the empty layout to clear shelf_assignments so shelf view
+                // reflects the empty state. Without this, ghost movies from the
+                // previously-applied layout would remain visible (v2.8.24 fix).
+                await apiCall('apply_shelf_layout', { layout_id: res.layout_id });
+            }
+            await refreshAllShelfViews();
             showToast(`Layout "${res.name}" created!`, 'success');
         } catch (e) {
             showToast('Failed to create layout: ' + e.message, 'error');
@@ -10620,8 +10626,7 @@ async function getCurrentUserId() {
             await apiCall('apply_shelf_layout', { layout_id: layoutId });
             await apiCall('set_active_shelf_layout', { layout_id: layoutId });
             showToast('Layout applied!', 'success');
-            await loadShelves();
-            await loadLayoutProfiles();
+            await refreshAllShelfViews();   // refreshes shelf view cache + sections (v2.8.24)
             closeManageLayoutsModal();
         } catch (e) {
             showToast('Failed to apply layout: ' + e.message, 'error');
@@ -10633,7 +10638,8 @@ async function getCurrentUserId() {
         try {
             await apiCall('delete_shelf_layout', { layout_id: layoutId });
             showToast('Layout deleted', 'success');
-            await loadLayoutProfiles();
+            // Invalidate cache and clear stale sections from shelf view (v2.8.24)
+            await refreshAllShelfViews();
             _renderManageLayoutsList();
         } catch (e) {
             showToast('Failed to delete layout: ' + e.message, 'error');

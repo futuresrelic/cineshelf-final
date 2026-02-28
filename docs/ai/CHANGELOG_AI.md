@@ -6,6 +6,42 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: ghost content, cache invalidation, empty layout apply (v2.8.24)
+
+**Enforces Option 1 (single source of truth: `shelf_assignments`) everywhere.**
+
+**Root causes proven by audit:**
+
+1. **`deleteLayoutProfile`** called `loadLayoutProfiles()` but not `refreshAllShelfViews()`. After deletion the `shelfViewMoviesCache` stayed stale; `_layoutSections` stayed populated with the deleted layout's sections. Ghost data persisted in the shelf view.
+
+2. **`confirmNewEmptyLayout`** (with "Set as active" checked) created the empty layout profile and set it active, but never called `apply_shelf_layout`. `shelf_assignments` retained data from the previous layout → ghost movies remained on every shelf.
+
+3. **`applyLayoutProfile`** called `apply_shelf_layout` and `loadShelves/loadLayoutProfiles` but not `refreshAllShelfViews()`. Shelf view cache was never updated after applying a saved layout from the Manage Layouts modal.
+
+4. **`onLayoutProfileChange`** (both the apply-layout and revert-to-default branches) called `loadLayoutProfiles()` at the end but not `refreshAllShelfViews()`. Sections stayed visible after switching away from an active layout.
+
+**Fixes (4 surgical edits, all in `app.js`):**
+
+| Function | Change |
+|----------|--------|
+| `deleteLayoutProfile` | `await loadLayoutProfiles()` → `await refreshAllShelfViews()` (which calls `loadLayoutProfiles` via `loadActiveLayoutSections` internally) |
+| `confirmNewEmptyLayout` | Added `await apiCall('apply_shelf_layout', ...)` when `setActive=true` to clear `shelf_assignments`; replaced `loadLayoutProfiles + loadShelves` with `await refreshAllShelfViews()` |
+| `applyLayoutProfile` | Replaced `loadShelves + loadLayoutProfiles` with `await refreshAllShelfViews()` |
+| `onLayoutProfileChange` | Removed `await loadShelves()` inside the apply branch; moved `await refreshAllShelfViews()` after the if/else so both the apply AND the revert-to-default path refresh the shelf view |
+
+**Hard tests now passing:**
+- Delete all layouts → `refreshAllShelfViews()` fires → `loadShelfViewBrowse(false)` refetches `get_shelf_contents` from `shelf_assignments` (unchanged) → shelf view shows exactly what DB has → click any shelf to confirm match.
+- Create empty layout + "Set as active" → `apply_shelf_layout` clears `shelf_assignments` → shelf view refreshes → shows empty ✓
+- Apply a saved layout from the modal → shelf view immediately reflects the new assignment set ✓
+- Switch to "Default" (no active layout) → `refreshAllShelfViews()` fires → `loadActiveLayoutSections()` finds no active layout → `_layoutSections = []` → section carets/rows disappear ✓
+
+| File | Change |
+|------|--------|
+| `js/app.js` | 4 function edits (see table above); APP_VERSION → `2.8.24` |
+| `version.json` | `2.8.23` → `2.8.24` |
+
+---
+
 ### debug: debug_shelf_state API action + _shelfDebugSnapshot client helper (v2.8.23)
 
 **Temporary diagnostic tools to prove ghost-content root cause.**
