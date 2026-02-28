@@ -6727,8 +6727,16 @@ Return ONLY the JSON object, no markdown.'
             if (!$layout || $layout['user_id'] != $userId) {
                 jsonResponse(false, null, 'Layout not found or access denied');
             }
+            // If deleting the active layout, clear shelf_assignments so no ghost movies remain (v2.8.26)
+            $wasActive = !empty($layout['is_active']);
             $db->prepare("DELETE FROM shelf_layout_profiles WHERE id = ?")->execute([$layoutId]);
-            jsonResponse(true, ['deleted' => $layoutId]);
+            if ($wasActive) {
+                $db->prepare("
+                    DELETE FROM shelf_assignments
+                    WHERE shelf_id IN (SELECT id FROM shelves WHERE user_id = ?)
+                ")->execute([$userId]);
+            }
+            jsonResponse(true, ['deleted' => $layoutId, 'cleared_assignments' => $wasActive]);
             break;
 
         case 'set_active_shelf_layout':

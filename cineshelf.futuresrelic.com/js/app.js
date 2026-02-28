@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.25';
+const APP_VERSION = '2.8.26';
 
 async function checkVersionGuard() {
     try {
@@ -3641,22 +3641,25 @@ function getCertColor(cert) {
             try { shelves = await apiCall('list_shelves'); } catch(e) {}
         }
 
-        // Pre-fetch ALL shelf contents in parallel and cache
         const content = document.getElementById('shelfViewContent');
         if (content) content.innerHTML = '<div style="text-align:center;padding:3rem;color:rgba(255,255,255,0.5)">Loading shelves…</div>';
 
-        shelfViewMoviesCache = {};
-        await Promise.all(shelves.map(async shelf => {
-            try {
-                const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
-                shelfViewMoviesCache[shelf.id] = items || [];
-            } catch(e) {
-                shelfViewMoviesCache[shelf.id] = [];
-            }
-        }));
-
-        // Always load fresh sections — gating on cached layoutProfiles caused missed fetches
+        // Load active layout + sections FIRST — determines whether shelf contents are shown (v2.8.26)
         await loadActiveLayoutSections();
+
+        const hasActiveLayout = layoutProfiles.some(l => l.is_active == 1);
+        shelfViewMoviesCache = {};
+        if (hasActiveLayout) {
+            // Only fetch per-shelf contents when an active layout exists (Option 1 enforcement)
+            await Promise.all(shelves.map(async shelf => {
+                try {
+                    const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                    shelfViewMoviesCache[shelf.id] = items || [];
+                } catch(e) {
+                    shelfViewMoviesCache[shelf.id] = [];
+                }
+            }));
+        }
 
         await renderShelfViewLevel();
     }
@@ -3793,6 +3796,18 @@ function getCertColor(cert) {
         const content = document.getElementById('shelfViewContent');
         const breadcrumb = document.getElementById('shelfBreadcrumb');
         if (!content || !breadcrumb) return;
+
+        // No active layout → shelf view is empty by design (v2.8.26: Option 1 enforcement)
+        const hasActiveLayout = layoutProfiles.some(l => l.is_active == 1);
+        if (!hasActiveLayout) {
+            breadcrumb.innerHTML = '<span class="shelf-crumb shelf-crumb-active">🏠 All Shelves</span>';
+            content.innerHTML = `<div class="empty-state" style="padding:3rem 0">
+                <div class="empty-icon">🗂️</div>
+                <h3>No active layout selected</h3>
+                <p>Use the layout selector above to apply a saved layout, or run the ✨ AI Wizard to create one.</p>
+            </div>`;
+            return;
+        }
 
         const current = shelfViewStack[shelfViewStack.length - 1];
         const parentId = current.id;

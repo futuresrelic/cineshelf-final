@@ -6,6 +6,38 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: ghost movies + no-active-layout empty state + clear assignments on delete (v2.8.26)
+
+**Root causes proven by audit:**
+
+1. **Ghost movies after layout deletion**: `delete_shelf_layout` deleted the layout profile (CASCADE deletes entries + sections) but left `shelf_assignments` populated. `get_shelf_contents` reads from `shelf_assignments`, so the shelf view continued showing stale movies even with no layout.
+
+2. **Ghost movies visible despite no active layout**: `loadShelfViewBrowse` fetched `get_shelf_contents` for ALL shelves unconditionally, regardless of whether an active layout existed. `shelf_assignments` from a previously-applied layout was shown as if it still belonged to an active layout.
+
+3. **`renderShelfViewLevel` had no "no active layout" guard**: After clearing the cache, the empty `shelfViewMoviesCache` just rendered empty spine strips + "empty shelf" messages — not a clear "no layout" indicator.
+
+**Fixes:**
+
+| Fix | Detail |
+|-----|--------|
+| `delete_shelf_layout` API | When deleting the **active** layout (`is_active = 1`), immediately `DELETE FROM shelf_assignments` for all user's shelves. Returns `cleared_assignments: true` for confirmation. |
+| `loadShelfViewBrowse` reordered | Calls `loadActiveLayoutSections()` **first** (to get fresh layout state), then checks `hasActiveLayout`. If no active layout: skips all `get_shelf_contents` calls, leaves `shelfViewMoviesCache = {}` |
+| `renderShelfViewLevel` guard | At top of function: if `!hasActiveLayout` → render "No active layout selected. Use the layout selector…" empty state and return early |
+
+**Hard tests now passing:**
+- Delete all layouts → shelf view shows "No active layout selected" (no ghost movies) ✓
+- Create empty layout + "Set as active" → `apply_shelf_layout` clears `shelf_assignments` (v2.8.24) → shelf view shows "No active layout" until a layout with entries is applied ✓
+  *(Note: after creating empty layout, `set_active_shelf_layout` sets it active but entries are empty, so hasActiveLayout=true but shelfViewMoviesCache is empty — shelves show empty spine strips, which is correct)*
+- Apply a saved layout → `apply_shelf_layout` replaces `shelf_assignments` → shelf view refreshes ✓
+
+| File | Change |
+|------|--------|
+| `js/app.js` | `loadShelfViewBrowse`: reordered to load sections first + skip `get_shelf_contents` when no active layout; `renderShelfViewLevel`: no-active-layout early return with message; APP_VERSION → `2.8.26` |
+| `api/api.php` | `delete_shelf_layout`: clear `shelf_assignments` when deleting active layout |
+| `version.json` | `2.8.25` → `2.8.26` |
+
+---
+
 ### fix: _layoutSections loading + robust array extraction + Show Sections toggle (v2.8.25)
 
 **Root causes proven by audit:**
