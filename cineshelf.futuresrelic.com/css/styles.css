@@ -732,6 +732,23 @@ select option {
 }
 .section-row-move-btn:hover { background: rgba(102,126,234,0.45); }
 
+/* Global "Show/Hide Sections" toolbar (v2.8.25) */
+.shelf-sections-toolbar {
+    padding: 0.4rem 0 0.6rem;
+}
+.shelf-sections-global-toggle {
+    background: rgba(167,139,250,0.12);
+    border: 1px solid rgba(167,139,250,0.3);
+    color: #a78bfa;
+    padding: 0.28rem 0.8rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    letter-spacing: 0.01em;
+    transition: background 0.15s;
+}
+.shelf-sections-global-toggle:hover { background: rgba(167,139,250,0.28); }
+
 /* Split move modal inputs */
 .split-count-input {
     background: rgba(255,255,255,0.1);

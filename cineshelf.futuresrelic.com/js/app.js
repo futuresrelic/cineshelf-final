@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.24';
+const APP_VERSION = '2.8.25';
 
 async function checkVersionGuard() {
     try {
@@ -3569,6 +3569,11 @@ function getCertColor(cert) {
         try { return JSON.parse(localStorage.getItem('cineshelf_expandedShelves') || '{}'); }
         catch(e) { return {}; }
     })();
+    // Global master switch: show/hide section rows for all shelves (v2.8.25)
+    let _showSections = (() => {
+        try { return localStorage.getItem('cineshelf_showSections') === 'true'; }
+        catch(e) { return false; }
+    })();
 
     // Format → spine color mapping
     const SPINE_FORMAT_COLORS = {
@@ -3611,9 +3616,18 @@ function getCertColor(cert) {
         const activeLayout = layoutProfiles.find(l => l.is_active == 1);
         if (activeLayout) {
             try {
-                const sections = await apiCall('get_layout_sections', { layout_id: activeLayout.id });
-                _layoutSections = sections || [];
-            } catch(e) { _layoutSections = []; }
+                const res = await apiCall('get_layout_sections', { layout_id: activeLayout.id });
+                // apiCall returns result.data directly; guard against unexpected wrapping shapes (v2.8.25)
+                const arr = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+                _layoutSections = arr;
+                console.log(`[CineShelf] loadActiveLayoutSections: ${arr.length} sections for layout ${activeLayout.id} (${activeLayout.name})`);
+                if (arr.length > 0) {
+                    showToast(`Loaded ${arr.length} sections for layout ${activeLayout.id}`, 'success');
+                }
+            } catch(e) {
+                console.warn('[CineShelf] loadActiveLayoutSections error:', e.message || e);
+                _layoutSections = [];
+            }
         } else {
             _layoutSections = [];
         }
@@ -3822,24 +3836,37 @@ function getCertColor(cert) {
             }
         } else {
             // ── PARENT VIEW: one spine row per child shelf ──────────
+            // Global "Show Sections" toolbar — only when sections exist (v2.8.25)
+            if (_layoutSections.length > 0) {
+                html += `<div class="shelf-sections-toolbar">
+                    <button class="shelf-sections-global-toggle" onclick="App.toggleShowSections()">
+                        ${_showSections ? '▼ Hide Sections' : '▶ Show Sections'} (${_layoutSections.length} total)
+                    </button>
+                </div>`;
+            }
+
             childShelves.forEach(shelf => {
                 const shelfMovies = getShelfMoviesRecursive(shelf.id);
                 const subSectionCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
                 const safeName = shelf.name.replace(/'/g, "\\'");
 
-                // Build structural section rows for this child shelf (v2.8.21: Parts C + D)
+                // Build structural section rows for this child shelf (v2.8.21, updated v2.8.25)
                 const shelfSections = _layoutSections.filter(s => Number(s.shelf_id) === shelf.id);
-                const isExpanded = shelfSections.length > 0 && !!_expandedShelves[shelf.id];
+                // _showSections is the global master; per-shelf caret stores false to explicitly collapse
+                const isExpanded = _showSections && shelfSections.length > 0 && (_expandedShelves[shelf.id] !== false);
                 let caretHtml = '';
                 let sectionCountPillHtml = '';
                 let sectionRowsHtml = '';
                 if (shelfSections.length > 0) {
-                    const caretGlyph = isExpanded ? '▼' : '▶';
-                    caretHtml = `<button class="shelf-sections-caret"
-                        onclick="event.stopPropagation();App.toggleShelfSections(${shelf.id})"
-                        title="${isExpanded ? 'Collapse sections' : 'Expand sections'}">${caretGlyph}</button>`;
+                    // Only show caret when sections are globally shown (otherwise global toggle is the control)
+                    if (_showSections) {
+                        const caretGlyph = isExpanded ? '▼' : '▶';
+                        caretHtml = `<button class="shelf-sections-caret"
+                            onclick="event.stopPropagation();App.toggleShelfSections(${shelf.id})"
+                            title="${isExpanded ? 'Collapse sections' : 'Expand sections'}">${caretGlyph}</button>`;
+                    }
                     sectionCountPillHtml = `<span class="shelf-section-count-pill"
-                        onclick="event.stopPropagation();App.toggleShelfSections(${shelf.id})"
+                        onclick="event.stopPropagation();App.toggleShowSections()"
                         style="cursor:pointer;">${shelfSections.length} section${shelfSections.length !== 1 ? 's' : ''}</span>`;
                     if (isExpanded) {
                         sectionRowsHtml = `<div class="shelf-section-rows">` +
@@ -3989,11 +4016,23 @@ function getCertColor(cert) {
         }
     }
 
-    // ── Section nav-tree toggle (v2.8.21) ─────────────────────────────
+    // ── Section nav-tree toggle (v2.8.21, updated v2.8.25) ────────────
     function toggleShelfSections(shelfId) {
         shelfId = Number(shelfId);
-        _expandedShelves[shelfId] = !_expandedShelves[shelfId];
+        // false = explicitly collapsed; undefined/missing = expanded (when _showSections is on)
+        if (_expandedShelves[shelfId] === false) {
+            delete _expandedShelves[shelfId];
+        } else {
+            _expandedShelves[shelfId] = false;
+        }
         try { localStorage.setItem('cineshelf_expandedShelves', JSON.stringify(_expandedShelves)); } catch(e) {}
+        renderShelfViewLevel();
+    }
+
+    // ── Global sections master switch (v2.8.25) ────────────────────────
+    function toggleShowSections() {
+        _showSections = !_showSections;
+        try { localStorage.setItem('cineshelf_showSections', String(_showSections)); } catch(e) {}
         renderShelfViewLevel();
     }
 
@@ -11379,6 +11418,7 @@ return {
     moveSectionToShelf,
     // section split / move (v2.8.21)
     toggleShelfSections,
+    toggleShowSections,
     openSectionSplitModal,
     closeSectionSplitModal,
     confirmSectionSplitMove,

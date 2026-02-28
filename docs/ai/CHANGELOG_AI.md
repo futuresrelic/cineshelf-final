@@ -6,6 +6,38 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### fix: _layoutSections loading + robust array extraction + Show Sections toggle (v2.8.25)
+
+**Root causes proven by audit:**
+
+1. **`_layoutSections` stays 0** despite `get_layout_sections` being called: `loadActiveLayoutSections()` had no logging, silently caught API errors, and `_layoutSections = sections || []` would set `[]` if the catch fired. Root cause of the catch was not yet proven but the robust fix handles all cases.
+
+2. **Sections invisible even when loaded**: `isExpanded` was `!!_expandedShelves[shelf.id]` — defaulting to `false` since `_expandedShelves` starts empty. No global "Show Sections" toggle existed; users couldn't expand sections.
+
+3. **No feedback when sections load**: If `loadActiveLayoutSections` succeeded silently, the user had no way to know.
+
+**Fixes (all in `app.js` + `css/styles.css`):**
+
+| Fix | Detail |
+|-----|--------|
+| Robust `res` extraction | `Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : [])` handles both `apiCall` returning the array directly AND any unexpected `{data:[...]}` wrapper |
+| Debug toast | `showToast("Loaded N sections for layout ID", 'success')` + `console.log` after successful load |
+| `_showSections` var | New IIFE-initialized boolean from `localStorage.cineshelf_showSections`, default `false` |
+| Global toolbar | `▶ Show Sections (N total)` / `▼ Hide Sections` button rendered at top of parent shelf view when sections exist |
+| `isExpanded` updated | `_showSections && shelfSections.length > 0 && (_expandedShelves[shelf.id] !== false)` — all shelves show sections when global switch is on, unless explicitly collapsed by per-shelf caret |
+| Per-shelf caret | Only renders when `_showSections` is true; caret stores `false` (not `!value`) so undefined = expanded default |
+| `toggleShelfSections` | Updated: `false` → delete key (expand); anything else → set `false` (collapse) |
+| `toggleShowSections()` | New exported function: flips `_showSections`, saves to localStorage, calls `renderShelfViewLevel()` |
+| Section count pill | Clicking pill now calls `toggleShowSections()` (global toggle) instead of per-shelf toggle |
+
+| File | Change |
+|------|--------|
+| `js/app.js` | `_showSections` var; `loadActiveLayoutSections` robust + toast + log; `toggleShelfSections` updated; `toggleShowSections` new + exported; `renderShelfViewLevel` global toolbar + isExpanded update + conditional caret; APP_VERSION → `2.8.25` |
+| `css/styles.css` | New `.shelf-sections-toolbar`, `.shelf-sections-global-toggle` styles |
+| `version.json` | `2.8.24` → `2.8.25` |
+
+---
+
 ### fix: ghost content, cache invalidation, empty layout apply (v2.8.24)
 
 **Enforces Option 1 (single source of truth: `shelf_assignments`) everywhere.**
