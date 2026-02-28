@@ -2348,6 +2348,43 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     </div>
 </div>
 
+<!-- Section Split / Move Modal (v2.8.21) -->
+<div id="sectionSplitModal" class="modal" style="z-index:1050;">
+    <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header">
+            <h3>↗ Move Section</h3>
+            <button class="modal-close" onclick="App.closeSectionSplitModal()">&#215;</button>
+        </div>
+        <div class="modal-body" style="padding:1.25rem;">
+            <div id="splitSectionLabel" style="font-weight:500; color:rgba(255,255,255,0.9); margin-bottom:1rem; font-size:0.92rem; word-break:break-word;"></div>
+            <label style="display:block; font-size:0.88rem; color:rgba(255,255,255,0.65); margin-bottom:0.3rem;">
+                Target shelf <span style="color:rgba(255,100,100,0.8);">*</span>
+            </label>
+            <select id="splitTargetShelf"
+                style="width:100%; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.45rem 0.6rem; font-size:0.9rem; box-sizing:border-box;">
+            </select>
+            <label style="display:block; font-size:0.88rem; color:rgba(255,255,255,0.65); margin-top:1rem; margin-bottom:0.35rem;">
+                Items to move (of <span id="splitTotalCount" style="color:rgba(255,255,255,0.85); font-weight:500;"></span>)
+            </label>
+            <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+                <input type="number" id="splitMoveCount" min="1" value="1"
+                    class="split-count-input">
+                <button class="split-quick-btn" onclick="App.splitModalQuickAdd(5)">+5</button>
+                <button class="split-quick-btn" onclick="App.splitModalQuickAdd(10)">+10</button>
+                <button class="split-quick-btn" onclick="App.splitModalSetAll()">All</button>
+            </div>
+            <label style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; font-size:0.86rem; color:rgba(255,255,255,0.7); cursor:pointer;">
+                <input type="checkbox" id="splitFromEnd" checked>
+                Move from end of section (uncheck: from start)
+            </label>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+            <button class="btn-ghost" onclick="App.closeSectionSplitModal()">Cancel</button>
+            <button class="btn" onclick="App.confirmSectionSplitMove()" style="background:linear-gradient(135deg,#667eea,#764ba2);">Move →</button>
+        </div>
+    </div>
+</div>
+
 <!-- Global Loading Indicator -->
 <div id="globalLoader" class="global-loader">
     <div class="global-loader-bar"></div>

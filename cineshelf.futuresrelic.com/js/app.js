@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.20';
+const APP_VERSION = '2.8.21';
 
 async function checkVersionGuard() {
     try {
@@ -3563,6 +3563,12 @@ function getCertColor(cert) {
     let shelfViewStack = []; // [{id: null, name: 'All Shelves'}, {id:5, name:'Living Room'}, ...]
     let shelfViewMoviesCache = {}; // keyed by shelf_id → array of items
     let _layoutSections = [];     // sections for the active layout (populated by loadShelfViewBrowse)
+    let _splitMoveState = null;   // state for the section split/move modal
+    // Per-shelf expansion state for the nav tree; initialized from localStorage
+    let _expandedShelves = (() => {
+        try { return JSON.parse(localStorage.getItem('cineshelf_expandedShelves') || '{}'); }
+        catch(e) { return {}; }
+    })();
 
     // Format → spine color mapping
     const SPINE_FORMAT_COLORS = {
@@ -3813,41 +3819,48 @@ function getCertColor(cert) {
                 const subSectionCount = shelves.filter(s => s.parent_shelf_id === shelf.id).length;
                 const safeName = shelf.name.replace(/'/g, "\\'");
 
-                // Build section chips for this child shelf (Goal C)
+                // Build structural section rows for this child shelf (v2.8.21: Parts C + D)
                 const shelfSections = _layoutSections.filter(s => Number(s.shelf_id) === shelf.id);
-                let sectionChipsHtml = '';
+                const isExpanded = shelfSections.length > 0 && !!_expandedShelves[shelf.id];
+                let caretHtml = '';
+                let sectionCountPillHtml = '';
+                let sectionRowsHtml = '';
                 if (shelfSections.length > 0) {
-                    const siblingOptions = childShelves
-                        .filter(s => s.id !== shelf.id)
-                        .map(s => `<option value="${s.id}">${s.name.replace(/"/g,'&quot;')}</option>`)
-                        .join('');
-                    const activeLayout = layoutProfiles.find(l => l.is_active == 1);
-                    const layoutId = activeLayout ? activeLayout.id : 0;
-                    sectionChipsHtml = `<div class="shelf-section-chips">` +
-                        shelfSections.map(sec => `<span class="shelf-section-chip">
-                            <span class="chip-label">${sec.label.replace(/</g,'&lt;')}</span>
-                            <span class="chip-count">${sec.item_count}</span>
-                            ${siblingOptions ? `<select class="chip-move-select" title="Move section to another shelf"
-                                onchange="if(this.value){App.moveSectionToShelf(${sec.id},this.value,${layoutId});this.value='';}">
-                                <option value="">Move to…</option>${siblingOptions}
-                            </select>` : ''}
-                        </span>`).join('') +
-                        `</div>`;
+                    const caretGlyph = isExpanded ? '▼' : '▶';
+                    caretHtml = `<button class="shelf-sections-caret"
+                        onclick="event.stopPropagation();App.toggleShelfSections(${shelf.id})"
+                        title="${isExpanded ? 'Collapse sections' : 'Expand sections'}">${caretGlyph}</button>`;
+                    sectionCountPillHtml = `<span class="shelf-section-count-pill"
+                        onclick="event.stopPropagation();App.toggleShelfSections(${shelf.id})"
+                        style="cursor:pointer;">${shelfSections.length} section${shelfSections.length !== 1 ? 's' : ''}</span>`;
+                    if (isExpanded) {
+                        sectionRowsHtml = `<div class="shelf-section-rows">` +
+                            shelfSections.map(sec =>
+                                `<div class="shelf-section-row" id="section-row-${sec.id}">
+                                    <span class="section-row-label" title="${sec.label.replace(/"/g,'&quot;')}">${sec.label.replace(/</g,'&lt;')}</span>
+                                    <span class="section-row-count">${sec.item_count}</span>
+                                    <button class="section-row-move-btn"
+                                        onclick="App.openSectionSplitModal(${sec.id})">↗ Move</button>
+                                </div>`
+                            ).join('') +
+                            `</div>`;
+                    }
                 }
 
                 html += `
                 <div class="shelf-row">
                     <div class="shelf-row-header" onclick="App.shelfViewDrillIn(${shelf.id}, '${safeName}')"
                          style="border-left-color:${shelf.color || '#667eea'}">
+                        ${caretHtml}
                         <span class="shelf-row-icon">${shelf.icon || '📂'}</span>
                         <span class="shelf-row-name">${shelf.name}</span>
                         <span class="shelf-row-meta">
                             ${shelfMovies.length} film${shelfMovies.length !== 1 ? 's' : ''}
-                            ${subSectionCount > 0 ? ` · ${subSectionCount} section${subSectionCount !== 1 ? 's' : ''}` : ''}
+                            ${sectionCountPillHtml ? ' · ' + sectionCountPillHtml : (subSectionCount > 0 ? ` · ${subSectionCount} section${subSectionCount !== 1 ? 's' : ''}` : '')}
                         </span>
                         <span class="shelf-row-arrow">›</span>
                     </div>
-                    ${sectionChipsHtml}
+                    ${sectionRowsHtml}
                     <div class="shelf-spine-row" style="--shelf-color:${shelf.color || '#667eea'}">
                         ${renderSpineStrip(shelfMovies, shelf.color || '#667eea')}
                     </div>
@@ -3915,6 +3928,105 @@ function getCertColor(cert) {
         } catch(e) {
             showToast('Failed to move section: ' + (e.message || e), 'error');
         }
+    }
+
+    // ── Section nav-tree toggle (v2.8.21) ─────────────────────────────
+    function toggleShelfSections(shelfId) {
+        shelfId = Number(shelfId);
+        _expandedShelves[shelfId] = !_expandedShelves[shelfId];
+        try { localStorage.setItem('cineshelf_expandedShelves', JSON.stringify(_expandedShelves)); } catch(e) {}
+        renderShelfViewLevel();
+    }
+
+    // ── Section split / move modal (v2.8.21 — Parts B + D) ────────────
+
+    function openSectionSplitModal(sectionId) {
+        const sec = _layoutSections.find(s => Number(s.id) === Number(sectionId));
+        if (!sec) return;
+
+        // Find sibling shelves (same parent as this section's shelf)
+        const thisShelf = shelves.find(s => s.id === Number(sec.shelf_id));
+        const parentId  = thisShelf ? thisShelf.parent_shelf_id : null;
+        const siblings  = shelves.filter(s =>
+            s.id !== Number(sec.shelf_id) &&
+            (parentId !== null ? s.parent_shelf_id === parentId : s.parent_shelf_id === null)
+        );
+
+        const activeLayout = layoutProfiles.find(l => l.is_active == 1);
+        _splitMoveState = {
+            sectionId: Number(sec.id),
+            itemCount: Number(sec.item_count),
+            layoutId:  activeLayout ? Number(activeLayout.id) : 0,
+        };
+
+        document.getElementById('splitSectionLabel').textContent = sec.label;
+        document.getElementById('splitTotalCount').textContent   = sec.item_count;
+        const countInput = document.getElementById('splitMoveCount');
+        countInput.max   = sec.item_count;
+        countInput.value = 1;
+        document.getElementById('splitFromEnd').checked = true;
+
+        const sel = document.getElementById('splitTargetShelf');
+        sel.innerHTML = '<option value="">Select shelf…</option>' +
+            siblings.map(s =>
+                `<option value="${s.id}">${s.name.replace(/</g,'&lt;').replace(/"/g,'&quot;')}</option>`
+            ).join('');
+
+        document.getElementById('sectionSplitModal').classList.add('active');
+    }
+
+    function closeSectionSplitModal() {
+        document.getElementById('sectionSplitModal').classList.remove('active');
+        _splitMoveState = null;
+    }
+
+    async function confirmSectionSplitMove() {
+        if (!_splitMoveState) return;
+        const targetShelfId = Number(document.getElementById('splitTargetShelf').value);
+        const moveCount     = Number(document.getElementById('splitMoveCount').value);
+        const fromEnd       = document.getElementById('splitFromEnd').checked;
+
+        if (!targetShelfId) { showToast('Select a target shelf', 'error'); return; }
+        if (!moveCount || moveCount < 1) { showToast('Move count must be at least 1', 'error'); return; }
+
+        const state = _splitMoveState; // capture before close
+        closeSectionSplitModal();
+
+        try {
+            const res = await apiCall('split_move_layout_section', {
+                section_id:      state.sectionId,
+                target_shelf_id: targetShelfId,
+                move_count:      moveCount,
+                from_end:        fromEnd,
+            });
+            if (res && res.sections) { _layoutSections = res.sections; }
+            // Resync shelf_assignments from the updated layout entries
+            if (state.layoutId) {
+                try { await apiCall('apply_shelf_layout', { layout_id: state.layoutId }); } catch(e) {}
+            }
+            // Refresh cached shelf contents for all shelves
+            await Promise.all(shelves.map(async shelf => {
+                try {
+                    const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
+                    shelfViewMoviesCache[shelf.id] = items || [];
+                } catch(e) { shelfViewMoviesCache[shelf.id] = []; }
+            }));
+            renderShelfViewLevel();
+            showToast(`Moved ${res.moved || moveCount} item${(res.moved || moveCount) !== 1 ? 's' : ''}!`, 'success');
+        } catch(e) {
+            showToast('Failed to move: ' + (e.message || e), 'error');
+        }
+    }
+
+    function splitModalQuickAdd(n) {
+        if (!_splitMoveState) return;
+        const input = document.getElementById('splitMoveCount');
+        input.value = Math.min(_splitMoveState.itemCount, Number(input.value || 0) + n);
+    }
+
+    function splitModalSetAll() {
+        if (!_splitMoveState) return;
+        document.getElementById('splitMoveCount').value = _splitMoveState.itemCount;
     }
 
     // ========================================
@@ -11197,6 +11309,13 @@ return {
     shelfViewBack,
     shelfViewGoTo,
     moveSectionToShelf,
+    // section split / move (v2.8.21)
+    toggleShelfSections,
+    openSectionSplitModal,
+    closeSectionSplitModal,
+    confirmSectionSplitMove,
+    splitModalQuickAdd,
+    splitModalSetAll,
     renderPhysicalMedia,
     setPhysicalView,
     showRelatedMovies,

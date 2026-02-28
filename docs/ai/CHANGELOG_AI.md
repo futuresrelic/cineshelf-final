@@ -6,6 +6,38 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
+### feat(ui): section split modal, structural section rows, collapsible nav tree (v2.8.21)
+
+**Parts B, C, D — sections as real, movable first-class layout objects:**
+
+**Part B — Split Move Modal (`#sectionSplitModal`):**
+- Replaced the "Move to…" `<select>` on section chips with an `↗ Move` button on each structural section row.
+- New `openSectionSplitModal(sectionId)`: looks up section from `_layoutSections`, finds sibling shelves from `shelves` state, populates modal with target shelf dropdown, move count input, +5/+10/All quick buttons, and a "from end / from start" checkbox. Opens `#sectionSplitModal`.
+- `confirmSectionSplitMove()`: calls `split_move_layout_section` API, updates `_layoutSections` from response, re-calls `apply_shelf_layout` to resync, refreshes `shelfViewMoviesCache`, re-renders shelf view, shows toast.
+- `splitModalQuickAdd(n)` / `splitModalSetAll()`: adjusts count input, clamped to `itemCount`.
+
+**Part C — Nav Tree with Collapsible Sections:**
+- New `_expandedShelves = {}` module-level state, initialized from `localStorage['cineshelf_expandedShelves']` via IIFE at module parse time.
+- `toggleShelfSections(shelfId)`: flips expansion flag, persists to localStorage, re-renders.
+- Each child shelf row that has sections gets a `▶`/`▼` caret button (`.shelf-sections-caret`) injected at the start of its header. Caret click calls `App.toggleShelfSections(shelfId)` with `event.stopPropagation()` so it doesn't drill into the shelf.
+- Collapsed default: sections hidden; a compact `N sections` pill (`.shelf-section-count-pill`) appears in the shelf meta area. Clicking the pill also toggles expansion.
+- When expanded (▼): `.shelf-section-rows` container appears between the shelf header and spine strip, showing one `.shelf-section-row` per section.
+
+**Part D — Structural Section Rows:**
+- Each expanded `.shelf-section-row` renders: label (flex-1, truncated), item count badge, `↗ Move` button.
+- Position-aware: rows follow `sort_index` order (server returns them pre-sorted by `(shelf_id, sort_index)`).
+- Updated live after split/move: `confirmSectionSplitMove()` updates `_layoutSections` from API response then calls `renderShelfViewLevel()` synchronously.
+- No page navigation or tab switch required.
+
+| File | Change |
+|------|--------|
+| `index.html` | New `#sectionSplitModal` (target shelf dropdown, count input, quick-add buttons, from-end toggle) |
+| `js/app.js` | `_splitMoveState`, `_expandedShelves` vars; updated chip rendering block → structural section rows + caret; 6 new functions: `toggleShelfSections`, `openSectionSplitModal`, `closeSectionSplitModal`, `confirmSectionSplitMove`, `splitModalQuickAdd`, `splitModalSetAll`; all exported; APP_VERSION → `2.8.21` |
+| `css/styles.css` | New: `.shelf-sections-caret`, `.shelf-section-count-pill`, `.shelf-section-rows`, `.shelf-section-row`, `.section-row-label`, `.section-row-count`, `.section-row-move-btn`, `.split-count-input`, `.split-quick-btn` |
+| `version.json` | `2.8.20` → `2.8.21` |
+
+---
+
 ### feat(api): split_move_layout_section (v2.8.20)
 
 New API action that moves `move_count` entries from a section to a target shelf.
