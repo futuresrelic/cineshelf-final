@@ -2253,10 +2253,18 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 </div>
 
                 <!-- Target shelves -->
-                <div style="margin-bottom:1rem;">
-                    <label style="font-size:0.9rem; display:block; margin-bottom:0.35rem;">Target shelves <span style="color:rgba(255,255,255,0.5); font-size:0.8rem;">(leave empty = all your shelves)</span></label>
+                <div style="margin-bottom:0.75rem;">
+                    <label style="font-size:0.9rem; display:block; margin-bottom:0.35rem;">Target master shelf <span style="color:rgba(255,255,255,0.5); font-size:0.8rem;">(select one → its row shelves are auto-created; leave empty to auto-create new master)</span></label>
                     <select id="wizardTargetShelves" multiple style="width:100%; min-height:80px; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem;"></select>
                     <p style="color:rgba(255,255,255,0.4); font-size:0.78rem; margin-top:0.25rem;">Ctrl/Cmd+click to select multiple</p>
+                </div>
+                <!-- New master shelf name (v2.8.27) -->
+                <div style="margin-bottom:1rem;">
+                    <label style="font-size:0.85rem; display:block; margin-bottom:0.25rem; color:rgba(255,255,255,0.7);">
+                        New master shelf name <span style="color:rgba(255,255,255,0.4); font-size:0.78rem;">(used when no existing shelf selected above)</span>
+                    </label>
+                    <input type="text" id="wizardMasterShelfName" placeholder="e.g. Living Room Movie Shelf"
+                        style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:0.4rem 0.6rem; font-size:0.88rem;">
                 </div>
 
                 <div style="display:flex; justify-content:flex-end; gap:0.5rem;">

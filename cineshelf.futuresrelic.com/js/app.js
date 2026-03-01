@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.26';
+const APP_VERSION = '2.8.27';
 
 async function checkVersionGuard() {
     try {
@@ -10541,6 +10541,7 @@ async function getCurrentUserId() {
     let _wizardSections = [];        // recipe sections being built
     let _sectionIdCounter = 0;       // auto-increment for section IDs
     let _typeaheadTimer = null;      // debounce handle for typeahead search
+    let _wizardMasterShelfId = null; // master shelf ID used for materialization (v2.8.27)
 
     async function loadLayoutProfiles() {
         try {
@@ -11101,7 +11102,33 @@ async function getCurrentUserId() {
         const includeWishlist = document.getElementById('wizardIncludeWishlist')?.checked || false;
         const includeBoxsets = document.getElementById('wizardIncludeBoxsets')?.checked || false;
         const targetSel = document.getElementById('wizardTargetShelves');
-        const targetShelves = targetSel ? Array.from(targetSel.selectedOptions).map(o => parseInt(o.value)) : [];
+        let targetShelves = targetSel ? Array.from(targetSel.selectedOptions).map(o => parseInt(o.value)) : [];
+
+        const sc  = parseInt(document.getElementById('wizardShelfCount')?.value)    || 5;
+        const ips = parseInt(document.getElementById('wizardItemsPerShelf')?.value) || 25;
+
+        // v2.8.27: if no target shelves selected and no shelves exist → auto-create master shelf
+        _wizardMasterShelfId = targetShelves.length === 1 ? targetShelves[0] : null;
+        if (targetShelves.length === 0 && (!shelves || shelves.length === 0)) {
+            const masterName = document.getElementById('wizardMasterShelfName')?.value?.trim()
+                               || 'Shelf Collection';
+            _aiWizardShowStep('loading');
+            try {
+                const created = await apiCall('create_shelf', {
+                    name:            masterName,
+                    shelf_count:     sc,
+                    items_per_shelf: ips,
+                    capacity:        sc * ips,
+                });
+                _wizardMasterShelfId = created.shelf_id;
+                targetShelves = [created.shelf_id];
+                await loadShelves(); // refresh shelf list
+            } catch (e) {
+                _aiWizardShowStep(1);
+                showToast('Could not auto-create master shelf: ' + e.message, 'error');
+                return;
+            }
+        }
 
         const recipe = {
             sections,
@@ -11278,6 +11305,9 @@ async function getCurrentUserId() {
         if (!name) { showToast('Layout name required', 'error'); return; }
         const setActive = document.getElementById('aiWizardSetActive')?.checked ?? true;
 
+        const sc  = parseInt(document.getElementById('wizardShelfCount')?.value)    || 5;
+        const ips = parseInt(document.getElementById('wizardItemsPerShelf')?.value) || 25;
+
         try {
             const res = await apiCall('apply_recipe_as_new_layout', {
                 layout_name: name,
@@ -11290,8 +11320,38 @@ async function getCurrentUserId() {
             // Always apply the new layout so shelf view reflects the plan
             await apiCall('apply_shelf_layout', { layout_id: res.layout_id });
             await apiCall('set_active_shelf_layout', { layout_id: res.layout_id });
+
+            // v2.8.27: Materialize real section shelves + assign items
+            // This runs after apply_shelf_layout so section shelf assignments correctly overwrite
+            // the row-shelf assignments written by apply_shelf_layout.
+            if (_wizardPlan.blocks && _wizardPlan.blocks.length > 0) {
+                try {
+                    const matRes = await apiCall('materialize_wizard_shelves', {
+                        master_shelf_id:   _wizardMasterShelfId,
+                        master_shelf_name: name,
+                        shelf_count:       sc,
+                        items_per_shelf:   ips,
+                        blocks:            _wizardPlan.blocks,
+                    });
+                    const matMsg = `Wizard applied: master=${matRes.master_shelf_id}, rows=${matRes.rows_total}, ` +
+                        `sections created=${matRes.sections_created} reused=${matRes.sections_reused}, ` +
+                        `items assigned=${matRes.assigned_count}, unassigned=${matRes.unassigned_count}`;
+                    console.log('[wizard]', matMsg);
+                    showToast(
+                        `Shelves materialized: ${matRes.sections_created + matRes.sections_reused} sections, ` +
+                        `${matRes.assigned_count} items assigned` +
+                        (matRes.unassigned_count > 0 ? `, ${matRes.unassigned_count} skipped` : '') + '.',
+                        'success'
+                    );
+                } catch (matErr) {
+                    console.error('[wizard] materialize_wizard_shelves failed:', matErr);
+                    showToast('Layout saved but section materialization failed: ' + matErr.message, 'error');
+                }
+            }
+
             _wizardPlan = null;
             _wizardSections = [];
+            _wizardMasterShelfId = null;
             closeAIWizardModal();
             await loadLayoutProfiles();        // must come before refreshAllShelfViews so sections fetch uses updated active layout
             await refreshAllShelfViews();      // reloads shelves + shelf-view browser (including section chips) if on that tab

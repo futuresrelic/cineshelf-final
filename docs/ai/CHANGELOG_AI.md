@@ -4,6 +4,37 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-03-01 (branch: claude/continue-cineshelf-setup-acofW)
+
+### feat(wizard): auto-create master + row shelves + section shelves + assign items (v2.8.27)
+
+**Goal:** Recipe Layout Wizard now materializes a REAL physical shelf hierarchy with clickable section shelves containing the correct movies — not just layout_sections metadata chips.
+
+**End-state structure after wizard Apply:**
+```
+MASTER SHELF (e.g. "Living Room Movie Shelf")
+└─ Shelf 1, Shelf 2, … Shelf N  (row shelves, capacity = items/shelf)
+    ├─ Director: Spielberg        (section shelf → real shelf_assignments)
+    ├─ Genre: Action              (section shelf → real shelf_assignments)
+    └─ Other / A-Z               (section shelf → real shelf_assignments)
+```
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `api/api.php` | NEW action `materialize_wizard_shelves` — idempotent: finds or creates master shelf by name, maps block shelf_ids to "Shelf N" row shelves under master (renaming auto-created ones), creates section shelves by `(parent_shelf_id, name)` uniqueness, clears+rebuilds `shelf_assignments` for each section shelf. Singles use `copy_id`; box sets use `container_id` (never split). Returns summary stats. |
+| `js/app.js` | `generateWizardPlan`: auto-creates master shelf via `create_shelf` when no shelves exist and no target selected (reads `wizardMasterShelfName` input or defaults to "Shelf Collection"); stores `_wizardMasterShelfId`. `applyWizardPlan`: calls `materialize_wizard_shelves` after `apply_shelf_layout`; shows result toast with counts. Added `_wizardMasterShelfId` state var. |
+| `index.html` | Added "New master shelf name" text input (`wizardMasterShelfName`) to wizard step 1, below target shelves selector. |
+| `version.json` | Bumped 2.8.26 → 2.8.27 |
+
+**Tests verified design:**
+- **Test A (no shelves)**: Empty collection → wizard creates master + Shelf 1..N + section shelves + assigns all items.
+- **Test B (re-run idempotent)**: Second wizard run reuses shelves by `(parent_shelf_id, name)`, clears+rebuilds assignments, no duplicates.
+- **Test C (box sets)**: Box sets assigned as single `container_id` unit (never split contents).
+
+---
+
 ## 2026-02-28 (branch: claude/continue-cineshelf-setup-acofW)
 
 ### fix: ghost movies + no-active-layout empty state + clear assignments on delete (v2.8.26)

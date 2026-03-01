@@ -7915,6 +7915,246 @@ Return ONLY the JSON object, no markdown.'
             jsonResponse(true, ['layout_id' => $newLid, 'name' => $layoutName, 'layout_name' => $layoutName, 'entries' => $totalR, 'sections_created' => $secCount]);
             break;
 
+        // ================================================================
+        // MATERIALIZE WIZARD PLAN INTO REAL SHELVES (v2.8.27)
+        // Creates / reuses section shelves under wizard-generated row shelves
+        // and populates them via shelf_assignments.
+        // Input:
+        //   master_shelf_id:   int|null  — existing master shelf; null = auto-create / find by name
+        //   master_shelf_name: string    — name for auto-created master (= layout name)
+        //   shelf_count:       int       — how many row shelves
+        //   items_per_shelf:   int       — capacity per row shelf
+        //   blocks:            array     — from generate_recipe_plan blocks output
+        // ================================================================
+        case 'materialize_wizard_shelves': {
+            $masterShelfId   = !empty($input['master_shelf_id']) ? intval($input['master_shelf_id']) : null;
+            $masterShelfName = sanitize($input['master_shelf_name'] ?? 'Shelf Collection', 100);
+            $shelfCount      = max(1, intval($input['shelf_count']     ?? 5));
+            $ips             = max(1, intval($input['items_per_shelf'] ?? 25));
+            $blocks          = $input['blocks'] ?? [];
+
+            if (empty($blocks)) {
+                jsonResponse(false, null, 'blocks array required');
+            }
+
+            // Human-readable type labels for section shelf names
+            $typeLabels = [
+                'director'      => 'Director',
+                'studio'        => 'Studio',
+                'genre'         => 'Genre',
+                'certification' => 'Rating',
+                'user_tag'      => 'Tag',
+            ];
+
+            $db->beginTransaction();
+            try {
+                // ----------------------------------------------------------
+                // 1. Find or create master shelf
+                // ----------------------------------------------------------
+                if ($masterShelfId) {
+                    $chk = $db->prepare("SELECT id FROM shelves WHERE id = ? AND user_id = ?");
+                    $chk->execute([$masterShelfId, $userId]);
+                    if (!$chk->fetch()) $masterShelfId = null; // not found → auto-create
+                }
+                if (!$masterShelfId) {
+                    // Find existing top-level shelf with this name
+                    $findMaster = $db->prepare(
+                        "SELECT id FROM shelves WHERE user_id = ? AND name = ? AND parent_shelf_id IS NULL LIMIT 1"
+                    );
+                    $findMaster->execute([$userId, $masterShelfName]);
+                    $existingMaster = $findMaster->fetchColumn();
+                    if ($existingMaster) {
+                        $masterShelfId = intval($existingMaster);
+                    } else {
+                        $posStmt = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM shelves WHERE user_id = ?");
+                        $posStmt->execute([$userId]);
+                        $masterPos = intval($posStmt->fetchColumn());
+                        $db->prepare(
+                            "INSERT INTO shelves (user_id, name, position, capacity, shelf_count, items_per_shelf, color, capacity_mode)
+                             VALUES (?, ?, ?, ?, ?, ?, '#667eea', 'quantity')"
+                        )->execute([$userId, $masterShelfName, $masterPos, $shelfCount * $ips, $shelfCount, $ips]);
+                        $masterShelfId = intval($db->lastInsertId());
+                    }
+                }
+
+                // ----------------------------------------------------------
+                // 2. Map block shelf_ids → row shelves under master
+                //    Collect ordered-unique shelf_ids from blocks (first appearance).
+                //    Each unique shelf_id becomes "Shelf N" under master.
+                // ----------------------------------------------------------
+                $orderedBlockShelfIds = [];
+                foreach ($blocks as $blk) {
+                    $sid = intval($blk['shelf_id'] ?? 0);
+                    if ($sid && !in_array($sid, $orderedBlockShelfIds)) {
+                        $orderedBlockShelfIds[] = $sid;
+                    }
+                }
+
+                // Fetch existing "Shelf N" children of master (keyed by name)
+                $childStmt = $db->prepare(
+                    "SELECT id, name FROM shelves WHERE parent_shelf_id = ? AND user_id = ? ORDER BY position"
+                );
+                $childStmt->execute([$masterShelfId, $userId]);
+                $childByName = [];
+                foreach ($childStmt->fetchAll(PDO::FETCH_ASSOC) as $ch) {
+                    $childByName[$ch['name']] = intval($ch['id']);
+                }
+
+                // Helper: get next position for a new shelf
+                $nextPos = function() use ($db, $userId) {
+                    $ps = $db->prepare("SELECT COALESCE(MAX(position), -1) + 1 FROM shelves WHERE user_id = ?");
+                    $ps->execute([$userId]);
+                    return intval($ps->fetchColumn());
+                };
+
+                $rowShelfMap = []; // block_shelf_id => actual row shelf ID under master
+                $rowNum = 0;
+                foreach ($orderedBlockShelfIds as $blockShelfId) {
+                    $rowNum++;
+                    $rowName = 'Shelf ' . $rowNum;
+
+                    // Check if the block shelf is already a child of our master
+                    $isChildOfMaster = $db->prepare(
+                        "SELECT id FROM shelves WHERE id = ? AND parent_shelf_id = ? AND user_id = ?"
+                    );
+                    $isChildOfMaster->execute([$blockShelfId, $masterShelfId, $userId]);
+                    if ($isChildOfMaster->fetchColumn()) {
+                        // Already a child of master — rename to "Shelf N" and use it
+                        $db->prepare("UPDATE shelves SET name = ?, capacity = ?, items_per_shelf = ? WHERE id = ?")
+                           ->execute([$rowName, $ips, $ips, $blockShelfId]);
+                        $childByName[$rowName] = $blockShelfId;
+                        $rowShelfMap[$blockShelfId] = $blockShelfId;
+                        continue;
+                    }
+
+                    // Find or create "Shelf N" under master
+                    if (isset($childByName[$rowName])) {
+                        $rowShelfId = $childByName[$rowName];
+                        $db->prepare("UPDATE shelves SET capacity = ?, items_per_shelf = ? WHERE id = ?")
+                           ->execute([$ips, $ips, $rowShelfId]);
+                    } else {
+                        $db->prepare(
+                            "INSERT INTO shelves (user_id, name, position, capacity, parent_shelf_id, shelf_count, items_per_shelf, capacity_mode)
+                             VALUES (?, ?, ?, ?, ?, 1, ?, 'quantity')"
+                        )->execute([$userId, $rowName, $nextPos(), $ips, $masterShelfId, $ips]);
+                        $rowShelfId = intval($db->lastInsertId());
+                        $childByName[$rowName] = $rowShelfId;
+                    }
+                    $rowShelfMap[$blockShelfId] = $rowShelfId;
+                }
+
+                // ----------------------------------------------------------
+                // 3. For each block: find/create section shelf → assign items
+                // ----------------------------------------------------------
+                $secCreated     = 0;
+                $secReused      = 0;
+                $assignedCount  = 0;
+                $unassignedCount = 0;
+
+                // Cache section shelves by [row_shelf_id][name] => section_shelf_id
+                $sectionCache = [];
+
+                $insSingle = $db->prepare("
+                    INSERT INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
+                    VALUES (?, ?, NULL, 0, ?)
+                    ON CONFLICT(copy_id) DO UPDATE SET shelf_id = excluded.shelf_id, position_in_shelf = excluded.position_in_shelf
+                ");
+                $delContainer = $db->prepare("DELETE FROM shelf_assignments WHERE container_id = ? AND is_container = 1");
+                $insContainer = $db->prepare("
+                    INSERT INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
+                    VALUES (?, NULL, ?, 1, ?)
+                ");
+
+                foreach ($blocks as $blk) {
+                    $blockShelfId = intval($blk['shelf_id'] ?? 0);
+                    $rowShelfId   = $rowShelfMap[$blockShelfId] ?? null;
+                    if (!$rowShelfId) continue;
+
+                    $gType = $blk['group_type']  ?? null;
+                    $gVal  = $blk['group_value'] ?? null;
+
+                    // Build section shelf name
+                    if ($gType && $gVal && $gType !== 'remainder') {
+                        $typeLabel = $typeLabels[$gType] ?? ucfirst($gType);
+                        $secName   = $typeLabel . ': ' . $gVal;
+                    } else {
+                        $secName = 'Other / A-Z';
+                    }
+
+                    // Load section shelf cache for this row shelf
+                    if (!isset($sectionCache[$rowShelfId])) {
+                        $ssStmt = $db->prepare(
+                            "SELECT id, name FROM shelves WHERE parent_shelf_id = ? AND user_id = ?"
+                        );
+                        $ssStmt->execute([$rowShelfId, $userId]);
+                        $sectionCache[$rowShelfId] = [];
+                        foreach ($ssStmt->fetchAll(PDO::FETCH_ASSOC) as $ss) {
+                            $sectionCache[$rowShelfId][$ss['name']] = intval($ss['id']);
+                        }
+                    }
+
+                    if (isset($sectionCache[$rowShelfId][$secName])) {
+                        $secShelfId = $sectionCache[$rowShelfId][$secName];
+                        $secReused++;
+                        // Clear existing assignments so re-run is idempotent
+                        $db->prepare("DELETE FROM shelf_assignments WHERE shelf_id = ?")->execute([$secShelfId]);
+                    } else {
+                        // Create new section shelf
+                        $db->prepare(
+                            "INSERT INTO shelves (user_id, name, position, capacity, parent_shelf_id, shelf_count, items_per_shelf, capacity_mode)
+                             VALUES (?, ?, ?, ?, ?, 1, ?, 'quantity')"
+                        )->execute([$userId, $secName, $nextPos(), $ips, $rowShelfId, $ips]);
+                        $secShelfId = intval($db->lastInsertId());
+                        $sectionCache[$rowShelfId][$secName] = $secShelfId;
+                        $secCreated++;
+                    }
+
+                    // Assign each item in this block to the section shelf
+                    $posInSec = 0;
+                    foreach (($blk['items'] ?? []) as $item) {
+                        $copyId = !empty($item['copy_id'])      ? intval($item['copy_id'])      : null;
+                        $contId = !empty($item['container_id']) ? intval($item['container_id']) : null;
+
+                        if ($copyId) {
+                            // Verify copy belongs to user
+                            $cv = $db->prepare("SELECT id FROM copies WHERE id = ? AND user_id = ?");
+                            $cv->execute([$copyId, $userId]);
+                            if (!$cv->fetchColumn()) { $unassignedCount++; continue; }
+                            $insSingle->execute([$secShelfId, $copyId, $posInSec]);
+                            $assignedCount++;
+                            $posInSec++;
+                        } elseif ($contId) {
+                            // Verify container belongs to user
+                            $cv = $db->prepare("SELECT id FROM containers WHERE id = ? AND user_id = ?");
+                            $cv->execute([$contId, $userId]);
+                            if (!$cv->fetchColumn()) { $unassignedCount++; continue; }
+                            $delContainer->execute([$contId]);
+                            $insContainer->execute([$secShelfId, $contId, $posInSec]);
+                            $assignedCount++;
+                            $posInSec++;
+                        } else {
+                            $unassignedCount++;
+                        }
+                    }
+                }
+
+                $db->commit();
+            } catch (Exception $ex) {
+                $db->rollBack();
+                jsonResponse(false, null, 'materialize_wizard_shelves failed: ' . $ex->getMessage());
+            }
+
+            jsonResponse(true, [
+                'master_shelf_id'  => $masterShelfId,
+                'rows_total'       => $rowNum,
+                'sections_created' => $secCreated,
+                'sections_reused'  => $secReused,
+                'assigned_count'   => $assignedCount,
+                'unassigned_count' => $unassignedCount,
+            ]);
+            break;
+        }
+
         case 'get_layout_sections': {
             $layoutId = intval($input['layout_id'] ?? 0);
             if (!$layoutId) { jsonResponse(false, null, 'layout_id required'); }
