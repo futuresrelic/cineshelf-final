@@ -1130,6 +1130,18 @@ case 'update_copy':
                     me.distributor as edition_distributor,
                     me.disc_count as edition_disc_count,
                     me.umdb_release_id as edition_umdb_release_id,
+                    me.region as edition_region,
+                    me.languages as edition_languages,
+                    me.copy_protected as edition_copy_protected,
+                    me.video_system as edition_video_system,
+                    me.asin as edition_asin,
+                    me.audio_formats as edition_audio_formats,
+                    me.subtitles as edition_subtitles,
+                    me.disc_color as edition_disc_color,
+                    me.edition_type as edition_edition_type,
+                    me.barcode as edition_barcode,
+                    me.release_date as edition_release_date,
+                    me.country as edition_country,
                     (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = c.edition_id) as edition_component_count,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id AND cc.is_present = 1) as components_present,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total
@@ -6077,14 +6089,30 @@ Return ONLY the JSON object, no markdown.'
             $discCount = intval($umdbRelease['disc_count'] ?? $umdbRelease['discs'] ?? 1);
             $notes = sanitize($umdbRelease['notes'] ?? '', 500);
 
+            // Rich UMDB fields (v4.2.0)
+            $rawLangs = $umdbRelease['languages'] ?? $umdbRelease['language'] ?? null;
+            $languages = sanitize(is_array($rawLangs) ? implode(', ', $rawLangs) : ($rawLangs ?? ''), 500);
+            $copyProtected = (!empty($umdbRelease['copy_protected']) || !empty($umdbRelease['is_copy_protected'])) ? 1 : 0;
+            $videoSystem = sanitize($umdbRelease['video_system'] ?? $umdbRelease['system'] ?? $umdbRelease['standard'] ?? '', 50);
+            $asin = sanitize($umdbRelease['asin'] ?? '', 50);
+            $rawAudio = $umdbRelease['audio_formats'] ?? $umdbRelease['audio'] ?? null;
+            $audioFormats = sanitize(is_array($rawAudio) ? implode(', ', $rawAudio) : ($rawAudio ?? ''), 500);
+            $rawSubs = $umdbRelease['subtitles'] ?? null;
+            $subtitles = sanitize(is_array($rawSubs) ? implode(', ', $rawSubs) : ($rawSubs ?? ''), 500);
+            $discColor = sanitize($umdbRelease['disc_color'] ?? '', 100);
+            $editionType = sanitize($umdbRelease['edition_type'] ?? $umdbRelease['type'] ?? '', 100);
+
             $stmt = $db->prepare("
-                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, languages, copy_protected, video_system, asin, audio_formats, subtitles, disc_color, edition_type, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $movieId, $releaseId, $name, $format ?: null, $packageType ?: null, $region ?: null,
                 $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
-                $discCount, $notes ?: null, $userId
+                $discCount, $notes ?: null,
+                $languages ?: null, $copyProtected, $videoSystem ?: null, $asin ?: null,
+                $audioFormats ?: null, $subtitles ?: null, $discColor ?: null, $editionType ?: null,
+                $userId
             ]);
 
             $editionId = $db->lastInsertId();
@@ -6313,10 +6341,19 @@ Return ONLY the JSON object, no markdown.'
             }
 
             // Update local edition with UMDB data
+            $rawLangsSync = $umdbRelease['languages'] ?? $umdbRelease['language'] ?? null;
+            $langSync = is_array($rawLangsSync) ? implode(', ', $rawLangsSync) : ($rawLangsSync ?? null);
+            $rawAudioSync = $umdbRelease['audio_formats'] ?? $umdbRelease['audio'] ?? null;
+            $audioSync = is_array($rawAudioSync) ? implode(', ', $rawAudioSync) : ($rawAudioSync ?? null);
+            $rawSubsSync = $umdbRelease['subtitles'] ?? null;
+            $subsSync = is_array($rawSubsSync) ? implode(', ', $rawSubsSync) : ($rawSubsSync ?? null);
+
             $stmt = $db->prepare("
                 UPDATE media_editions
                 SET name = ?, format = ?, package_type = ?, region = ?, barcode = ?,
                     release_date = ?, distributor = ?, country = ?, disc_count = ?, notes = ?,
+                    languages = ?, copy_protected = ?, video_system = ?, asin = ?,
+                    audio_formats = ?, subtitles = ?, disc_color = ?, edition_type = ?,
                     updated_at = datetime('now')
                 WHERE id = ?
             ");
@@ -6331,6 +6368,14 @@ Return ONLY the JSON object, no markdown.'
                 sanitize($umdbRelease['country'] ?? $edition['country'] ?? '', 100) ?: null,
                 intval($umdbRelease['disc_count'] ?? $umdbRelease['discs'] ?? $edition['disc_count'] ?? 1),
                 sanitize($umdbRelease['notes'] ?? $edition['notes'] ?? '', 500) ?: null,
+                $langSync ? sanitize($langSync, 500) : ($edition['languages'] ?? null),
+                (!empty($umdbRelease['copy_protected']) || !empty($umdbRelease['is_copy_protected'])) ? 1 : ($edition['copy_protected'] ?? 0),
+                sanitize($umdbRelease['video_system'] ?? $umdbRelease['system'] ?? $umdbRelease['standard'] ?? $edition['video_system'] ?? '', 50) ?: null,
+                sanitize($umdbRelease['asin'] ?? $edition['asin'] ?? '', 50) ?: null,
+                $audioSync ? sanitize($audioSync, 500) : ($edition['audio_formats'] ?? null),
+                $subsSync ? sanitize($subsSync, 500) : ($edition['subtitles'] ?? null),
+                sanitize($umdbRelease['disc_color'] ?? $edition['disc_color'] ?? '', 100) ?: null,
+                sanitize($umdbRelease['edition_type'] ?? $umdbRelease['type'] ?? $edition['edition_type'] ?? '', 100) ?: null,
                 $editionId
             ]);
 

@@ -1780,26 +1780,58 @@ function renderCollection() {
 
                             <!-- Physical Edition & Component Tracking -->
                             <div class="edition-section">
-                                ${copy.edition_id ? `
-                                    <div class="edition-badge">
-                                        <span class="edition-badge-label">${copy.edition_name || 'Linked Edition'}</span>
-                                        ${copy.edition_umdb_release_id ? `<span class="umdb-link-badge" title="${copy.edition_umdb_release_id}">UMDB</span>` : ''}
-                                        ${copy.edition_distributor ? `<span class="edition-badge-dist">${copy.edition_distributor}</span>` : ''}
-                                        ${copy.components_total > 0 ? `
-                                            <span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>
-                                        ` : ''}
-                                    </div>
-                                    <div class="edition-actions">
-                                        <button class="btn-sm" onclick="App.openComponentChecklist(${copy.id}, ${movieId})">Checklist</button>
-                                        ${copy.edition_umdb_release_id
-                                            ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Re-pull from UMDB">Sync</button>
-                                               <button class="btn-sm btn-sm-muted" onclick="App.unlinkEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Remove UMDB link">Unlink UMDB</button>`
-                                            : `<button class="btn-sm btn-umdb-sm" onclick="App.pushEditionToUmdb(${copy.edition_id}, ${movieId})" title="Push to UMDB">Push to UMDB</button>
-                                               <button class="btn-sm btn-sm-muted" onclick="App.linkEditionToUmdb(${copy.edition_id}, ${movieId})" title="Link to existing UMDB release">Link UMDB</button>`
-                                        }
-                                        <button class="btn-sm btn-sm-muted" onclick="App.unlinkCopyEdition(${copy.id}, ${movieId})">Unlink Edition</button>
-                                    </div>
-                                ` : `
+                                ${copy.edition_id ? (() => {
+                                    const hasUmdb = !!copy.edition_umdb_release_id;
+                                    const edLangs = copy.edition_languages || '';
+                                    const edVideo = copy.edition_video_system || '';
+                                    const edCopyProt = copy.edition_copy_protected == 1;
+                                    const edAudio = copy.edition_audio_formats || '';
+                                    const edSubs = copy.edition_subtitles || '';
+                                    const edAsin = copy.edition_asin || '';
+                                    const edDiscColor = copy.edition_disc_color || '';
+                                    const edType = copy.edition_edition_type || '';
+                                    const edRegion = copy.edition_region || copy.region || '';
+                                    const edDist = copy.edition_distributor || '';
+                                    const edDiscs = copy.edition_disc_count || 1;
+                                    const edBarcode = copy.edition_barcode || '';
+
+                                    const avTags = [edVideo, edRegion, edCopyProt ? '🔒 Copy Protected' : ''].filter(Boolean);
+                                    const pkgTags = [edType, copy.package_type && copy.package_type !== 'Standard Amaray' ? copy.package_type : ''].filter(Boolean);
+
+                                    return `
+                                    <div class="edition-panel">
+                                        <div class="edition-panel-header">
+                                            <span class="edition-panel-name">${copy.edition_name || 'Linked Edition'}</span>
+                                            ${hasUmdb ? `<span class="umdb-link-badge" title="${copy.edition_umdb_release_id}">UMDB</span>` : ''}
+                                            ${copy.components_total > 0 ? `<span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>` : ''}
+                                        </div>
+
+                                        ${(edLangs || avTags.length > 0 || pkgTags.length > 0 || edAudio || edSubs || edAsin || edDiscColor || edDist || edBarcode) ? `
+                                        <div class="edition-umdb-details">
+                                            ${edLangs ? `<div class="eud-row"><span class="eud-label">Languages</span><span class="eud-value">${edLangs}</span></div>` : ''}
+                                            ${avTags.length > 0 ? `<div class="eud-row"><span class="eud-label">Video</span><span class="eud-value eud-tags">${avTags.map(t => `<span class="eud-tag">${t}</span>`).join('')}</span></div>` : ''}
+                                            ${pkgTags.length > 0 ? `<div class="eud-row"><span class="eud-label">Edition</span><span class="eud-value eud-tags">${pkgTags.map(t => `<span class="eud-tag">${t}</span>`).join('')}</span></div>` : ''}
+                                            ${edAudio ? `<div class="eud-row"><span class="eud-label">Audio</span><span class="eud-value">${edAudio}</span></div>` : ''}
+                                            ${edSubs ? `<div class="eud-row"><span class="eud-label">Subtitles</span><span class="eud-value">${edSubs}</span></div>` : ''}
+                                            ${(edDiscs > 1) ? `<div class="eud-row"><span class="eud-label">Discs</span><span class="eud-value">${edDiscs}</span></div>` : ''}
+                                            ${edDist ? `<div class="eud-row"><span class="eud-label">Distributor</span><span class="eud-value">${edDist}</span></div>` : ''}
+                                            ${edDiscColor ? `<div class="eud-row"><span class="eud-label">Disc Colour</span><span class="eud-value">${edDiscColor}</span></div>` : ''}
+                                            ${edAsin ? `<div class="eud-row"><span class="eud-label">ASIN</span><span class="eud-value eud-mono">${edAsin}</span></div>` : ''}
+                                            ${edBarcode ? `<div class="eud-row"><span class="eud-label">Barcode</span><span class="eud-value eud-mono">${edBarcode}</span></div>` : ''}
+                                        </div>` : ''}
+
+                                        <div class="edition-actions">
+                                            <button class="btn-sm" onclick="App.openComponentChecklist(${copy.id}, ${movieId})">Checklist</button>
+                                            ${hasUmdb
+                                                ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Re-pull from UMDB">Sync</button>
+                                                   <button class="btn-sm btn-sm-muted" onclick="App.unlinkEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Remove UMDB link">Unlink UMDB</button>`
+                                                : `<button class="btn-sm btn-umdb-sm" onclick="App.pushEditionToUmdb(${copy.edition_id}, ${movieId})" title="Push to UMDB">Push to UMDB</button>
+                                                   <button class="btn-sm btn-sm-muted" onclick="App.linkEditionToUmdb(${copy.edition_id}, ${movieId})" title="Link to existing UMDB release">Link UMDB</button>`
+                                            }
+                                            <button class="btn-sm btn-sm-muted" onclick="App.unlinkCopyEdition(${copy.id}, ${movieId})">Unlink Edition</button>
+                                        </div>
+                                    </div>`;
+                                })() : `
                                     <button class="btn-sm btn-sm-outline" onclick="App.openEditionPicker(${copy.id}, ${movieId})">+ Link Physical Edition</button>
                                 `}
                             </div>
@@ -2273,15 +2305,18 @@ async function deleteCopy(copyId, movieId) {
                     const umdbBadge = ed.umdb_release_id
                         ? `<span class="umdb-link-badge" title="Linked: ${ed.umdb_release_id}">UMDB</span>`
                         : '';
+                    const edPickerRawLangs = ed.languages || '';
+                    const edPickerLangs = Array.isArray(edPickerRawLangs) ? edPickerRawLangs.join(', ') : edPickerRawLangs;
+                    const edPickerTags = [ed.format, ed.edition_type, ed.video_system, ed.region, ed.copy_protected == 1 ? '🔒' : ''].filter(Boolean);
                     html += `
                         <div class="edition-option" onclick="App.linkCopyToEdition(${copyId}, ${ed.id}, ${movieId})">
                             <div class="edition-option-name">${ed.name} ${umdbBadge}</div>
                             <div class="edition-option-meta">
-                                ${ed.format ? `<span>${ed.format}</span>` : ''}
+                                ${edPickerTags.map(t => `<span>${t}</span>`).join('')}
                                 ${ed.distributor ? `<span>${ed.distributor}</span>` : ''}
-                                ${ed.region ? `<span>${ed.region}</span>` : ''}
                                 ${ed.component_count ? `<span>${ed.component_count} components</span>` : ''}
                             </div>
+                            ${edPickerLangs ? `<div class="edition-option-meta" style="color:rgba(255,255,255,0.5); margin-top:0.2rem;"><span>${edPickerLangs}</span></div>` : ''}
                         </div>
                     `;
                 }
@@ -2742,15 +2777,29 @@ async function deleteCopy(copyId, movieId) {
                 const format = rel.format || '';
                 const distributor = rel.distributor || rel.label || '';
                 const barcode = rel.barcode || rel.upc || '';
+                const rawLangs = rel.languages || rel.language || '';
+                const langs = Array.isArray(rawLangs) ? rawLangs.join(', ') : rawLangs;
+                const videoSys = rel.video_system || rel.system || rel.standard || '';
+                const region = rel.region || '';
+                const edType = rel.edition_type || rel.type || '';
+                const copyProt = rel.copy_protected || rel.is_copy_protected ? '🔒' : '';
+                const rawAudio = rel.audio_formats || rel.audio || '';
+                const audio = Array.isArray(rawAudio) ? rawAudio.join(', ') : rawAudio;
+                const asin = rel.asin || '';
+                const metaTags = [format, edType, videoSys, region, copyProt].filter(Boolean);
                 html += `
                     <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
                         <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
                         <div class="edition-option-meta">
-                            ${format ? `<span>${format}</span>` : ''}
-                            ${distributor ? `<span>${distributor}</span>` : ''}
-                            ${barcode ? `<span>UPC: ${barcode}</span>` : ''}
-                            ${relId ? `<span class="text-muted">${relId}</span>` : ''}
+                            ${metaTags.map(t => `<span>${t}</span>`).join('')}
+                            ${distributor ? `<span style="color:rgba(255,255,255,0.6);">${distributor}</span>` : ''}
                         </div>
+                        ${(langs || audio || asin) ? `<div class="edition-option-meta" style="margin-top:0.2rem;">
+                            ${langs ? `<span style="color:rgba(255,255,255,0.6);">${langs}</span>` : ''}
+                            ${audio ? `<span style="color:rgba(255,255,255,0.5);">${audio}</span>` : ''}
+                            ${asin ? `<span style="color:rgba(255,255,255,0.4); font-family:monospace; font-size:0.75rem;">ASIN: ${asin}</span>` : ''}
+                        </div>` : ''}
+                        ${barcode ? `<div class="edition-option-meta" style="color:rgba(255,255,255,0.35); font-family:monospace; font-size:0.75rem;">UPC: ${barcode}</div>` : ''}
                     </div>
                 `;
             }
@@ -2784,14 +2833,27 @@ async function deleteCopy(copyId, movieId) {
                         for (const rel of releases) {
                             const relId = rel.id || rel.release_id || '';
                             const name = rel.name || rel.title || 'Unnamed Release';
+                            const format = rel.format || '';
+                            const distributor = rel.distributor || rel.label || '';
+                            const rawLangs2 = rel.languages || rel.language || '';
+                            const langs2 = Array.isArray(rawLangs2) ? rawLangs2.join(', ') : rawLangs2;
+                            const videoSys2 = rel.video_system || rel.system || '';
+                            const region2 = rel.region || '';
+                            const edType2 = rel.edition_type || rel.type || '';
+                            const copyProt2 = rel.copy_protected || rel.is_copy_protected ? '🔒' : '';
+                            const asin2 = rel.asin || '';
+                            const metaTags2 = [format, edType2, videoSys2, region2, copyProt2].filter(Boolean);
                             html += `
                                 <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
                                     <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
                                     <div class="edition-option-meta">
-                                        ${rel.format ? `<span>${rel.format}</span>` : ''}
-                                        ${rel.distributor || rel.label ? `<span>${rel.distributor || rel.label}</span>` : ''}
-                                        ${relId ? `<span class="text-muted">${relId}</span>` : ''}
+                                        ${metaTags2.map(t => `<span>${t}</span>`).join('')}
+                                        ${distributor ? `<span style="color:rgba(255,255,255,0.6);">${distributor}</span>` : ''}
                                     </div>
+                                    ${(langs2 || asin2) ? `<div class="edition-option-meta" style="margin-top:0.2rem;">
+                                        ${langs2 ? `<span style="color:rgba(255,255,255,0.6);">${langs2}</span>` : ''}
+                                        ${asin2 ? `<span style="color:rgba(255,255,255,0.4); font-family:monospace; font-size:0.75rem;">ASIN: ${asin2}</span>` : ''}
+                                    </div>` : ''}
                                 </div>
                             `;
                         }
@@ -3151,15 +3213,30 @@ async function viewMovieDetails(movieId) {
                         <h3>Your Copies (${copies.length})</h3>
                         ${copies.length > 0 ? `
                             <div class="copies-summary">
-                                ${copies.map((copy, i) => `
+                                ${copies.map((copy, i) => {
+                                    const edName = copy.edition_name || copy.edition || '';
+                                    const edType = copy.edition_edition_type || '';
+                                    const pkgType = (copy.package_type && copy.package_type !== 'Standard Amaray') ? copy.package_type : (copy.edition_disc_color ? '' : '');
+                                    const videoSys = copy.edition_video_system || '';
+                                    const region = copy.region || copy.edition_region || '';
+                                    const langs = copy.edition_languages || '';
+                                    const umdbLinked = !!copy.edition_umdb_release_id;
+                                    const discCount = copy.edition_disc_count;
+                                    const distributor = copy.edition_distributor || '';
+                                    const tags = [edType, pkgType, videoSys, region].filter(Boolean);
+                                    return `
                                     <div class="copy-summary-item">
-                                        <div class="copy-number">Copy ${i + 1}</div>
+                                        <div class="copy-number">Copy ${i + 1}${umdbLinked ? ' <span class="umdb-link-badge">UMDB</span>' : ''}</div>
                                         <div class="copy-details">
-                                            ${copy.format}${copy.edition ? ` - ${copy.edition}` : ''}${copy.condition ? ` (${copy.condition})` : ''}
+                                            <div class="copy-summary-format">${copy.format}${copy.condition ? ` <span class="copy-summary-condition">${copy.condition}</span>` : ''}</div>
+                                            ${edName ? `<div class="copy-summary-edition">${edName}</div>` : ''}
+                                            ${langs ? `<div class="copy-summary-langs">${langs}</div>` : ''}
+                                            ${tags.length > 0 ? `<div class="copy-summary-tags">${tags.map(t => `<span class="copy-summary-tag">${t}</span>`).join('')}</div>` : ''}
+                                            ${distributor ? `<div class="copy-summary-dist">${distributor}${discCount > 1 ? ` &bull; ${discCount} discs` : ''}</div>` : (discCount > 1 ? `<div class="copy-summary-dist">${discCount} discs</div>` : '')}
                                             ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
                                         </div>
-                                    </div>
-                                `).join('')}
+                                    </div>`;
+                                }).join('')}
                             </div>
                             <button class="btn" onclick="App.openCopyManager(${movieId})" style="margin-top: 1rem;">
                                 ✏️ Manage Copies

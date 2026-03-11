@@ -221,6 +221,17 @@ function getDb() {
         try { $db->exec("ALTER TABLE media_editions ADD COLUMN umdb_release_id TEXT"); } catch (PDOException $e) {}
         try { $db->exec("CREATE INDEX IF NOT EXISTS idx_media_editions_umdb_release ON media_editions(umdb_release_id)"); } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB enriched edition data (v4.2.0)
+        // Languages, A/V specs, ASIN, edition type from physical media database
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN languages TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN copy_protected INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN video_system TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN asin TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN audio_formats TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN subtitles TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN disc_color TEXT"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN edition_type TEXT"); } catch (PDOException $e) {}
+
         // Auto-migrate: Shelf Layout Profiles (v5.0.0)
         try {
             $db->exec("CREATE TABLE IF NOT EXISTS shelf_layout_profiles (
