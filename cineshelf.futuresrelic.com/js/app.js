@@ -3856,9 +3856,11 @@ function getCertColor(cert) {
                     <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
                 </div>`;
             } else {
+                const shelfPoster = item.edition_cover_url || item.poster_url;
+                const shelfFallback = item.edition_cover_url && item.poster_url ? item.poster_url : null;
                 html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})">
-                    ${item.poster_url
-                        ? `<img src="${item.poster_url}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.parentElement.classList.add('no-poster');this.style.display='none'">`
+                    ${shelfPoster
+                        ? `<img src="${shelfPoster}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="${shelfFallback ? `this.src='${shelfFallback}'` : "this.parentElement.classList.add('no-poster');this.style.display='none'"}">`
                         : `<div class="shelf-view-poster-placeholder">🎬</div>`}
                     <div class="shelf-view-movie-title">${item.display_title || item.title}</div>
                     <div class="shelf-view-movie-meta">${item.year || ''} · ${item.format || ''}</div>
@@ -9577,7 +9579,9 @@ async function getCurrentUserId() {
                         </div>
                     `;
                 } else {
-                    // Render regular movie copy
+                    // Render regular movie copy — prefer UMDB edition cover over generic movie poster
+                    const copyPoster = item.edition_cover_url || item.poster_url || '/placeholder.png';
+                    const umdbBadge = item.edition_umdb_release_id ? ' <span class="umdb-link-badge" style="font-size:0.65rem;vertical-align:middle;">UMDB</span>' : '';
                     return `
                         <div class="unassigned-movie-card ${isSelected ? 'selected' : ''}" data-item-id="${itemId}">
                             <input type="checkbox"
@@ -9585,12 +9589,13 @@ async function getCurrentUserId() {
                                    ${isSelected ? 'checked' : ''}
                                    onchange="App.toggleMovieSelection(${item.copy_id})"
                                    onclick="event.stopPropagation()">
-                            <img src="${item.poster_url || '/placeholder.png'}"
+                            <img src="${copyPoster}"
                                  alt="${item.title}"
                                  class="unassigned-movie-poster"
+                                 onerror="this.src='${item.poster_url || '/placeholder.png'}'"
                                  onclick="App.toggleMovieSelection(${item.copy_id})">
                             <div class="unassigned-movie-info" onclick="App.toggleMovieSelection(${item.copy_id})">
-                                <h4>${item.display_title || item.title}</h4>
+                                <h4>${item.display_title || item.title}${umdbBadge}</h4>
                                 <p>${item.year || 'N/A'}</p>
                                 ${item.director ? `<p style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">${item.director}</p>` : ''}
                                 <div class="unassigned-movie-format">${item.format}</div>

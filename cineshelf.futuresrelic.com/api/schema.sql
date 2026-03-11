@@ -413,6 +413,7 @@ CREATE TABLE IF NOT EXISTS media_editions (
     country TEXT,
     disc_count INTEGER DEFAULT 1,
     notes TEXT,
+    cover_image_url TEXT,
     created_by INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

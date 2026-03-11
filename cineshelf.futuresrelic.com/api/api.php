@@ -4330,6 +4330,9 @@ case 'resolve_movie':
                     m.media_type,
                     m.number_of_seasons,
                     c.seasons_owned,
+                    -- Edition cover (from UMDB-linked edition)
+                    me.cover_image_url as edition_cover_url,
+                    me.umdb_release_id as edition_umdb_release_id,
                     -- Container info
                     cont.name as container_name,
                     cont.spine_label as container_spine_label,
@@ -4341,6 +4344,7 @@ case 'resolve_movie':
                 FROM shelf_assignments sa
                 LEFT JOIN copies c ON sa.copy_id = c.id AND sa.is_container = 0
                 LEFT JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN media_editions me ON c.edition_id = me.id
                 LEFT JOIN containers cont ON sa.container_id = cont.id AND sa.is_container = 1
                 WHERE sa.shelf_id = ?
                 ORDER BY sa.position_in_shelf ASC
@@ -4366,9 +4370,12 @@ case 'resolve_movie':
                     m.director,
                     m.genre,
                     m.studio,
-                    m.actors
+                    m.actors,
+                    me.cover_image_url as edition_cover_url,
+                    me.umdb_release_id as edition_umdb_release_id
                 FROM copies c
                 JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN media_editions me ON c.edition_id = me.id
                 LEFT JOIN shelf_assignments sa ON c.id = sa.copy_id
                 LEFT JOIN container_contents cc ON c.id = cc.copy_id
                 WHERE c.user_id = ?
@@ -6101,10 +6108,11 @@ Return ONLY the JSON object, no markdown.'
             $subtitles = sanitize(is_array($rawSubs) ? implode(', ', $rawSubs) : ($rawSubs ?? ''), 500);
             $discColor = sanitize($umdbRelease['disc_color'] ?? '', 100);
             $editionType = sanitize($umdbRelease['edition_type'] ?? $umdbRelease['type'] ?? '', 100);
+            $coverImageUrl = sanitize($umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? $umdbRelease['images']['front'] ?? '', 500);
 
             $stmt = $db->prepare("
-                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, languages, copy_protected, video_system, asin, audio_formats, subtitles, disc_color, edition_type, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, languages, copy_protected, video_system, asin, audio_formats, subtitles, disc_color, edition_type, cover_image_url, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $movieId, $releaseId, $name, $format ?: null, $packageType ?: null, $region ?: null,
@@ -6112,6 +6120,7 @@ Return ONLY the JSON object, no markdown.'
                 $discCount, $notes ?: null,
                 $languages ?: null, $copyProtected, $videoSystem ?: null, $asin ?: null,
                 $audioFormats ?: null, $subtitles ?: null, $discColor ?: null, $editionType ?: null,
+                $coverImageUrl ?: null,
                 $userId
             ]);
 
@@ -6348,12 +6357,15 @@ Return ONLY the JSON object, no markdown.'
             $rawSubsSync = $umdbRelease['subtitles'] ?? null;
             $subsSync = is_array($rawSubsSync) ? implode(', ', $rawSubsSync) : ($rawSubsSync ?? null);
 
+            $syncCoverUrl = sanitize($umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? $umdbRelease['images']['front'] ?? '', 500);
+
             $stmt = $db->prepare("
                 UPDATE media_editions
                 SET name = ?, format = ?, package_type = ?, region = ?, barcode = ?,
                     release_date = ?, distributor = ?, country = ?, disc_count = ?, notes = ?,
                     languages = ?, copy_protected = ?, video_system = ?, asin = ?,
                     audio_formats = ?, subtitles = ?, disc_color = ?, edition_type = ?,
+                    cover_image_url = ?,
                     updated_at = datetime('now')
                 WHERE id = ?
             ");
@@ -6376,6 +6388,7 @@ Return ONLY the JSON object, no markdown.'
                 $subsSync ? sanitize($subsSync, 500) : ($edition['subtitles'] ?? null),
                 sanitize($umdbRelease['disc_color'] ?? $edition['disc_color'] ?? '', 100) ?: null,
                 sanitize($umdbRelease['edition_type'] ?? $umdbRelease['type'] ?? $edition['edition_type'] ?? '', 100) ?: null,
+                $syncCoverUrl ?: ($edition['cover_image_url'] ?? null),
                 $editionId
             ]);
 
