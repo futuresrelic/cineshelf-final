@@ -4069,9 +4069,17 @@ case 'resolve_movie':
                 }, $items),
             ];
 
+            // DEBUG: log the exact payload being sent to UMDB
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] SENDING to UMDB /box-sets payload:\n" . json_encode($payload, JSON_PRETTY_PRINT) . "\n");
+
             $umdbResult = umdbPost('/box-sets', $payload);
+
+            // DEBUG: log the raw UMDB response
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] RAW UMDB response:\n" . json_encode($umdbResult, JSON_PRETTY_PRINT) . "\n");
+
             if (!$umdbResult) {
                 $errDetail = $GLOBALS['_umdb_last_error'] ?? 'No response from UMDB';
+                file_put_contents('php://stderr', "[push_boxset_to_umdb] FAILED: $errDetail\n");
                 jsonResponse(false, null, 'UMDB push failed: ' . $errDetail);
             }
 
@@ -4079,15 +4087,27 @@ case 'resolve_movie':
             $boxSetData = $umdbResult['box_set'] ?? $umdbResult;
             $umdbBoxsetId  = $boxSetData['id'] ?? null;
             $umdbCoverUrl  = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? null;
-            $umdbReleaseId = $boxSetData['release_id'] ?? null;  // per-movie releases share this box set
+            $umdbReleaseId = $boxSetData['release_id'] ?? null;
             $isDuplicate   = (bool)($umdbResult['duplicate'] ?? false);
-            if (empty($umdbBoxsetId)) jsonResponse(false, null, 'UMDB did not return a box set ID');
+
+            // DEBUG: log what we extracted from the response
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] Extracted: boxset_id=$umdbBoxsetId release_id=$umdbReleaseId cover=" . ($umdbCoverUrl ? 'yes' : 'null') . " duplicate=" . ($isDuplicate ? 'true' : 'false') . "\n");
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] Movies in response: " . json_encode($boxSetData['movies'] ?? 'MISSING') . "\n");
+
+            if (empty($umdbBoxsetId)) jsonResponse(false, null, 'UMDB did not return a box set ID. Full response: ' . json_encode($umdbResult));
 
             $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, umdb_release_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                ->execute([$umdbBoxsetId, $umdbCoverUrl, $umdbReleaseId, $containerId]);
 
             logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId, 'duplicate' => $isDuplicate]);
-            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'release_id' => $umdbReleaseId, 'cover_url' => $umdbCoverUrl, 'duplicate' => $isDuplicate]);
+            jsonResponse(true, [
+                'container_id'   => $containerId,
+                'umdb_boxset_id' => $umdbBoxsetId,
+                'release_id'     => $umdbReleaseId,
+                'cover_url'      => $umdbCoverUrl,
+                'duplicate'      => $isDuplicate,
+                '_debug_umdb_response' => $umdbResult,   // full raw response visible in browser devtools
+            ]);
             break;
 
         case 'sync_boxset_from_umdb':
@@ -4138,9 +4158,13 @@ case 'resolve_movie':
             if (!$container) jsonResponse(false, null, 'Container not found');
             if (empty($container['umdb_boxset_id'])) jsonResponse(false, null, 'This box set is not linked to UMDB');
 
-            $result = umdbPost('/box-sets/' . urlencode($container['umdb_boxset_id']) . '/create-releases', []);
+            $backfillUrl = '/box-sets/' . urlencode($container['umdb_boxset_id']) . '/create-releases';
+            file_put_contents('php://stderr', "[backfill_boxset_releases] POST UMDB $backfillUrl\n");
+            $result = umdbPost($backfillUrl, []);
+            file_put_contents('php://stderr', "[backfill_boxset_releases] RAW UMDB response:\n" . json_encode($result, JSON_PRETTY_PRINT) . "\n");
             if (!$result) {
                 $errDetail = $GLOBALS['_umdb_last_error'] ?? 'No response from UMDB';
+                file_put_contents('php://stderr', "[backfill_boxset_releases] FAILED: $errDetail\n");
                 jsonResponse(false, null, 'UMDB backfill failed: ' . $errDetail);
             }
             logAction($db, $userId, 'boxset_releases_backfilled', 'container', $containerId, ['umdb_boxset_id' => $container['umdb_boxset_id']]);
