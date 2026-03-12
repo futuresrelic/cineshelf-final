@@ -4075,18 +4075,19 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'UMDB push failed: ' . $errDetail);
             }
 
-            // UMDB returns { duplicate: bool, box_set: { id, name, cover_image, movies } }
+            // UMDB returns { duplicate: bool, box_set: { id, name, release_id, cover_image, movies } }
             $boxSetData = $umdbResult['box_set'] ?? $umdbResult;
-            $umdbBoxsetId = $boxSetData['id'] ?? null;
-            $umdbCoverUrl = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? null;
-            $isDuplicate = (bool)($umdbResult['duplicate'] ?? false);
+            $umdbBoxsetId  = $boxSetData['id'] ?? null;
+            $umdbCoverUrl  = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? null;
+            $umdbReleaseId = $boxSetData['release_id'] ?? null;  // per-movie releases share this box set
+            $isDuplicate   = (bool)($umdbResult['duplicate'] ?? false);
             if (empty($umdbBoxsetId)) jsonResponse(false, null, 'UMDB did not return a box set ID');
 
-            $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-               ->execute([$umdbBoxsetId, $umdbCoverUrl, $containerId]);
+            $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, umdb_release_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+               ->execute([$umdbBoxsetId, $umdbCoverUrl, $umdbReleaseId, $containerId]);
 
             logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId, 'duplicate' => $isDuplicate]);
-            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'cover_url' => $umdbCoverUrl, 'duplicate' => $isDuplicate]);
+            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'release_id' => $umdbReleaseId, 'cover_url' => $umdbCoverUrl, 'duplicate' => $isDuplicate]);
             break;
 
         case 'sync_boxset_from_umdb':
@@ -6276,6 +6277,144 @@ Return ONLY the JSON object, no markdown.'
                 'edition_id' => $editionId,
                 'umdb_release_id' => $releaseId,
                 'components_imported' => count($components)
+            ]);
+            break;
+
+        case 'import_umdb_boxset':
+            // Import a UMDB box-set release — auto-creates a local container + copies for ALL films in the set.
+            // A box-set release has is_box_set:true and carries box_set_id + box_set_movies[].
+            $releaseId = sanitize($input['release_id'] ?? '', 80);
+            if (empty($releaseId)) jsonResponse(false, null, 'UMDB release ID required');
+
+            // Fetch the release from UMDB
+            $umdbRelease = umdbFetch('/releases/' . urlencode($releaseId));
+            if (!$umdbRelease) jsonResponse(false, null, 'Failed to fetch release from UMDB');
+
+            if (empty($umdbRelease['is_box_set']) || empty($umdbRelease['box_set_id'])) {
+                jsonResponse(false, null, 'This release is not a box set. Use import_umdb_release instead.');
+            }
+
+            $bsId       = sanitize($umdbRelease['box_set_id'], 80);
+            $bsName     = sanitize($umdbRelease['name'] ?? 'Imported Box Set', 200);
+            $bsFormat   = sanitize($umdbRelease['format'] ?? '', 50);
+            $bsCover    = sanitize($umdbRelease['cover_image'] ?? $umdbRelease['cover_url'] ?? '', 500);
+            $bsMovies   = $umdbRelease['box_set_movies'] ?? [];
+            if (empty($bsMovies)) jsonResponse(false, null, 'Box set contains no movies');
+
+            // Prevent duplicate import for this user
+            $stmt = $db->prepare("SELECT id, name FROM containers WHERE umdb_boxset_id = ? AND user_id = ?");
+            $stmt->execute([$bsId, $userId]);
+            $alreadyHave = $stmt->fetch();
+            if ($alreadyHave) {
+                jsonResponse(false, null, 'You already have this box set: "' . $alreadyHave['name'] . '" (container #' . $alreadyHave['id'] . ')');
+            }
+
+            // Create the container
+            $stmt = $db->prepare("
+                INSERT INTO containers (user_id, name, format, umdb_boxset_id, umdb_release_id, umdb_cover_url, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ");
+            $stmt->execute([$userId, $bsName, $bsFormat ?: null, $bsId, $releaseId, $bsCover ?: null]);
+            $newContainerId = $db->lastInsertId();
+
+            $moviesAdded = 0;
+            $importErrors = [];
+
+            foreach ($bsMovies as $bsMovie) {
+                $umdbMovieId = sanitize($bsMovie['umdb_movie_id'] ?? '', 80);
+                $movieTitle  = sanitize($bsMovie['title'] ?? 'Unknown', 200);
+                $discNumber  = intval($bsMovie['disc_number'] ?? ($moviesAdded + 1));
+                $discLabel   = sanitize($bsMovie['disc_label'] ?? '', 200);
+                $isPresent   = isset($bsMovie['is_present']) ? (int)(bool)$bsMovie['is_present'] : 1;
+                $position    = intval($bsMovie['position'] ?? $moviesAdded);
+
+                if (empty($umdbMovieId)) {
+                    $importErrors[] = "Skipped '$movieTitle': no UMDB movie ID";
+                    continue;
+                }
+
+                // Fetch UMDB movie to get its tmdb_id
+                $umdbMovieData = umdbFetch('/movie/' . urlencode($umdbMovieId));
+
+                $localMovieId = null;
+                $tmdbIdForMovie = $umdbMovieData ? sanitize($umdbMovieData['tmdb_id'] ?? '', 20) : '';
+
+                if (!empty($tmdbIdForMovie) && !isUmdbId($tmdbIdForMovie)) {
+                    // Look up existing local movie
+                    $stmt = $db->prepare("SELECT id FROM movies WHERE tmdb_id = ?");
+                    $stmt->execute([$tmdbIdForMovie]);
+                    $localMovie = $stmt->fetch();
+                    if ($localMovie) {
+                        $localMovieId = $localMovie['id'];
+                    } else {
+                        // Fetch from TMDB and create
+                        $detail = buildDetailUrl($tmdbIdForMovie, 'movie', 'credits,release_dates');
+                        $tmdbRaw = fetchUrl($detail['url'], $detail['headers']);
+                        if ($tmdbRaw) {
+                            $tmdbData = json_decode($tmdbRaw, true);
+                            if (!empty($tmdbData['id'])) {
+                                $genres = implode(', ', array_column($tmdbData['genres'] ?? [], 'name'));
+                                $director = '';
+                                foreach (($tmdbData['credits']['crew'] ?? []) as $crew) {
+                                    if ($crew['job'] === 'Director') { $director = $crew['name']; break; }
+                                }
+                                $actors = implode(', ', array_column(array_slice($tmdbData['credits']['cast'] ?? [], 0, 5), 'name'));
+                                $year = !empty($tmdbData['release_date']) ? intval(substr($tmdbData['release_date'], 0, 4)) : null;
+                                $iStmt = $db->prepare("
+                                    INSERT INTO movies (tmdb_id, title, year, poster_url, overview, rating, runtime, genre, director, actors, media_type)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'movie')
+                                ");
+                                $iStmt->execute([
+                                    $tmdbIdForMovie,
+                                    $tmdbData['title'] ?? $movieTitle,
+                                    $year,
+                                    resolveImageUrl($tmdbData['poster_path'] ?? null),
+                                    $tmdbData['overview'] ?? null,
+                                    $tmdbData['vote_average'] ?? null,
+                                    $tmdbData['runtime'] ?? null,
+                                    $genres, $director, $actors
+                                ]);
+                                $localMovieId = $db->lastInsertId();
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: create a minimal placeholder linked by UMDB ID
+                if (!$localMovieId) {
+                    $stmt = $db->prepare("INSERT INTO movies (tmdb_id, title, media_type) VALUES (?, ?, 'movie')");
+                    $stmt->execute([$umdbMovieId, $movieTitle]);
+                    $localMovieId = $db->lastInsertId();
+                }
+
+                // Create a copy for this film
+                $stmt = $db->prepare("
+                    INSERT INTO copies (user_id, movie_id, format, condition, feature_count)
+                    VALUES (?, ?, ?, 'Good', 'Single')
+                ");
+                $stmt->execute([$userId, $localMovieId, $bsFormat ?: 'DVD']);
+                $newCopyId = $db->lastInsertId();
+
+                // Place it in the container
+                $stmt = $db->prepare("
+                    INSERT OR IGNORE INTO container_contents
+                        (container_id, copy_id, disc_number, disc_label, is_present, position_in_container)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$newContainerId, $newCopyId, $discNumber, $discLabel ?: null, $isPresent, $position]);
+
+                $moviesAdded++;
+            }
+
+            logAction($db, $userId, 'umdb_boxset_imported', 'container', $newContainerId, [
+                'umdb_boxset_id' => $bsId, 'release_id' => $releaseId, 'movies_added' => $moviesAdded
+            ]);
+
+            jsonResponse(true, [
+                'container_id'   => $newContainerId,
+                'umdb_boxset_id' => $bsId,
+                'movies_added'   => $moviesAdded,
+                'errors'         => $importErrors
             ]);
             break;
 

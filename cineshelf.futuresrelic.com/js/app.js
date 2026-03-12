@@ -2754,6 +2754,89 @@ async function deleteCopy(copyId, movieId) {
         }
     }
 
+    // Render a single UMDB release as a selectable card.
+    // Box-set releases (is_box_set:true) get a special multi-film card with "Add Full Box Set".
+    function renderUmdbReleaseCard(rel, copyId, movieId) {
+        const relId  = rel.id || rel.release_id || '';
+        const name   = rel.name || rel.title || 'Unnamed Release';
+        const format = rel.format || '';
+
+        if (rel.is_box_set && rel.box_set_id) {
+            // --- Box Set Release Card ---
+            const bsMovies = rel.box_set_movies || [];
+            const filmList = bsMovies.map(m =>
+                `<span style="display:inline-block;margin-right:0.5rem;color:rgba(255,255,255,0.7);">` +
+                `${m.disc_label ? m.disc_label + ': ' : ''}${m.title}</span>`
+            ).join('');
+            return `
+                <div class="edition-option" style="border-left:3px solid #a78bfa;">
+                    <div class="edition-option-name">
+                        ${name}
+                        <span class="umdb-link-badge">UMDB</span>
+                        <span style="background:#7c3aed;color:#fff;font-size:0.7rem;padding:1px 6px;border-radius:4px;margin-left:4px;">BOX SET</span>
+                    </div>
+                    ${format ? `<div class="edition-option-meta"><span>${format}</span><span style="color:rgba(255,255,255,0.5);">${bsMovies.length} films</span></div>` : ''}
+                    ${filmList ? `<div style="margin-top:0.3rem;font-size:0.8rem;">${filmList}</div>` : ''}
+                    <div style="margin-top:0.5rem;">
+                        <button class="btn" style="font-size:0.8rem;padding:4px 12px;"
+                            onclick="App.importUmdbBoxset(${movieId}, '${relId}', ${JSON.stringify(name)})">
+                            Add Full Box Set
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Standard Release Card ---
+        const distributor = rel.distributor || rel.label || '';
+        const barcode     = rel.barcode || rel.upc || '';
+        const rawLangs    = rel.languages || rel.language || '';
+        const langs       = Array.isArray(rawLangs) ? rawLangs.join(', ') : rawLangs;
+        const videoSys    = rel.video_system || rel.system || rel.standard || '';
+        const region      = rel.region || '';
+        const edType      = rel.edition_type || rel.type || '';
+        const copyProt    = rel.copy_protected || rel.is_copy_protected ? '🔒' : '';
+        const rawAudio    = rel.audio_formats || rel.audio || '';
+        const audio       = Array.isArray(rawAudio) ? rawAudio.join(', ') : rawAudio;
+        const asin        = rel.asin || '';
+        const metaTags    = [format, edType, videoSys, region, copyProt].filter(Boolean);
+        return `
+            <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
+                <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
+                <div class="edition-option-meta">
+                    ${metaTags.map(t => `<span>${t}</span>`).join('')}
+                    ${distributor ? `<span style="color:rgba(255,255,255,0.6);">${distributor}</span>` : ''}
+                </div>
+                ${(langs || audio || asin) ? `<div class="edition-option-meta" style="margin-top:0.2rem;">
+                    ${langs ? `<span style="color:rgba(255,255,255,0.6);">${langs}</span>` : ''}
+                    ${audio ? `<span style="color:rgba(255,255,255,0.5);">${audio}</span>` : ''}
+                    ${asin ? `<span style="color:rgba(255,255,255,0.4); font-family:monospace; font-size:0.75rem;">ASIN: ${asin}</span>` : ''}
+                </div>` : ''}
+                ${barcode ? `<div class="edition-option-meta" style="color:rgba(255,255,255,0.35); font-family:monospace; font-size:0.75rem;">UPC: ${barcode}</div>` : ''}
+            </div>
+        `;
+    }
+
+    async function importUmdbBoxset(movieId, releaseId, boxSetName) {
+        if (!releaseId) { showToast('No release ID', 'error'); return; }
+        if (!confirm(`Add the full box set "${boxSetName}" to your collection?\n\nAll included films will be added and grouped together.`)) return;
+        try {
+            const result = await apiCall('import_umdb_boxset', { release_id: releaseId, movie_id: movieId });
+            if (result && result.container_id) {
+                const msg = `Box set added! ${result.movies_added} film${result.movies_added !== 1 ? 's' : ''} added to your collection.`;
+                showToast(msg, 'success');
+                if (result.errors && result.errors.length > 0) {
+                    console.warn('Box set import warnings:', result.errors);
+                }
+                await loadCollection();
+                switchTab('collection');
+            }
+        } catch (error) {
+            console.error('Failed to import box set:', error);
+            showToast(error.message || 'Failed to import box set from UMDB', 'error');
+        }
+    }
+
     async function searchUmdbReleases(copyId, movieId) {
         const query = document.getElementById('umdb-import-query')?.value.trim();
         const resultsDiv = document.getElementById('umdb-import-results');
@@ -2772,36 +2855,7 @@ async function deleteCopy(copyId, movieId) {
 
             let html = '<div class="edition-list">';
             for (const rel of releases) {
-                const relId = rel.id || rel.release_id || '';
-                const name = rel.name || rel.title || 'Unnamed Release';
-                const format = rel.format || '';
-                const distributor = rel.distributor || rel.label || '';
-                const barcode = rel.barcode || rel.upc || '';
-                const rawLangs = rel.languages || rel.language || '';
-                const langs = Array.isArray(rawLangs) ? rawLangs.join(', ') : rawLangs;
-                const videoSys = rel.video_system || rel.system || rel.standard || '';
-                const region = rel.region || '';
-                const edType = rel.edition_type || rel.type || '';
-                const copyProt = rel.copy_protected || rel.is_copy_protected ? '🔒' : '';
-                const rawAudio = rel.audio_formats || rel.audio || '';
-                const audio = Array.isArray(rawAudio) ? rawAudio.join(', ') : rawAudio;
-                const asin = rel.asin || '';
-                const metaTags = [format, edType, videoSys, region, copyProt].filter(Boolean);
-                html += `
-                    <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
-                        <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
-                        <div class="edition-option-meta">
-                            ${metaTags.map(t => `<span>${t}</span>`).join('')}
-                            ${distributor ? `<span style="color:rgba(255,255,255,0.6);">${distributor}</span>` : ''}
-                        </div>
-                        ${(langs || audio || asin) ? `<div class="edition-option-meta" style="margin-top:0.2rem;">
-                            ${langs ? `<span style="color:rgba(255,255,255,0.6);">${langs}</span>` : ''}
-                            ${audio ? `<span style="color:rgba(255,255,255,0.5);">${audio}</span>` : ''}
-                            ${asin ? `<span style="color:rgba(255,255,255,0.4); font-family:monospace; font-size:0.75rem;">ASIN: ${asin}</span>` : ''}
-                        </div>` : ''}
-                        ${barcode ? `<div class="edition-option-meta" style="color:rgba(255,255,255,0.35); font-family:monospace; font-size:0.75rem;">UPC: ${barcode}</div>` : ''}
-                    </div>
-                `;
+                html += renderUmdbReleaseCard(rel, copyId, movieId);
             }
             html += '</div>';
             resultsDiv.innerHTML = html;
@@ -2831,31 +2885,7 @@ async function deleteCopy(copyId, movieId) {
                     if (Array.isArray(releases) && releases.length > 0) {
                         let html = '<div class="edition-list">';
                         for (const rel of releases) {
-                            const relId = rel.id || rel.release_id || '';
-                            const name = rel.name || rel.title || 'Unnamed Release';
-                            const format = rel.format || '';
-                            const distributor = rel.distributor || rel.label || '';
-                            const rawLangs2 = rel.languages || rel.language || '';
-                            const langs2 = Array.isArray(rawLangs2) ? rawLangs2.join(', ') : rawLangs2;
-                            const videoSys2 = rel.video_system || rel.system || '';
-                            const region2 = rel.region || '';
-                            const edType2 = rel.edition_type || rel.type || '';
-                            const copyProt2 = rel.copy_protected || rel.is_copy_protected ? '🔒' : '';
-                            const asin2 = rel.asin || '';
-                            const metaTags2 = [format, edType2, videoSys2, region2, copyProt2].filter(Boolean);
-                            html += `
-                                <div class="edition-option" onclick="App.importUmdbRelease(${copyId}, ${movieId}, '${relId}')">
-                                    <div class="edition-option-name">${name} <span class="umdb-link-badge">UMDB</span></div>
-                                    <div class="edition-option-meta">
-                                        ${metaTags2.map(t => `<span>${t}</span>`).join('')}
-                                        ${distributor ? `<span style="color:rgba(255,255,255,0.6);">${distributor}</span>` : ''}
-                                    </div>
-                                    ${(langs2 || asin2) ? `<div class="edition-option-meta" style="margin-top:0.2rem;">
-                                        ${langs2 ? `<span style="color:rgba(255,255,255,0.6);">${langs2}</span>` : ''}
-                                        ${asin2 ? `<span style="color:rgba(255,255,255,0.4); font-family:monospace; font-size:0.75rem;">ASIN: ${asin2}</span>` : ''}
-                                    </div>` : ''}
-                                </div>
-                            `;
+                            html += renderUmdbReleaseCard(rel, copyId, movieId);
                         }
                         html += '</div>';
                         resultsDiv.innerHTML = html;
@@ -11545,6 +11575,7 @@ return {
     searchUmdbReleases,
     searchUmdbByExternalId,
     importUmdbRelease,
+    importUmdbBoxset,
     pushEditionToUmdb,
     syncEditionFromUmdb,
     pushBoxSetToUmdb,

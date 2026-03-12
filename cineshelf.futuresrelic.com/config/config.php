@@ -392,6 +392,10 @@ function getDb() {
         try { $db->exec("ALTER TABLE containers ADD COLUMN umdb_cover_url TEXT DEFAULT NULL"); } catch (PDOException $e) {}
         try { $db->exec("CREATE INDEX IF NOT EXISTS idx_containers_umdb_boxset ON containers(umdb_boxset_id)"); } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB Box Set release linkage (v4.4.0)
+        // Stores the UMDB release ID returned when pushing/importing a box set
+        try { $db->exec("ALTER TABLE containers ADD COLUMN umdb_release_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {
