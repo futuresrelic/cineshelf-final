@@ -2965,6 +2965,44 @@ async function deleteCopy(copyId, movieId) {
     }
 
     // ========================================
+    // UMDB BOX SET INTEGRATION
+    // ========================================
+
+    async function pushBoxSetToUmdb(containerId) {
+        if (!confirm('Push this box set to UMDB? It will be shared with the universal database.')) return;
+        try {
+            const result = await apiCall('push_boxset_to_umdb', { container_id: containerId });
+            showToast(`Pushed to UMDB: ${result.umdb_boxset_id}`, 'success');
+            await showBoxSetDetails(containerId);
+        } catch (error) {
+            console.error('Failed to push box set to UMDB:', error);
+            showToast(error.message || 'Failed to push to UMDB', 'error');
+        }
+    }
+
+    async function syncBoxSetFromUmdb(containerId) {
+        try {
+            const result = await apiCall('sync_boxset_from_umdb', { container_id: containerId });
+            showToast('Synced from UMDB', 'success');
+            await showBoxSetDetails(containerId);
+        } catch (error) {
+            console.error('Failed to sync box set from UMDB:', error);
+            showToast(error.message || 'Failed to sync from UMDB', 'error');
+        }
+    }
+
+    async function unlinkBoxSetFromUmdb(containerId) {
+        if (!confirm('Remove UMDB link? Local data and cover will be cleared.')) return;
+        try {
+            await apiCall('unlink_boxset_from_umdb', { container_id: containerId });
+            showToast('Unlinked from UMDB', 'info');
+            await showBoxSetDetails(containerId);
+        } catch (error) {
+            showToast(error.message || 'Failed to unlink', 'error');
+        }
+    }
+
+    // ========================================
     // MOVIE DETAILS
     // ========================================
 
@@ -6445,9 +6483,11 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             shelfNavMovieList = [];
             shelfNavIndex = -1;
 
-            // Build cover image: custom upload, or a poster mosaic from contained films
+            // Build cover image: UMDB cover takes priority, then custom upload, then poster mosaic
             let coverHTML = '';
-            if (container.spine_image_type === 'custom' && container.spine_image_url) {
+            if (container.umdb_cover_url) {
+                coverHTML = `<img src="${container.umdb_cover_url}" alt="${container.name}" class="boxset-cover-img">`;
+            } else if (container.spine_image_type === 'custom' && container.spine_image_url) {
                 coverHTML = `<img src="${container.spine_image_url}" alt="${container.name}" class="boxset-cover-img">`;
             } else if (movies && movies.length > 0) {
                 // Poster mosaic from first 4 films
@@ -6506,10 +6546,18 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                     <div class="movie-detail-info">
                         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-width: 0;">
                             <h2 style="margin: 0; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; flex: 1 1 auto;">${container.name}</h2>
+                            ${container.umdb_boxset_id ? `<span class="umdb-link-badge" title="Linked: ${container.umdb_boxset_id}">UMDB</span>` : ''}
                             <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
                                 <button class="btn-icon" onclick="App.editBoxSet()" title="Edit Box Set">✏️</button>
                                 <button class="btn-icon" onclick="App.deleteBoxSet()" title="Delete Box Set" style="color: #ff6b6b;">🗑️</button>
                             </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
+                            ${container.umdb_boxset_id
+                                ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncBoxSetFromUmdb(${containerId})" title="Re-pull cover and data from UMDB">↺ Sync from UMDB</button>
+                                   <button class="btn-sm" onclick="App.unlinkBoxSetFromUmdb(${containerId})" title="Remove UMDB link" style="font-size:0.75rem; opacity:0.6;">Unlink</button>`
+                                : `<button class="btn-sm btn-umdb-sm" onclick="App.pushBoxSetToUmdb(${containerId})" title="Push this box set to UMDB">↑ Push to UMDB</button>`
+                            }
                         </div>
                         <div class="movie-detail-meta">
                             <span>${container.format || 'Box Set'}</span>
@@ -11499,6 +11547,9 @@ return {
     importUmdbRelease,
     pushEditionToUmdb,
     syncEditionFromUmdb,
+    pushBoxSetToUmdb,
+    syncBoxSetFromUmdb,
+    unlinkBoxSetFromUmdb,
     linkEditionToUmdb,
     unlinkEditionFromUmdb,
     editDisplayTitle,

@@ -387,6 +387,11 @@ function getDb() {
         } catch (PDOException $e) {}
         try { $db->exec("ALTER TABLE shelf_layout_entries ADD COLUMN layout_section_id INTEGER DEFAULT NULL"); } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB Box Set integration (v4.3.0)
+        try { $db->exec("ALTER TABLE containers ADD COLUMN umdb_boxset_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE containers ADD COLUMN umdb_cover_url TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("CREATE INDEX IF NOT EXISTS idx_containers_umdb_boxset ON containers(umdb_boxset_id)"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {

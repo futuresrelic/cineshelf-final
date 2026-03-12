@@ -4006,6 +4006,121 @@ case 'resolve_movie':
             jsonResponse(true, ['message' => 'Container deleted successfully']);
             break;
 
+        case 'push_boxset_to_umdb':
+            // Push a local box set to UMDB /box-sets endpoint and store the returned boxset-{uuid}
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured. Set it in your Railway environment variables.');
+            }
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+
+            // Fetch container
+            $stmt = $db->prepare("SELECT * FROM containers WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+            $container = $stmt->fetch();
+            if (!$container) jsonResponse(false, null, 'Container not found');
+            if (!empty($container['umdb_boxset_id'])) {
+                jsonResponse(false, null, 'Already linked to UMDB box set: ' . $container['umdb_boxset_id']);
+            }
+
+            // Fetch movies in box set with their tmdb_id and any existing umdb_release_id
+            $stmt = $db->prepare("
+                SELECT cc.disc_number, cc.disc_label, cc.is_present, cc.position_in_container,
+                       m.tmdb_id, m.title, m.year, m.imdb_id,
+                       me.umdb_release_id
+                FROM container_contents cc
+                JOIN copies c ON cc.copy_id = c.id
+                JOIN movies m ON c.movie_id = m.id
+                LEFT JOIN media_editions me ON c.edition_id = me.id
+                WHERE cc.container_id = ?
+                ORDER BY cc.position_in_container ASC, cc.disc_number ASC
+            ");
+            $stmt->execute([$containerId]);
+            $items = $stmt->fetchAll();
+
+            // Build UMDB payload
+            $payload = [
+                'name'            => $container['name'],
+                'format'          => $container['format'] ?: null,
+                'edition'         => $container['edition'] ?: null,
+                'region'          => $container['region'] ?: null,
+                'package_type'    => $container['package_type'] ?: null,
+                'notes'           => $container['notes'] ?: null,
+                'has_slipcover'   => (bool)$container['has_slipcover'],
+                'has_booklet'     => (bool)$container['has_booklet'],
+                'has_bonus_disc'  => (bool)$container['has_bonus_disc'],
+                'bonus_disc_count'=> intval($container['bonus_disc_count']),
+                'has_digital_copy'=> (bool)$container['has_digital_copy'],
+                'has_3d'          => (bool)$container['has_3d'],
+                'spine_image_url' => $container['spine_image_url'] ?: null,
+                'movies'          => array_map(function($item) {
+                    $movie = [
+                        'title'        => $item['title'],
+                        'year'         => intval($item['year']),
+                        'disc_number'  => intval($item['disc_number']),
+                        'disc_label'   => $item['disc_label'] ?: null,
+                        'is_present'   => (bool)$item['is_present'],
+                        'position'     => intval($item['position_in_container']),
+                    ];
+                    if (!empty($item['umdb_release_id'])) $movie['umdb_release_id'] = $item['umdb_release_id'];
+                    if (!empty($item['tmdb_id']) && !isUmdbId($item['tmdb_id'])) $movie['tmdb_id'] = $item['tmdb_id'];
+                    if (!empty($item['imdb_id'])) $movie['imdb_id'] = $item['imdb_id'];
+                    return $movie;
+                }, $items),
+            ];
+
+            $umdbResult = umdbPost('/box-sets', $payload);
+            if (!$umdbResult) {
+                $errDetail = $GLOBALS['_umdb_last_error'] ?? 'No response from UMDB';
+                jsonResponse(false, null, 'UMDB push failed: ' . $errDetail);
+            }
+
+            // Extract returned box set ID (boxset-{uuid})
+            $umdbBoxsetId = $umdbResult['id'] ?? $umdbResult['boxset_id'] ?? null;
+            $umdbCoverUrl = $umdbResult['cover_image'] ?? $umdbResult['cover_url'] ?? null;
+            if (empty($umdbBoxsetId)) jsonResponse(false, null, 'UMDB did not return a box set ID');
+
+            $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+               ->execute([$umdbBoxsetId, $umdbCoverUrl, $containerId]);
+
+            logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId]);
+            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'cover_url' => $umdbCoverUrl]);
+            break;
+
+        case 'sync_boxset_from_umdb':
+            // Pull latest data (name, cover image) from UMDB for a linked box set
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+
+            $stmt = $db->prepare("SELECT * FROM containers WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+            $container = $stmt->fetch();
+            if (!$container) jsonResponse(false, null, 'Container not found');
+            if (empty($container['umdb_boxset_id'])) jsonResponse(false, null, 'This box set is not linked to UMDB');
+
+            $umdbData = umdbFetch('/box-sets/' . urlencode($container['umdb_boxset_id']));
+            if (!$umdbData) jsonResponse(false, null, 'Failed to fetch box set from UMDB');
+
+            $umdbCoverUrl = $umdbData['cover_image'] ?? $umdbData['cover_url'] ?? $container['umdb_cover_url'];
+            $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+               ->execute([$umdbCoverUrl, $containerId]);
+
+            logAction($db, $userId, 'boxset_synced_from_umdb', 'container', $containerId, ['umdb_boxset_id' => $container['umdb_boxset_id']]);
+            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $container['umdb_boxset_id'], 'cover_url' => $umdbCoverUrl]);
+            break;
+
+        case 'unlink_boxset_from_umdb':
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $container = $stmt->fetch();
+            if (!$container || $container['user_id'] != $userId) jsonResponse(false, null, 'Container not found');
+            $db->prepare("UPDATE containers SET umdb_boxset_id = NULL, umdb_cover_url = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+               ->execute([$containerId]);
+            jsonResponse(true, ['unlinked' => true]);
+            break;
+
         case 'mark_disc_status':
             // Mark a disc as missing or present
             $contentId = intval($input['content_id'] ?? 0);
