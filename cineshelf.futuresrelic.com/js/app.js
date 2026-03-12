@@ -8973,7 +8973,7 @@ async function getCurrentUserId() {
             const seenIds = new Set();
             allMovies.forEach(movie => {
                 // For containers, use container_id; for movies, use movie_id
-                const uniqueId = movie.is_container ? `container_${movie.container_id}` : `movie_${movie.movie_id}`;
+                const uniqueId = movie.is_container ? `container_${movie.container_id}` : `copy_${movie.copy_id}`;
 
                 if (!seenIds.has(uniqueId)) {
                     seenIds.add(uniqueId);
@@ -9286,7 +9286,7 @@ async function getCurrentUserId() {
                          data-idx="${idx}" data-type="copy" data-id="${item.copy_id}"
                          ${dragAttrs}>
                         ${dragHandle}
-                        <img src="${item.poster_url || '/placeholder.png'}"
+                        <img src="${item.edition_cover_url || item.poster_url || '/placeholder.png'}"
                              alt="${item.title}"
                              class="shelf-movie-poster">
                         <div class="shelf-movie-info">
