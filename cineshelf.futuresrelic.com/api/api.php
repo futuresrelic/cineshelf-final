@@ -4052,7 +4052,7 @@ case 'resolve_movie':
                 'bonus_disc_count'=> intval($container['bonus_disc_count']),
                 'has_digital_copy'=> (bool)$container['has_digital_copy'],
                 'has_3d'          => (bool)$container['has_3d'],
-                'spine_image_url' => $container['spine_image_url'] ?: null,
+                'spine_image'     => $container['spine_image_url'] ?: null,
                 'movies'          => array_map(function($item) {
                     $movie = [
                         'title'        => $item['title'],
@@ -4075,16 +4075,18 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'UMDB push failed: ' . $errDetail);
             }
 
-            // Extract returned box set ID (boxset-{uuid})
-            $umdbBoxsetId = $umdbResult['id'] ?? $umdbResult['boxset_id'] ?? null;
-            $umdbCoverUrl = $umdbResult['cover_image'] ?? $umdbResult['cover_url'] ?? null;
+            // UMDB returns { duplicate: bool, box_set: { id, name, cover_image, movies } }
+            $boxSetData = $umdbResult['box_set'] ?? $umdbResult;
+            $umdbBoxsetId = $boxSetData['id'] ?? null;
+            $umdbCoverUrl = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? null;
+            $isDuplicate = (bool)($umdbResult['duplicate'] ?? false);
             if (empty($umdbBoxsetId)) jsonResponse(false, null, 'UMDB did not return a box set ID');
 
             $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                ->execute([$umdbBoxsetId, $umdbCoverUrl, $containerId]);
 
-            logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId]);
-            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'cover_url' => $umdbCoverUrl]);
+            logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId, 'duplicate' => $isDuplicate]);
+            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $umdbBoxsetId, 'cover_url' => $umdbCoverUrl, 'duplicate' => $isDuplicate]);
             break;
 
         case 'sync_boxset_from_umdb':
