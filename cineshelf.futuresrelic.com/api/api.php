@@ -6108,7 +6108,7 @@ Return ONLY the JSON object, no markdown.'
             $subtitles = sanitize(is_array($rawSubs) ? implode(', ', $rawSubs) : ($rawSubs ?? ''), 500);
             $discColor = sanitize($umdbRelease['disc_color'] ?? '', 100);
             $editionType = sanitize($umdbRelease['edition_type'] ?? $umdbRelease['type'] ?? '', 100);
-            $coverImageUrl = sanitize($umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? $umdbRelease['images']['front'] ?? '', 500);
+            $coverImageUrl = sanitize($umdbRelease['cover_image'] ?? $umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? (is_array($umdbRelease['images'] ?? null) && !empty($umdbRelease['images']) ? ($umdbRelease['images'][0]['url'] ?? '') : '') ?? '', 500);
 
             $stmt = $db->prepare("
                 INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, languages, copy_protected, video_system, asin, audio_formats, subtitles, disc_color, edition_type, cover_image_url, created_by)
@@ -6357,7 +6357,7 @@ Return ONLY the JSON object, no markdown.'
             $rawSubsSync = $umdbRelease['subtitles'] ?? null;
             $subsSync = is_array($rawSubsSync) ? implode(', ', $rawSubsSync) : ($rawSubsSync ?? null);
 
-            $syncCoverUrl = sanitize($umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? $umdbRelease['images']['front'] ?? '', 500);
+            $syncCoverUrl = sanitize($umdbRelease['cover_image'] ?? $umdbRelease['cover_image_url'] ?? $umdbRelease['image_url'] ?? $umdbRelease['cover_url'] ?? (is_array($umdbRelease['images'] ?? null) && !empty($umdbRelease['images']) ? ($umdbRelease['images'][0]['url'] ?? '') : '') ?? '', 500);
 
             $stmt = $db->prepare("
                 UPDATE media_editions
