@@ -37,10 +37,17 @@ if (!$isLocal) {
 $umdbBase = defined('UMDB_BASE_URL') ? UMDB_BASE_URL : 'https://umdb-production.up.railway.app/api/v1';
 $apiKey   = defined('UMDB_API_KEY')  ? UMDB_API_KEY  : '';
 
-// ── Known box set IDs to backfill (add more here as needed) ──
-$knownBoxSets = [
-    'boxset-cmmno4j6l0000ntnt2uoxyhvh' => 'A History of Violence / American History X - DVD Double Feature',
-];
+// ── Auto-detect all box sets pushed to UMDB from any user ──
+$knownBoxSets = [];
+try {
+    $db = getDb();
+    $stmt = $db->query("SELECT umdb_boxset_id, name FROM containers WHERE umdb_boxset_id IS NOT NULL ORDER BY name ASC");
+    foreach ($stmt->fetchAll() as $row) {
+        $knownBoxSets[$row['umdb_boxset_id']] = $row['name'];
+    }
+} catch (Exception $e) {
+    // Non-fatal — will just show empty backfill list
+}
 
 // ── Helper: make a UMDB request ──────────────────────────────
 function umdbAdminRequest($method, $url, $apiKey, $body = null) {
@@ -186,8 +193,17 @@ if ($doRun) {
         <p>Adds <code>isBoxSet</code>, <code>boxSetId</code>, <code>boxSetPosition</code> columns to UMDB's PhysicalCopy table. Idempotent.</p>
     </div>
     <div class="step">
-        <h3>Step 2 — Backfill existing box sets</h3>
-        <p>Creates PhysicalCopy records for box sets that were pushed before the migration ran, so they show up in each movie's releases list.</p>
+        <h3>Step 2 — Backfill existing box sets (<?= count($knownBoxSets) ?> found)</h3>
+        <?php if ($knownBoxSets): ?>
+            <p style="margin-bottom:0.4rem;">Creates PhysicalCopy records for each box set so they appear in each movie's releases list:</p>
+            <ul style="margin-left:1.2rem;font-size:0.83rem;color:#6b7280;">
+                <?php foreach ($knownBoxSets as $bsId => $bsName): ?>
+                    <li><?= htmlspecialchars($bsName) ?> <span style="color:#9ca3af;font-family:monospace;font-size:0.75rem;">(<?= htmlspecialchars($bsId) ?>)</span></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php else: ?>
+            <p>No box sets pushed to UMDB yet — push some from CineShelf first.</p>
+        <?php endif; ?>
     </div>
 
     <?php if (!$doRun): ?>
