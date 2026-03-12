@@ -4265,6 +4265,14 @@ case 'resolve_movie':
             jsonResponse(true, ['deleted' => true]);
             break;
 
+        case 'delete_all_shelves':
+            // Nuclear reset: remove all shelves and assignments for this user
+            $db->prepare("DELETE FROM shelf_assignments WHERE shelf_id IN (SELECT id FROM shelves WHERE user_id = ?)")->execute([$userId]);
+            $db->prepare("DELETE FROM shelf_layout_entries WHERE shelf_id IN (SELECT id FROM shelves WHERE user_id = ?)")->execute([$userId]);
+            $db->prepare("DELETE FROM shelves WHERE user_id = ?")->execute([$userId]);
+            jsonResponse(true, ['deleted' => true]);
+            break;
+
         case 'reorder_shelves':
             $shelfOrder = $input['shelf_order'] ?? [];
 

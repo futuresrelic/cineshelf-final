@@ -9203,6 +9203,20 @@ async function getCurrentUserId() {
         }
     }
 
+    async function deleteAllShelves() {
+        if (!confirm('Reset ALL shelves?\n\nThis will delete every shelf and unassign all movies. Your collection and copies are safe — nothing gets deleted. This cannot be undone.')) {
+            return;
+        }
+        try {
+            await apiCall('delete_all_shelves');
+            showToast('All shelves cleared. Ready for a fresh setup!', 'success');
+            await refreshAllShelfViews();
+        } catch (error) {
+            console.error('Failed to reset shelves:', error);
+            showToast('Failed to reset shelves', 'error');
+        }
+    }
+
     // ── Shelf contents state for drag-and-drop ──
     let _shelfContentsData = [];
     let _shelfDragMode = false;
@@ -11189,9 +11203,9 @@ async function getCurrentUserId() {
         const sc  = parseInt(document.getElementById('wizardShelfCount')?.value)    || 5;
         const ips = parseInt(document.getElementById('wizardItemsPerShelf')?.value) || 25;
 
-        // v2.8.27: if no target shelves selected and no shelves exist → auto-create master shelf
+        // if no target shelf selected → always create a fresh master shelf with the specified config
         _wizardMasterShelfId = targetShelves.length === 1 ? targetShelves[0] : null;
-        if (targetShelves.length === 0 && (!shelves || shelves.length === 0)) {
+        if (targetShelves.length === 0) {
             const masterName = document.getElementById('wizardMasterShelfName')?.value?.trim()
                                || 'Shelf Collection';
             _aiWizardShowStep('loading');
@@ -11669,6 +11683,7 @@ return {
     saveShelf,
     closeShelfModal,
     deleteShelf,
+    deleteAllShelves,
     toggleShelfChildren,
     viewShelfContents,
     closeShelfContents,
