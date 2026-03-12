@@ -3021,6 +3021,19 @@ async function deleteCopy(copyId, movieId) {
         }
     }
 
+    async function backfillBoxSetReleases(containerId) {
+        try {
+            showToast('Creating UMDB release records...', 'info');
+            const result = await apiCall('backfill_boxset_releases', { container_id: containerId });
+            const created = result.result?.releases_created ?? result.result?.created ?? '?';
+            showToast(`Releases created: ${created}`, 'success');
+            await showBoxSetDetails(containerId);
+        } catch (error) {
+            console.error('Failed to backfill releases:', error);
+            showToast(error.message || 'Failed to create releases on UMDB', 'error');
+        }
+    }
+
     async function unlinkBoxSetFromUmdb(containerId) {
         if (!confirm('Remove UMDB link? Local data and cover will be cleared.')) return;
         try {
@@ -6585,10 +6598,12 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
                             ${container.umdb_boxset_id
                                 ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncBoxSetFromUmdb(${containerId})" title="Re-pull cover and data from UMDB">↺ Sync from UMDB</button>
+                                   <button class="btn-sm btn-umdb-sm" onclick="App.backfillBoxSetReleases(${containerId})" title="Create PhysicalCopy records on UMDB for each film in this box set">⚙ Fix Releases</button>
                                    <button class="btn-sm" onclick="App.unlinkBoxSetFromUmdb(${containerId})" title="Remove UMDB link" style="font-size:0.75rem; opacity:0.6;">Unlink</button>`
                                 : `<button class="btn-sm btn-umdb-sm" onclick="App.pushBoxSetToUmdb(${containerId})" title="Push this box set to UMDB">↑ Push to UMDB</button>`
                             }
                         </div>
+                        ${container.umdb_boxset_id ? `<div style="margin-top:0.4rem; font-size:0.75rem; color:rgba(255,255,255,0.45); font-family:monospace; cursor:pointer; user-select:all;" onclick="navigator.clipboard.writeText('${container.umdb_boxset_id}').then(()=>{this.textContent='Copied!';setTimeout(()=>{this.textContent='${container.umdb_boxset_id}'},1500)})" title="Click to copy UMDB box set ID">${container.umdb_boxset_id}</div>` : ''}
                         <div class="movie-detail-meta">
                             <span>${container.format || 'Box Set'}</span>
                             ${container.edition ? `<span>${container.edition}</span>` : ''}
@@ -11580,6 +11595,7 @@ return {
     syncEditionFromUmdb,
     pushBoxSetToUmdb,
     syncBoxSetFromUmdb,
+    backfillBoxSetReleases,
     unlinkBoxSetFromUmdb,
     linkEditionToUmdb,
     unlinkEditionFromUmdb,

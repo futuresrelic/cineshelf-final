@@ -4124,6 +4124,29 @@ case 'resolve_movie':
             jsonResponse(true, ['unlinked' => true]);
             break;
 
+        case 'backfill_boxset_releases':
+            // Trigger UMDB to create PhysicalCopy release records for a linked box set
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured.');
+            }
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+
+            $stmt = $db->prepare("SELECT * FROM containers WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+            $container = $stmt->fetch();
+            if (!$container) jsonResponse(false, null, 'Container not found');
+            if (empty($container['umdb_boxset_id'])) jsonResponse(false, null, 'This box set is not linked to UMDB');
+
+            $result = umdbPost('/box-sets/' . urlencode($container['umdb_boxset_id']) . '/create-releases', []);
+            if (!$result) {
+                $errDetail = $GLOBALS['_umdb_last_error'] ?? 'No response from UMDB';
+                jsonResponse(false, null, 'UMDB backfill failed: ' . $errDetail);
+            }
+            logAction($db, $userId, 'boxset_releases_backfilled', 'container', $containerId, ['umdb_boxset_id' => $container['umdb_boxset_id']]);
+            jsonResponse(true, ['umdb_boxset_id' => $container['umdb_boxset_id'], 'result' => $result]);
+            break;
+
         case 'mark_disc_status':
             // Mark a disc as missing or present
             $contentId = intval($input['content_id'] ?? 0);
