@@ -4027,7 +4027,7 @@ case 'resolve_movie':
             $stmt = $db->prepare("
                 SELECT cc.disc_number, cc.disc_label, cc.is_present, cc.position_in_container,
                        m.tmdb_id, m.title, m.year, m.imdb_id,
-                       me.umdb_release_id
+                       me.umdb_release_id, me.id as edition_id
                 FROM container_contents cc
                 JOIN copies c ON cc.copy_id = c.id
                 JOIN movies m ON c.movie_id = m.id
@@ -4098,6 +4098,25 @@ case 'resolve_movie':
 
             $db->prepare("UPDATE containers SET umdb_boxset_id = ?, umdb_cover_url = ?, umdb_release_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                ->execute([$umdbBoxsetId, $umdbCoverUrl, $umdbReleaseId, $containerId]);
+
+            // Write per-movie umdb_release_id back to media_editions (keyed by position)
+            $editionByPosition = [];
+            foreach ($items as $item) {
+                if (!empty($item['edition_id'])) {
+                    $editionByPosition[intval($item['position_in_container'])] = $item['edition_id'];
+                }
+            }
+            $editionsUpdated = 0;
+            foreach (($boxSetData['movies'] ?? []) as $returnedMovie) {
+                $movieReleaseId = $returnedMovie['umdb_release_id'] ?? null;
+                if (empty($movieReleaseId)) continue;
+                $editionId = $editionByPosition[intval($returnedMovie['position'] ?? -1)] ?? null;
+                if (!$editionId) continue;
+                $db->prepare("UPDATE media_editions SET umdb_release_id = ? WHERE id = ?")
+                   ->execute([$movieReleaseId, $editionId]);
+                $editionsUpdated++;
+            }
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] Wrote umdb_release_id to $editionsUpdated edition(s)\n");
 
             logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId, 'duplicate' => $isDuplicate]);
             jsonResponse(true, [
