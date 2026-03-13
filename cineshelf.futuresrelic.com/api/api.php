@@ -4086,7 +4086,7 @@ case 'resolve_movie':
             // UMDB returns { duplicate: bool, box_set: { id, name, release_id, cover_image, movies } }
             $boxSetData = $umdbResult['box_set'] ?? $umdbResult;
             $umdbBoxsetId  = $boxSetData['id'] ?? null;
-            $umdbCoverUrl  = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? null;
+            $umdbCoverUrl  = $boxSetData['cover_image'] ?? $boxSetData['cover_url'] ?? $boxSetData['spine_image'] ?? null;
             $umdbReleaseId = $boxSetData['release_id'] ?? null;
             $isDuplicate   = (bool)($umdbResult['duplicate'] ?? false);
 
@@ -4124,7 +4124,7 @@ case 'resolve_movie':
             $umdbData = umdbFetch('/box-sets/' . urlencode($container['umdb_boxset_id']));
             if (!$umdbData) jsonResponse(false, null, 'Failed to fetch box set from UMDB');
 
-            $umdbCoverUrl = $umdbData['cover_image'] ?? $umdbData['cover_url'] ?? $container['umdb_cover_url'];
+            $umdbCoverUrl = $umdbData['cover_image'] ?? $umdbData['cover_url'] ?? $umdbData['spine_image'] ?? $container['umdb_cover_url'];
             $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                ->execute([$umdbCoverUrl, $containerId]);
 
