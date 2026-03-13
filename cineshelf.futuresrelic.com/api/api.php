@@ -4118,14 +4118,23 @@ case 'resolve_movie':
             }
             file_put_contents('php://stderr', "[push_boxset_to_umdb] Wrote umdb_release_id to $editionsUpdated edition(s)\n");
 
+            // Auto-trigger create-releases so PhysicalCopy records are linked immediately
+            // (eliminates the need for the manual "Fix" button after every push)
+            $createReleasesUrl = '/box-sets/' . urlencode($umdbBoxsetId) . '/create-releases';
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] Auto-calling create-releases: POST $createReleasesUrl\n");
+            $createReleasesResult = umdbPost($createReleasesUrl, []);
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] create-releases response:\n" . json_encode($createReleasesResult, JSON_PRETTY_PRINT) . "\n");
+
             logAction($db, $userId, 'boxset_pushed_to_umdb', 'container', $containerId, ['umdb_boxset_id' => $umdbBoxsetId, 'duplicate' => $isDuplicate]);
             jsonResponse(true, [
-                'container_id'   => $containerId,
-                'umdb_boxset_id' => $umdbBoxsetId,
-                'release_id'     => $umdbReleaseId,
-                'cover_url'      => $umdbCoverUrl,
-                'duplicate'      => $isDuplicate,
-                '_debug_umdb_response' => $umdbResult,   // full raw response visible in browser devtools
+                'container_id'          => $containerId,
+                'umdb_boxset_id'        => $umdbBoxsetId,
+                'release_id'            => $umdbReleaseId,
+                'cover_url'             => $umdbCoverUrl,
+                'duplicate'             => $isDuplicate,
+                'releases_created'      => !empty($createReleasesResult),
+                '_debug_umdb_response'  => $umdbResult,
+                '_debug_create_releases'=> $createReleasesResult,
             ]);
             break;
 
