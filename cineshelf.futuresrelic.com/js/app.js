@@ -4164,7 +4164,7 @@ function getCertColor(cert) {
         let html = `<div class="shelf-view-movies-grid">`;
         items.forEach(item => {
             if (item.is_container) {
-                const coverUrl = item.container_spine_image_url;
+                const coverUrl = item.container_umdb_cover_url || item.container_spine_image_url;
                 html += `<div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
                     ${coverUrl
                         ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
@@ -4678,7 +4678,7 @@ function getCertColor(cert) {
         return `<div class="movie-grid ${viewClass}">` + items.map(item => {
             // Box set containers
             if (item.is_container) {
-                const cover = item.container_spine_image_url;
+                const cover = item.container_umdb_cover_url || item.container_spine_image_url;
                 const safeTitle = (item.container_name || 'Box Set').replace(/"/g, '&quot;');
                 const posterUrl = cover || '';
                 const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'300\'%3E%3Crect fill=\'%23764ba2\' width=\'200\' height=\'300\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'40\'%3E📦%3C/text%3E%3C/svg%3E';
@@ -6685,10 +6685,10 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             const containerIds = JSON.stringify(boxSetsWithMovies.map(bs => bs.id));
 
             container.innerHTML = boxSetsWithMovies.map(boxSet => {
-                // Poster: custom cover > first movie poster > color placeholder
-                const hasCustomCover = boxSet.spine_image_type === 'custom' && boxSet.spine_image_url;
+                // Poster: UMDB cover > custom local cover > first movie poster > color placeholder
+                const customCoverUrl = boxSet.umdb_cover_url || (boxSet.spine_image_url && boxSet.spine_image_url);
                 const firstMoviePoster = boxSet.movies[0]?.poster_url;
-                const posterUrl = hasCustomCover ? boxSet.spine_image_url
+                const posterUrl = customCoverUrl ? customCoverUrl
                     : firstMoviePoster ? firstMoviePoster
                     : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect fill='${encodeURIComponent(boxSet.spine_color || '#764ba2')}' width='200' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='40'%3E📦%3C/text%3E%3C/svg%3E`;
                 const safeTitle = (boxSet.name || 'Box Set').replace(/"/g, '&quot;');
@@ -6696,8 +6696,8 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 if (currentView === 'list') {
                     // List view: detailed horizontal layout (original box set card style)
                     const posterMovies = boxSet.movies.slice(0, 4);
-                    const thumbnail = hasCustomCover
-                        ? `<img src="${boxSet.spine_image_url}" alt="${safeTitle}" style="width:80px;height:107px;flex-shrink:0;border-radius:6px;object-fit:cover;">`
+                    const thumbnail = customCoverUrl
+                        ? `<img src="${customCoverUrl}" alt="${safeTitle}" style="width:80px;height:107px;flex-shrink:0;border-radius:6px;object-fit:cover;">`
                         : posterMovies.length > 0
                         ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:80px;height:107px;flex-shrink:0;background:rgba(0,0,0,0.3);border-radius:6px;overflow:hidden;">
                                 ${posterMovies.map(movie => `<div style="overflow:hidden;background:rgba(0,0,0,0.5);"><img src="${movie.poster_url || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"></div>`).join('')}
@@ -9796,7 +9796,7 @@ async function getCurrentUserId() {
                 : '';
 
             if (isContainer) {
-                const coverUrl = item.container_spine_image_url;
+                const coverUrl = item.container_umdb_cover_url || item.container_spine_image_url;
                 const shelfContainerPosterHTML = coverUrl
                     ? `<img src="${coverUrl}" alt="${item.container_name || 'Box Set'}" class="shelf-movie-poster" style="object-fit: cover;"
                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`

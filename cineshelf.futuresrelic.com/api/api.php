@@ -208,7 +208,7 @@ function umdbRequest($method, $path, $body) {
  *
  * @param string $umdbBoxsetId   The UMDB box-set ID (e.g. "boxset-xxx")
  * @param string $localImageUrl  The spine_image_url value (e.g. "/data/uploads/covers/cover_4_xxx.jpg")
- * @return bool  True on success, false if the file doesn't exist or the upload fails
+ * @return string|false  The new cover URL returned by UMDB on success, false on failure
  */
 function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     if (empty($umdbBoxsetId) || empty($localImageUrl)) return false;
@@ -250,7 +250,9 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     }
 
     file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload succeeded. Response: " . json_encode($result) . "\n");
-    return true;
+
+    // Return the hosted cover URL from the UMDB response so callers can update the DB
+    return $result['cover_image'] ?? $result['cover_url'] ?? $result['url'] ?? $result['image_url'] ?? true;
 }
 
 /**
@@ -4256,6 +4258,11 @@ case 'resolve_movie':
             if (!empty($container['spine_image_url']) && $container['spine_image_type'] === 'custom') {
                 $coverUploaded = umdbUploadBoxSetCover($umdbBoxsetId, $container['spine_image_url']);
                 file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload: " . ($coverUploaded ? 'success' : 'skipped/failed') . "\n");
+                if (is_string($coverUploaded)) {
+                    $umdbCoverUrl = $coverUploaded;
+                    $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                       ->execute([$coverUploaded, $containerId]);
+                }
             }
 
             // Auto-trigger create-releases so PhysicalCopy records are linked immediately
@@ -4568,11 +4575,16 @@ case 'resolve_movie':
                     'notes'        => $ed['edition_notes'] ?: null,
                 ];
 
+                // Always include title/year so UMDB can auto-create the movie if it can't resolve by ID
+                $payload['title'] = $ed['movie_title'];
+                if (!empty($ed['movie_year'])) $payload['year'] = intval($ed['movie_year']);
+
                 // Resolve movie identifier: prefer known umdb_movie_id (from DB or in-loop cache)
                 $resolvedUmdbMovieId = $umdbMovieIdCache[$ed['movie_db_id']] ?? $ed['umdb_movie_id'] ?? null;
+                $isUnresolved = str_starts_with((string)($ed['tmdb_id'] ?? ''), 'unresolved_');
                 if (!empty($resolvedUmdbMovieId)) {
                     $payload['movie_id'] = $resolvedUmdbMovieId;
-                } elseif (!empty($ed['tmdb_id'])) {
+                } elseif (!empty($ed['tmdb_id']) && !$isUnresolved) {
                     if (isUmdbId($ed['tmdb_id'])) {
                         $payload['movie_id'] = $ed['tmdb_id'];
                     } else {
@@ -4598,7 +4610,7 @@ case 'resolve_movie':
                             'rating'   => floatval($ed['movie_rating'] ?? 0),
                         ];
                         if (!empty($ed['imdb_id'])) $moviePayload['imdb_id'] = $ed['imdb_id'];
-                        if (!empty($ed['tmdb_id']) && !isUmdbId($ed['tmdb_id'])) $moviePayload['tmdb_id'] = $ed['tmdb_id'];
+                        if (!empty($ed['tmdb_id']) && !isUmdbId($ed['tmdb_id']) && !$isUnresolved) $moviePayload['tmdb_id'] = $ed['tmdb_id'];
 
                         $movieResult = umdbPost('/movies', $moviePayload);
                         $newMovieId = $movieResult['id'] ?? $movieResult['movie_id'] ?? null;
@@ -4737,7 +4749,11 @@ case 'resolve_movie':
 
                     // Upload the local cover photo to UMDB so the image file actually exists there
                     if (!empty($cont['spine_image_url']) && ($cont['spine_image_type'] ?? '') === 'custom') {
-                        umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
+                        $uploadedCoverUrl = umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
+                        if (is_string($uploadedCoverUrl)) {
+                            $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                               ->execute([$uploadedCoverUrl, $cont['id']]);
+                        }
                     }
 
                     umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
@@ -5236,6 +5252,7 @@ case 'resolve_movie':
                     cont.spine_label as container_spine_label,
                     cont.spine_color as container_spine_color,
                     cont.spine_image_url as container_spine_image_url,
+                    cont.umdb_cover_url as container_umdb_cover_url,
                     cont.spine_type as container_spine_type,
                     cont.format as container_format,
                     (SELECT COUNT(*) FROM container_contents cc WHERE cc.container_id = cont.id) as container_movie_count
