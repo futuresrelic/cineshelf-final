@@ -3054,40 +3054,112 @@ async function deleteCopy(copyId, movieId) {
         const progress = document.getElementById('umdbSyncProgress');
         if (!btn || !progress) return;
 
-        if (!confirm('Sync your CineShelf collection to UMDB?\n\nAlready-synced items will be skipped. This is safe to run multiple times.')) return;
+        if (!confirm('Sync your CineShelf collection to UMDB?\n\nPhase 1: Physical editions\nPhase 2: Box sets\nPhase 3: Individual films (not in box sets)\n\nAlready-synced items are skipped. Safe to run multiple times.')) return;
 
         btn.disabled = true;
         btn.textContent = 'Syncing…';
         progress.style.display = 'block';
-        progress.innerHTML = '<em>Contacting UMDB…</em>';
+        progress.innerHTML = '<em>Contacting UMDB — this may take a moment for large collections…</em>';
 
         try {
             const result = await apiCall('sync_collection_to_umdb', {});
 
+            // ── Rich console audit report ────────────────────────────────
+            console.group('%c🎬 UMDB Sync Report', 'font-size:14px;font-weight:bold;color:#a78bfa');
+
+            // Phase 1 — Editions
+            console.group(`%c📀 Phase 1: Physical Editions  (synced ${result.editions_synced} | skipped ${result.editions_skipped} | failed ${result.editions_failed})`, 'color:#60a5fa');
+            if (result.editions_synced_list?.length) {
+                console.group('✅ Newly synced editions:');
+                result.editions_synced_list.forEach(e => console.log(`  ${e.label}  →  ${e.umdb_id}${e.note ? ' [' + e.note + ']' : ''}`));
+                console.groupEnd();
+            }
+            if (result.editions_skipped_list?.length) {
+                console.group('⏭️ Already synced (skipped):');
+                result.editions_skipped_list.forEach(e => console.log(`  ${e.label}  →  ${e.umdb_id}`));
+                console.groupEnd();
+            }
+            if (result.editions_failed_list?.length) {
+                console.group('%c❌ Failed editions:', 'color:#f87171');
+                result.editions_failed_list.forEach(e => console.error(`  ${e.label}: ${e.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            // Phase 2 — Box sets
+            console.group(`%c📦 Phase 2: Box Sets  (synced ${result.boxsets_synced} | skipped ${result.boxsets_skipped} | failed ${result.boxsets_failed})`, 'color:#34d399');
+            if (result.boxsets_synced_list?.length) {
+                console.group('✅ Newly synced box sets:');
+                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}`));
+                console.groupEnd();
+            }
+            if (result.boxsets_skipped_list?.length) {
+                console.group('⏭️ Already synced (skipped):');
+                result.boxsets_skipped_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films)  →  ${b.umdb_id}`));
+                console.groupEnd();
+            }
+            if (result.boxsets_failed_list?.length) {
+                console.group('%c❌ Failed box sets:', 'color:#f87171');
+                result.boxsets_failed_list.forEach(b => console.error(`  "${b.name}" (${b.films}): ${b.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            // Phase 3 — Individual films
+            console.group(`%c🎞️ Phase 3: Individual Films  (synced ${result.movies_synced} | skipped ${result.movies_skipped} | failed ${result.movies_failed})`, 'color:#fbbf24');
+            if (result.movies_synced_list?.length) {
+                console.group('✅ Newly synced films:');
+                result.movies_synced_list.forEach(m => console.log(`  ${m.label}  →  ${m.umdb_id}${m.note ? ' [' + m.note + ']' : ''}`));
+                console.groupEnd();
+            }
+            if (result.movies_skipped_list?.length) {
+                console.group('⏭️ Already synced (skipped):');
+                result.movies_skipped_list.forEach(m => console.log(`  ${m.label}  →  ${m.umdb_id}`));
+                console.groupEnd();
+            }
+            if (result.movies_failed_list?.length) {
+                console.group('%c❌ Failed films:', 'color:#f87171');
+                result.movies_failed_list.forEach(m => console.error(`  ${m.label}: ${m.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            // Errors summary
+            if (result.errors?.length) {
+                console.group('%c⚠️ All errors:', 'color:#f87171;font-weight:bold');
+                result.errors.forEach(e => console.error(e));
+                console.groupEnd();
+            }
+
+            console.log('%c💡 Tip: Expand the groups above to see every item synced, skipped, or failed with its UMDB ID.', 'color:#9ca3af;font-style:italic');
+            console.groupEnd();
+            // ────────────────────────────────────────────────────────────
+
+            const totalSynced = (result.editions_synced || 0) + (result.boxsets_synced || 0) + (result.movies_synced || 0);
+            const totalSkipped = (result.editions_skipped || 0) + (result.boxsets_skipped || 0) + (result.movies_skipped || 0);
+            const totalFailed  = (result.editions_failed || 0) + (result.boxsets_failed || 0) + (result.movies_failed || 0);
+
             const lines = [
-                `Editions synced: ${result.editions_synced}`,
-                `Editions already synced (skipped): ${result.editions_skipped}`,
-                `Editions failed: ${result.editions_failed}`,
-                `Box sets synced: ${result.boxsets_synced}`,
-                `Box sets already synced (skipped): ${result.boxsets_skipped}`,
-                `Box sets failed: ${result.boxsets_failed}`,
+                `<strong>Phase 1 — Editions:</strong> synced ${result.editions_synced}, skipped ${result.editions_skipped}, failed ${result.editions_failed}`,
+                `<strong>Phase 2 — Box sets:</strong> synced ${result.boxsets_synced}, skipped ${result.boxsets_skipped}, failed ${result.boxsets_failed}`,
+                `<strong>Phase 3 — Films:</strong> synced ${result.movies_synced}, skipped ${result.movies_skipped}, failed ${result.movies_failed}`,
+                `<span style="color:rgba(255,255,255,0.45);font-size:0.8em;">Open browser console (F12) for full item-by-item audit report.</span>`,
             ];
-            if (result.errors && result.errors.length > 0) {
+            if (result.errors?.length) {
                 lines.push('');
-                lines.push('Errors:');
-                result.errors.forEach(e => lines.push('• ' + e));
+                lines.push('<span style="color:#f87171;font-weight:bold;">Errors:</span>');
+                result.errors.forEach(e => lines.push('<span style="color:#f87171;">• ' + e + '</span>'));
             }
 
             progress.innerHTML = lines.map(l => l === '' ? '<br>' : `${l}<br>`).join('');
 
-            const totalSynced = (result.editions_synced || 0) + (result.boxsets_synced || 0);
-            const totalFailed = (result.editions_failed || 0) + (result.boxsets_failed || 0);
             if (totalFailed === 0) {
-                showToast(`Sync complete: ${totalSynced} item(s) pushed to UMDB`, 'success');
+                showToast(`Sync complete: ${totalSynced} pushed, ${totalSkipped} already synced`, 'success');
             } else {
-                showToast(`Sync done with ${totalFailed} error(s) — see details below`, 'warning');
+                showToast(`Sync done with ${totalFailed} error(s) — check console for details`, 'warning');
             }
         } catch (error) {
+            console.error('[UMDB Sync] Error:', error);
             progress.innerHTML = `<span style="color:#f87171;">Error: ${error.message || 'Sync failed'}</span>`;
             showToast(error.message || 'Sync failed', 'error');
         } finally {

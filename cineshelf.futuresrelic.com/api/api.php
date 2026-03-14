@@ -4277,29 +4277,44 @@ case 'resolve_movie':
 
         case 'sync_collection_to_umdb':
             // ---------------------------------------------------------------
-            // Full Collection Sync: Push all unsynced editions and box sets
-            // from this user's CineShelf collection to UMDB.
+            // Full Collection Sync: Push all unsynced editions, box sets, and
+            // individual films from this user's CineShelf collection to UMDB.
             //
-            // Safe to run multiple times — already-synced items (those with
-            // umdb_release_id / umdb_boxset_id) are skipped.
+            // Phase 1 — Media editions (physical releases tied to a copy)
+            // Phase 2 — Box sets (containers)
+            // Phase 3 — Individual films not covered by a box set
+            //
+            // Safe to run multiple times — already-synced items are skipped.
+            // Returns detailed lists of every item processed for console audit.
             // ---------------------------------------------------------------
             if (empty(UMDB_API_KEY)) {
                 jsonResponse(false, null, 'UMDB_API_KEY is not configured.');
             }
 
             $stats = [
-                'editions_synced'  => 0,
-                'editions_skipped' => 0,
-                'editions_failed'  => 0,
-                'boxsets_synced'   => 0,
-                'boxsets_skipped'  => 0,
-                'boxsets_failed'   => 0,
-                'errors'           => [],
+                'editions_synced'       => 0,
+                'editions_skipped'      => 0,
+                'editions_failed'       => 0,
+                'boxsets_synced'        => 0,
+                'boxsets_skipped'       => 0,
+                'boxsets_failed'        => 0,
+                'movies_synced'         => 0,
+                'movies_skipped'        => 0,
+                'movies_failed'         => 0,
+                'errors'                => [],
+                // Detailed lists for client-side console reporting
+                'editions_synced_list'  => [],
+                'editions_skipped_list' => [],
+                'editions_failed_list'  => [],
+                'boxsets_synced_list'   => [],
+                'boxsets_skipped_list'  => [],
+                'boxsets_failed_list'   => [],
+                'movies_synced_list'    => [],
+                'movies_skipped_list'   => [],
+                'movies_failed_list'    => [],
             ];
 
             // ---- 1. Sync media editions (physical releases) ----------------
-            // Fetch all editions linked to this user's copies that are NOT yet
-            // in UMDB.  We also fetch the movie's external IDs.
             $stmtEditions = $db->prepare("
                 SELECT DISTINCT
                     me.id            AS edition_id,
@@ -4314,6 +4329,7 @@ case 'resolve_movie':
                     me.disc_count,
                     me.notes         AS edition_notes,
                     me.umdb_release_id,
+                    m.id             AS movie_db_id,
                     m.tmdb_id,
                     m.imdb_id,
                     m.title          AS movie_title,
@@ -4334,7 +4350,7 @@ case 'resolve_movie':
             $pendingEditions = $stmtEditions->fetchAll();
 
             foreach ($pendingEditions as $ed) {
-                // Map format to a valid UMDB PhysicalFormat value
+                $label = $ed['movie_title'] . ' (' . $ed['movie_year'] . ') — ' . $ed['name'];
                 $umdbFormat = mapCineShelfFormatToUmdb($ed['format'] ?? '');
 
                 $payload = [
@@ -4350,7 +4366,6 @@ case 'resolve_movie':
                     'notes'        => $ed['edition_notes'] ?: null,
                 ];
 
-                // Link to the movie in UMDB by TMDB ID or UMDB movie ID
                 if (!empty($ed['tmdb_id'])) {
                     if (isUmdbId($ed['tmdb_id'])) {
                         $payload['movie_id'] = $ed['tmdb_id'];
@@ -4363,10 +4378,9 @@ case 'resolve_movie':
                 $result = umdbPost('/releases', $payload);
 
                 if (!$result) {
-                    $err  = $GLOBALS['_umdb_last_error'] ?? 'unknown error';
-                    $detail = $ed['movie_title'] . ' (' . $ed['movie_year'] . ') — ' . $ed['name'];
+                    $err = $GLOBALS['_umdb_last_error'] ?? 'unknown error';
 
-                    // If movie doesn't exist in UMDB yet, auto-create it then retry
+                    // Auto-create movie in UMDB if it doesn't exist yet, then retry
                     if (strpos($err, '422') !== false && strpos($err, 'Could not resolve movie') !== false) {
                         $moviePayload = [
                             'title'    => $ed['movie_title'],
@@ -4382,7 +4396,10 @@ case 'resolve_movie':
 
                         $movieResult = umdbPost('/movies', $moviePayload);
                         if ($movieResult && !empty($movieResult['id'])) {
-                            $payload['movie_id'] = $movieResult['id'];
+                            $newMovieId = $movieResult['id'];
+                            $db->prepare("UPDATE movies SET umdb_movie_id = ? WHERE id = ?")
+                               ->execute([$newMovieId, $ed['movie_db_id']]);
+                            $payload['movie_id'] = $newMovieId;
                             unset($payload['tmdb_id']);
                             $result = umdbPost('/releases', $payload);
                         }
@@ -4390,19 +4407,40 @@ case 'resolve_movie':
 
                     if (!$result) {
                         $stats['editions_failed']++;
-                        $stats['errors'][] = 'Edition "' . $detail . '": ' . ($GLOBALS['_umdb_last_error'] ?? $err);
+                        $errMsg = $GLOBALS['_umdb_last_error'] ?? $err;
+                        $stats['errors'][] = 'Edition "' . $label . '": ' . $errMsg;
+                        $stats['editions_failed_list'][] = ['label' => $label, 'reason' => $errMsg];
                         continue;
                     }
                 }
 
-                // Store the returned umdb_release_id
                 $umdbReleaseId = $result['id'] ?? $result['release_id'] ?? null;
                 if ($umdbReleaseId) {
                     $db->prepare("UPDATE media_editions SET umdb_release_id = ? WHERE id = ?")
                        ->execute([$umdbReleaseId, $ed['edition_id']]);
                 }
                 $stats['editions_synced']++;
+                $stats['editions_synced_list'][] = ['label' => $label, 'umdb_id' => $umdbReleaseId];
             }
+
+            // Collect already-synced editions for the audit list
+            $stmtAlreadyEd = $db->prepare("
+                SELECT DISTINCT me.name, me.umdb_release_id, m.title AS movie_title, m.year AS movie_year
+                FROM copies cp
+                JOIN movies m    ON m.id = cp.movie_id
+                JOIN media_editions me ON me.id = cp.edition_id
+                WHERE cp.user_id = ? AND me.umdb_release_id IS NOT NULL AND me.umdb_release_id != ''
+                ORDER BY m.title ASC
+            ");
+            $stmtAlreadyEd->execute([$userId]);
+            foreach ($stmtAlreadyEd->fetchAll() as $row) {
+                $stats['editions_skipped_list'][] = [
+                    'label'   => $row['movie_title'] . ' (' . $row['movie_year'] . ') — ' . $row['name'],
+                    'umdb_id' => $row['umdb_release_id'],
+                    'reason'  => 'already_synced',
+                ];
+            }
+            $stats['editions_skipped'] = count($stats['editions_skipped_list']);
 
             // ---- 2. Sync box sets (containers) ----------------------------
             $stmtContainers = $db->prepare("
@@ -4415,7 +4453,6 @@ case 'resolve_movie':
             $pendingContainers = $stmtContainers->fetchAll();
 
             foreach ($pendingContainers as $cont) {
-                // Get movies in this box set
                 $stmtItems = $db->prepare("
                     SELECT cc.disc_number, cc.disc_label, cc.is_present, cc.position_in_container,
                            m.tmdb_id, m.title, m.year, m.imdb_id,
@@ -4431,8 +4468,8 @@ case 'resolve_movie':
                 $stmtItems->execute([$cont['id']]);
                 $contItems = $stmtItems->fetchAll();
 
-                $copyFmts       = array_column($contItems, 'copy_format');
-                $physicalFmt    = resolveBoxSetPhysicalFormat($cont['format'], $copyFmts);
+                $copyFmts    = array_column($contItems, 'copy_format');
+                $physicalFmt = resolveBoxSetPhysicalFormat($cont['format'], $copyFmts);
 
                 $bsPayload = [
                     'name'             => $cont['name'],
@@ -4465,10 +4502,19 @@ case 'resolve_movie':
                     }, $contItems),
                 ];
 
+                $movieTitles = implode(', ', array_map(fn($i) => $i['title'], array_slice($contItems, 0, 3)));
+                if (count($contItems) > 3) $movieTitles .= ' +' . (count($contItems) - 3) . ' more';
+
                 $bsResult = umdbPost('/box-sets', $bsPayload);
                 if (!$bsResult) {
+                    $errMsg = $GLOBALS['_umdb_last_error'] ?? 'no response';
                     $stats['boxsets_failed']++;
-                    $stats['errors'][] = 'Box set "' . $cont['name'] . '": ' . ($GLOBALS['_umdb_last_error'] ?? 'no response');
+                    $stats['errors'][] = 'Box set "' . $cont['name'] . '": ' . $errMsg;
+                    $stats['boxsets_failed_list'][] = [
+                        'name'   => $cont['name'],
+                        'films'  => $movieTitles,
+                        'reason' => $errMsg,
+                    ];
                     continue;
                 }
 
@@ -4481,29 +4527,159 @@ case 'resolve_movie':
                     $db->prepare("UPDATE containers SET umdb_boxset_id=?, umdb_cover_url=?, umdb_release_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")
                        ->execute([$umdbBsId, $umdbCoverUrl, $umdbRelId, $cont['id']]);
 
-                    // Auto-create physical releases on UMDB for each movie in this box set
                     umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
                 }
                 $stats['boxsets_synced']++;
+                $stats['boxsets_synced_list'][] = [
+                    'name'    => $cont['name'],
+                    'films'   => $movieTitles,
+                    'umdb_id' => $umdbBsId,
+                    'film_count' => count($contItems),
+                ];
             }
 
-            // Count already-synced items for the report
-            $stmtSkippedEd = $db->prepare("
-                SELECT COUNT(*) FROM copies cp
-                JOIN media_editions me ON me.id = cp.edition_id
-                WHERE cp.user_id = ? AND me.umdb_release_id IS NOT NULL AND me.umdb_release_id != ''
-            ");
-            $stmtSkippedEd->execute([$userId]);
-            $stats['editions_skipped'] = intval($stmtSkippedEd->fetchColumn());
-
-            $stmtSkippedBs = $db->prepare("
-                SELECT COUNT(*) FROM containers
+            // Collect already-synced box sets for the audit list
+            $stmtAlreadyBs = $db->prepare("
+                SELECT name, umdb_boxset_id, id FROM containers
                 WHERE user_id = ? AND umdb_boxset_id IS NOT NULL AND umdb_boxset_id != ''
+                ORDER BY name ASC
             ");
-            $stmtSkippedBs->execute([$userId]);
-            $stats['boxsets_skipped'] = intval($stmtSkippedBs->fetchColumn());
+            $stmtAlreadyBs->execute([$userId]);
+            foreach ($stmtAlreadyBs->fetchAll() as $bsRow) {
+                // Get film count for this box set
+                $filmCountRow = $db->prepare("SELECT COUNT(*) FROM container_contents WHERE container_id = ?");
+                $filmCountRow->execute([$bsRow['id']]);
+                $filmCount = intval($filmCountRow->fetchColumn());
+                $stats['boxsets_skipped_list'][] = [
+                    'name'       => $bsRow['name'],
+                    'umdb_id'    => $bsRow['umdb_boxset_id'],
+                    'reason'     => 'already_synced',
+                    'film_count' => $filmCount,
+                ];
+            }
+            $stats['boxsets_skipped'] = count($stats['boxsets_skipped_list']);
 
-            logAction($db, $userId, 'collection_synced_to_umdb', null, null, $stats);
+            // ---- 3. Sync individual films not covered by any box set -------
+            // These are movies in the user's collection (via copies) that:
+            //   - Are NOT part of any container (box set)
+            //   - Have NOT yet been pushed to UMDB as a movie record
+            // This ensures every film is available in UMDB for physical edition lookup.
+            $stmtSoloMovies = $db->prepare("
+                SELECT DISTINCT
+                    m.id        AS movie_db_id,
+                    m.title,
+                    m.year,
+                    m.tmdb_id,
+                    m.imdb_id,
+                    m.overview,
+                    m.runtime,
+                    m.director,
+                    m.genre,
+                    m.rating,
+                    m.umdb_movie_id
+                FROM copies cp
+                JOIN movies m ON m.id = cp.movie_id
+                WHERE cp.user_id = ?
+                  AND (m.umdb_movie_id IS NULL OR m.umdb_movie_id = '')
+                  AND m.id NOT IN (
+                      SELECT DISTINCT c2.movie_id FROM copies c2
+                      JOIN container_contents cc2 ON cc2.copy_id = c2.id
+                      WHERE c2.user_id = ?
+                  )
+                ORDER BY m.title ASC
+            ");
+            $stmtSoloMovies->execute([$userId, $userId]);
+            $pendingSoloMovies = $stmtSoloMovies->fetchAll();
+
+            foreach ($pendingSoloMovies as $mv) {
+                $label = $mv['title'] . ' (' . $mv['year'] . ')';
+
+                // If it already has a UMDB-style tmdb_id, record it and skip API call
+                if (!empty($mv['tmdb_id']) && isUmdbId($mv['tmdb_id'])) {
+                    $db->prepare("UPDATE movies SET umdb_movie_id = ? WHERE id = ?")
+                       ->execute([$mv['tmdb_id'], $mv['movie_db_id']]);
+                    $stats['movies_synced']++;
+                    $stats['movies_synced_list'][] = ['label' => $label, 'umdb_id' => $mv['tmdb_id'], 'note' => 'used_existing_umdb_id'];
+                    continue;
+                }
+
+                $moviePayload = [
+                    'title'    => $mv['title'],
+                    'year'     => intval($mv['year'] ?? 0),
+                    'overview' => $mv['overview'] ?? '',
+                    'runtime'  => intval($mv['runtime'] ?? 0),
+                    'director' => $mv['director'] ?? '',
+                    'genre'    => $mv['genre'] ?? '',
+                    'rating'   => floatval($mv['rating'] ?? 0),
+                ];
+                if (!empty($mv['imdb_id']))  $moviePayload['imdb_id']  = $mv['imdb_id'];
+                if (!empty($mv['tmdb_id']) && !isUmdbId($mv['tmdb_id'])) $moviePayload['tmdb_id'] = $mv['tmdb_id'];
+
+                $movieResult = umdbPost('/movies', $moviePayload);
+                if (!$movieResult) {
+                    $errMsg = $GLOBALS['_umdb_last_error'] ?? 'no response';
+                    // 409 Conflict = already exists in UMDB; try to fetch by tmdb_id
+                    if (!empty($mv['tmdb_id']) && strpos($errMsg, '409') !== false) {
+                        $findResult = umdbFetch('/find/' . urlencode($mv['tmdb_id']) . '?external_source=tmdb_id');
+                        if ($findResult && !empty($findResult['movie_results'][0]['id'])) {
+                            $existingId = $findResult['movie_results'][0]['id'];
+                            $db->prepare("UPDATE movies SET umdb_movie_id = ? WHERE id = ?")
+                               ->execute([$existingId, $mv['movie_db_id']]);
+                            $stats['movies_synced']++;
+                            $stats['movies_synced_list'][] = ['label' => $label, 'umdb_id' => $existingId, 'note' => 'resolved_existing'];
+                            continue;
+                        }
+                    }
+                    $stats['movies_failed']++;
+                    $stats['errors'][] = 'Movie "' . $label . '": ' . $errMsg;
+                    $stats['movies_failed_list'][] = ['label' => $label, 'reason' => $errMsg];
+                    continue;
+                }
+
+                $umdbMovieId = $movieResult['id'] ?? null;
+                if ($umdbMovieId) {
+                    $db->prepare("UPDATE movies SET umdb_movie_id = ? WHERE id = ?")
+                       ->execute([$umdbMovieId, $mv['movie_db_id']]);
+                }
+                $stats['movies_synced']++;
+                $stats['movies_synced_list'][] = ['label' => $label, 'umdb_id' => $umdbMovieId];
+            }
+
+            // Collect already-synced solo movies for the audit list
+            $stmtAlreadyMv = $db->prepare("
+                SELECT DISTINCT m.title, m.year, m.umdb_movie_id
+                FROM copies cp
+                JOIN movies m ON m.id = cp.movie_id
+                WHERE cp.user_id = ?
+                  AND (m.umdb_movie_id IS NOT NULL AND m.umdb_movie_id != '')
+                  AND m.id NOT IN (
+                      SELECT DISTINCT c2.movie_id FROM copies c2
+                      JOIN container_contents cc2 ON cc2.copy_id = c2.id
+                      WHERE c2.user_id = ?
+                  )
+                ORDER BY m.title ASC
+            ");
+            $stmtAlreadyMv->execute([$userId, $userId]);
+            foreach ($stmtAlreadyMv->fetchAll() as $mvRow) {
+                $stats['movies_skipped_list'][] = [
+                    'label'   => $mvRow['title'] . ' (' . $mvRow['year'] . ')',
+                    'umdb_id' => $mvRow['umdb_movie_id'],
+                    'reason'  => 'already_synced',
+                ];
+            }
+            $stats['movies_skipped'] = count($stats['movies_skipped_list']);
+
+            logAction($db, $userId, 'collection_synced_to_umdb', null, null, [
+                'editions_synced'  => $stats['editions_synced'],
+                'editions_skipped' => $stats['editions_skipped'],
+                'editions_failed'  => $stats['editions_failed'],
+                'boxsets_synced'   => $stats['boxsets_synced'],
+                'boxsets_skipped'  => $stats['boxsets_skipped'],
+                'boxsets_failed'   => $stats['boxsets_failed'],
+                'movies_synced'    => $stats['movies_synced'],
+                'movies_skipped'   => $stats['movies_skipped'],
+                'movies_failed'    => $stats['movies_failed'],
+            ]);
             jsonResponse(true, $stats);
             break;
 

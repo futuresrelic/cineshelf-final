@@ -1196,8 +1196,9 @@
                     <div class="setting-item setting-item-stacked">
                         <label>Sync Collection to UMDB</label>
                         <small style="color:rgba(255,255,255,0.55); display:block; margin-bottom:0.6rem; line-height:1.4;">
-                            Pushes all unsynced physical editions and box sets to UMDB.
+                            Three-phase sync: physical editions → box sets → individual films (not in box sets).
                             Already-synced items are skipped. Safe to run multiple times.
+                            Open browser console (F12) after sync for a full item-by-item audit report.
                         </small>
                         <button class="btn btn-umdb" id="syncCollectionBtn" onclick="App.syncCollectionToUmdb()">
                             Sync Collection to UMDB

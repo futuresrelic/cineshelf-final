@@ -396,6 +396,11 @@ function getDb() {
         // Stores the UMDB release ID returned when pushing/importing a box set
         try { $db->exec("ALTER TABLE containers ADD COLUMN umdb_release_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB Movie ID tracking (v4.5.0)
+        // Stores the UMDB movie ID for individual film records pushed to UMDB
+        try { $db->exec("ALTER TABLE movies ADD COLUMN umdb_movie_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("CREATE INDEX IF NOT EXISTS idx_movies_umdb_movie ON movies(umdb_movie_id)"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {
