@@ -4383,6 +4383,26 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'UMDB_API_KEY is not configured.');
             }
 
+            // If force=true, wipe all locally stored UMDB IDs so everything
+            // gets re-pushed (use this after clearing UMDB on the remote side).
+            $force = !empty($input['force']);
+            if ($force) {
+                $db->prepare("UPDATE media_editions SET umdb_release_id = NULL WHERE id IN (
+                    SELECT DISTINCT me.id FROM copies cp
+                    JOIN media_editions me ON me.id = cp.edition_id
+                    WHERE cp.user_id = ?
+                )")->execute([$userId]);
+
+                $db->prepare("UPDATE containers SET umdb_boxset_id = NULL, umdb_release_id = NULL, umdb_cover_url = NULL
+                    WHERE user_id = ?")->execute([$userId]);
+
+                $db->prepare("UPDATE movies SET umdb_movie_id = NULL WHERE id IN (
+                    SELECT DISTINCT m.id FROM copies cp
+                    JOIN movies m ON m.id = cp.movie_id
+                    WHERE cp.user_id = ?
+                )")->execute([$userId]);
+            }
+
             $stats = [
                 'editions_synced'       => 0,
                 'editions_skipped'      => 0,

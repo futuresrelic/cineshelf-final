@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.27';
+const APP_VERSION = '2.8.30';
 
 async function checkVersionGuard() {
     try {
@@ -3168,6 +3168,105 @@ async function deleteCopy(copyId, movieId) {
         } finally {
             btn.disabled = false;
             btn.textContent = 'Sync Collection to UMDB';
+        }
+    }
+
+    async function forceResyncToUmdb() {
+        const btn      = document.getElementById('forceResyncBtn');
+        const progress = document.getElementById('umdbSyncProgress');
+        if (!btn || !progress) return;
+
+        if (!confirm('Force Resync will clear all stored UMDB IDs and re-push EVERYTHING — all box sets AND all individual films — to UMDB.\n\nUse this after clearing the UMDB database.\n\nContinue?')) return;
+
+        btn.disabled = true;
+        const syncBtn = document.getElementById('syncCollectionBtn');
+        if (syncBtn) syncBtn.disabled = true;
+        btn.textContent = 'Resyncing…';
+        progress.style.display = 'block';
+        progress.innerHTML = '<em>Clearing local UMDB IDs and re-pushing everything — this may take a moment…</em>';
+
+        try {
+            const result = await apiCall('sync_collection_to_umdb', { force: true });
+
+            console.group('%c🔄 UMDB Force Resync Report', 'font-size:14px;font-weight:bold;color:#f97316');
+
+            console.group(`%c📀 Phase 1: Physical Editions  (synced ${result.editions_synced} | skipped ${result.editions_skipped} | failed ${result.editions_failed})`, 'color:#60a5fa');
+            if (result.editions_synced_list?.length) {
+                console.group('✅ Synced editions:');
+                result.editions_synced_list.forEach(e => console.log(`  ${e.label}  →  ${e.umdb_id}${e.note ? ' [' + e.note + ']' : ''}`));
+                console.groupEnd();
+            }
+            if (result.editions_failed_list?.length) {
+                console.group('%c❌ Failed editions:', 'color:#f87171');
+                result.editions_failed_list.forEach(e => console.error(`  ${e.label}: ${e.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            console.group(`%c📦 Phase 2: Box Sets  (synced ${result.boxsets_synced} | skipped ${result.boxsets_skipped} | failed ${result.boxsets_failed})`, 'color:#34d399');
+            if (result.boxsets_synced_list?.length) {
+                console.group('✅ Synced box sets:');
+                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}`));
+                console.groupEnd();
+            }
+            if (result.boxsets_failed_list?.length) {
+                console.group('%c❌ Failed box sets:', 'color:#f87171');
+                result.boxsets_failed_list.forEach(b => console.error(`  "${b.name}" (${b.films}): ${b.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            console.group(`%c🎞️ Phase 3: Individual Films  (synced ${result.movies_synced} | skipped ${result.movies_skipped} | failed ${result.movies_failed})`, 'color:#fbbf24');
+            if (result.movies_synced_list?.length) {
+                console.group('✅ Synced films:');
+                result.movies_synced_list.forEach(m => console.log(`  ${m.label}  →  ${m.umdb_id}${m.note ? ' [' + m.note + ']' : ''}`));
+                console.groupEnd();
+            }
+            if (result.movies_failed_list?.length) {
+                console.group('%c❌ Failed films:', 'color:#f87171');
+                result.movies_failed_list.forEach(m => console.error(`  ${m.label}: ${m.reason}`));
+                console.groupEnd();
+            }
+            console.groupEnd();
+
+            if (result.errors?.length) {
+                console.group('%c⚠️ All errors:', 'color:#f87171;font-weight:bold');
+                result.errors.forEach(e => console.error(e));
+                console.groupEnd();
+            }
+            console.log('%c💡 Tip: Expand the groups above to see every item synced or failed with its UMDB ID.', 'color:#9ca3af;font-style:italic');
+            console.groupEnd();
+
+            const totalSynced  = (result.editions_synced  || 0) + (result.boxsets_synced  || 0) + (result.movies_synced  || 0);
+            const totalFailed  = (result.editions_failed  || 0) + (result.boxsets_failed  || 0) + (result.movies_failed  || 0);
+
+            const lines = [
+                `<strong>Phase 1 — Editions:</strong> synced ${result.editions_synced}, failed ${result.editions_failed}`,
+                `<strong>Phase 2 — Box sets:</strong> synced ${result.boxsets_synced}, failed ${result.boxsets_failed}`,
+                `<strong>Phase 3 — Films:</strong> synced ${result.movies_synced}, failed ${result.movies_failed}`,
+                `<span style="color:rgba(255,255,255,0.45);font-size:0.8em;">Open browser console (F12) for full item-by-item audit report.</span>`,
+            ];
+            if (result.errors?.length) {
+                lines.push('');
+                lines.push('<span style="color:#f87171;font-weight:bold;">Errors:</span>');
+                result.errors.forEach(e => lines.push('<span style="color:#f87171;">• ' + e + '</span>'));
+            }
+            progress.innerHTML = lines.map(l => l === '' ? '<br>' : `${l}<br>`).join('');
+
+            if (totalFailed === 0) {
+                showToast(`Force resync complete: ${totalSynced} pushed`, 'success');
+            } else {
+                showToast(`Force resync done with ${totalFailed} error(s) — check console for details`, 'warning');
+            }
+        } catch (error) {
+            console.error('[UMDB Force Resync] Error:', error);
+            progress.innerHTML = `<span style="color:#f87171;">Error: ${error.message || 'Force resync failed'}</span>`;
+            showToast(error.message || 'Force resync failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Force Resync (Reset & Re-push All)';
+            const syncBtn2 = document.getElementById('syncCollectionBtn');
+            if (syncBtn2) syncBtn2.disabled = false;
         }
     }
 
@@ -11923,6 +12022,7 @@ return {
     backfillBoxSetReleases,
     unlinkBoxSetFromUmdb,
     syncCollectionToUmdb,
+    forceResyncToUmdb,
     linkEditionToUmdb,
     unlinkEditionFromUmdb,
     editDisplayTitle,

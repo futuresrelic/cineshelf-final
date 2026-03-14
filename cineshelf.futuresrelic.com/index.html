@@ -1203,6 +1203,12 @@
                         <button class="btn btn-umdb" id="syncCollectionBtn" onclick="App.syncCollectionToUmdb()">
                             Sync Collection to UMDB
                         </button>
+                        <button class="btn btn-umdb" id="forceResyncBtn" onclick="App.forceResyncToUmdb()" style="margin-top:0.5rem; background:rgba(249,115,22,0.15); border-color:rgba(249,115,22,0.4); color:#fb923c;">
+                            Force Resync (Reset &amp; Re-push All)
+                        </button>
+                        <small style="color:rgba(255,255,255,0.4); display:block; margin-top:0.35rem; line-height:1.4; font-size:0.78rem;">
+                            Use Force Resync after clearing UMDB — clears all stored IDs locally and re-pushes all box sets and individual films.
+                        </small>
                         <div id="umdbSyncProgress" style="display:none; margin-top:0.75rem; padding:0.75rem; background:rgba(255,255,255,0.05); border-radius:6px; font-size:0.85rem; line-height:1.6;">
                         </div>
                     </div>
