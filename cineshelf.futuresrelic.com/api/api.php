@@ -196,6 +196,64 @@ function umdbRequest($method, $path, $body) {
 }
 
 /**
+ * Upload a locally-stored box set cover image to UMDB.
+ *
+ * When a user photographs a box set cover in CineShelf, the image is saved to
+ * CineShelf's own /data/uploads/covers/ directory and the path is stored in
+ * containers.spine_image_url.  When we push the box set to UMDB we can only
+ * send that path as a string; UMDB has no way to fetch the file from CineShelf.
+ * This function reads the file from disk, base64-encodes it, and POSTs it to
+ * UMDB's  POST /box-sets/{id}/upload-image  endpoint so the image actually
+ * lands on UMDB's server.
+ *
+ * @param string $umdbBoxsetId   The UMDB box-set ID (e.g. "boxset-xxx")
+ * @param string $localImageUrl  The spine_image_url value (e.g. "/data/uploads/covers/cover_4_xxx.jpg")
+ * @return bool  True on success, false if the file doesn't exist or the upload fails
+ */
+function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
+    if (empty($umdbBoxsetId) || empty($localImageUrl)) return false;
+
+    // Only attempt for local uploads (ignore external http/https URLs)
+    if (str_starts_with($localImageUrl, 'http://') || str_starts_with($localImageUrl, 'https://')) return false;
+
+    // Resolve filesystem path: api/ is one level down from the web root
+    $webRoot  = dirname(__DIR__);          // …/cineshelf.futuresrelic.com
+    $filePath = $webRoot . $localImageUrl; // …/data/uploads/covers/cover_4_xxx.jpg
+
+    if (!file_exists($filePath)) {
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] File not found: $filePath\n");
+        return false;
+    }
+
+    // Detect MIME type for the data URL prefix
+    $finfo    = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = $finfo->file($filePath) ?: 'image/jpeg';
+
+    $imageData = file_get_contents($filePath);
+    if ($imageData === false) {
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Could not read file: $filePath\n");
+        return false;
+    }
+
+    $dataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+
+    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Uploading cover to UMDB box set $umdbBoxsetId (size=" . strlen($imageData) . " bytes)\n");
+
+    $result = umdbPost('/box-sets/' . urlencode($umdbBoxsetId) . '/upload-image', [
+        'imageType' => 'cover',
+        'dataUrl'   => $dataUrl,
+    ]);
+
+    if ($result === false) {
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . "\n");
+        return false;
+    }
+
+    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload succeeded. Response: " . json_encode($result) . "\n");
+    return true;
+}
+
+/**
  * Build the correct detail-fetch URL for a movie/tv id.
  * Returns [url, source] where source is 'umdb' or 'tmdb'.
  *
@@ -4194,6 +4252,12 @@ case 'resolve_movie':
             }
             file_put_contents('php://stderr', "[push_boxset_to_umdb] Wrote umdb_release_id to $editionsUpdated edition(s)\n");
 
+            // Upload the local cover photo to UMDB so the image file actually exists there
+            if (!empty($container['spine_image_url']) && $container['spine_image_type'] === 'custom') {
+                $coverUploaded = umdbUploadBoxSetCover($umdbBoxsetId, $container['spine_image_url']);
+                file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload: " . ($coverUploaded ? 'success' : 'skipped/failed') . "\n");
+            }
+
             // Auto-trigger create-releases so PhysicalCopy records are linked immediately
             // (eliminates the need for the manual "Fix" button after every push)
             $createReleasesUrl = '/box-sets/' . urlencode($umdbBoxsetId) . '/create-releases';
@@ -4212,6 +4276,28 @@ case 'resolve_movie':
                 '_debug_umdb_response'  => $umdbResult,
                 '_debug_create_releases'=> $createReleasesResult,
             ]);
+            break;
+
+        case 'push_boxset_cover_to_umdb':
+            // Re-upload a locally-photographed box set cover to UMDB.
+            // Useful for box sets that were pushed before this fix was deployed.
+            if (empty(UMDB_API_KEY)) jsonResponse(false, null, 'UMDB_API_KEY is not configured.');
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+
+            $stmt = $db->prepare("SELECT * FROM containers WHERE id = ? AND user_id = ?");
+            $stmt->execute([$containerId, $userId]);
+            $container = $stmt->fetch();
+            if (!$container) jsonResponse(false, null, 'Container not found');
+            if (empty($container['umdb_boxset_id'])) jsonResponse(false, null, 'Box set is not linked to UMDB');
+            if (empty($container['spine_image_url'])) jsonResponse(false, null, 'No local cover image to upload');
+
+            $uploaded = umdbUploadBoxSetCover($container['umdb_boxset_id'], $container['spine_image_url']);
+            if (!$uploaded) {
+                $errMsg = $GLOBALS['_umdb_last_error'] ?? 'File not found or upload failed';
+                jsonResponse(false, null, 'Cover upload failed: ' . $errMsg);
+            }
+            jsonResponse(true, ['umdb_boxset_id' => $container['umdb_boxset_id'], 'uploaded' => true]);
             break;
 
         case 'sync_boxset_from_umdb':
@@ -4648,6 +4734,11 @@ case 'resolve_movie':
                 if (!empty($umdbBsId)) {
                     $db->prepare("UPDATE containers SET umdb_boxset_id=?, umdb_cover_url=?, umdb_release_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")
                        ->execute([$umdbBsId, $umdbCoverUrl, $umdbRelId, $cont['id']]);
+
+                    // Upload the local cover photo to UMDB so the image file actually exists there
+                    if (!empty($cont['spine_image_url']) && ($cont['spine_image_type'] ?? '') === 'custom') {
+                        umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
+                    }
 
                     umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
                 }

@@ -3037,6 +3037,18 @@ async function deleteCopy(copyId, movieId) {
         }
     }
 
+    async function pushBoxSetCoverToUmdb(containerId) {
+        try {
+            showToast('Uploading cover to UMDB...', 'info');
+            await apiCall('push_boxset_cover_to_umdb', { container_id: containerId });
+            showToast('Cover uploaded to UMDB', 'success');
+            await showBoxSetDetails(containerId);
+        } catch (error) {
+            console.error('Failed to upload cover to UMDB:', error);
+            showToast(error.message || 'Failed to upload cover', 'error');
+        }
+    }
+
     async function unlinkBoxSetFromUmdb(containerId) {
         if (!confirm('Remove UMDB link? Local data and cover will be cleared.')) return;
         try {
@@ -6824,6 +6836,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                             ${container.umdb_boxset_id
                                 ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncBoxSetFromUmdb(${containerId})" title="Re-pull cover and data from UMDB">↺ Sync from UMDB</button>
                                    <button class="btn-sm btn-umdb-sm" onclick="App.backfillBoxSetReleases(${containerId})" title="Create PhysicalCopy records on UMDB for each film in this box set">⚙ Fix Releases</button>
+                                   ${container.spine_image_type === 'custom' && container.spine_image_url ? `<button class="btn-sm btn-umdb-sm" onclick="App.pushBoxSetCoverToUmdb(${containerId})" title="Upload your local cover photo to UMDB">📷 Push Cover</button>` : ''}
                                    <button class="btn-sm" onclick="App.unlinkBoxSetFromUmdb(${containerId})" title="Remove UMDB link" style="font-size:0.75rem; opacity:0.6;">Unlink</button>`
                                 : `<button class="btn-sm btn-umdb-sm" onclick="App.pushBoxSetToUmdb(${containerId})" title="Push this box set to UMDB">↑ Push to UMDB</button>`
                             }
@@ -12020,6 +12033,7 @@ return {
     pushBoxSetToUmdb,
     syncBoxSetFromUmdb,
     backfillBoxSetReleases,
+    pushBoxSetCoverToUmdb,
     unlinkBoxSetFromUmdb,
     syncCollectionToUmdb,
     forceResyncToUmdb,
