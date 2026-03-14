@@ -3013,7 +3013,10 @@ async function deleteCopy(copyId, movieId) {
     async function syncBoxSetFromUmdb(containerId) {
         try {
             const result = await apiCall('sync_boxset_from_umdb', { container_id: containerId });
-            showToast('Synced from UMDB', 'success');
+            const msg = result.components_added > 0
+                ? `Synced from UMDB (+${result.components_added} components)`
+                : 'Synced from UMDB';
+            showToast(msg, 'success');
             await showBoxSetDetails(containerId);
         } catch (error) {
             console.error('Failed to sync box set from UMDB:', error);
@@ -6741,6 +6744,16 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                                 ${filmsHTML}
                             </div>
                         </div>
+
+                        <div id="container-components-section" class="movie-detail-section" style="margin-top:1.25rem;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+                                <h3 style="margin:0;">What's in the Box</h3>
+                                <button class="btn-sm" onclick="App.addContainerComponent(${containerId})" title="Manually add a component" style="font-size:0.75rem;">+ Add</button>
+                            </div>
+                            <div id="container-components-list" style="margin-top:0.75rem;">
+                                <p style="color:rgba(255,255,255,0.4); font-size:0.85rem;">Loading components…</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -6752,11 +6765,195 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
             // Show box set nav arrows if we have a nav list
             _updateBoxSetNavUI();
+
+            // Asynchronously load component checklist
+            _loadContainerComponents(containerId);
         } catch (error) {
             console.error('Failed to load box set details:', error);
             showToast('Failed to load box set details', 'error');
         }
     }
+
+    // ── Container component checklist ──────────────────────────────────────────
+
+    const _containerCompTypeIcons = {
+        disc: '💿', booklet: '📖', slipcover: '🗂️', poster: '🖼️',
+        art_cards: '🃏', digital_code: '💻', case: '📦', outer_case: '📦',
+        insert: '📄', other: '📌'
+    };
+
+    async function _loadContainerComponents(containerId) {
+        const listEl = document.getElementById('container-components-list');
+        if (!listEl) return;
+        try {
+            const data = await apiCall('get_container_components', { container_id: containerId });
+            const components = data.components || [];
+
+            if (components.length === 0) {
+                listEl.innerHTML = `<p style="color:rgba(255,255,255,0.4); font-size:0.85rem;">No components defined.
+                    ${currentContainer && currentContainer.umdb_boxset_id
+                        ? ' Sync from UMDB to auto-populate.'
+                        : ' Use "+ Add" to build your checklist.'}</p>`;
+                return;
+            }
+
+            const presentCount = components.filter(c => c.is_present == 1).length;
+
+            listEl.innerHTML = `
+                <div style="font-size:0.8rem; color:rgba(255,255,255,0.5); margin-bottom:0.6rem;">
+                    <span id="container-comp-summary">${presentCount} of ${components.length}</span> items present
+                </div>
+                <div class="component-checklist">
+                    ${components.map(comp => {
+                        const icon = _containerCompTypeIcons[comp.component_type] || '📌';
+                        const present = comp.is_present == 1;
+                        return `
+                        <div class="component-item ${present ? 'component-present' : 'component-missing'}"
+                             id="ccomp-item-${comp.container_component_id}">
+                            <div class="component-item-header">
+                                <label class="component-toggle">
+                                    <input type="checkbox" ${present ? 'checked' : ''}
+                                        onchange="App.toggleContainerComponent(${containerId}, ${comp.container_component_id}, this.checked)">
+                                    <span class="component-toggle-label">
+                                        <span class="component-icon">${icon}</span>
+                                        ${comp.component_name}
+                                        ${comp.required == 0 ? '<span style="font-size:0.7rem;opacity:0.5;">(optional)</span>' : ''}
+                                    </span>
+                                </label>
+                                <button class="btn-icon" onclick="App.deleteContainerComponent(${containerId}, ${comp.container_component_id})"
+                                        title="Remove component" style="font-size:0.75rem; opacity:0.4;">✕</button>
+                            </div>
+                            <div class="component-item-details" style="${present ? '' : 'opacity:0.4;'}">
+                                <select class="form-control component-condition"
+                                        onchange="App.updateContainerComponentCondition(${containerId}, ${comp.container_component_id}, this.value)"
+                                        data-comp-id="${comp.container_component_id}">
+                                    ${['Mint','Like New','Good','Fair','Poor'].map(c =>
+                                        `<option value="${c}" ${comp.user_condition === c ? 'selected' : ''}>${c}</option>`
+                                    ).join('')}
+                                </select>
+                                ${comp.description ? `<span class="component-desc">${comp.description}</span>` : ''}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        } catch (e) {
+            console.error('Failed to load container components:', e);
+            if (listEl) listEl.innerHTML = '<p style="color:rgba(255,100,100,0.6); font-size:0.85rem;">Failed to load components.</p>';
+        }
+    }
+
+    async function toggleContainerComponent(containerId, componentId, checked) {
+        const isPresent = checked ? 1 : 0;
+        const item = document.getElementById(`ccomp-item-${componentId}`);
+        const details = item?.querySelector('.component-item-details');
+        if (item) {
+            item.classList.toggle('component-present', !!isPresent);
+            item.classList.toggle('component-missing', !isPresent);
+        }
+        if (details) details.style.opacity = isPresent ? '' : '0.4';
+
+        // Update summary count
+        const checklist = document.querySelector('#container-components-list .component-checklist');
+        if (checklist) {
+            const total = checklist.querySelectorAll('.component-item').length;
+            const present = checklist.querySelectorAll('.component-present').length;
+            const summary = document.getElementById('container-comp-summary');
+            if (summary) summary.textContent = `${present} of ${total}`;
+        }
+
+        try {
+            const condition = item?.querySelector('.component-condition')?.value || 'Good';
+            await apiCall('update_copy_container_component', {
+                container_id: containerId,
+                container_component_id: componentId,
+                is_present: isPresent,
+                condition
+            });
+        } catch (e) {
+            console.error('Failed to update container component:', e);
+            showToast('Failed to update component', 'error');
+        }
+    }
+
+    async function updateContainerComponentCondition(containerId, componentId, condition) {
+        const isPresent = document.getElementById(`ccomp-item-${componentId}`)
+            ?.querySelector('input[type="checkbox"]')?.checked ? 1 : 0;
+        try {
+            await apiCall('update_copy_container_component', {
+                container_id: containerId,
+                container_component_id: componentId,
+                is_present: isPresent,
+                condition
+            });
+        } catch (e) {
+            console.error('Failed to update component condition:', e);
+            showToast('Failed to update condition', 'error');
+        }
+    }
+
+    async function addContainerComponent(containerId) {
+        // Build inline add form in-place below the section heading
+        const listEl = document.getElementById('container-components-list');
+        if (!listEl) return;
+
+        // Avoid double-adding the form
+        if (document.getElementById('add-comp-inline-form')) return;
+
+        const compTypes = [
+            ['disc','Disc'], ['booklet','Booklet'], ['slipcover','Slipcover'],
+            ['poster','Poster'], ['art_cards','Art Cards'], ['digital_code','Digital Code'],
+            ['case','Case (Steelbook/Digipak)'], ['outer_case','Outer Case (Slipcase)'],
+            ['insert','Insert'], ['other','Other'],
+        ];
+
+        const form = document.createElement('div');
+        form.id = 'add-comp-inline-form';
+        form.style.cssText = 'display:flex;flex-direction:column;gap:0.5rem;padding:0.6rem;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:0.75rem;';
+        form.innerHTML = `
+            <select id="add-comp-type" class="form-control" style="font-size:0.85rem;">
+                ${compTypes.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+            </select>
+            <input id="add-comp-name" type="text" class="form-control" placeholder="Component name (e.g. 40-page booklet)" style="font-size:0.85rem;">
+            <div style="display:flex;gap:0.4rem;">
+                <button class="btn btn-sm" id="add-comp-save" style="font-size:0.8rem;">Add</button>
+                <button class="btn btn-ghost btn-sm" id="add-comp-cancel" style="font-size:0.8rem;">Cancel</button>
+            </div>`;
+        listEl.insertBefore(form, listEl.firstChild);
+
+        document.getElementById('add-comp-name').focus();
+
+        document.getElementById('add-comp-cancel').onclick = () => {
+            form.remove();
+        };
+        document.getElementById('add-comp-save').onclick = async () => {
+            const type = document.getElementById('add-comp-type').value;
+            const name = document.getElementById('add-comp-name').value.trim();
+            if (!name) { showToast('Please enter a component name', 'error'); return; }
+            try {
+                await apiCall('add_container_component', {
+                    container_id: containerId,
+                    component_type: type,
+                    component_name: name,
+                    required: 1
+                });
+                showToast('Component added', 'success');
+                _loadContainerComponents(containerId);
+            } catch (e) {
+                showToast('Failed to add component', 'error');
+            }
+        };
+    }
+
+    async function deleteContainerComponent(containerId, componentId) {
+        try {
+            await apiCall('delete_container_component', { component_id: componentId });
+            _loadContainerComponents(containerId);
+        } catch (e) {
+            showToast('Failed to remove component', 'error');
+        }
+    }
+
+    // ── End container component checklist ──────────────────────────────────────
 
     // Close box set details (now rendered inside movie detail modal)
     function closeBoxSetDetails() {
@@ -11708,6 +11905,11 @@ return {
     openComponentChecklist,
     toggleComponent,
     updateComponentCondition,
+    // Container component checklist (v2.9.0)
+    toggleContainerComponent,
+    updateContainerComponentCondition,
+    addContainerComponent,
+    deleteContainerComponent,
     // UMDB Two-Way Sync (v4.1.0)
     showImportFromUmdb,
     searchUmdbReleases,

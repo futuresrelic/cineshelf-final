@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run Container Components Migration - CineShelf Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { color: #333; margin-bottom: 0.5rem; font-size: 2rem; }
+        .subtitle { color: #666; margin-bottom: 2rem; font-size: 0.95rem; }
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+        }
+        .info-box h3 { color: #667eea; margin-bottom: 0.5rem; font-size: 1rem; }
+        .info-box p { color: #555; font-size: 0.9rem; line-height: 1.6; }
+        .info-box ul { margin: 0.5rem 0 0 1.5rem; color: #555; font-size: 0.9rem; }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        #output {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        #output.show { display: block; }
+        #output.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        #output.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .status.running { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Container Components Migration</h1>
+        <p class="subtitle">CineShelf v2.9.0 Database Update</p>
+
+        <div class="info-box">
+            <h3>What This Does:</h3>
+            <p>Adds the box set component checklist system — track what's in the box for each of your box sets.</p>
+            <ul>
+                <li>Creates <code>container_components</code> table (what UMDB says comes in the box)</li>
+                <li>Creates <code>copy_container_components</code> table (what you actually have)</li>
+                <li>Adds indexes for performance</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background: #d4edda; border-color: #28a745;">
+            <h3>✅ After This Migration:</h3>
+            <p>Box set detail pages will show a "What's in the Box" checklist. Sync from UMDB to auto-populate components, or add them manually.</p>
+        </div>
+
+        <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
+            <h3>⚠️ Safe to Run:</h3>
+            <p>This migration is <strong>safe to run multiple times</strong>. If tables already exist, it will report that and skip.</p>
+        </div>
+
+        <div id="statusContainer"></div>
+
+        <button id="runBtn" class="btn" onclick="runMigration()">
+            🚀 Run Migration
+        </button>
+
+        <div id="output"></div>
+
+        <a href="/admin/" class="back-link">← Back to Admin Tools</a>
+    </div>
+
+    <script>
+        async function runMigration() {
+            const btn = document.getElementById('runBtn');
+            const output = document.getElementById('output');
+            const statusContainer = document.getElementById('statusContainer');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Running Migration...';
+            statusContainer.innerHTML = '<div class="status running">🔄 Migration in progress...</div>';
+            output.classList.add('show');
+            output.classList.remove('success', 'error');
+            output.textContent = 'Connecting to API...\n';
+
+            try {
+                const response = await fetch('/api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'run_container_components_migration' })
+                });
+
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                if (data.ok) {
+                    output.classList.add('success');
+                    output.textContent = '✅ SUCCESS!\n\n' + JSON.stringify(data, null, 2);
+                    statusContainer.innerHTML = '<div class="status success">✅ Migration Completed Successfully!</div>';
+                    btn.textContent = '✓ Migration Complete';
+                } else {
+                    throw new Error(data.message || 'Migration failed');
+                }
+            } catch (error) {
+                output.classList.add('error');
+                output.textContent = '❌ ERROR:\n\n' + (error.message || error.toString());
+                output.textContent += '\n\nMake sure you are logged in to CineShelf first.';
+                statusContainer.innerHTML = '<div class="status error">❌ Migration Failed</div>';
+                btn.disabled = false;
+                btn.textContent = '🔄 Retry Migration';
+                console.error('Migration error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

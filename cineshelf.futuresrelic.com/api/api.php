@@ -4215,7 +4215,7 @@ case 'resolve_movie':
             break;
 
         case 'sync_boxset_from_umdb':
-            // Pull latest data (name, cover image) from UMDB for a linked box set
+            // Pull latest data (name, cover image, components) from UMDB for a linked box set
             $containerId = intval($input['container_id'] ?? 0);
             if (!$containerId) jsonResponse(false, null, 'Container ID required');
 
@@ -4232,8 +4232,100 @@ case 'resolve_movie':
             $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                ->execute([$umdbCoverUrl, $containerId]);
 
-            logAction($db, $userId, 'boxset_synced_from_umdb', 'container', $containerId, ['umdb_boxset_id' => $container['umdb_boxset_id']]);
-            jsonResponse(true, ['container_id' => $containerId, 'umdb_boxset_id' => $container['umdb_boxset_id'], 'cover_url' => $umdbCoverUrl]);
+            // Sync components from UMDB if the table exists and UMDB returned any
+            $componentsAdded = 0;
+            $umdbComponents  = $umdbData['components'] ?? [];
+            $tablesExist = $db->query(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='container_components'"
+            )->fetch();
+
+            if ($tablesExist && !empty($umdbComponents) && is_array($umdbComponents)) {
+                // Map UMDB component type names to our canonical types
+                $typeMap = [
+                    'disc'         => 'disc',
+                    'booklet'      => 'booklet',
+                    'slipcover'    => 'slipcover',
+                    'poster'       => 'poster',
+                    'art_cards'    => 'art_cards',
+                    'digital_code' => 'digital_code',
+                    'case'         => 'case',
+                    'outer_case'   => 'outer_case',
+                    'stickers'     => 'other',
+                    'insert'       => 'insert',
+                    'other'        => 'other',
+                ];
+
+                foreach ($umdbComponents as $idx => $umdbComp) {
+                    $umdbCompId  = intval($umdbComp['id'] ?? 0);
+                    $compType    = $typeMap[($umdbComp['type'] ?? 'other')] ?? 'other';
+                    $compName    = sanitize($umdbComp['name'] ?? 'Component', 200);
+                    $required    = isset($umdbComp['required']) ? (int)(bool)$umdbComp['required'] : 1;
+                    $position    = intval($umdbComp['position'] ?? $idx);
+
+                    // Upsert by umdb_component_id (avoid duplicates on re-sync)
+                    if ($umdbCompId) {
+                        $existing = $db->prepare(
+                            "SELECT id FROM container_components WHERE container_id = ? AND umdb_component_id = ?"
+                        );
+                        $existing->execute([$containerId, $umdbCompId]);
+                        $existingRow = $existing->fetch();
+
+                        if ($existingRow) {
+                            // Update name/type in case UMDB changed them
+                            $db->prepare("
+                                UPDATE container_components
+                                SET component_type = ?, component_name = ?, required = ?, position = ?
+                                WHERE id = ?
+                            ")->execute([$compType, $compName, $required, $position, $existingRow['id']]);
+                            $localCompId = $existingRow['id'];
+                        } else {
+                            $db->prepare("
+                                INSERT INTO container_components
+                                    (container_id, component_type, component_name, required, position, umdb_source, umdb_component_id)
+                                VALUES (?, ?, ?, ?, ?, 1, ?)
+                            ")->execute([$containerId, $compType, $compName, $required, $position, $umdbCompId]);
+                            $localCompId = $db->lastInsertId();
+                            $componentsAdded++;
+                        }
+                    } else {
+                        // No UMDB ID — insert if no matching name+type for this container
+                        $dup = $db->prepare(
+                            "SELECT id FROM container_components WHERE container_id = ? AND component_type = ? AND component_name = ?"
+                        );
+                        $dup->execute([$containerId, $compType, $compName]);
+                        $dupRow = $dup->fetch();
+                        if (!$dupRow) {
+                            $db->prepare("
+                                INSERT INTO container_components
+                                    (container_id, component_type, component_name, required, position, umdb_source)
+                                VALUES (?, ?, ?, ?, ?, 1)
+                            ")->execute([$containerId, $compType, $compName, $required, $position]);
+                            $localCompId = $db->lastInsertId();
+                            $componentsAdded++;
+                        } else {
+                            $localCompId = $dupRow['id'];
+                        }
+                    }
+
+                    // Ensure user has a tracking record for this component
+                    $db->prepare("
+                        INSERT OR IGNORE INTO copy_container_components
+                            (container_id, user_id, container_component_id, is_present, condition)
+                        VALUES (?, ?, ?, 1, 'Good')
+                    ")->execute([$containerId, $userId, $localCompId]);
+                }
+            }
+
+            logAction($db, $userId, 'boxset_synced_from_umdb', 'container', $containerId, [
+                'umdb_boxset_id'   => $container['umdb_boxset_id'],
+                'components_added' => $componentsAdded,
+            ]);
+            jsonResponse(true, [
+                'container_id'     => $containerId,
+                'umdb_boxset_id'   => $container['umdb_boxset_id'],
+                'cover_url'        => $umdbCoverUrl,
+                'components_added' => $componentsAdded,
+            ]);
             break;
 
         case 'unlink_boxset_from_umdb':
@@ -6627,6 +6719,166 @@ Return ONLY the JSON object, no markdown.'
             jsonResponse(true, ['linked' => true, 'components_initialized' => count($editionComponents)]);
             break;
 
+        // ============================================================
+        // CONTAINER COMPONENT CHECKLIST (Box Set-Level)
+        // ============================================================
+
+        case 'get_container_components':
+            // Return all components for a container with this user's tracking status
+            $containerId = intval($input['container_id'] ?? 0);
+            if (!$containerId) jsonResponse(false, null, 'Container ID required');
+
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $cont = $stmt->fetch();
+            if (!$cont || $cont['user_id'] != $userId) jsonResponse(false, null, 'Container not found');
+
+            $stmt = $db->prepare("
+                SELECT
+                    cc.id as container_component_id,
+                    cc.component_type,
+                    cc.component_name,
+                    cc.description,
+                    cc.required,
+                    cc.position,
+                    cc.umdb_source,
+                    COALESCE(ccc.is_present, 1) as is_present,
+                    COALESCE(ccc.condition, 'Good') as user_condition,
+                    ccc.notes as user_notes,
+                    ccc.id as copy_container_component_id
+                FROM container_components cc
+                LEFT JOIN copy_container_components ccc
+                    ON ccc.container_component_id = cc.id AND ccc.user_id = ?
+                WHERE cc.container_id = ?
+                ORDER BY cc.position ASC, cc.id ASC
+            ");
+            $stmt->execute([$userId, $containerId]);
+            $components = $stmt->fetchAll();
+
+            jsonResponse(true, ['container_id' => $containerId, 'components' => $components]);
+            break;
+
+        case 'update_copy_container_component':
+            // Toggle is_present or update condition for a user's container component
+            $containerId          = intval($input['container_id'] ?? 0);
+            $containerComponentId = intval($input['container_component_id'] ?? 0);
+            $isPresent            = isset($input['is_present']) ? intval($input['is_present']) : 1;
+            $condition            = sanitize($input['condition'] ?? 'Good', 50);
+            $notes                = sanitize($input['notes'] ?? '', 500);
+
+            if (!$containerId || !$containerComponentId) {
+                jsonResponse(false, null, 'Container ID and component ID required');
+            }
+
+            // Verify ownership
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $cont = $stmt->fetch();
+            if (!$cont || $cont['user_id'] != $userId) jsonResponse(false, null, 'Not authorized');
+
+            // Upsert tracking record
+            $stmt = $db->prepare("
+                INSERT INTO copy_container_components
+                    (container_id, user_id, container_component_id, is_present, condition, notes, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(user_id, container_component_id)
+                DO UPDATE SET is_present = ?, condition = ?, notes = ?, updated_at = datetime('now')
+            ");
+            $stmt->execute([
+                $containerId, $userId, $containerComponentId, $isPresent, $condition, $notes ?: null,
+                $isPresent, $condition, $notes ?: null
+            ]);
+
+            jsonResponse(true, ['updated' => true]);
+            break;
+
+        case 'add_container_component':
+            // Manually add a component to a container's checklist
+            $containerId   = intval($input['container_id'] ?? 0);
+            $compType      = sanitize($input['component_type'] ?? '', 50);
+            $compName      = sanitize($input['component_name'] ?? '', 200);
+            $description   = sanitize($input['description'] ?? '', 500);
+            $required      = isset($input['required']) ? intval($input['required']) : 1;
+            $position      = intval($input['position'] ?? 0);
+
+            if (!$containerId || empty($compType) || empty($compName)) {
+                jsonResponse(false, null, 'Container ID, component type, and name required');
+            }
+
+            $stmt = $db->prepare("SELECT user_id FROM containers WHERE id = ?");
+            $stmt->execute([$containerId]);
+            $cont = $stmt->fetch();
+            if (!$cont || $cont['user_id'] != $userId) jsonResponse(false, null, 'Container not found');
+
+            $stmt = $db->prepare("
+                INSERT INTO container_components
+                    (container_id, component_type, component_name, description, required, position, umdb_source)
+                VALUES (?, ?, ?, ?, ?, ?, 0)
+            ");
+            $stmt->execute([$containerId, $compType, $compName, $description ?: null, $required, $position]);
+            $newId = $db->lastInsertId();
+
+            // Auto-create tracking record for this user (present by default)
+            $db->prepare("
+                INSERT OR IGNORE INTO copy_container_components
+                    (container_id, user_id, container_component_id, is_present, condition)
+                VALUES (?, ?, ?, 1, 'Good')
+            ")->execute([$containerId, $userId, $newId]);
+
+            jsonResponse(true, ['component_id' => $newId]);
+            break;
+
+        case 'delete_container_component':
+            // Remove a container component (cascades to copy_container_components)
+            $componentId = intval($input['component_id'] ?? 0);
+            if (!$componentId) jsonResponse(false, null, 'Component ID required');
+
+            // Verify ownership via container
+            $stmt = $db->prepare("
+                SELECT c.user_id FROM container_components cc
+                JOIN containers c ON c.id = cc.container_id
+                WHERE cc.id = ?
+            ");
+            $stmt->execute([$componentId]);
+            $row = $stmt->fetch();
+            if (!$row || $row['user_id'] != $userId) jsonResponse(false, null, 'Not authorized');
+
+            $db->prepare("DELETE FROM container_components WHERE id = ?")->execute([$componentId]);
+            jsonResponse(true, ['deleted' => $componentId]);
+            break;
+
+        case 'run_container_components_migration':
+            // Run the add_container_components.sql migration
+            $migrationPath = __DIR__ . '/../migrations/add_container_components.sql';
+            if (!file_exists($migrationPath)) {
+                jsonResponse(false, null, 'Migration file not found');
+            }
+
+            // Check if already applied
+            $alreadyApplied = $db->query(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='container_components'"
+            )->fetch();
+            if ($alreadyApplied) {
+                jsonResponse(true, ['message' => 'Migration already applied (tables exist)']);
+            }
+
+            $sql = file_get_contents($migrationPath);
+            $statements = array_filter(array_map('trim', explode(';', $sql)));
+            $db->beginTransaction();
+            try {
+                foreach ($statements as $stmt_sql) {
+                    if (!empty($stmt_sql) && stripos($stmt_sql, '--') !== 0) {
+                        $db->exec($stmt_sql);
+                    }
+                }
+                $db->commit();
+                jsonResponse(true, ['message' => 'Container components migration applied successfully']);
+            } catch (Exception $e) {
+                $db->rollBack();
+                jsonResponse(false, null, 'Migration failed: ' . $e->getMessage());
+            }
+            break;
+
         case 'unlink_copy_edition':
             // Remove a copy's link to an edition (and clean up component tracking)
             $copyId = intval($input['copy_id'] ?? 0);
@@ -6965,15 +7217,51 @@ Return ONLY the JSON object, no markdown.'
                 $moviesAdded++;
             }
 
+            // Import box set-level components if UMDB provided them and table exists
+            $bsComponents   = $umdbRelease['components'] ?? [];
+            $bsCompImported = 0;
+            $bsCompTablesExist = $db->query(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='container_components'"
+            )->fetch();
+            if ($bsCompTablesExist && !empty($bsComponents) && is_array($bsComponents)) {
+                $bsTypeMap = [
+                    'disc' => 'disc', 'booklet' => 'booklet', 'slipcover' => 'slipcover',
+                    'poster' => 'poster', 'art_cards' => 'art_cards', 'digital_code' => 'digital_code',
+                    'case' => 'case', 'outer_case' => 'outer_case', 'insert' => 'insert', 'other' => 'other',
+                ];
+                foreach ($bsComponents as $i => $bsComp) {
+                    $ct = $bsTypeMap[$bsComp['type'] ?? 'other'] ?? 'other';
+                    $cn = sanitize($bsComp['name'] ?? 'Component', 200);
+                    $db->prepare("
+                        INSERT INTO container_components
+                            (container_id, component_type, component_name, required, position, umdb_source, umdb_component_id)
+                        VALUES (?, ?, ?, ?, ?, 1, ?)
+                    ")->execute([
+                        $newContainerId, $ct, $cn,
+                        isset($bsComp['required']) ? (int)(bool)$bsComp['required'] : 1,
+                        intval($bsComp['position'] ?? $i),
+                        intval($bsComp['id'] ?? 0) ?: null
+                    ]);
+                    $newCompId = $db->lastInsertId();
+                    $db->prepare("
+                        INSERT OR IGNORE INTO copy_container_components
+                            (container_id, user_id, container_component_id, is_present, condition)
+                        VALUES (?, ?, ?, 1, 'Good')
+                    ")->execute([$newContainerId, $userId, $newCompId]);
+                    $bsCompImported++;
+                }
+            }
+
             logAction($db, $userId, 'umdb_boxset_imported', 'container', $newContainerId, [
                 'umdb_boxset_id' => $bsId, 'release_id' => $releaseId, 'movies_added' => $moviesAdded
             ]);
 
             jsonResponse(true, [
-                'container_id'   => $newContainerId,
-                'umdb_boxset_id' => $bsId,
-                'movies_added'   => $moviesAdded,
-                'errors'         => $importErrors
+                'container_id'        => $newContainerId,
+                'umdb_boxset_id'      => $bsId,
+                'movies_added'        => $moviesAdded,
+                'components_imported' => $bsCompImported,
+                'errors'              => $importErrors
             ]);
             break;
 
