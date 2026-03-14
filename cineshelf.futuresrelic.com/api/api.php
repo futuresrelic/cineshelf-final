@@ -196,24 +196,54 @@ function umdbRequest($method, $path, $body, $timeout = 15) {
 }
 
 /**
- * Upload a locally-stored box set cover image to UMDB.
+ * Set the cover image on a UMDB box set.
  *
- * When a user photographs a box set cover in CineShelf, the image is saved to
- * CineShelf's own /data/uploads/covers/ directory and the path is stored in
- * containers.spine_image_url.  When we push the box set to UMDB we can only
- * send that path as a string; UMDB has no way to fetch the file from CineShelf.
- * This function reads the file from disk, base64-encodes it, and POSTs it to
- * UMDB's  POST /box-sets/{id}/upload-image  endpoint so the image actually
- * lands on UMDB's server.
+ * Strategy (tried in order):
+ *  1. Build the public CineShelf URL for the local cover file and send it via
+ *     PUT /box-sets/{id} using the "cover_image" field — UMDB stores it as a URL.
+ *  2. Same PUT but using the "spine_image" field name (older UMDB schema).
+ *  3. Binary fallback: read the file, base64-encode it, POST to
+ *     /box-sets/{id}/upload-image — only works if UMDB has that endpoint.
+ *
+ * CineShelf cover images live at /data/uploads/covers/ which is inside the
+ * PHP built-in server's document root and is publicly accessible at
+ * https://<host>/data/uploads/covers/…
  *
  * @param string $umdbBoxsetId   The UMDB box-set ID (e.g. "boxset-xxx")
  * @param string $localImageUrl  The spine_image_url value (e.g. "/data/uploads/covers/cover_4_xxx.jpg")
- * @return string|false  The new cover URL returned by UMDB on success, false on failure
+ * @return string|bool  The cover URL on success, true if uploaded but URL unknown, false on failure
  */
 function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     if (empty($umdbBoxsetId) || empty($localImageUrl)) return false;
 
-    // Only attempt for local uploads (ignore external http/https URLs)
+    // ── Strategy 1 & 2: set cover via public URL using PUT ──────────────────
+    $publicUrl = buildPublicCoverUrl($localImageUrl);
+    if ($publicUrl) {
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Trying PUT cover_image URL for boxset $umdbBoxsetId: $publicUrl\n");
+
+        // Try cover_image field (what UMDB returns as the cover URL key)
+        $putResult = umdbPut('/box-sets/' . urlencode($umdbBoxsetId), ['cover_image' => $publicUrl], 15);
+        if ($putResult !== false) {
+            file_put_contents('php://stderr', "[umdbUploadBoxSetCover] PUT cover_image succeeded. Response: " . json_encode($putResult) . "\n");
+            $hostedUrl = $putResult['cover_image'] ?? $putResult['cover_url'] ?? $putResult['spine_image']
+                      ?? $putResult['data']['cover_image'] ?? $putResult['box_set']['cover_image'] ?? $publicUrl;
+            return $hostedUrl;
+        }
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] PUT cover_image failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . " — trying spine_image\n");
+
+        // Fallback field name: spine_image (original UMDB box-set schema)
+        $putResult2 = umdbPut('/box-sets/' . urlencode($umdbBoxsetId), ['spine_image' => $publicUrl], 15);
+        if ($putResult2 !== false) {
+            file_put_contents('php://stderr', "[umdbUploadBoxSetCover] PUT spine_image succeeded. Response: " . json_encode($putResult2) . "\n");
+            $hostedUrl = $putResult2['cover_image'] ?? $putResult2['spine_image'] ?? $putResult2['cover_url']
+                      ?? $putResult2['data']['cover_image'] ?? $putResult2['box_set']['cover_image'] ?? $publicUrl;
+            return $hostedUrl;
+        }
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] PUT spine_image also failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . " — trying binary upload\n");
+    }
+
+    // ── Strategy 3: binary base64 upload (requires UMDB /upload-image endpoint) ──
+    // Skip if the path is already an absolute URL (nothing to read from disk)
     if (str_starts_with($localImageUrl, 'http://') || str_starts_with($localImageUrl, 'https://')) return false;
 
     // Resolve filesystem path: api/ is one level down from the web root
@@ -225,10 +255,8 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
         return false;
     }
 
-    // Detect MIME type for the data URL prefix
     $finfo    = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($filePath) ?: 'image/jpeg';
-
     $imageData = file_get_contents($filePath);
     if ($imageData === false) {
         file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Could not read file: $filePath\n");
@@ -236,31 +264,28 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     }
 
     $dataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
-
-    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Uploading cover to UMDB box set $umdbBoxsetId (size=" . strlen($imageData) . " bytes)\n");
+    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Binary upload to UMDB box set $umdbBoxsetId (size=" . strlen($imageData) . " bytes)\n");
 
     $result = umdbPost('/box-sets/' . urlencode($umdbBoxsetId) . '/upload-image', [
         'imageType' => 'cover',
         'dataUrl'   => $dataUrl,
-    ], 60); // 60-second timeout — base64 image payloads can be several MB
+    ], 60);
 
     if ($result === false) {
-        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . "\n");
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Binary upload failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . "\n");
         return false;
     }
 
-    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload succeeded. Response: " . json_encode($result) . "\n");
+    file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Binary upload succeeded. Response: " . json_encode($result) . "\n");
 
-    // Return the hosted cover URL from the UMDB response so callers can update the DB.
-    // Check all common key names UMDB might use; also look one level into nested objects.
     $newUrl = $result['cover_image']     ?? $result['cover_url']   ?? $result['url']
            ?? $result['image_url']       ?? $result['spine_image'] ?? $result['path']
            ?? $result['data']['url']     ?? $result['data']['cover_image']
            ?? $result['box_set']['cover_image'] ?? $result['box_set']['spine_image']
            ?? null;
     if ($newUrl === null) {
-        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] WARNING: upload succeeded but no URL found. Full response: " . json_encode($result) . "\n");
-        return true; // upload worked but we can't determine the hosted URL
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] WARNING: binary upload OK but no URL in response: " . json_encode($result) . "\n");
+        return true;
     }
     return $newUrl;
 }
@@ -4222,10 +4247,10 @@ case 'resolve_movie':
                 'bonus_disc_count'=> intval($container['bonus_disc_count']),
                 'has_digital_copy'=> (bool)$container['has_digital_copy'],
                 'has_3d'          => (bool)$container['has_3d'],
-                // spine_image: file is on CineShelf's server and must be uploaded via
-                // umdbUploadBoxSetCover() after the box set is created (see below).
-                // UMDB cannot fetch local paths, so leave this null until uploaded.
-                'spine_image'     => null,
+                // cover_image: send the public CineShelf URL so UMDB can display the cover immediately.
+                // buildPublicCoverUrl() returns null if there is no cover, which is safe to send.
+                'cover_image'     => buildPublicCoverUrl($container['spine_image_url'] ?? null),
+                'spine_image'     => buildPublicCoverUrl($container['spine_image_url'] ?? null),
                 'movies'          => array_map(function($item) {
                     $movie = [
                         'title'        => $item['title'],
@@ -4770,9 +4795,10 @@ case 'resolve_movie':
                     'bonus_disc_count' => intval($cont['bonus_disc_count']),
                     'has_digital_copy' => (bool)$cont['has_digital_copy'],
                     'has_3d'           => (bool)$cont['has_3d'],
-                    // spine_image: file is on CineShelf's server and must be uploaded via
-                    // umdbUploadBoxSetCover() after the box set is created (see below).
-                    'spine_image'      => null,
+                    // cover_image / spine_image: send the public CineShelf URL so UMDB
+                    // stores the cover immediately on creation.
+                    'cover_image'      => buildPublicCoverUrl($cont['spine_image_url'] ?? null),
+                    'spine_image'      => buildPublicCoverUrl($cont['spine_image_url'] ?? null),
                     'movies'           => array_map(function($item) {
                         $movie = [
                             'title'       => $item['title'],
