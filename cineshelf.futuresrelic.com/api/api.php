@@ -252,12 +252,15 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload succeeded. Response: " . json_encode($result) . "\n");
 
     // Return the hosted cover URL from the UMDB response so callers can update the DB.
-    // If UMDB doesn't return a recognisable URL key, return true so callers know the
-    // upload worked even though we can't update umdb_cover_url.
-    $newUrl = $result['cover_image'] ?? $result['cover_url'] ?? $result['url'] ?? $result['image_url'] ?? null;
+    // Check all common key names UMDB might use; also look one level into nested objects.
+    $newUrl = $result['cover_image']     ?? $result['cover_url']   ?? $result['url']
+           ?? $result['image_url']       ?? $result['spine_image'] ?? $result['path']
+           ?? $result['data']['url']     ?? $result['data']['cover_image']
+           ?? $result['box_set']['cover_image'] ?? $result['box_set']['spine_image']
+           ?? null;
     if ($newUrl === null) {
-        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] WARNING: upload succeeded but response contained no URL key. Keys: " . implode(', ', array_keys($result)) . "\n");
-        return true; // upload worked, but caller cannot update the stored URL
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] WARNING: upload succeeded but no URL found. Full response: " . json_encode($result) . "\n");
+        return true; // upload worked but we can't determine the hosted URL
     }
     return $newUrl;
 }
@@ -4219,9 +4222,10 @@ case 'resolve_movie':
                 'bonus_disc_count'=> intval($container['bonus_disc_count']),
                 'has_digital_copy'=> (bool)$container['has_digital_copy'],
                 'has_3d'          => (bool)$container['has_3d'],
-                // spine_image: send the public URL so UMDB can display/store the cover immediately.
-                // umdbUploadBoxSetCover() is still called below as a fallback for the binary upload endpoint.
-                'spine_image'     => buildPublicCoverUrl($container['spine_image_url'] ?? null),
+                // spine_image: file is on CineShelf's server and must be uploaded via
+                // umdbUploadBoxSetCover() after the box set is created (see below).
+                // UMDB cannot fetch local paths, so leave this null until uploaded.
+                'spine_image'     => null,
                 'movies'          => array_map(function($item) {
                     $movie = [
                         'title'        => $item['title'],
@@ -4766,9 +4770,9 @@ case 'resolve_movie':
                     'bonus_disc_count' => intval($cont['bonus_disc_count']),
                     'has_digital_copy' => (bool)$cont['has_digital_copy'],
                     'has_3d'           => (bool)$cont['has_3d'],
-                    // spine_image: send the public URL so UMDB can display/store the cover immediately.
-                    // umdbUploadBoxSetCover() is still called below as a fallback for the binary upload endpoint.
-                    'spine_image'      => buildPublicCoverUrl($cont['spine_image_url'] ?? null),
+                    // spine_image: file is on CineShelf's server and must be uploaded via
+                    // umdbUploadBoxSetCover() after the box set is created (see below).
+                    'spine_image'      => null,
                     'movies'           => array_map(function($item) {
                         $movie = [
                             'title'       => $item['title'],
@@ -4814,6 +4818,7 @@ case 'resolve_movie':
                     // umdbUploadBoxSetCover() skips http/https URLs that are already hosted externally.
                     $uploadedCoverUrl = null;
                     $coverError       = null;
+                    $coverNote        = null;
                     if (!empty($cont['spine_image_url'])) {
                         file_put_contents('php://stderr', "[sync_collection_to_umdb] Attempting cover upload for boxset {$umdbBsId}: spine_image_url={$cont['spine_image_url']} spine_image_type=" . ($cont['spine_image_type'] ?? 'null') . "\n");
                         $uploadedCoverUrl = umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
@@ -4826,17 +4831,22 @@ case 'resolve_movie':
                             $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                                ->execute([$uploadedCoverUrl, $cont['id']]);
                         } else {
-                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload succeeded for boxset {$umdbBsId} but UMDB returned no URL\n");
+                            // true = upload POST succeeded but UMDB response had no URL field
+                            $coverNote = 'uploaded_no_url_returned';
+                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload succeeded for boxset {$umdbBsId} but UMDB returned no URL key\n");
                         }
+                    } else {
+                        $coverNote = 'no_local_cover';
                     }
 
                     umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
                 }
                 $stats['boxsets_synced']++;
-                // Determine the final cover URL (public URL sent in payload, or uploaded URL)
+                // Determine the final cover URL: prefer the URL returned by the upload endpoint,
+                // then whatever UMDB returned in the box set creation response.
                 $finalCoverUrl = (isset($uploadedCoverUrl) && is_string($uploadedCoverUrl))
                     ? $uploadedCoverUrl
-                    : ($umdbCoverUrl ?? buildPublicCoverUrl($cont['spine_image_url'] ?? null));
+                    : ($umdbCoverUrl ?? null);
                 $stats['boxsets_synced_list'][] = [
                     'name'           => $cont['name'],
                     'films'          => $movieTitles,
@@ -4844,6 +4854,7 @@ case 'resolve_movie':
                     'film_count'     => count($contItems),
                     'cover_url'      => $finalCoverUrl,
                     'cover_error'    => $coverError ?? null,
+                    'cover_note'     => $coverNote ?? null,
                 ];
             }
 
