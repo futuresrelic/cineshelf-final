@@ -4444,6 +4444,7 @@ case 'resolve_movie':
                     m.id             AS movie_db_id,
                     m.tmdb_id,
                     m.imdb_id,
+                    m.umdb_movie_id,
                     m.title          AS movie_title,
                     m.year           AS movie_year,
                     m.overview,
@@ -4460,6 +4461,9 @@ case 'resolve_movie':
             ");
             $stmtEditions->execute([$userId]);
             $pendingEditions = $stmtEditions->fetchAll();
+
+            // Cache of movie_db_id → umdb_movie_id for movies created during this loop
+            $umdbMovieIdCache = [];
 
             foreach ($pendingEditions as $ed) {
                 $label = $ed['movie_title'] . ' (' . $ed['movie_year'] . ') — ' . $ed['name'];
@@ -4478,7 +4482,11 @@ case 'resolve_movie':
                     'notes'        => $ed['edition_notes'] ?: null,
                 ];
 
-                if (!empty($ed['tmdb_id'])) {
+                // Resolve movie identifier: prefer known umdb_movie_id (from DB or in-loop cache)
+                $resolvedUmdbMovieId = $umdbMovieIdCache[$ed['movie_db_id']] ?? $ed['umdb_movie_id'] ?? null;
+                if (!empty($resolvedUmdbMovieId)) {
+                    $payload['movie_id'] = $resolvedUmdbMovieId;
+                } elseif (!empty($ed['tmdb_id'])) {
                     if (isUmdbId($ed['tmdb_id'])) {
                         $payload['movie_id'] = $ed['tmdb_id'];
                     } else {
@@ -4507,12 +4515,14 @@ case 'resolve_movie':
                         if (!empty($ed['tmdb_id']) && !isUmdbId($ed['tmdb_id'])) $moviePayload['tmdb_id'] = $ed['tmdb_id'];
 
                         $movieResult = umdbPost('/movies', $moviePayload);
-                        if ($movieResult && !empty($movieResult['id'])) {
-                            $newMovieId = $movieResult['id'];
+                        $newMovieId = $movieResult['id'] ?? $movieResult['movie_id'] ?? null;
+                        if ($movieResult && !empty($newMovieId)) {
                             $db->prepare("UPDATE movies SET umdb_movie_id = ? WHERE id = ?")
                                ->execute([$newMovieId, $ed['movie_db_id']]);
+                            $umdbMovieIdCache[$ed['movie_db_id']] = $newMovieId;
                             $payload['movie_id'] = $newMovieId;
                             unset($payload['tmdb_id']);
+                            unset($payload['imdb_id']);
                             $result = umdbPost('/releases', $payload);
                         }
                     }
