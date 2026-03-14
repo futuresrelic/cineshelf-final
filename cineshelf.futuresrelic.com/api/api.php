@@ -23,6 +23,73 @@ function isUmdbId($id) {
 }
 
 /**
+ * Map a CineShelf format string to a valid UMDB PhysicalFormat enum value.
+ *
+ * UMDB's Prisma PhysicalFormat enum expects physical medium values (DVD, BLU_RAY, etc.).
+ * CineShelf sometimes stores box set types ("Triple Feature", "Collection") in the
+ * format field, which are not valid PhysicalFormat values.
+ *
+ * This function extracts the physical medium from compound or ambiguous format strings.
+ * Returns null if format cannot be determined (caller should fall back to copy formats).
+ *
+ * @param string|null $format   CineShelf format string
+ * @return string|null          UMDB-compatible format string, or null
+ */
+function mapCineShelfFormatToUmdb($format) {
+    if (empty($format)) return null;
+    $lower = strtolower(trim($format));
+
+    // 4K variants first (before Blu-ray check to avoid partial match)
+    if (strpos($lower, '4k') !== false || strpos($lower, 'uhd') !== false || strpos($lower, 'ultra hd') !== false) {
+        return '4K Blu-ray';
+    }
+    // Blu-ray
+    if (strpos($lower, 'blu-ray') !== false || strpos($lower, 'blu ray') !== false || strpos($lower, 'bluray') !== false) {
+        return 'Blu-ray';
+    }
+    // DVD (check after Blu-ray variants to avoid false positives)
+    if (strpos($lower, 'dvd') !== false) return 'DVD';
+
+    // Other physical media — exact/near-exact matches
+    if ($lower === 'vhs')                                     return 'VHS';
+    if (strpos($lower, 'laserdisc') !== false || strpos($lower, 'laser disc') !== false) return 'LaserDisc';
+    if ($lower === 'betamax')                                 return 'Betamax';
+    if ($lower === 'hd-dvd'   || $lower === 'hd dvd')        return 'HD-DVD';
+    if ($lower === 'digital'  || $lower === 'digital copy')  return 'Digital';
+    if ($lower === 'streaming')                               return 'Streaming';
+    if (strpos($lower, '16mm') !== false)                    return '16mm Film';
+    if (strpos($lower, '35mm') !== false)                    return '35mm Film';
+    if (strpos($lower, '8mm')  !== false)                    return '8mm Film';
+
+    // Ambiguous box set types (Triple Feature, Collection, Double Feature, etc.)
+    // Cannot determine physical medium from these strings alone — return null so
+    // the caller can fall back to individual copy formats.
+    return null;
+}
+
+/**
+ * Determine the physical medium format for a box set, for use as UMDB PhysicalFormat.
+ *
+ * Tries the container's own format string first. If that's ambiguous (e.g. "Triple Feature"),
+ * falls back to the formats of the individual copies inside the container.
+ *
+ * @param string|null $containerFormat  The containers.format value
+ * @param array       $copyFormats      Array of format strings from the copies in the container
+ * @return string|null                  A valid UMDB physical format string, or null
+ */
+function resolveBoxSetPhysicalFormat($containerFormat, $copyFormats = []) {
+    $mapped = mapCineShelfFormatToUmdb($containerFormat);
+    if ($mapped !== null) return $mapped;
+
+    // Fall back to the first resolvable copy format
+    foreach ($copyFormats as $fmt) {
+        $mapped = mapCineShelfFormatToUmdb($fmt);
+        if ($mapped !== null) return $mapped;
+    }
+    return null;
+}
+
+/**
  * Make an HTTP GET request to the UMDB API
  * Automatically attaches the X-API-Key header when UMDB_API_KEY is set.
  *
@@ -4023,11 +4090,12 @@ case 'resolve_movie':
                 jsonResponse(false, null, 'Already linked to UMDB box set: ' . $container['umdb_boxset_id']);
             }
 
-            // Fetch movies in box set with their tmdb_id and any existing umdb_release_id
+            // Fetch movies in box set with their tmdb_id, copy format, and any existing umdb_release_id
             $stmt = $db->prepare("
                 SELECT cc.disc_number, cc.disc_label, cc.is_present, cc.position_in_container,
                        m.tmdb_id, m.title, m.year, m.imdb_id,
-                       me.umdb_release_id, me.id as edition_id
+                       me.umdb_release_id, me.id as edition_id,
+                       c.format as copy_format
                 FROM container_contents cc
                 JOIN copies c ON cc.copy_id = c.id
                 JOIN movies m ON c.movie_id = m.id
@@ -4038,10 +4106,18 @@ case 'resolve_movie':
             $stmt->execute([$containerId]);
             $items = $stmt->fetchAll();
 
+            // Resolve the physical medium format (DVD, Blu-ray, etc.) for UMDB PhysicalFormat enum.
+            // containers.format may store a box-set *type* ("Triple Feature", "Collection") which
+            // is NOT a valid UMDB PhysicalFormat.  Resolve it via individual copy formats instead.
+            $copyFormats   = array_column($items, 'copy_format');
+            $physicalFormat = resolveBoxSetPhysicalFormat($container['format'], $copyFormats);
+            file_put_contents('php://stderr', "[push_boxset_to_umdb] Container format='{$container['format']}' resolved to physicalFormat=" . ($physicalFormat ?? 'null') . "\n");
+
             // Build UMDB payload
             $payload = [
                 'name'            => $container['name'],
-                'format'          => $container['format'] ?: null,
+                'format'          => $physicalFormat,          // valid PhysicalFormat enum value
+                'box_set_type'    => $container['format'] ?: null,  // "Triple Feature", "Collection", etc.
                 'edition'         => $container['edition'] ?: null,
                 'region'          => $container['region'] ?: null,
                 'package_type'    => $container['package_type'] ?: null,
@@ -4197,6 +4273,238 @@ case 'resolve_movie':
             }
             logAction($db, $userId, 'boxset_releases_backfilled', 'container', $containerId, ['umdb_boxset_id' => $container['umdb_boxset_id']]);
             jsonResponse(true, ['umdb_boxset_id' => $container['umdb_boxset_id'], 'result' => $result]);
+            break;
+
+        case 'sync_collection_to_umdb':
+            // ---------------------------------------------------------------
+            // Full Collection Sync: Push all unsynced editions and box sets
+            // from this user's CineShelf collection to UMDB.
+            //
+            // Safe to run multiple times — already-synced items (those with
+            // umdb_release_id / umdb_boxset_id) are skipped.
+            // ---------------------------------------------------------------
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured.');
+            }
+
+            $stats = [
+                'editions_synced'  => 0,
+                'editions_skipped' => 0,
+                'editions_failed'  => 0,
+                'boxsets_synced'   => 0,
+                'boxsets_skipped'  => 0,
+                'boxsets_failed'   => 0,
+                'errors'           => [],
+            ];
+
+            // ---- 1. Sync media editions (physical releases) ----------------
+            // Fetch all editions linked to this user's copies that are NOT yet
+            // in UMDB.  We also fetch the movie's external IDs.
+            $stmtEditions = $db->prepare("
+                SELECT DISTINCT
+                    me.id            AS edition_id,
+                    me.name,
+                    me.format,
+                    me.package_type,
+                    me.region,
+                    me.barcode,
+                    me.release_date,
+                    me.distributor,
+                    me.country,
+                    me.disc_count,
+                    me.notes         AS edition_notes,
+                    me.umdb_release_id,
+                    m.tmdb_id,
+                    m.imdb_id,
+                    m.title          AS movie_title,
+                    m.year           AS movie_year,
+                    m.overview,
+                    m.runtime,
+                    m.director,
+                    m.genre,
+                    m.rating         AS movie_rating
+                FROM copies cp
+                JOIN movies m    ON m.id = cp.movie_id
+                JOIN media_editions me ON me.id = cp.edition_id
+                WHERE cp.user_id = ?
+                  AND (me.umdb_release_id IS NULL OR me.umdb_release_id = '')
+                ORDER BY me.id ASC
+            ");
+            $stmtEditions->execute([$userId]);
+            $pendingEditions = $stmtEditions->fetchAll();
+
+            foreach ($pendingEditions as $ed) {
+                // Map format to a valid UMDB PhysicalFormat value
+                $umdbFormat = mapCineShelfFormatToUmdb($ed['format'] ?? '');
+
+                $payload = [
+                    'name'         => $ed['name'],
+                    'format'       => $umdbFormat ?? $ed['format'],
+                    'package_type' => $ed['package_type'] ?: null,
+                    'region'       => $ed['region'] ?: null,
+                    'barcode'      => $ed['barcode'] ?: null,
+                    'release_date' => $ed['release_date'] ?: null,
+                    'distributor'  => $ed['distributor'] ?: null,
+                    'country'      => $ed['country'] ?: null,
+                    'disc_count'   => intval($ed['disc_count'] ?? 1),
+                    'notes'        => $ed['edition_notes'] ?: null,
+                ];
+
+                // Link to the movie in UMDB by TMDB ID or UMDB movie ID
+                if (!empty($ed['tmdb_id'])) {
+                    if (isUmdbId($ed['tmdb_id'])) {
+                        $payload['movie_id'] = $ed['tmdb_id'];
+                    } else {
+                        $payload['tmdb_id'] = $ed['tmdb_id'];
+                    }
+                }
+                if (!empty($ed['imdb_id'])) $payload['imdb_id'] = $ed['imdb_id'];
+
+                $result = umdbPost('/releases', $payload);
+
+                if (!$result) {
+                    $err  = $GLOBALS['_umdb_last_error'] ?? 'unknown error';
+                    $detail = $ed['movie_title'] . ' (' . $ed['movie_year'] . ') — ' . $ed['name'];
+
+                    // If movie doesn't exist in UMDB yet, auto-create it then retry
+                    if (strpos($err, '422') !== false && strpos($err, 'Could not resolve movie') !== false) {
+                        $moviePayload = [
+                            'title'    => $ed['movie_title'],
+                            'year'     => intval($ed['movie_year'] ?? 0),
+                            'overview' => $ed['overview'] ?? '',
+                            'runtime'  => intval($ed['runtime'] ?? 0),
+                            'director' => $ed['director'] ?? '',
+                            'genre'    => $ed['genre'] ?? '',
+                            'rating'   => floatval($ed['movie_rating'] ?? 0),
+                        ];
+                        if (!empty($ed['imdb_id'])) $moviePayload['imdb_id'] = $ed['imdb_id'];
+                        if (!empty($ed['tmdb_id']) && !isUmdbId($ed['tmdb_id'])) $moviePayload['tmdb_id'] = $ed['tmdb_id'];
+
+                        $movieResult = umdbPost('/movies', $moviePayload);
+                        if ($movieResult && !empty($movieResult['id'])) {
+                            $payload['movie_id'] = $movieResult['id'];
+                            unset($payload['tmdb_id']);
+                            $result = umdbPost('/releases', $payload);
+                        }
+                    }
+
+                    if (!$result) {
+                        $stats['editions_failed']++;
+                        $stats['errors'][] = 'Edition "' . $detail . '": ' . ($GLOBALS['_umdb_last_error'] ?? $err);
+                        continue;
+                    }
+                }
+
+                // Store the returned umdb_release_id
+                $umdbReleaseId = $result['id'] ?? $result['release_id'] ?? null;
+                if ($umdbReleaseId) {
+                    $db->prepare("UPDATE media_editions SET umdb_release_id = ? WHERE id = ?")
+                       ->execute([$umdbReleaseId, $ed['edition_id']]);
+                }
+                $stats['editions_synced']++;
+            }
+
+            // ---- 2. Sync box sets (containers) ----------------------------
+            $stmtContainers = $db->prepare("
+                SELECT * FROM containers
+                WHERE user_id = ?
+                  AND (umdb_boxset_id IS NULL OR umdb_boxset_id = '')
+                ORDER BY id ASC
+            ");
+            $stmtContainers->execute([$userId]);
+            $pendingContainers = $stmtContainers->fetchAll();
+
+            foreach ($pendingContainers as $cont) {
+                // Get movies in this box set
+                $stmtItems = $db->prepare("
+                    SELECT cc.disc_number, cc.disc_label, cc.is_present, cc.position_in_container,
+                           m.tmdb_id, m.title, m.year, m.imdb_id,
+                           me.umdb_release_id, me.id as edition_id,
+                           c.format as copy_format
+                    FROM container_contents cc
+                    JOIN copies c ON cc.copy_id = c.id
+                    JOIN movies m ON c.movie_id = m.id
+                    LEFT JOIN media_editions me ON c.edition_id = me.id
+                    WHERE cc.container_id = ?
+                    ORDER BY cc.position_in_container ASC, cc.disc_number ASC
+                ");
+                $stmtItems->execute([$cont['id']]);
+                $contItems = $stmtItems->fetchAll();
+
+                $copyFmts       = array_column($contItems, 'copy_format');
+                $physicalFmt    = resolveBoxSetPhysicalFormat($cont['format'], $copyFmts);
+
+                $bsPayload = [
+                    'name'             => $cont['name'],
+                    'format'           => $physicalFmt,
+                    'box_set_type'     => $cont['format'] ?: null,
+                    'edition'          => $cont['edition'] ?: null,
+                    'region'           => $cont['region'] ?: null,
+                    'package_type'     => $cont['package_type'] ?: null,
+                    'notes'            => $cont['notes'] ?: null,
+                    'has_slipcover'    => (bool)$cont['has_slipcover'],
+                    'has_booklet'      => (bool)$cont['has_booklet'],
+                    'has_bonus_disc'   => (bool)$cont['has_bonus_disc'],
+                    'bonus_disc_count' => intval($cont['bonus_disc_count']),
+                    'has_digital_copy' => (bool)$cont['has_digital_copy'],
+                    'has_3d'           => (bool)$cont['has_3d'],
+                    'spine_image'      => $cont['spine_image_url'] ?: null,
+                    'movies'           => array_map(function($item) {
+                        $movie = [
+                            'title'       => $item['title'],
+                            'year'        => intval($item['year']),
+                            'disc_number' => intval($item['disc_number']),
+                            'disc_label'  => $item['disc_label'] ?: null,
+                            'is_present'  => (bool)$item['is_present'],
+                            'position'    => intval($item['position_in_container']),
+                        ];
+                        if (!empty($item['umdb_release_id'])) $movie['umdb_release_id'] = $item['umdb_release_id'];
+                        if (!empty($item['tmdb_id']) && !isUmdbId($item['tmdb_id'])) $movie['tmdb_id'] = $item['tmdb_id'];
+                        if (!empty($item['imdb_id'])) $movie['imdb_id'] = $item['imdb_id'];
+                        return $movie;
+                    }, $contItems),
+                ];
+
+                $bsResult = umdbPost('/box-sets', $bsPayload);
+                if (!$bsResult) {
+                    $stats['boxsets_failed']++;
+                    $stats['errors'][] = 'Box set "' . $cont['name'] . '": ' . ($GLOBALS['_umdb_last_error'] ?? 'no response');
+                    continue;
+                }
+
+                $bsData       = $bsResult['box_set'] ?? $bsResult;
+                $umdbBsId     = $bsData['id'] ?? null;
+                $umdbCoverUrl = $bsData['cover_image'] ?? $bsData['cover_url'] ?? $bsData['spine_image'] ?? null;
+                $umdbRelId    = $bsData['release_id'] ?? null;
+
+                if (!empty($umdbBsId)) {
+                    $db->prepare("UPDATE containers SET umdb_boxset_id=?, umdb_cover_url=?, umdb_release_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")
+                       ->execute([$umdbBsId, $umdbCoverUrl, $umdbRelId, $cont['id']]);
+
+                    // Auto-create physical releases on UMDB for each movie in this box set
+                    umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
+                }
+                $stats['boxsets_synced']++;
+            }
+
+            // Count already-synced items for the report
+            $stmtSkippedEd = $db->prepare("
+                SELECT COUNT(*) FROM copies cp
+                JOIN media_editions me ON me.id = cp.edition_id
+                WHERE cp.user_id = ? AND me.umdb_release_id IS NOT NULL AND me.umdb_release_id != ''
+            ");
+            $stmtSkippedEd->execute([$userId]);
+            $stats['editions_skipped'] = intval($stmtSkippedEd->fetchColumn());
+
+            $stmtSkippedBs = $db->prepare("
+                SELECT COUNT(*) FROM containers
+                WHERE user_id = ? AND umdb_boxset_id IS NOT NULL AND umdb_boxset_id != ''
+            ");
+            $stmtSkippedBs->execute([$userId]);
+            $stats['boxsets_skipped'] = intval($stmtSkippedBs->fetchColumn());
+
+            logAction($db, $userId, 'collection_synced_to_umdb', null, null, $stats);
+            jsonResponse(true, $stats);
             break;
 
         case 'mark_disc_status':

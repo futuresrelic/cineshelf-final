@@ -1190,6 +1190,23 @@
                     </div>
                 </div>
 
+                <div class="settings-group" id="umdbSyncSection">
+                    <h3>UMDB Sync</h3>
+
+                    <div class="setting-item setting-item-stacked">
+                        <label>Sync Collection to UMDB</label>
+                        <small style="color:rgba(255,255,255,0.55); display:block; margin-bottom:0.6rem; line-height:1.4;">
+                            Pushes all unsynced physical editions and box sets to UMDB.
+                            Already-synced items are skipped. Safe to run multiple times.
+                        </small>
+                        <button class="btn btn-umdb" id="syncCollectionBtn" onclick="App.syncCollectionToUmdb()">
+                            Sync Collection to UMDB
+                        </button>
+                        <div id="umdbSyncProgress" style="display:none; margin-top:0.75rem; padding:0.75rem; background:rgba(255,255,255,0.05); border-radius:6px; font-size:0.85rem; line-height:1.6;">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="settings-group" id="pwaInstallSection">
                     <h3>📲 Install App</h3>
 

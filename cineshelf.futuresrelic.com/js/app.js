@@ -3046,6 +3046,57 @@ async function deleteCopy(copyId, movieId) {
     }
 
     // ========================================
+    // UMDB COLLECTION SYNC
+    // ========================================
+
+    async function syncCollectionToUmdb() {
+        const btn      = document.getElementById('syncCollectionBtn');
+        const progress = document.getElementById('umdbSyncProgress');
+        if (!btn || !progress) return;
+
+        if (!confirm('Sync your CineShelf collection to UMDB?\n\nAlready-synced items will be skipped. This is safe to run multiple times.')) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Syncing…';
+        progress.style.display = 'block';
+        progress.innerHTML = '<em>Contacting UMDB…</em>';
+
+        try {
+            const result = await apiCall('sync_collection_to_umdb', {});
+
+            const lines = [
+                `Editions synced: ${result.editions_synced}`,
+                `Editions already synced (skipped): ${result.editions_skipped}`,
+                `Editions failed: ${result.editions_failed}`,
+                `Box sets synced: ${result.boxsets_synced}`,
+                `Box sets already synced (skipped): ${result.boxsets_skipped}`,
+                `Box sets failed: ${result.boxsets_failed}`,
+            ];
+            if (result.errors && result.errors.length > 0) {
+                lines.push('');
+                lines.push('Errors:');
+                result.errors.forEach(e => lines.push('• ' + e));
+            }
+
+            progress.innerHTML = lines.map(l => l === '' ? '<br>' : `${l}<br>`).join('');
+
+            const totalSynced = (result.editions_synced || 0) + (result.boxsets_synced || 0);
+            const totalFailed = (result.editions_failed || 0) + (result.boxsets_failed || 0);
+            if (totalFailed === 0) {
+                showToast(`Sync complete: ${totalSynced} item(s) pushed to UMDB`, 'success');
+            } else {
+                showToast(`Sync done with ${totalFailed} error(s) — see details below`, 'warning');
+            }
+        } catch (error) {
+            progress.innerHTML = `<span style="color:#f87171;">Error: ${error.message || 'Sync failed'}</span>`;
+            showToast(error.message || 'Sync failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sync Collection to UMDB';
+        }
+    }
+
+    // ========================================
     // MOVIE DETAILS
     // ========================================
 
@@ -11597,6 +11648,7 @@ return {
     syncBoxSetFromUmdb,
     backfillBoxSetReleases,
     unlinkBoxSetFromUmdb,
+    syncCollectionToUmdb,
     linkEditionToUmdb,
     unlinkEditionFromUmdb,
     editDisplayTitle,
