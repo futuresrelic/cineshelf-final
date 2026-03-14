@@ -127,8 +127,8 @@ function umdbFetch($path) {
  * @param array  $body  Request body (will be JSON-encoded)
  * @return array|false  Decoded JSON response, or false on failure
  */
-function umdbPost($path, $body) {
-    return umdbRequest('POST', $path, $body);
+function umdbPost($path, $body, $timeout = 15) {
+    return umdbRequest('POST', $path, $body, $timeout);
 }
 
 /**
@@ -138,8 +138,8 @@ function umdbPost($path, $body) {
  * @param array  $body  Request body (will be JSON-encoded)
  * @return array|false  Decoded JSON response, or false on failure
  */
-function umdbPut($path, $body) {
-    return umdbRequest('PUT', $path, $body);
+function umdbPut($path, $body, $timeout = 15) {
+    return umdbRequest('PUT', $path, $body, $timeout);
 }
 
 /**
@@ -150,7 +150,7 @@ function umdbPut($path, $body) {
  * @param array  $body    Request body (will be JSON-encoded)
  * @return array|false    Decoded JSON response, or false on failure
  */
-function umdbRequest($method, $path, $body) {
+function umdbRequest($method, $path, $body, $timeout = 15) {
     $url = UMDB_BASE_URL . $path;
     $json = json_encode($body);
 
@@ -161,7 +161,7 @@ function umdbRequest($method, $path, $body) {
 
     $opts = ['http' => [
         'method'  => $method,
-        'timeout' => 15,
+        'timeout' => $timeout,
         'header'  => $headerStr,
         'content' => $json,
         'ignore_errors' => true,   // Return body even on 4xx/5xx so we can read error details
@@ -242,7 +242,7 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
     $result = umdbPost('/box-sets/' . urlencode($umdbBoxsetId) . '/upload-image', [
         'imageType' => 'cover',
         'dataUrl'   => $dataUrl,
-    ]);
+    ], 60); // 60-second timeout — base64 image payloads can be several MB
 
     if ($result === false) {
         file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload failed: " . ($GLOBALS['_umdb_last_error'] ?? 'no response') . "\n");
@@ -260,6 +260,30 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
         return true; // upload worked, but caller cannot update the stored URL
     }
     return $newUrl;
+}
+
+/**
+ * Build the publicly-accessible URL for a locally-stored cover image.
+ *
+ * CineShelf cover images are stored at /data/uploads/covers/ which is served
+ * directly from the web root (publicly accessible). When we push a box set to
+ * UMDB we can pass this public URL as spine_image so UMDB can display it.
+ *
+ * @param string|null $localPath  Path like "/data/uploads/covers/cover_4_xyz.jpg"
+ * @return string|null  Full public URL, the original URL if already absolute, or null
+ */
+function buildPublicCoverUrl(?string $localPath): ?string {
+    if (empty($localPath)) return null;
+    // Already an absolute public URL — return as-is
+    if (str_starts_with($localPath, 'http://') || str_starts_with($localPath, 'https://')) {
+        return $localPath;
+    }
+    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+    if (empty($host)) return null;
+    // Railway and most reverse-proxies forward the original scheme here
+    $scheme = $_SERVER['HTTP_X_FORWARDED_PROTO']
+           ?? ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+    return rtrim($scheme . '://' . $host, '/') . '/' . ltrim($localPath, '/');
 }
 
 /**
@@ -4195,9 +4219,9 @@ case 'resolve_movie':
                 'bonus_disc_count'=> intval($container['bonus_disc_count']),
                 'has_digital_copy'=> (bool)$container['has_digital_copy'],
                 'has_3d'          => (bool)$container['has_3d'],
-                // spine_image is a local path UMDB cannot reach — the file is
-                // uploaded separately via umdbUploadBoxSetCover() after creation.
-                'spine_image'     => null,
+                // spine_image: send the public URL so UMDB can display/store the cover immediately.
+                // umdbUploadBoxSetCover() is still called below as a fallback for the binary upload endpoint.
+                'spine_image'     => buildPublicCoverUrl($container['spine_image_url'] ?? null),
                 'movies'          => array_map(function($item) {
                     $movie = [
                         'title'        => $item['title'],
@@ -4679,6 +4703,27 @@ case 'resolve_movie':
             $stats['editions_skipped'] = count($stats['editions_skipped_list']);
 
             // ---- 2. Sync box sets (containers) ----------------------------
+            // Collect already-synced boxes BEFORE the sync loop so newly-pushed
+            // boxes are not double-counted as "skipped" in the report.
+            $stmtAlreadyBs = $db->prepare("
+                SELECT name, umdb_boxset_id, id FROM containers
+                WHERE user_id = ? AND umdb_boxset_id IS NOT NULL AND umdb_boxset_id != ''
+                ORDER BY name ASC
+            ");
+            $stmtAlreadyBs->execute([$userId]);
+            foreach ($stmtAlreadyBs->fetchAll() as $bsRow) {
+                $filmCountRow = $db->prepare("SELECT COUNT(*) FROM container_contents WHERE container_id = ?");
+                $filmCountRow->execute([$bsRow['id']]);
+                $filmCount = intval($filmCountRow->fetchColumn());
+                $stats['boxsets_skipped_list'][] = [
+                    'name'       => $bsRow['name'],
+                    'umdb_id'    => $bsRow['umdb_boxset_id'],
+                    'reason'     => 'already_synced',
+                    'film_count' => $filmCount,
+                ];
+            }
+            $stats['boxsets_skipped'] = count($stats['boxsets_skipped_list']);
+
             $stmtContainers = $db->prepare("
                 SELECT * FROM containers
                 WHERE user_id = ?
@@ -4721,9 +4766,9 @@ case 'resolve_movie':
                     'bonus_disc_count' => intval($cont['bonus_disc_count']),
                     'has_digital_copy' => (bool)$cont['has_digital_copy'],
                     'has_3d'           => (bool)$cont['has_3d'],
-                    // spine_image is a local path UMDB cannot reach — uploaded
-                    // separately via umdbUploadBoxSetCover() after creation.
-                    'spine_image'      => null,
+                    // spine_image: send the public URL so UMDB can display/store the cover immediately.
+                    // umdbUploadBoxSetCover() is still called below as a fallback for the binary upload endpoint.
+                    'spine_image'      => buildPublicCoverUrl($cont['spine_image_url'] ?? null),
                     'movies'           => array_map(function($item) {
                         $movie = [
                             'title'       => $item['title'],
@@ -4767,11 +4812,15 @@ case 'resolve_movie':
 
                     // Upload the local cover photo to UMDB so the image file actually exists there.
                     // umdbUploadBoxSetCover() skips http/https URLs that are already hosted externally.
+                    $uploadedCoverUrl = null;
+                    $coverError       = null;
                     if (!empty($cont['spine_image_url'])) {
                         file_put_contents('php://stderr', "[sync_collection_to_umdb] Attempting cover upload for boxset {$umdbBsId}: spine_image_url={$cont['spine_image_url']} spine_image_type=" . ($cont['spine_image_type'] ?? 'null') . "\n");
                         $uploadedCoverUrl = umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
                         if ($uploadedCoverUrl === false) {
-                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload FAILED for boxset {$umdbBsId} ({$cont['name']})\n");
+                            $coverError = $GLOBALS['_umdb_last_error'] ?? 'Upload failed';
+                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload FAILED for boxset {$umdbBsId} ({$cont['name']}): $coverError\n");
+                            $stats['errors'][] = 'Cover upload failed for box set "' . $cont['name'] . '": ' . $coverError;
                         } elseif (is_string($uploadedCoverUrl)) {
                             file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload succeeded for boxset {$umdbBsId}, new URL: $uploadedCoverUrl\n");
                             $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
@@ -4784,34 +4833,19 @@ case 'resolve_movie':
                     umdbPost('/box-sets/' . urlencode($umdbBsId) . '/create-releases', []);
                 }
                 $stats['boxsets_synced']++;
+                // Determine the final cover URL (public URL sent in payload, or uploaded URL)
+                $finalCoverUrl = (isset($uploadedCoverUrl) && is_string($uploadedCoverUrl))
+                    ? $uploadedCoverUrl
+                    : ($umdbCoverUrl ?? buildPublicCoverUrl($cont['spine_image_url'] ?? null));
                 $stats['boxsets_synced_list'][] = [
-                    'name'    => $cont['name'],
-                    'films'   => $movieTitles,
-                    'umdb_id' => $umdbBsId,
-                    'film_count' => count($contItems),
+                    'name'           => $cont['name'],
+                    'films'          => $movieTitles,
+                    'umdb_id'        => $umdbBsId,
+                    'film_count'     => count($contItems),
+                    'cover_url'      => $finalCoverUrl,
+                    'cover_error'    => $coverError ?? null,
                 ];
             }
-
-            // Collect already-synced box sets for the audit list
-            $stmtAlreadyBs = $db->prepare("
-                SELECT name, umdb_boxset_id, id FROM containers
-                WHERE user_id = ? AND umdb_boxset_id IS NOT NULL AND umdb_boxset_id != ''
-                ORDER BY name ASC
-            ");
-            $stmtAlreadyBs->execute([$userId]);
-            foreach ($stmtAlreadyBs->fetchAll() as $bsRow) {
-                // Get film count for this box set
-                $filmCountRow = $db->prepare("SELECT COUNT(*) FROM container_contents WHERE container_id = ?");
-                $filmCountRow->execute([$bsRow['id']]);
-                $filmCount = intval($filmCountRow->fetchColumn());
-                $stats['boxsets_skipped_list'][] = [
-                    'name'       => $bsRow['name'],
-                    'umdb_id'    => $bsRow['umdb_boxset_id'],
-                    'reason'     => 'already_synced',
-                    'film_count' => $filmCount,
-                ];
-            }
-            $stats['boxsets_skipped'] = count($stats['boxsets_skipped_list']);
 
             // ---- 3. Sync individual films not covered by any box set -------
             // These are movies in the user's collection (via copies) that:

@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.30';
+const APP_VERSION = '2.8.31';
 
 async function checkVersionGuard() {
     try {
@@ -3105,7 +3105,7 @@ async function deleteCopy(copyId, movieId) {
             console.group(`%c📦 Phase 2: Box Sets  (synced ${result.boxsets_synced} | skipped ${result.boxsets_skipped} | failed ${result.boxsets_failed})`, 'color:#34d399');
             if (result.boxsets_synced_list?.length) {
                 console.group('✅ Newly synced box sets:');
-                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}`));
+                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}${b.cover_url ? '  📷 cover: ' + b.cover_url : (b.cover_error ? '  ❌ cover: ' + b.cover_error : '  (no cover)')}`));
                 console.groupEnd();
             }
             if (result.boxsets_skipped_list?.length) {
@@ -3218,7 +3218,7 @@ async function deleteCopy(copyId, movieId) {
             console.group(`%c📦 Phase 2: Box Sets  (synced ${result.boxsets_synced} | skipped ${result.boxsets_skipped} | failed ${result.boxsets_failed})`, 'color:#34d399');
             if (result.boxsets_synced_list?.length) {
                 console.group('✅ Synced box sets:');
-                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}`));
+                result.boxsets_synced_list.forEach(b => console.log(`  "${b.name}"  (${b.film_count} films: ${b.films})  →  ${b.umdb_id}${b.cover_url ? '  📷 cover: ' + b.cover_url : (b.cover_error ? '  ❌ cover: ' + b.cover_error : '  (no cover)')}`));
                 console.groupEnd();
             }
             if (result.boxsets_failed_list?.length) {
