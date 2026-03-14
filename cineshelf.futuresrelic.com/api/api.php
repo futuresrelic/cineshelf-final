@@ -251,8 +251,15 @@ function umdbUploadBoxSetCover($umdbBoxsetId, $localImageUrl) {
 
     file_put_contents('php://stderr', "[umdbUploadBoxSetCover] Upload succeeded. Response: " . json_encode($result) . "\n");
 
-    // Return the hosted cover URL from the UMDB response so callers can update the DB
-    return $result['cover_image'] ?? $result['cover_url'] ?? $result['url'] ?? $result['image_url'] ?? true;
+    // Return the hosted cover URL from the UMDB response so callers can update the DB.
+    // If UMDB doesn't return a recognisable URL key, return true so callers know the
+    // upload worked even though we can't update umdb_cover_url.
+    $newUrl = $result['cover_image'] ?? $result['cover_url'] ?? $result['url'] ?? $result['image_url'] ?? null;
+    if ($newUrl === null) {
+        file_put_contents('php://stderr', "[umdbUploadBoxSetCover] WARNING: upload succeeded but response contained no URL key. Keys: " . implode(', ', array_keys($result)) . "\n");
+        return true; // upload worked, but caller cannot update the stored URL
+    }
+    return $newUrl;
 }
 
 /**
@@ -4188,7 +4195,9 @@ case 'resolve_movie':
                 'bonus_disc_count'=> intval($container['bonus_disc_count']),
                 'has_digital_copy'=> (bool)$container['has_digital_copy'],
                 'has_3d'          => (bool)$container['has_3d'],
-                'spine_image'     => $container['spine_image_url'] ?: null,
+                // spine_image is a local path UMDB cannot reach — the file is
+                // uploaded separately via umdbUploadBoxSetCover() after creation.
+                'spine_image'     => null,
                 'movies'          => array_map(function($item) {
                     $movie = [
                         'title'        => $item['title'],
@@ -4254,14 +4263,21 @@ case 'resolve_movie':
             }
             file_put_contents('php://stderr', "[push_boxset_to_umdb] Wrote umdb_release_id to $editionsUpdated edition(s)\n");
 
-            // Upload the local cover photo to UMDB so the image file actually exists there
-            if (!empty($container['spine_image_url']) && $container['spine_image_type'] === 'custom') {
+            // Upload the local cover photo to UMDB so the image file actually exists there.
+            // We check for any non-empty spine_image_url; umdbUploadBoxSetCover() itself
+            // skips http/https URLs that are already hosted externally.
+            if (!empty($container['spine_image_url'])) {
+                file_put_contents('php://stderr', "[push_boxset_to_umdb] Attempting cover upload: spine_image_url={$container['spine_image_url']} spine_image_type=" . ($container['spine_image_type'] ?? 'null') . "\n");
                 $coverUploaded = umdbUploadBoxSetCover($umdbBoxsetId, $container['spine_image_url']);
-                file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload: " . ($coverUploaded ? 'success' : 'skipped/failed') . "\n");
-                if (is_string($coverUploaded)) {
+                if ($coverUploaded === false) {
+                    file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload FAILED\n");
+                } elseif (is_string($coverUploaded)) {
+                    file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload succeeded, new URL: $coverUploaded\n");
                     $umdbCoverUrl = $coverUploaded;
                     $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                        ->execute([$coverUploaded, $containerId]);
+                } else {
+                    file_put_contents('php://stderr', "[push_boxset_to_umdb] Cover image upload succeeded but UMDB returned no URL (response was not a string)\n");
                 }
             }
 
@@ -4705,7 +4721,9 @@ case 'resolve_movie':
                     'bonus_disc_count' => intval($cont['bonus_disc_count']),
                     'has_digital_copy' => (bool)$cont['has_digital_copy'],
                     'has_3d'           => (bool)$cont['has_3d'],
-                    'spine_image'      => $cont['spine_image_url'] ?: null,
+                    // spine_image is a local path UMDB cannot reach — uploaded
+                    // separately via umdbUploadBoxSetCover() after creation.
+                    'spine_image'      => null,
                     'movies'           => array_map(function($item) {
                         $movie = [
                             'title'       => $item['title'],
@@ -4747,12 +4765,19 @@ case 'resolve_movie':
                     $db->prepare("UPDATE containers SET umdb_boxset_id=?, umdb_cover_url=?, umdb_release_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")
                        ->execute([$umdbBsId, $umdbCoverUrl, $umdbRelId, $cont['id']]);
 
-                    // Upload the local cover photo to UMDB so the image file actually exists there
-                    if (!empty($cont['spine_image_url']) && ($cont['spine_image_type'] ?? '') === 'custom') {
+                    // Upload the local cover photo to UMDB so the image file actually exists there.
+                    // umdbUploadBoxSetCover() skips http/https URLs that are already hosted externally.
+                    if (!empty($cont['spine_image_url'])) {
+                        file_put_contents('php://stderr', "[sync_collection_to_umdb] Attempting cover upload for boxset {$umdbBsId}: spine_image_url={$cont['spine_image_url']} spine_image_type=" . ($cont['spine_image_type'] ?? 'null') . "\n");
                         $uploadedCoverUrl = umdbUploadBoxSetCover($umdbBsId, $cont['spine_image_url']);
-                        if (is_string($uploadedCoverUrl)) {
+                        if ($uploadedCoverUrl === false) {
+                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload FAILED for boxset {$umdbBsId} ({$cont['name']})\n");
+                        } elseif (is_string($uploadedCoverUrl)) {
+                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload succeeded for boxset {$umdbBsId}, new URL: $uploadedCoverUrl\n");
                             $db->prepare("UPDATE containers SET umdb_cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                                ->execute([$uploadedCoverUrl, $cont['id']]);
+                        } else {
+                            file_put_contents('php://stderr', "[sync_collection_to_umdb] Cover upload succeeded for boxset {$umdbBsId} but UMDB returned no URL\n");
                         }
                     }
 
