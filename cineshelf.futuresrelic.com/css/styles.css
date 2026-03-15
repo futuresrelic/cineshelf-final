@@ -1925,10 +1925,14 @@ body.modal-open {
     z-index: 2200;
 }
 
-/* Add-family-member modal sits on top of everything else */
-#addFamilyMemberModal,
+/* Family manager modal */
 #familyManagerModal {
     z-index: 2300;
+}
+
+/* Add-family-member modal sits on top of family manager */
+#addFamilyMemberModal {
+    z-index: 2400;
 }
 
 /* Modal stack: wizard sits below cloud picker so picker appears on top */
