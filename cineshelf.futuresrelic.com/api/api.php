@@ -9019,6 +9019,25 @@ Return ONLY the JSON object, no markdown.'
                 if ($curBlk !== null) { $blocks[] = $curBlk; }
             }
 
+            // Merge non-contiguous blocks that share the same shelf + group_type + group_value.
+            // This can happen when container items (bucket_label='Box Sets') are interleaved
+            // with regular remainder items on the same shelf, producing multiple '::'/'::Box Sets'
+            // runs that would otherwise create duplicate sections in materialize_wizard_shelves.
+            $mergedBlocks = [];
+            $blockIndex   = []; // (shelf_id . '::' . group_type . '::' . group_value) => index in $mergedBlocks
+            foreach ($blocks as $blk) {
+                $mergeKey = $blk['shelf_id'] . '::' . ($blk['group_type'] ?? '') . '::' . ($blk['group_value'] ?? '');
+                if (isset($blockIndex[$mergeKey])) {
+                    $idx = $blockIndex[$mergeKey];
+                    $mergedBlocks[$idx]['count'] += $blk['count'];
+                    $mergedBlocks[$idx]['items']  = array_merge($mergedBlocks[$idx]['items'], $blk['items']);
+                } else {
+                    $blockIndex[$mergeKey] = count($mergedBlocks);
+                    $mergedBlocks[] = $blk;
+                }
+            }
+            $blocks = array_values($mergedBlocks);
+
             jsonResponse(true, [
                 'sections'         => array_values(array_filter($orderedSections, fn($s) => !empty($s['items']))),
                 'placement'        => $recipePlacementOut,
@@ -9506,6 +9525,10 @@ Return ONLY the JSON object, no markdown.'
 
                 // Cache section shelves by [row_shelf_id][name] => section_shelf_id
                 $sectionCache = [];
+                // Track next position_in_shelf for each section (section_shelf_id => int)
+                // so that when multiple blocks write to the same section the positions
+                // continue rather than restarting at 0.
+                $sectionNextPos = [];
 
                 $insSingle = $db->prepare("
                     INSERT INTO shelf_assignments (shelf_id, copy_id, container_id, is_container, position_in_shelf)
@@ -9527,9 +9550,15 @@ Return ONLY the JSON object, no markdown.'
                     $gVal  = $blk['group_value'] ?? null;
 
                     // Build section shelf name
-                    if ($gType && $gVal && $gType !== 'remainder') {
+                    // Use a specific name for each group_type+group_value combo so that
+                    // multiple blocks that would otherwise both resolve to "Other / A-Z"
+                    // (e.g. remainder items + container items + director items with missing
+                    // metadata) each get their own section and don't overwrite each other.
+                    if ($gType && $gType !== 'remainder') {
                         $typeLabel = $typeLabels[$gType] ?? ucfirst($gType);
-                        $secName   = $typeLabel . ': ' . $gVal;
+                        $secName   = $typeLabel . ($gVal ? ': ' . $gVal : ' (Other)');
+                    } elseif ($gVal) {
+                        $secName = $gVal; // e.g. "Box Sets"
                     } else {
                         $secName = 'Other / A-Z';
                     }
@@ -9549,8 +9578,14 @@ Return ONLY the JSON object, no markdown.'
                     if (isset($sectionCache[$rowShelfId][$secName])) {
                         $secShelfId = $sectionCache[$rowShelfId][$secName];
                         $secReused++;
-                        // Clear existing assignments so re-run is idempotent
-                        $db->prepare("DELETE FROM shelf_assignments WHERE shelf_id = ?")->execute([$secShelfId]);
+                        // NOTE: do NOT delete existing assignments here.
+                        // apply_shelf_layout (which always runs before materialize) already
+                        // cleared all shelf_assignments for all user shelves.  Deleting here
+                        // is a no-op on the first touch of a section this run, but on the
+                        // SECOND touch (when two blocks on the same row shelf share the same
+                        // resolved section name, e.g. both map to "Other / A-Z") it would
+                        // destroy items just assigned by the previous block — the root cause
+                        // of the "520 claimed but only 157 shown" bug.
                     } else {
                         // Create new section shelf
                         $db->prepare(
@@ -9562,8 +9597,10 @@ Return ONLY the JSON object, no markdown.'
                         $secCreated++;
                     }
 
-                    // Assign each item in this block to the section shelf
-                    $posInSec = 0;
+                    // Assign each item in this block to the section shelf.
+                    // Continue from wherever this section left off (supports multiple blocks
+                    // writing to the same section without position resets).
+                    $posInSec = $sectionNextPos[$secShelfId] ?? 0;
                     foreach (($blk['items'] ?? []) as $item) {
                         $copyId = !empty($item['copy_id'])      ? intval($item['copy_id'])      : null;
                         $contId = !empty($item['container_id']) ? intval($item['container_id']) : null;
@@ -9589,6 +9626,9 @@ Return ONLY the JSON object, no markdown.'
                             $unassignedCount++;
                         }
                     }
+                    // Save the running position so a subsequent block hitting the same
+                    // section continues with correct ordering.
+                    $sectionNextPos[$secShelfId] = $posInSec;
                 }
 
                 $db->commit();
