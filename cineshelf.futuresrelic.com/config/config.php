@@ -35,6 +35,16 @@ if (!$umdbKey && file_exists(__DIR__ . '/secrets.php')) {
 define('UMDB_API_KEY', $umdbKey ?: '');
 define('UMDB_BASE_URL', 'https://umdb-production.up.railway.app/api/v1');
 
+// OMDB API Configuration (OMDb / IMDb-sourced data)
+// Set OMDB_API_KEY in Railway env vars or config/secrets.php — free key at omdbapi.com
+$omdbKey = getenv('OMDB_API_KEY');
+if (!$omdbKey && file_exists(__DIR__ . '/secrets.php')) {
+    $secrets = isset($secrets) ? $secrets : (include __DIR__ . '/secrets.php');
+    $omdbKey = $secrets['OMDB_API_KEY'] ?? '';
+}
+define('OMDB_API_KEY', $omdbKey ?: '');
+define('OMDB_BASE_URL', 'https://www.omdbapi.com');
+
 // OpenAI API Configuration (for AI-powered article extraction)
 // Load from environment variable or local secrets file (not in version control)
 $openaiKey = getenv('OPENAI_API_KEY');

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.1] - 2026-03-15
+
+### Added
+- **Cover Scanner: Scan & Match** — new instant-match mode alongside the existing batch scan workflow:
+  - New **"Scan & Match"** button (green) in the Cover Scanner modal, next to the existing "Scan Cover" button
+  - After AI title recognition, the right panel slides into a tabbed match results view (no need to leave the scanner)
+  - **TMDB tab** — auto-searched results from The Movie Database
+  - **UMDB tab** — auto-searched results from the UMDB physical media database
+  - **IMDb tab** — manual IMDb ID lookup (`tt0000000` format) via the existing `find_by_imdb` API action
+  - **OMDB tab** — auto-searched results from OMDb API; shows graceful setup instructions if `OMDB_API_KEY` is not configured
+  - Clicking any result adds the movie directly to the collection via `add_copy` (bypasses the Resolve tab entirely)
+  - Re-search bar lets you edit the AI-identified title before searching
+  - "← Back to Batch" button returns to the standard batch list without losing queued titles
+  - OMDB results (which carry IMDb IDs) are automatically resolved to TMDB IDs before calling `add_copy`
+  - The original **"Scan Cover" → batch → "Process Batch" → Resolve tab** workflow is completely unchanged
+- **OMDB API integration** — new `search_omdb` backend action in `api/api.php`:
+  - Searches omdbapi.com by title, returns normalised results compatible with the match card renderer
+  - Requires `OMDB_API_KEY` env var or entry in `config/secrets.php` (free key at omdbapi.com)
+  - Returns empty array (not an error) when no matches; returns structured error when key not configured
+- **`OMDB_API_KEY` config** — added to `config/config.php` with env-var and secrets.php fallback
+
+---
+
 ## [2.9.0] - 2026-02-14
 
 ### Added

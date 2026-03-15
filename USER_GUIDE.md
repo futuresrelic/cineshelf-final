@@ -453,6 +453,54 @@ Open "Lord of the Rings Extended" box set
 - Works great for large box sets with many discs (e.g., James Bond Collection)
 - Ensure adequate lighting for clear camera captures
 
+### Cover Scanner: Scan & Match (NEW in v2.9.1)
+
+The **Scan & Match** mode lets you scan a cover and pick a database match **instantly** — no Resolve queue required. The original "Scan Cover → batch → Resolve" workflow still exists unchanged as a separate button.
+
+**How It Works:**
+
+1. **Open the Cover Scanner**
+   - From the Add tab (➕) — look for the "📷 Scan Covers" button
+   - The camera opens as usual
+
+2. **Tap "Scan & Match"** (the green button)
+   - AI (GPT-4o) reads the title from your cover
+   - The right panel switches to tabbed match results immediately
+
+3. **Browse Tabs to Find Your Match**
+   - **TMDB** — results from The Movie Database (auto-searched)
+   - **UMDB** — results from the physical-media UMDB database (auto-searched)
+   - **IMDb** — enter an IMDb ID manually (e.g. `tt0133093`) for a precise lookup
+   - **OMDB** — results from OMDb; requires free `OMDB_API_KEY` in settings (see Admin Guide)
+
+4. **Tap a Result**
+   - Confirm the match in the dialog
+   - Movie is added directly to your collection (format defaults to DVD — edit it afterwards)
+   - Scanner closes; collection refreshes automatically
+
+5. **Re-Search if Needed**
+   - Edit the pre-filled title in the search bar and tap 🔍 to search again
+
+**Comparison: Scan Cover vs Scan & Match**
+
+| | Scan Cover (batch) | Scan & Match |
+|---|---|---|
+| Scans multiple covers in one session | ✅ | ❌ (one at a time) |
+| Immediately adds to collection | ❌ (goes to Resolve) | ✅ |
+| Choose between TMDB / UMDB / IMDb / OMDB | ❌ | ✅ |
+| Best for | Cataloguing a large stack quickly | Adding a single title right now |
+
+**Example Workflow:**
+```
+Open Cover Scanner
+  → Point at Fight Club (1999) Blu-ray cover
+  → Tap "Scan & Match"
+  → AI identifies: "Fight Club"
+  → TMDB tab shows: Fight Club (1999) ⭐ 8.4
+  → Tap the result → Confirm
+  → ✅ Fight Club added to collection!
+```
+
 ### Example: Creating The Matrix Trilogy Box Set
 
 ```
@@ -1445,6 +1493,8 @@ Connect with other CineShelf users:
 | Bulk edit collection | Collection → 📊 Spreadsheet → Edit → Save All |
 | Scan box set cover | Add Box Set → Scan Cover → Review chips → Confirm |
 | Scan movies into box set | Box Set → Scan Covers → Scan each disc → Add All |
+| Scan & instantly add movie | Cover Scanner → Scan & Match → pick TMDB/UMDB/IMDb/OMDB result → confirm |
+| Scan to Resolve queue | Cover Scanner → Scan Cover → Process Batch → Resolve tab |
 | Export data | Settings → Export Collection → CSV/JSON |
 
 ### Movie Formats

@@ -4,6 +4,40 @@ AI-made changes only. Human changes are in `/CHANGELOG.md`.
 
 ---
 
+## 2026-03-15 (branch: claude/continue-cineshelf-setup-acofW)
+
+### feat(scanner): Scan & Match — instant multi-source database lookup from camera
+
+**Goal:** Add a "Scan & Match" button to the existing Cover Scanner modal that, after the AI identifies a title, immediately searches TMDB/UMDB/IMDb/OMDB and lets the user pick a match to add directly to their collection — without going through the Resolve tab. The original "Scan Cover → batch → Resolve" flow is completely unchanged.
+
+**User flow (new):**
+1. Open scanner → point camera at cover → tap **Scan & Match**
+2. AI (GPT-4o) identifies title → right panel switches to tabbed match results
+3. Tabs: **TMDB** | **UMDB** | **IMDb** (manual ID lookup) | **OMDB** (if key configured)
+4. Tap any result → confirm → movie added directly to collection via `add_copy`
+5. Scanner closes; collection reloads
+
+**User flow (existing, unchanged):**
+- **Scan Cover** → adds to batch list → **Process Batch** → dumps titles to Resolve tab → manual TMDB matching
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `js/cover-scanner.js` | Added `scanAndMatch()`, `showMatchPanel()`, `hideMatchPanel()`, `switchMatchTab()`, `setMatchLoading()`, `performMatchSearch()`, `reSearch()`, `renderMatchResults()`, `lookupImdb()`, `fetchOmdb()`, `selectMatch()`, `showToastIfAvailable()`. OMDB results with IMDb IDs are resolved via `find_by_imdb` before calling `add_copy`. Public API extended with new functions. |
+| `index.html` | Added "Scan & Match" button alongside existing "Scan Cover" in scanner controls. Added `#scanMatchPanel` — replaces right column with tabbed TMDB/UMDB/IMDb/OMDB results. Existing `#scanBatchPanel` untouched. |
+| `css/styles.css` | Added `.scan-match-tabs`, `.scan-match-tab`, `.scan-match-panel`, `.scan-match-results`, `.scan-match-card` and child classes. |
+| `config/config.php` | Added `OMDB_API_KEY` + `OMDB_BASE_URL` constants (reads from `OMDB_API_KEY` env var or `secrets.php`). |
+| `api/api.php` | Added `search_omdb` action — searches omdbapi.com, returns normalised results compatible with the match card renderer. Returns empty results (not error) when no matches. Returns structured error when key not configured. |
+
+**Design decisions:**
+- OMDB tab shows graceful "not configured" message + setup instructions when `OMDB_API_KEY` is absent.
+- IMDb tab is a manual lookup (enter `tt0000000`) using the existing `find_by_imdb` action.
+- `renderMatchResults()` handles both TMDB-style relative poster paths and absolute URLs (UMDB/OMDB).
+- OMDB results (IMDb IDs) are automatically resolved to TMDB IDs before calling `add_copy` — the backend `add_copy` action only accepts TMDB IDs.
+
+---
+
 ## 2026-03-01 (branch: claude/continue-cineshelf-setup-acofW)
 
 ### feat(wizard): auto-create master + row shelves + section shelves + assign items (v2.8.27)

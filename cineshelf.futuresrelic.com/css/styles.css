@@ -3199,6 +3199,104 @@ body.modal-open {
     width: 100%;
 }
 
+/* ── Scan & Match tab navigation ── */
+.scan-match-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 0.75rem;
+    overflow-x: auto;
+}
+
+.scan-match-tab {
+    padding: 0.45rem 0.9rem;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.scan-match-tab:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.scan-match-tab.active {
+    color: #fff;
+    border-bottom-color: #667eea;
+}
+
+.scan-match-results {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.scan-match-card {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    align-items: flex-start;
+}
+
+.scan-match-card:hover {
+    background: rgba(102, 126, 234, 0.18);
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+.scan-match-card img {
+    width: 44px;
+    height: 66px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.scan-match-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.scan-match-card-title {
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.15rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scan-match-card-meta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 0.25rem;
+}
+
+.scan-match-card-overview {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /**
  * CineShelf v3.0 - Groups Feature CSS
  * ADD THIS TO THE END OF YOUR styles.css FILE

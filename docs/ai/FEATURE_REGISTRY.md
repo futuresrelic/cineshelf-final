@@ -16,6 +16,8 @@ Tracks which features exist, their status, and where their code lives.
 | Groups / shared shelves | ✅ Live | `join-group.html` | `api.php` → `*_group` actions |
 | Google OAuth login | ✅ Live | `login.html` | `api/auth.php` |
 | AI cover scan (GPT-4o) | ✅ Live | `index.html` | `api.php` → `scan_boxset_cover_fields` |
+| Cover Scanner — Scan Cover (batch) | ✅ Live | `index.html` + `js/cover-scanner.js` | `api.php` → `scan_cover_image`, `add_unresolved` |
+| Cover Scanner — Scan & Match | ✅ Live | `index.html` + `js/cover-scanner.js` | `api.php` → `scan_cover_image`, `search_multi`, `search_omdb`, `find_by_imdb`, `add_copy` |
 | AI article extract | ✅ Live | `index.html` | `api.php` → `extract_article_with_ai` |
 | Bulk editor | ✅ Live | `index.html` | `api.php` → `list_all_copies_detailed`, `bulk_update_copies` |
 | TV show support | ✅ Live | `index.html` | `api.php` (TMDB multi-search) |
@@ -41,9 +43,11 @@ Tracks which features exist, their status, and where their code lives.
 | Google login | `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` | No — app requires auth |
 | AI Wizard names | `OPENAI_API_KEY` | Yes — falls back to deterministic grouping |
 | TMDB metadata backfill | `TMDB_API_KEY` | Yes — falls back to parsing existing text fields |
+| OMDB tab in Scan & Match | `OMDB_API_KEY` | Yes — tab shows setup instructions (free key at omdbapi.com) |
 
 ## Versions (from CHANGELOG.md)
 
+- v2.9.1 — Cover Scanner Scan & Match (multi-source: TMDB/UMDB/IMDb/OMDB tabs), OMDB API integration
 - v2.9.0 — Bulk editor, Box Set AI Cover Scanning, Camera Box Set Scanner
 - v2.8.0 — TV show support
 - v4.0.0 — Physical media editions system

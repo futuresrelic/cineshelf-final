@@ -1505,30 +1505,34 @@
                             </div>
                         </div>
                         
-                        <div class="scanner-controls">
+                        <div class="scanner-controls" style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center;">
                             <button id="captureCoverBtn" class="btn" onclick="CoverScanner.capture()">
                                 <span>📸</span>
                                 <span>Scan Cover</span>
                             </button>
+                            <button id="scanMatchBtn" class="btn" onclick="CoverScanner.scanAndMatch()" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <span>🔍</span>
+                                <span>Scan &amp; Match</span>
+                            </button>
                         </div>
                     </div>
-                    
-                    <!-- Batch List -->
-                    <div class="scanner-batch">
+
+                    <!-- Batch List (default view) -->
+                    <div id="scanBatchPanel" class="scanner-batch">
                         <div class="scanner-batch-header">
                             <h4>Scanned Titles <span id="scanBatchCount" class="badge" style="display: none;">0</span></h4>
-                            <button onclick="CoverScanner.clearBatch()" 
+                            <button onclick="CoverScanner.clearBatch()"
                                     style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
                                 Clear All
                             </button>
                         </div>
-                        
+
                         <div id="scanBatchList" class="scan-batch-list">
                             <p style="text-align: center; color: #666; padding: 2rem;">
                                 No titles scanned yet. Scan a cover to begin!
                             </p>
                         </div>
-                        
+
                         <div class="scanner-batch-actions">
                             <button id="processBatchBtn" class="btn" onclick="CoverScanner.processBatch()">
                                 <span>✅</span>
@@ -1537,6 +1541,55 @@
                             <p style="font-size: 0.85rem; color: #666; text-align: center; margin-top: 0.5rem;">
                                 Scanned titles will be added to the Resolve tab for TMDB matching
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Scan & Match results panel (shown after Scan & Match) -->
+                    <div id="scanMatchPanel" class="scanner-batch" style="display: none;">
+                        <div class="scanner-batch-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <h4 style="margin: 0;">Match Results</h4>
+                                <div id="matchScannedTitle" style="font-size: 0.8rem; color: rgba(255,255,255,0.55); margin-top: 0.2rem;"></div>
+                            </div>
+                            <button onclick="CoverScanner.hideMatchPanel()"
+                                    style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+                                ← Back to Batch
+                            </button>
+                        </div>
+
+                        <!-- Re-search bar -->
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <input id="matchSearchInput" type="text" placeholder="Edit title to search again…"
+                                   style="flex: 1; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: white; font-size: 0.9rem;"
+                                   onkeydown="if(event.key==='Enter') CoverScanner.reSearch()">
+                            <button onclick="CoverScanner.reSearch()" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.85rem;">🔍</button>
+                        </div>
+
+                        <!-- Source tabs -->
+                        <div class="scan-match-tabs">
+                            <button class="scan-match-tab active" id="smTab-tmdb" onclick="CoverScanner.switchMatchTab('tmdb')">TMDB</button>
+                            <button class="scan-match-tab" id="smTab-umdb" onclick="CoverScanner.switchMatchTab('umdb')">UMDB</button>
+                            <button class="scan-match-tab" id="smTab-imdb" onclick="CoverScanner.switchMatchTab('imdb')">IMDb</button>
+                            <button class="scan-match-tab" id="smTab-omdb" onclick="CoverScanner.switchMatchTab('omdb')">OMDB</button>
+                        </div>
+
+                        <!-- Tab panels -->
+                        <div id="smPanel-tmdb" class="scan-match-panel active scan-match-results"></div>
+                        <div id="smPanel-umdb" class="scan-match-panel scan-match-results" style="display:none;"></div>
+                        <div id="smPanel-imdb" class="scan-match-panel" style="display:none; padding: 0.75rem 0;">
+                            <p style="font-size: 0.85rem; color: rgba(255,255,255,0.65); margin-bottom: 0.75rem;">
+                                Enter an IMDb ID (e.g. <code style="background:rgba(255,255,255,0.1);padding:0.1em 0.4em;border-radius:4px;">tt0137523</code>) to look up a specific title:
+                            </p>
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                <input id="imdbLookupInput" type="text" placeholder="tt0000000"
+                                       style="flex: 1; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: white; font-size: 0.9rem;"
+                                       onkeydown="if(event.key==='Enter') CoverScanner.lookupImdb()">
+                                <button onclick="CoverScanner.lookupImdb()" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.85rem;">Look up</button>
+                            </div>
+                            <div id="smImdbResults" class="scan-match-results"></div>
+                        </div>
+                        <div id="smPanel-omdb" class="scan-match-panel" style="display:none; padding: 0.75rem 0;">
+                            <div id="smOmdbResults" class="scan-match-results"></div>
                         </div>
                     </div>
                 </div>

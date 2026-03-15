@@ -13,7 +13,7 @@ CineShelf is a personal physical-media collection manager (Blu-ray, DVD, 4K, etc
 ├── cineshelf.futuresrelic.com/ ← all app code lives here
 │   ├── api/api.php             ← SINGLE API endpoint (~271KB), action-based routing
 │   ├── api/auth.php            ← Google OAuth handler
-│   ├── config/config.php       ← DB path, TMDB key, OpenAI key (reads env vars)
+│   ├── config/config.php       ← DB path, TMDB key, OpenAI key, OMDB key (reads env vars)
 │   ├── config/oauth-config.php ← Google OAuth config (reads env vars)
 │   ├── config/secrets.php.example
 │   ├── js/                     ← frontend JS (vanilla)

@@ -171,6 +171,9 @@ GOOGLE_REDIRECT_URI=https://cineshelf-final-production.up.railway.app/api/auth.p
 # OpenAI (required for AI cover scanner)
 OPENAI_API_KEY=sk-proj-[your_key_here]
 
+# OMDb API (optional - enables OMDB tab in Scan & Match; free key at omdbapi.com)
+OMDB_API_KEY=
+
 # Debug Mode (optional - defaults to false)
 DEBUG_MODE=false
 ```

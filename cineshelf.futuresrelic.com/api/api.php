@@ -5847,6 +5847,53 @@ case 'resolve_movie':
             jsonResponse(true, ['title' => $title]);
             break;
 
+        case 'search_omdb':
+            // Search OMDb (omdbapi.com) for movies by title.
+            // Requires OMDB_API_KEY — get a free key at https://www.omdbapi.com/apikey.aspx
+            $query = sanitize($input['query'] ?? '', 100);
+
+            if (empty($query)) {
+                jsonResponse(false, null, 'Search query required');
+            }
+
+            if (empty(OMDB_API_KEY)) {
+                jsonResponse(false, null, 'OMDB_API_KEY not configured. Add it to your environment variables or config/secrets.php.');
+            }
+
+            $omdbUrl = OMDB_BASE_URL . '/?s=' . urlencode($query) . '&apikey=' . OMDB_API_KEY . '&type=movie';
+            $omdbResponse = @file_get_contents($omdbUrl);
+
+            if ($omdbResponse === false) {
+                jsonResponse(false, null, 'OMDB API request failed');
+            }
+
+            $omdbData = json_decode($omdbResponse, true);
+
+            if (($omdbData['Response'] ?? '') === 'False') {
+                // OMDB returns "Response: False" when no results or error
+                jsonResponse(true, []); // Empty results — not an error
+            }
+
+            // Normalise OMDB results to a format compatible with our match card renderer.
+            // OMDB uses: Title, Year, imdbID, Type, Poster
+            $normalised = array_map(function($item) {
+                $posterUrl = (!empty($item['Poster']) && $item['Poster'] !== 'N/A') ? $item['Poster'] : null;
+                return [
+                    'id'          => $item['imdbID'] ?? null,
+                    'title'       => $item['Title'] ?? '',
+                    'media_type'  => ($item['Type'] ?? 'movie') === 'series' ? 'tv' : 'movie',
+                    'release_date'=> (!empty($item['Year']) ? $item['Year'] . '-01-01' : null),
+                    'poster_path' => $posterUrl, // Full URL — renderer handles both relative and absolute
+                    'overview'    => '',
+                    'vote_average'=> null,
+                    'source'      => 'omdb',
+                    'imdb_id'     => $item['imdbID'] ?? null,
+                ];
+            }, $omdbData['Search'] ?? []);
+
+            jsonResponse(true, $normalised);
+            break;
+
         case 'scan_boxset_titles':
             // Recognize MULTIPLE movie titles from a box set cover/back using OpenAI Vision API
             $base64Image = $input['image'] ?? '';
