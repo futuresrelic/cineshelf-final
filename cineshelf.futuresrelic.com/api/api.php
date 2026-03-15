@@ -10360,10 +10360,10 @@ Return ONLY the JSON object, no markdown.'
         // ============================================================
 
         case 'calendar_add': {
-            $movieId = intval($body['movie_id'] ?? 0);
-            $plannedDate = sanitize($body['planned_date'] ?? '');
-            $notes = sanitize($body['notes'] ?? '', 500);
-            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+            $movieId = intval($input['movie_id'] ?? 0);
+            $plannedDate = sanitize($input['planned_date'] ?? '');
+            $notes = sanitize($input['notes'] ?? '', 500);
+            $groupId = !empty($input['group_id']) ? intval($input['group_id']) : null;
 
             if (!$movieId || !$plannedDate) {
                 jsonResponse(false, null, 'movie_id and planned_date are required');
@@ -10381,9 +10381,9 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'calendar_list': {
-            $year  = intval($body['year']  ?? date('Y'));
-            $month = intval($body['month'] ?? date('n'));
-            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+            $year  = intval($input['year']  ?? date('Y'));
+            $month = intval($input['month'] ?? date('n'));
+            $groupId = !empty($input['group_id']) ? intval($input['group_id']) : null;
 
             if ($groupId) {
                 // Members of this group can see the shared calendar
@@ -10414,7 +10414,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'calendar_delete': {
-            $eventId = intval($body['event_id'] ?? 0);
+            $eventId = intval($input['event_id'] ?? 0);
             if (!$eventId) jsonResponse(false, null, 'event_id required');
 
             $stmt = $db->prepare("DELETE FROM viewing_calendar WHERE id = ? AND user_id = ?");
@@ -10424,8 +10424,8 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'calendar_complete': {
-            $eventId = intval($body['event_id'] ?? 0);
-            $completed = isset($body['completed']) ? (int)(bool)$body['completed'] : 1;
+            $eventId = intval($input['event_id'] ?? 0);
+            $completed = isset($input['completed']) ? (int)(bool)$input['completed'] : 1;
             if (!$eventId) jsonResponse(false, null, 'event_id required');
 
             $stmt = $db->prepare("UPDATE viewing_calendar SET is_completed = ?, completed_at = ? WHERE id = ? AND user_id = ?");
@@ -10435,8 +10435,8 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'calendar_upcoming': {
-            $limit = min(intval($body['limit'] ?? 10), 50);
-            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+            $limit = min(intval($input['limit'] ?? 10), 50);
+            $groupId = !empty($input['group_id']) ? intval($input['group_id']) : null;
 
             if ($groupId) {
                 $stmt = $db->prepare("
@@ -10466,11 +10466,11 @@ Return ONLY the JSON object, no markdown.'
         // ============================================================
 
         case 'family_member_add': {
-            $groupId = intval($body['group_id'] ?? 0);
-            $name    = sanitize($body['name'] ?? '', 60);
-            $avatar  = sanitize($body['avatar'] ?? '👤', 10);
-            $color   = sanitize($body['color'] ?? '#667eea', 20);
-            $linkedUserId = !empty($body['user_id']) ? intval($body['user_id']) : null;
+            $groupId = intval($input['group_id'] ?? 0);
+            $name    = sanitize($input['name'] ?? '', 60);
+            $avatar  = sanitize($input['avatar'] ?? '👤', 10);
+            $color   = sanitize($input['color'] ?? '#667eea', 20);
+            $linkedUserId = !empty($input['user_id']) ? intval($input['user_id']) : null;
 
             if (!$groupId || !$name) jsonResponse(false, null, 'group_id and name required');
 
@@ -10490,7 +10490,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'family_member_list': {
-            $groupId = intval($body['group_id'] ?? 0);
+            $groupId = intval($input['group_id'] ?? 0);
             if (!$groupId) jsonResponse(false, null, 'group_id required');
 
             $stmt = $db->prepare("
@@ -10506,10 +10506,10 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'family_member_update': {
-            $memberId = intval($body['member_id'] ?? 0);
-            $name   = sanitize($body['name'] ?? '', 60);
-            $avatar = sanitize($body['avatar'] ?? '👤', 10);
-            $color  = sanitize($body['color'] ?? '#667eea', 20);
+            $memberId = intval($input['member_id'] ?? 0);
+            $name   = sanitize($input['name'] ?? '', 60);
+            $avatar = sanitize($input['avatar'] ?? '👤', 10);
+            $color  = sanitize($input['color'] ?? '#667eea', 20);
             if (!$memberId) jsonResponse(false, null, 'member_id required');
 
             // Ensure member belongs to a group the current user is in
@@ -10524,7 +10524,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'family_member_delete': {
-            $memberId = intval($body['member_id'] ?? 0);
+            $memberId = intval($input['member_id'] ?? 0);
             if (!$memberId) jsonResponse(false, null, 'member_id required');
 
             $chk = $db->prepare("SELECT fm.group_id FROM family_members fm JOIN group_members gm ON gm.group_id = fm.group_id WHERE fm.id = ? AND gm.user_id = ?");
@@ -10541,12 +10541,12 @@ Return ONLY the JSON object, no markdown.'
         // ============================================================
 
         case 'log_view': {
-            $movieId       = intval($body['movie_id'] ?? 0);
-            $memberId      = !empty($body['family_member_id']) ? intval($body['family_member_id']) : null;
-            $groupId       = !empty($body['group_id']) ? intval($body['group_id']) : null;
-            $rating        = isset($body['rating']) && $body['rating'] !== '' && $body['rating'] !== null ? intval($body['rating']) : null;
-            $comment       = sanitize($body['comment'] ?? '', 1000);
-            $watchedDate   = sanitize($body['watched_date'] ?? '', 20) ?: date('Y-m-d');
+            $movieId       = intval($input['movie_id'] ?? 0);
+            $memberId      = !empty($input['family_member_id']) ? intval($input['family_member_id']) : null;
+            $groupId       = !empty($input['group_id']) ? intval($input['group_id']) : null;
+            $rating        = isset($input['rating']) && $input['rating'] !== '' && $input['rating'] !== null ? intval($input['rating']) : null;
+            $comment       = sanitize($input['comment'] ?? '', 1000);
+            $watchedDate   = sanitize($input['watched_date'] ?? '', 20) ?: date('Y-m-d');
 
             if (!$movieId) jsonResponse(false, null, 'movie_id required');
             if ($rating !== null && ($rating < 1 || $rating > 5)) jsonResponse(false, null, 'rating must be 1-5');
@@ -10569,7 +10569,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'get_movie_views': {
-            $movieId = intval($body['movie_id'] ?? 0);
+            $movieId = intval($input['movie_id'] ?? 0);
             if (!$movieId) jsonResponse(false, null, 'movie_id required');
 
             $stmt = $db->prepare("
@@ -10598,7 +10598,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'delete_view': {
-            $viewId = intval($body['view_id'] ?? 0);
+            $viewId = intval($input['view_id'] ?? 0);
             if (!$viewId) jsonResponse(false, null, 'view_id required');
 
             $stmt = $db->prepare("DELETE FROM movie_views WHERE id = ? AND user_id = ?");
@@ -10609,7 +10609,7 @@ Return ONLY the JSON object, no markdown.'
 
         case 'family_unseen': {
             // Movies in collection that specific family members haven't seen
-            $groupId = intval($body['group_id'] ?? 0);
+            $groupId = intval($input['group_id'] ?? 0);
             if (!$groupId) jsonResponse(false, null, 'group_id required');
 
             // Get all family members in the group
@@ -10648,7 +10648,7 @@ Return ONLY the JSON object, no markdown.'
         }
 
         case 'family_ratings_overview': {
-            $groupId = intval($body['group_id'] ?? 0);
+            $groupId = intval($input['group_id'] ?? 0);
             if (!$groupId) jsonResponse(false, null, 'group_id required');
 
             $stmt = $db->prepare("
