@@ -12288,11 +12288,81 @@ async function getCurrentUserId() {
     }
 
     // ========================================================
-    // CINESHELF RATING (v7.0.0)
+    // CINESHELF RATING (v7.1.0 — Viewing Party mode)
     // ========================================================
 
     let _cineRatingMovieId = null;
-    let _cineStarValue = null;
+    let _cineStarValue     = null;   // kept for legacy compat
+
+    // _partyViewers: array of { key, label, memberId|null, selected, rating, comment }
+    let _partyViewers = [];
+
+    // Ensure (or get) the user's personal "My Family" group
+    async function ensurePersonalGroup() {
+        try {
+            return await apiCall('ensure_personal_group');
+        } catch (_) { return null; }
+    }
+
+    // Build viewer chip + rating row HTML for a single viewer entry
+    function _buildPartyViewerChip(v) {
+        const sel = v.selected ? 'selected' : '';
+        return `<div class="party-viewer-chip ${sel}" id="chip_${v.key}" onclick="App._togglePartyViewer('${v.key}')">
+            <span class="chip-check">✓</span>
+            <span>${v.label}</span>
+        </div>`;
+    }
+
+    function _buildPartyRatingRow(v) {
+        if (!v.selected) return '';
+        const stars = [1,2,3,4,5].map(n =>
+            `<span class="party-star-btn ${v.rating >= n ? 'active' : ''}"
+                   onclick="App._setPartyRating('${v.key}', ${n})">★</span>`
+        ).join('');
+        return `<div class="party-rating-row" id="ratingrow_${v.key}">
+            <div class="party-rating-row-header">
+                <span>${v.label}</span>
+            </div>
+            <div class="party-star-picker">${stars}</div>
+            <textarea class="party-comment-input" rows="2"
+                placeholder="Comment (optional)"
+                oninput="App._setPartyComment('${v.key}', this.value)">${escapeHtml(v.comment || '')}</textarea>
+        </div>`;
+    }
+
+    function _renderPartyUI() {
+        const chipsEl    = document.getElementById('partyViewerChips');
+        const ratingsEl  = document.getElementById('partyRatingsSection');
+        if (!chipsEl || !ratingsEl) return;
+
+        // Re-render chips (preserve Add button which is in HTML)
+        const chips = _partyViewers.map(_buildPartyViewerChip).join('');
+        // Insert before the add-member button
+        const addBtn = chipsEl.querySelector('.party-add-member-link');
+        chipsEl.innerHTML = chips;
+        if (addBtn) chipsEl.appendChild(addBtn);
+
+        ratingsEl.innerHTML = _partyViewers.map(_buildPartyRatingRow).join('');
+    }
+
+    function _togglePartyViewer(key) {
+        const v = _partyViewers.find(x => x.key === key);
+        if (!v) return;
+        v.selected = !v.selected;
+        _renderPartyUI();
+    }
+
+    function _setPartyRating(key, val) {
+        const v = _partyViewers.find(x => x.key === key);
+        if (!v) return;
+        v.rating = v.rating === val ? null : val;   // tap same star to clear
+        _renderPartyUI();
+    }
+
+    function _setPartyComment(key, text) {
+        const v = _partyViewers.find(x => x.key === key);
+        if (v) v.comment = text;
+    }
 
     async function openCineRatingModal(movieId) {
         _cineRatingMovieId = movieId;
@@ -12308,16 +12378,30 @@ async function getCurrentUserId() {
             document.getElementById('cineRatingPoster').src = movie.poster_url || '';
         }
         document.getElementById('cineRatingMovieId').value = movieId;
-        document.getElementById('cineRatingComment').value = '';
-        document.getElementById('cineRatingValue').value = '';
-        document.getElementById('starRatingLabel').textContent = 'No rating — tap a star';
-        document.querySelectorAll('.star-btn').forEach(s => s.classList.remove('active'));
         document.getElementById('cineWatchedDate').value = new Date().toISOString().substring(0, 10);
 
-        // Load family members into selector
-        await cineRatingPopulateMembers();
+        // Build viewer list: "Me" first, then personal family members
+        _partyViewers = [{ key: 'me', label: '👤 Me', memberId: null, selected: true, rating: null, comment: '' }];
+        try {
+            const pg = await ensurePersonalGroup();
+            if (pg && pg.id) {
+                const members = await apiCall('family_member_list', { group_id: pg.id });
+                (members || []).forEach(m => {
+                    _partyViewers.push({
+                        key: `m_${m.id}`,
+                        label: `${m.avatar || '👤'} ${m.name}`,
+                        memberId: m.id,
+                        selected: false,
+                        rating: null,
+                        comment: ''
+                    });
+                });
+            }
+        } catch (_) {}
 
-        // Load group selector
+        _renderPartyUI();
+
+        // Group selector
         await cineRatingPopulateGroups();
 
         document.getElementById('cineRatingModal').classList.add('active');
@@ -12327,77 +12411,58 @@ async function getCurrentUserId() {
         document.getElementById('cineRatingModal').classList.remove('active');
     }
 
-    async function cineRatingPopulateMembers() {
-        const sel = document.getElementById('cineRatingMember');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">Me (my account)</option>';
-        try {
-            const groups = await apiCall('list_groups');
-            for (const g of (groups || [])) {
-                const members = await apiCall('family_member_list', { group_id: g.id });
-                (members || []).forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.id;
-                    opt.textContent = `${m.avatar} ${m.name} (${g.name})`;
-                    opt.dataset.groupId = g.id;
-                    sel.appendChild(opt);
-                });
-            }
-        } catch (_) {}
-    }
-
     async function cineRatingPopulateGroups() {
         const sel = document.getElementById('cineRatingGroup');
         if (!sel) return;
         try {
-            const groups = await apiCall('list_groups');
+            const groups = (await apiCall('list_groups') || [])
+                .filter(g => !g.is_personal);
             sel.innerHTML = '<option value="">Personal only</option>' +
-                (groups || []).map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+                groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
         } catch (_) {}
     }
 
+    // Kept for legacy callers (movie detail modal star picker if still used)
     function setStarRating(val) {
         _cineStarValue = val;
         document.getElementById('cineRatingValue').value = val;
-        const labels = ['','★ Poor','★★ Fair','★★★ Good','★★★★ Great','★★★★★ Outstanding'];
-        document.getElementById('starRatingLabel').textContent = labels[val] || '';
-        document.querySelectorAll('.star-btn').forEach(s => {
-            s.classList.toggle('active', parseInt(s.dataset.val) <= val);
-        });
     }
 
     async function saveCineRating() {
-        const movieId  = parseInt(document.getElementById('cineRatingMovieId').value);
-        const memberSel = document.getElementById('cineRatingMember');
-        const memberId = memberSel && memberSel.value ? parseInt(memberSel.value) : null;
-        const groupSel = document.getElementById('cineRatingGroup');
-        const groupId  = groupSel && groupSel.value ? parseInt(groupSel.value) : null;
-
-        // If a family member is selected, use their group automatically
-        const effectiveGroupId = groupId || (memberSel && memberSel.selectedOptions[0] ? parseInt(memberSel.selectedOptions[0].dataset.groupId || 0) || null : null);
-
-        const rating    = _cineStarValue || null;
-        const comment   = document.getElementById('cineRatingComment').value.trim();
+        const movieId     = parseInt(document.getElementById('cineRatingMovieId').value);
         const watchedDate = document.getElementById('cineWatchedDate').value;
+        const groupSel    = document.getElementById('cineRatingGroup');
+        const groupId     = groupSel && groupSel.value ? parseInt(groupSel.value) : null;
 
         if (!movieId) { showToast('No movie selected', 'error'); return; }
 
-        try {
-            const params = { movie_id: movieId, watched_date: watchedDate };
-            if (memberId) params.family_member_id = memberId;
-            if (effectiveGroupId) params.group_id = effectiveGroupId;
-            if (rating) params.rating = rating;
-            if (comment) params.comment = comment;
+        const selected = _partyViewers.filter(v => v.selected);
+        if (selected.length === 0) { showToast('Select at least one viewer', 'error'); return; }
 
-            await apiCall('log_view', params);
-            showToast('⭐ Rating saved!', 'success');
+        try {
+            for (const v of selected) {
+                const params = { movie_id: movieId, watched_date: watchedDate };
+                if (v.memberId)  params.family_member_id = v.memberId;
+                if (groupId)     params.group_id = groupId;
+                if (v.rating)    params.rating = v.rating;
+                if (v.comment)   params.comment = v.comment.trim();
+                await apiCall('log_view', params);
+            }
+            const names = selected.map(v => v.label).join(', ');
+            showToast(`⭐ Logged for ${names}`, 'success');
             closeCineRatingModal();
 
             // Refresh the rating panel inside the movie detail modal
             if (document.getElementById('movieDetailModal').classList.contains('active')) {
                 loadCineRatingsForMovie(movieId);
             }
-        } catch (e) { showToast('Failed to save rating: ' + e.message, 'error'); }
+        } catch (e) { showToast('Failed to save: ' + e.message, 'error'); }
+    }
+
+    // Called from the "+ Add family member" button inside the rating modal
+    async function openAddMemberFromRating() {
+        closeCineRatingModal();
+        await openFamilyManager(true); // pass flag to re-open rating modal after
     }
 
     async function deleteView(viewId, movieId) {
@@ -12590,19 +12655,98 @@ async function getCurrentUserId() {
         }
     }
 
-    function openAddFamilyMemberModal() {
-        if (!_currentRatingsGroupId) { showToast('Select a group first', 'error'); return; }
+    // ========================================================
+    // FAMILY MANAGER MODAL (personal profiles, v7.1.0)
+    // ========================================================
+
+    let _familyMgrGroupId        = null;  // personal group id used by the manager
+    let _familyMgrReturnToRating = false; // open rating modal after closing manager
+
+    async function openFamilyManager(returnToRating = false) {
+        _familyMgrReturnToRating = returnToRating;
+        document.getElementById('familyMgrList').innerHTML =
+            '<p style="color:rgba(255,255,255,0.35);font-size:0.85rem;">Loading…</p>';
+        document.getElementById('familyManagerModal').classList.add('active');
+
+        const pg = await ensurePersonalGroup();
+        if (!pg) {
+            document.getElementById('familyMgrList').innerHTML =
+                '<p style="color:#f5576c;font-size:0.85rem;">Could not load family group.</p>';
+            return;
+        }
+        _familyMgrGroupId = pg.id;
+        await _refreshFamilyMgrList();
+    }
+
+    function closeFamilyManager() {
+        document.getElementById('familyManagerModal').classList.remove('active');
+        if (_familyMgrReturnToRating && _cineRatingMovieId) {
+            _familyMgrReturnToRating = false;
+            openCineRatingModal(_cineRatingMovieId);
+        }
+    }
+
+    async function _refreshFamilyMgrList() {
+        const container = document.getElementById('familyMgrList');
+        if (!container || !_familyMgrGroupId) return;
+        try {
+            const members = await apiCall('family_member_list', { group_id: _familyMgrGroupId });
+            if (!members || members.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.35);font-size:0.85rem;">No family members yet — add one below.</p>';
+                return;
+            }
+            container.innerHTML = members.map(m => `
+                <div class="family-mgr-row" style="border-color:${m.color || '#667eea'}40;">
+                    <div class="family-mgr-avatar">${m.avatar || '👤'}</div>
+                    <div class="family-mgr-name">${escapeHtml(m.name)}</div>
+                    <button class="family-mgr-del" onclick="App.deleteFamilyMemberFromManager(${m.id})" title="Remove">×</button>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Could not load members.</p>';
+        }
+    }
+
+    async function deleteFamilyMemberFromManager(memberId) {
+        if (!confirm('Remove this family member? Their viewing records will also be removed.')) return;
+        try {
+            await apiCall('family_member_delete', { member_id: memberId });
+            showToast('Member removed', 'info');
+            await _refreshFamilyMgrList();
+            // Also refresh the ratings tab if it's visible
+            if (_currentRatingsGroupId) await loadFamilyMembers(_currentRatingsGroupId);
+        } catch (e) { showToast('Could not remove member', 'error'); }
+    }
+
+    // "Add Member" from the family manager modal — opens addFamilyMemberModal pre-filled
+    async function openAddMemberFromManager() {
+        if (!_familyMgrGroupId) {
+            const pg = await ensurePersonalGroup();
+            if (!pg) { showToast('Could not create family group', 'error'); return; }
+            _familyMgrGroupId = pg.id;
+        }
+        _openAddFamilyMemberModalForGroup(_familyMgrGroupId);
+    }
+
+    // Internal helper — opens the add-member form for a given group id
+    function _openAddFamilyMemberModalForGroup(groupId) {
         _selectedMemberAvatar = '👤';
         _selectedMemberColor  = '#667eea';
         document.getElementById('familyMemberName').value = '';
         document.getElementById('familyMemberAvatar').value = '👤';
         document.getElementById('selectedAvatarDisplay').textContent = '👤';
         document.getElementById('familyMemberColor').value = '#667eea';
-        document.getElementById('familyMemberGroupId').value = _currentRatingsGroupId;
-        // Reset swatch selection
+        document.getElementById('familyMemberGroupId').value = groupId;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.avatar-opt').forEach(s => s.classList.remove('active'));
         document.getElementById('addFamilyMemberModal').classList.add('active');
+    }
+
+    // Legacy entry-point (Groups > Ratings tab still calls this)
+    function openAddFamilyMemberModal() {
+        const gid = _currentRatingsGroupId || _familyMgrGroupId;
+        if (!gid) { showToast('Select a group first', 'error'); return; }
+        _openAddFamilyMemberModalForGroup(gid);
     }
 
     function closeAddFamilyMemberModal() {
@@ -12635,7 +12779,9 @@ async function getCurrentUserId() {
             await apiCall('family_member_add', { group_id: groupId, name, avatar, color });
             showToast(`${avatar} ${name} added!`, 'success');
             closeAddFamilyMemberModal();
-            await loadFamilyMembers(groupId);
+            // Refresh whichever list is showing
+            if (_familyMgrGroupId === groupId) await _refreshFamilyMgrList();
+            if (_currentRatingsGroupId === groupId) await loadFamilyMembers(groupId);
         } catch (e) { showToast('Failed: ' + e.message, 'error'); }
     }
 
@@ -12977,7 +13123,7 @@ return {
     quickAddToCalendar,
 
     // ======================================================
-    // CINESHELF RATING PUBLIC API (v7.0.0)
+    // CINESHELF RATING PUBLIC API (v7.1.0)
     // ======================================================
     openCineRatingModal,
     closeCineRatingModal,
@@ -12985,6 +13131,18 @@ return {
     saveCineRating,
     deleteView,
     loadCineRatingsForMovie,
+    _togglePartyViewer,
+    _setPartyRating,
+    _setPartyComment,
+    openAddMemberFromRating,
+
+    // ======================================================
+    // FAMILY MANAGER PUBLIC API (v7.1.0)
+    // ======================================================
+    openFamilyManager,
+    closeFamilyManager,
+    openAddMemberFromManager,
+    deleteFamilyMemberFromManager,
 
     // ======================================================
     // FAMILY MEMBERS & RATINGS TAB PUBLIC API (v7.0.0)

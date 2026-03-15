@@ -10466,6 +10466,29 @@ Return ONLY the JSON object, no markdown.'
         // FAMILY MEMBERS
         // ============================================================
 
+        // Creates (or returns) the current user's private "My Family" group —
+        // called transparently so family members can be managed without
+        // the user ever having to think about groups.
+        case 'ensure_personal_group': {
+            $stmt = $db->prepare("
+                SELECT g.id, g.name FROM groups g
+                JOIN group_members gm ON gm.group_id = g.id
+                WHERE gm.user_id = ? AND g.created_by = ? AND g.is_personal = 1
+                LIMIT 1
+            ");
+            $stmt->execute([$currentUserId, $currentUserId]);
+            $group = $stmt->fetch();
+            if ($group) { jsonResponse(true, $group); break; }
+
+            $db->prepare("INSERT INTO groups (name, description, created_by, is_personal) VALUES (?,?,?,1)")
+               ->execute(['My Family', 'Personal family profiles', $currentUserId]);
+            $groupId = $db->lastInsertId();
+            $db->prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?,?,'admin')")
+               ->execute([$groupId, $currentUserId]);
+            jsonResponse(true, ['id' => $groupId, 'name' => 'My Family']);
+            break;
+        }
+
         case 'family_member_add': {
             $groupId = intval($input['group_id'] ?? 0);
             $name    = sanitize($input['name'] ?? '', 60);

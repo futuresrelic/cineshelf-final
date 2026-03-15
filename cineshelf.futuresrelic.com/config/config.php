@@ -433,6 +433,9 @@ function getDb() {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_viewing_cal_movie ON viewing_calendar(movie_id)");
         } catch (PDOException $e) {}
 
+        // Auto-migrate: Personal group flag (v7.1.0)
+        try { $db->exec("ALTER TABLE groups ADD COLUMN is_personal INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
         // Auto-migrate: Family Members (v7.0.0)
         // Named profiles for family members — may or may not have a user account
         try {

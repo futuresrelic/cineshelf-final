@@ -1920,6 +1920,17 @@ body.modal-open {
     z-index: 2100;
 }
 
+/* CineRating modal sits above the movie-detail modal */
+#cineRatingModal {
+    z-index: 2200;
+}
+
+/* Add-family-member modal sits on top of everything else */
+#addFamilyMemberModal,
+#familyManagerModal {
+    z-index: 2300;
+}
+
 /* Modal stack: wizard sits below cloud picker so picker appears on top */
 #aiWizardModal    { z-index: 1000; }
 #cloudPickerModal { z-index: 1100; }
@@ -7198,4 +7209,144 @@ body.modal-open {
     background: rgba(255,255,255,0.03);
     border-radius: 8px;
     margin-bottom: 0.4rem;
+}
+
+/* =====================================================
+   FAMILY MANAGER MODAL (personal profiles)
+   ===================================================== */
+.family-mgr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.family-mgr-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.family-mgr-avatar {
+    font-size: 1.4rem;
+    width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+.family-mgr-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.family-mgr-del {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.35);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 0.25rem;
+    transition: color 0.15s;
+}
+.family-mgr-del:hover { color: #f5576c; }
+
+/* =====================================================
+   VIEWING PARTY / LOG VIEWING MODAL
+   ===================================================== */
+.party-viewer-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0 1rem;
+}
+.party-viewer-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+    user-select: none;
+}
+.party-viewer-chip:hover {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.12);
+}
+.party-viewer-chip.selected {
+    border-color: #667eea;
+    background: rgba(102,126,234,0.2);
+}
+.party-viewer-chip .chip-check {
+    font-size: 0.75rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.party-viewer-chip.selected .chip-check {
+    opacity: 1;
+}
+.party-ratings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+.party-rating-row {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.party-rating-row-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.party-star-picker {
+    display: flex;
+    gap: 0.15rem;
+    margin-bottom: 0.4rem;
+}
+.party-star-btn {
+    font-size: 1.3rem;
+    cursor: pointer;
+    color: rgba(255,255,255,0.25);
+    transition: color 0.1s;
+    line-height: 1;
+}
+.party-star-btn.active { color: #ffd700; }
+.party-star-btn:hover { color: #ffd700; }
+.party-comment-input {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.07);
+    color: white;
+    font-size: 0.82rem;
+    font-family: inherit;
+    resize: none;
+    box-sizing: border-box;
+}
+.party-comment-input::placeholder { color: rgba(255,255,255,0.3); }
+.party-add-member-link {
+    background: none;
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 20px;
+    color: rgba(255,255,255,0.45);
+    padding: 0.35rem 0.7rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.party-add-member-link:hover {
+    border-color: rgba(102,126,234,0.6);
+    color: rgba(102,126,234,0.9);
 }

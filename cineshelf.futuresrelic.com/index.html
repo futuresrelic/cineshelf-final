@@ -126,6 +126,9 @@
                 <button class="user-menu-item" onclick="App.switchTab('settings'); document.getElementById('userMenu').classList.remove('open');">
                     ⚙️ Settings
                 </button>
+                <button class="user-menu-item" onclick="App.openFamilyManager(); document.getElementById('userMenu').classList.remove('open');">
+                    👨‍👩‍👧 Family Members
+                </button>
                 <button class="user-menu-item user-menu-logout" id="logoutBtn">
                     🚪 Sign Out
                 </button>
@@ -1528,63 +1531,56 @@
          CINESHELF RATING MODAL (Log a viewing + rate)
          ===================================================== -->
     <div id="cineRatingModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:500px;">
             <div class="modal-header">
-                <h3>⭐ CineShelf Rating</h3>
+                <h3>🎬 Log Viewing</h3>
                 <button class="modal-close" onclick="App.closeCineRatingModal()">×</button>
             </div>
             <div class="modal-body">
-                <div id="cineRatingMovieInfo" style="display:flex;gap:1rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.1);">
-                    <img id="cineRatingPoster" src="" alt="" style="width:60px;height:90px;object-fit:cover;border-radius:6px;flex-shrink:0;">
-                    <div>
+                <!-- Movie info -->
+                <div id="cineRatingMovieInfo" style="display:flex;gap:1rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <img id="cineRatingPoster" src="" alt="" style="width:52px;height:78px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+                    <div style="align-self:center;">
                         <div id="cineRatingTitle" style="font-weight:700;font-size:1.05rem;"></div>
                         <div id="cineRatingYear" style="color:rgba(255,255,255,0.5);font-size:0.85rem;"></div>
                     </div>
                 </div>
 
+                <!-- Who watched? — viewer chips -->
                 <div class="form-group">
-                    <label>Who watched it?</label>
-                    <select id="cineRatingMember" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#1a1a2e;color:white;font-size:0.9rem;">
-                        <option value="">Me (my account)</option>
-                    </select>
-                </div>
-
-                <div class="form-group" style="margin-top:1rem;">
-                    <label>Rating</label>
-                    <div class="star-picker" id="starPicker">
-                        <span class="star-btn" data-val="1" onclick="App.setStarRating(1)">★</span>
-                        <span class="star-btn" data-val="2" onclick="App.setStarRating(2)">★</span>
-                        <span class="star-btn" data-val="3" onclick="App.setStarRating(3)">★</span>
-                        <span class="star-btn" data-val="4" onclick="App.setStarRating(4)">★</span>
-                        <span class="star-btn" data-val="5" onclick="App.setStarRating(5)">★</span>
+                    <label style="margin-bottom:0.4rem;display:block;">Who watched it?</label>
+                    <div class="party-viewer-list" id="partyViewerChips">
+                        <!-- Populated by JS -->
                     </div>
-                    <div style="font-size:0.8rem;color:rgba(255,255,255,0.4);margin-top:0.3rem;" id="starRatingLabel">No rating</div>
-                    <input type="hidden" id="cineRatingValue">
+                    <button class="party-add-member-link" onclick="App.openAddMemberFromRating()">+ Add family member</button>
                 </div>
 
+                <!-- Per-person rating rows (built dynamically) -->
+                <div class="party-ratings-section" id="partyRatingsSection" style="margin-top:1rem;"></div>
+
+                <!-- Shared date -->
                 <div class="form-group" style="margin-top:1rem;">
                     <label>Date Watched</label>
                     <input type="date" id="cineWatchedDate" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
                 </div>
 
-                <div class="form-group" style="margin-top:1rem;">
-                    <label>Review / Comment</label>
-                    <textarea id="cineRatingComment" rows="3" placeholder="What did you think?" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;resize:vertical;font-family:inherit;"></textarea>
-                </div>
-
-                <div class="form-group" style="margin-top:1rem;">
-                    <label>Group (so family can see)</label>
+                <!-- Group selector (optional sharing) -->
+                <div class="form-group" style="margin-top:0.75rem;">
+                    <label>Share with group (optional)</label>
                     <select id="cineRatingGroup" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#1a1a2e;color:white;font-size:0.9rem;">
                         <option value="">Personal only</option>
                     </select>
                 </div>
 
                 <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-                    <button class="btn" onclick="App.saveCineRating()" style="flex:1;">⭐ Save Rating</button>
+                    <button class="btn" onclick="App.saveCineRating()" style="flex:1;">⭐ Save</button>
                     <button class="btn btn-secondary" onclick="App.closeCineRatingModal()" style="flex:1;">Cancel</button>
                 </div>
 
+                <!-- Legacy hidden inputs kept for compatibility -->
                 <input type="hidden" id="cineRatingMovieId">
+                <input type="hidden" id="cineRatingValue">
+                <input type="hidden" id="cineRatingMember" value="">
             </div>
         </div>
     </div>
@@ -1639,6 +1635,25 @@
                     <button class="btn" onclick="App.saveFamilyMember()" style="flex:1;">Add Member</button>
                     <button class="btn btn-secondary" onclick="App.closeAddFamilyMemberModal()" style="flex:1;">Cancel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Family Manager Modal (personal profiles — no Google required) -->
+    <div id="familyManagerModal" class="modal">
+        <div class="modal-content" style="max-width:440px;">
+            <div class="modal-header">
+                <h3>👨‍👩‍👧 Family Members</h3>
+                <button class="modal-close" onclick="App.closeFamilyManager()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:1rem;">
+                    Add people in your household — no account needed. Their ratings appear when you log a viewing.
+                </p>
+                <div id="familyMgrList" class="family-mgr-list">
+                    <p style="color:rgba(255,255,255,0.35);font-size:0.85rem;">Loading…</p>
+                </div>
+                <button class="btn" onclick="App.openAddMemberFromManager()" style="width:100%;">+ Add Family Member</button>
             </div>
         </div>
     </div>
