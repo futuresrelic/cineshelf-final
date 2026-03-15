@@ -716,6 +716,7 @@ try {
         $userId = $currentUser['id'];
         $user = $currentUser['username']; // For backwards compatibility
     }
+    $currentUserId = $userId;
 
     // Route to appropriate action
     switch ($action) {
