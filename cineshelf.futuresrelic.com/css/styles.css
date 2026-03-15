@@ -6846,3 +6846,356 @@ body.modal-open {
         flex-wrap: wrap;
     }
 }
+
+/* ============================================================
+   VIEWING CALENDAR (v7.0.0)
+   ============================================================ */
+
+.calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0 0.75rem;
+}
+
+.cal-nav-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.cal-nav-btn:hover { background: rgba(255,255,255,0.15); }
+
+.cal-month-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    min-width: 160px;
+    text-align: center;
+}
+
+.calendar-grid-wrap {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.calendar-day-headers {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: rgba(102,126,234,0.2);
+}
+.calendar-day-headers span {
+    text-align: center;
+    padding: 0.5rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.05em;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.05);
+}
+
+.cal-cell {
+    background: rgba(15,15,30,0.9);
+    min-height: 90px;
+    padding: 0.4rem 0.4rem 0.3rem;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.cal-cell:hover { background: rgba(102,126,234,0.12); }
+.cal-cell-empty { background: rgba(0,0,0,0.2); cursor: default; }
+.cal-today { background: rgba(102,126,234,0.18); border: 1px solid rgba(102,126,234,0.4); }
+.cal-past .cal-day-num { color: rgba(255,255,255,0.3); }
+
+.cal-day-num {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 0.25rem;
+}
+.cal-today .cal-day-num {
+    color: #a8b8ff;
+    font-size: 0.85rem;
+}
+
+.cal-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cal-event {
+    background: rgba(102,126,234,0.35);
+    border: 1px solid rgba(102,126,234,0.5);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.68rem;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.cal-event-done {
+    background: rgba(76,175,80,0.25);
+    border-color: rgba(76,175,80,0.4);
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+.cal-event span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cal-event-del {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.cal-event-del:hover { color: #f87171; }
+.cal-event-more {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.4);
+    padding-left: 4px;
+}
+
+/* Upcoming list */
+.calendar-upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.cal-upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+}
+
+/* Calendar search results */
+.cal-search-result {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.cal-search-result:hover { background: rgba(102,126,234,0.2); }
+
+/* ============================================================
+   CINESHELF RATING (v7.0.0)
+   ============================================================ */
+
+/* Star picker */
+.star-picker {
+    display: flex;
+    gap: 4px;
+    margin-top: 0.4rem;
+}
+.star-btn {
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: rgba(255,255,255,0.2);
+    transition: color 0.1s, transform 0.1s;
+    user-select: none;
+    line-height: 1;
+}
+.star-btn:hover,
+.star-btn.active {
+    color: #fbbf24;
+    transform: scale(1.15);
+}
+
+/* Average rating display */
+.cine-avg-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 8px;
+}
+.cine-avg-stars { color: #fbbf24; font-size: 1.1rem; letter-spacing: 1px; }
+.cine-avg-score { font-weight: 700; color: white; }
+.cine-avg-count { color: rgba(255,255,255,0.5); font-size: 0.82rem; }
+
+/* Individual viewing entries */
+.cine-views-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.cine-view-entry {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+}
+.cine-view-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.cine-viewer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(102,126,234,0.3);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.cine-stars { color: #fbbf24; font-size: 0.95rem; letter-spacing: 1px; }
+.cine-no-rating { color: rgba(255,255,255,0.3); font-size: 0.8rem; }
+.cine-watch-date { color: rgba(255,255,255,0.4); font-size: 0.78rem; margin-left: auto; }
+.cine-view-del {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 2px;
+    transition: color 0.12s;
+}
+.cine-view-del:hover { color: #f87171; }
+.cine-view-comment {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* Button size helpers */
+.btn-sm {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+}
+
+@media (max-width: 600px) {
+    .cal-cell { min-height: 60px; padding: 0.25rem; }
+    .cal-day-num { font-size: 0.72rem; }
+    .cal-event { font-size: 0.6rem; padding: 1px 3px; }
+    .calendar-day-headers span { font-size: 0.65rem; padding: 0.35rem 0; }
+}
+
+/* ============================================================
+   FAMILY MEMBERS & RATINGS TAB (v7.0.0)
+   ============================================================ */
+
+.family-members-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.family-member-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    min-width: 80px;
+    position: relative;
+    transition: background 0.15s;
+}
+.family-member-card:hover { background: rgba(255,255,255,0.07); }
+.family-member-card .cine-view-del {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.family-member-card:hover .cine-view-del { opacity: 1; }
+
+.family-member-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.family-member-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    text-align: center;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Avatar picker */
+.avatar-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 0.4rem;
+}
+.avatar-opt {
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: background 0.12s, transform 0.1s;
+    user-select: none;
+}
+.avatar-opt:hover { background: rgba(255,255,255,0.1); transform: scale(1.15); }
+.avatar-opt.active { background: rgba(102,126,234,0.3); outline: 2px solid #667eea; }
+
+/* Color swatches */
+.color-swatch {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+}
+.color-swatch:hover { transform: scale(1.2); }
+.color-swatch.active { border-color: white; transform: scale(1.15); }
+
+/* Unseen rows */
+.unseen-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.6rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    margin-bottom: 0.4rem;
+}

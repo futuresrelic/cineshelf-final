@@ -3,7 +3,7 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.8.33';
+const APP_VERSION = '2.9.0';
 
 async function checkVersionGuard() {
     try {
@@ -3359,32 +3359,79 @@ function showPosterSelector(movieId, movie, posters) {
     const modal = document.getElementById('posterSelectorModal');
     const grid = document.getElementById('posterSelectorGrid');
     const title = document.getElementById('posterSelectorTitle');
-    
-    title.textContent = `Select Poster for "${movie.display_title || movie.title}"`;
-    
-    grid.innerHTML = posters.map(poster => {
+
+    title.textContent = `Cover Art — "${movie.display_title || movie.title}"`;
+
+    // Build TMDB poster cards
+    const tmdbCards = posters.map(poster => {
         const posterUrl = 'https://image.tmdb.org/t/p/w342' + poster.file_path;
         const isCurrent = movie.poster_url && movie.poster_url.includes(poster.file_path);
-        
         return `
-            <div class="poster-option ${isCurrent ? 'current-poster' : ''}" 
+            <div class="poster-option ${isCurrent ? 'current-poster' : ''}"
                  onclick="App.selectPoster(${movieId}, '${poster.file_path}')"
-                 style="cursor: pointer; position: relative;">
-                <img src="${posterUrl}" 
-                     alt="Poster option" 
-                     style="width: 100%; border-radius: 8px; transition: all 0.2s;"
+                 style="cursor:pointer;position:relative;">
+                <img src="${posterUrl}" alt="Poster" style="width:100%;border-radius:8px;transition:transform 0.15s;"
                      onmouseover="this.style.transform='scale(1.05)'"
                      onmouseout="this.style.transform='scale(1)'">
-                ${isCurrent ? '<div style="position: absolute; top: 5px; right: 5px; background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">CURRENT</div>' : ''}
-                <div style="text-align: center; margin-top: 0.5rem; font-size: 0.85rem; color: rgba(255,255,255,0.7);">
-                    ${poster.width}×${poster.height}
-                    ${poster.vote_average ? `<br>⭐ ${poster.vote_average.toFixed(1)}` : ''}
+                ${isCurrent ? '<div style="position:absolute;top:5px;right:5px;background:#4caf50;color:white;padding:3px 7px;border-radius:4px;font-size:0.7rem;font-weight:bold;">CURRENT</div>' : ''}
+                <div style="text-align:center;margin-top:0.4rem;font-size:0.78rem;color:rgba(255,255,255,0.6);">
+                    ${poster.width}×${poster.height}${poster.vote_average ? ' · ⭐' + poster.vote_average.toFixed(1) : ''}
+                    <br><span style="color:rgba(255,255,255,0.35);">TMDB</span>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join('');
-    
+
+    // Custom URL + file upload section
+    const customSection = `
+        <div style="grid-column:1/-1;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,0.1);">
+            <h4 style="color:rgba(255,255,255,0.8);margin-bottom:1rem;">🔗 Use a custom cover image</h4>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                <input type="text" id="customPosterUrl" placeholder="Paste an image URL (jpg, png, webp…)"
+                    style="flex:1;min-width:200px;padding:0.55rem 0.75rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:0.85rem;">
+                <button class="btn btn-sm" onclick="App.applyCustomPosterUrl(${movieId})">Apply URL</button>
+            </div>
+            <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:center;">
+                <label style="cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.75rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:0.85rem;">
+                    📁 Upload local file
+                    <input type="file" id="coverFileInput" accept="image/*" style="display:none;" onchange="App.uploadCoverFile(${movieId}, this)">
+                </label>
+                <span style="color:rgba(255,255,255,0.4);font-size:0.8rem;">JPG, PNG, WEBP</span>
+            </div>
+        </div>`;
+
+    grid.innerHTML = tmdbCards + customSection;
     modal.classList.add('active');
+}
+
+async function applyCustomPosterUrl(movieId) {
+    const url = document.getElementById('customPosterUrl').value.trim();
+    if (!url) { showToast('Enter an image URL first', 'error'); return; }
+    try {
+        await apiCall('update_movie_poster', { movie_id: movieId, poster_url: url });
+        showToast('✅ Cover art updated!', 'success');
+        closePosterSelector();
+        loadCollection();
+        if (document.getElementById('movieDetailModal').classList.contains('active')) viewMovieDetails(movieId);
+    } catch (e) { showToast('Failed to update cover art', 'error'); }
+}
+
+async function uploadCoverFile(movieId, input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('cover', file);
+    formData.append('movie_id', movieId);
+    try {
+        showToast('Uploading cover…', 'info');
+        const resp = await fetch('/api/upload-cover.php', { method: 'POST', credentials: 'include', body: formData });
+        const result = await resp.json();
+        if (!result.success && !result.ok) throw new Error(result.error || 'Upload failed');
+        await apiCall('update_movie_poster', { movie_id: movieId, poster_url: result.url });
+        showToast('✅ Cover uploaded!', 'success');
+        closePosterSelector();
+        loadCollection();
+        if (document.getElementById('movieDetailModal').classList.contains('active')) viewMovieDetails(movieId);
+    } catch (e) { showToast('Upload failed: ' + e.message, 'error'); }
 }
 
 function closePosterSelector() {
@@ -3564,11 +3611,28 @@ async function viewMovieDetails(movieId) {
                         `}
                     </div>
                     `}
+
+                    <!-- CineShelf Rating section — loaded async below -->
+                    <div class="movie-detail-section" id="cineRatingSection_${movieId}">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+                            <h3>⭐ CineShelf Ratings</h3>
+                            <button class="btn btn-sm" onclick="App.openCineRatingModal(${movieId})">+ Log Viewing</button>
+                        </div>
+                        <div id="cineRatingContent_${movieId}"><p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Loading ratings…</p></div>
+                    </div>
+
+                    <!-- Add to calendar shortcut -->
+                    <div style="margin-top:0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="App.quickAddToCalendar(${movieId}, '${(movie.display_title || movie.title).replace(/'/g, "\\'")}')">📅 Plan to Watch</button>
+                    </div>
                 </div>
             </div>
         `;
 
         document.getElementById('movieDetailModal').classList.add('active');
+
+        // Load ratings asynchronously
+        loadCineRatingsForMovie(movieId);
 
     } catch (error) {
         console.error('Failed to load movie details:', error);
@@ -3862,6 +3926,11 @@ function getCertColor(cert) {
         const activeTab = document.querySelector(`.tab[data-tab="${tabName}"]`);
         if (activeTab) {
             activeTab.classList.add('active');
+        }
+
+        // Load calendar when switching to calendar tab
+        if (tabName === 'calendar') {
+            calendarInit();
         }
 
         // Load unresolved movies when switching to resolve tab
@@ -7326,6 +7395,7 @@ function switchGroupsTab(tabName) {
     const subtabMap = {
         'manage': 'manageGroups',
         'family': 'familyCollection',
+        'ratings': 'ratingsPanel',
         'wishlist': 'groupWishlist',
         'borrowed': 'borrowedItems',
         'lent': 'lentItems'
@@ -7359,6 +7429,9 @@ function switchGroupsTab(tabName) {
             if (wishlistGroupSelect && wishlistGroupSelect.value) {
                 loadGroupWishlist(wishlistGroupSelect.value);
             }
+            break;
+        case 'ratings':
+            ratingsTabInit();
             break;
         case 'borrowed':
             loadBorrowedItems();
@@ -11981,6 +12054,600 @@ async function getCurrentUserId() {
         }
     }
 
+    // ========================================================
+    // VIEWING CALENDAR (v7.0.0)
+    // ========================================================
+
+    let calendarYear  = new Date().getFullYear();
+    let calendarMonth = new Date().getMonth() + 1; // 1-based
+    let calendarGroupId = null;
+    let calendarEvents  = [];
+
+    const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    async function calendarInit() {
+        // Populate group selects
+        await calendarPopulateGroups();
+        await calendarLoad();
+        await calendarLoadUpcoming();
+    }
+
+    async function calendarPopulateGroups() {
+        const sel = document.getElementById('calendarGroupSelect');
+        const evtSel = document.getElementById('calEventGroup');
+        if (!sel) return;
+        try {
+            const data = await apiCall('list_groups');
+            const opts = (data || []).map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+            if (opts) {
+                sel.innerHTML = '<option value="">Personal</option>' + opts;
+                if (evtSel) evtSel.innerHTML = '<option value="">Personal only</option>' + opts;
+            }
+        } catch (_) {}
+    }
+
+    async function calendarLoad() {
+        document.getElementById('calendarMonthLabel').textContent = `${MONTH_NAMES[calendarMonth - 1]} ${calendarYear}`;
+        try {
+            const params = { year: calendarYear, month: calendarMonth };
+            if (calendarGroupId) params.group_id = calendarGroupId;
+            calendarEvents = await apiCall('calendar_list', params);
+            calendarRender();
+        } catch (e) {
+            console.error('Calendar load error:', e);
+        }
+    }
+
+    async function calendarLoadUpcoming() {
+        const container = document.getElementById('calendarUpcoming');
+        if (!container) return;
+        try {
+            const params = { limit: 8 };
+            if (calendarGroupId) params.group_id = calendarGroupId;
+            const events = await apiCall('calendar_upcoming', params);
+            if (!events || events.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">No upcoming screenings planned.</p>';
+                return;
+            }
+            container.innerHTML = events.map(ev => {
+                const d = new Date(ev.planned_date + 'T00:00:00');
+                const dateStr = d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+                const poster = ev.poster_url || '';
+                return `<div class="cal-upcoming-item">
+                    ${poster ? `<img src="${poster}" alt="" style="width:40px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : '<div style="width:40px;height:60px;background:rgba(255,255,255,0.05);border-radius:4px;flex-shrink:0;"></div>'}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(ev.title)}</div>
+                        <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;">📅 ${dateStr}${ev.notes ? ' · ' + escapeHtml(ev.notes) : ''}</div>
+                    </div>
+                    <div style="display:flex;gap:0.35rem;flex-shrink:0;">
+                        <button class="btn-icon" title="Mark watched" onclick="App.markCalendarComplete(${ev.id})">✅</button>
+                        <button class="btn-icon" title="Remove" onclick="App.deleteCalendarEvent(${ev.id})">🗑️</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) { console.error('Upcoming load error:', e); }
+    }
+
+    function calendarRender() {
+        const grid = document.getElementById('calendarGrid');
+        if (!grid) return;
+
+        // First day of month (0=Sun…6=Sat)
+        const firstDay = new Date(calendarYear, calendarMonth - 1, 1).getDay();
+        const daysInMonth = new Date(calendarYear, calendarMonth, 0).getDate();
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+        // Map events by day number
+        const byDay = {};
+        (calendarEvents || []).forEach(ev => {
+            const day = parseInt(ev.planned_date.substring(8, 10));
+            if (!byDay[day]) byDay[day] = [];
+            byDay[day].push(ev);
+        });
+
+        let html = '';
+        // Leading empty cells
+        for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell cal-cell-empty"></div>';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${calendarYear}-${String(calendarMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const isToday = dateStr === todayStr;
+            const events = byDay[d] || [];
+            const isPast = dateStr < todayStr;
+            html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${isPast && !isToday ? ' cal-past' : ''}" onclick="App._calDayClick('${dateStr}')">
+                <div class="cal-day-num">${d}</div>
+                <div class="cal-day-events">
+                    ${events.slice(0,3).map(ev => `
+                        <div class="cal-event${ev.is_completed ? ' cal-event-done' : ''}" title="${escapeHtml(ev.title)}${ev.notes ? ' – ' + ev.notes : ''}" onclick="event.stopPropagation();">
+                            <span>${escapeHtml(ev.title.length > 18 ? ev.title.substring(0,17)+'…' : ev.title)}</span>
+                            <button class="cal-event-del" onclick="event.stopPropagation();App.deleteCalendarEvent(${ev.id})" title="Remove">×</button>
+                        </div>`).join('')}
+                    ${events.length > 3 ? `<div class="cal-event-more">+${events.length - 3} more</div>` : ''}
+                </div>
+            </div>`;
+        }
+        grid.innerHTML = html;
+    }
+
+    function _calDayClick(dateStr) {
+        // Pre-fill date in the add modal and open it
+        openAddToCalendarModal(dateStr);
+    }
+
+    function calendarPrevMonth() {
+        calendarMonth--;
+        if (calendarMonth < 1) { calendarMonth = 12; calendarYear--; }
+        calendarLoad();
+        calendarLoadUpcoming();
+    }
+
+    function calendarNextMonth() {
+        calendarMonth++;
+        if (calendarMonth > 12) { calendarMonth = 1; calendarYear++; }
+        calendarLoad();
+        calendarLoadUpcoming();
+    }
+
+    function calendarGroupChanged() {
+        const sel = document.getElementById('calendarGroupSelect');
+        calendarGroupId = sel ? (sel.value ? parseInt(sel.value) : null) : null;
+        calendarLoad();
+        calendarLoadUpcoming();
+    }
+
+    function openAddToCalendarModal(prefillDate) {
+        const modal = document.getElementById('addToCalendarModal');
+        if (!modal) return;
+        // Reset
+        document.getElementById('calSearchInput').value = '';
+        document.getElementById('calSearchResults').innerHTML = '';
+        document.getElementById('calSelectedMovieId').value = '';
+        document.getElementById('calSelectedMovie').style.display = 'none';
+        document.getElementById('calEventNotes').value = '';
+        // Default date
+        const dateEl = document.getElementById('calEventDate');
+        if (dateEl) dateEl.value = prefillDate || new Date().toISOString().substring(0, 10);
+        modal.classList.add('active');
+    }
+
+    function closeAddToCalendarModal() {
+        document.getElementById('addToCalendarModal').classList.remove('active');
+    }
+
+    function calSearchCollection(query) {
+        const q = (query || '').toLowerCase().trim();
+        const results = document.getElementById('calSearchResults');
+        if (!q) { results.innerHTML = ''; return; }
+        const matches = collection.filter(c => (c.movie.title || '').toLowerCase().includes(q) || (c.movie.display_title || '').toLowerCase().includes(q)).slice(0, 8);
+        if (!matches.length) { results.innerHTML = '<p style="color:rgba(255,255,255,0.4);padding:0.5rem;font-size:0.85rem;">No results in your collection</p>'; return; }
+        results.innerHTML = matches.map(c => {
+            const m = c.movie;
+            return `<div class="cal-search-result" onclick="App.calSelectMovie(${m.movie_id}, '${escapeHtml((m.display_title || m.title).replace(/'/g, "\\'"))}')">
+                ${m.poster_url ? `<img src="${m.poster_url}" style="width:30px;height:45px;object-fit:cover;border-radius:3px;">` : ''}
+                <div><div style="font-weight:600;font-size:0.9rem;">${escapeHtml(m.display_title || m.title)}</div><div style="color:rgba(255,255,255,0.4);font-size:0.78rem;">${m.year || ''}</div></div>
+            </div>`;
+        }).join('');
+    }
+
+    function calSelectMovie(movieId, title) {
+        document.getElementById('calSelectedMovieId').value = movieId;
+        document.getElementById('calSelectedMovieTitle').textContent = title;
+        document.getElementById('calSelectedMovie').style.display = 'block';
+        document.getElementById('calSearchResults').innerHTML = '';
+        document.getElementById('calSearchInput').value = '';
+    }
+
+    function calClearMovie() {
+        document.getElementById('calSelectedMovieId').value = '';
+        document.getElementById('calSelectedMovie').style.display = 'none';
+    }
+
+    async function saveCalendarEvent() {
+        const movieId = parseInt(document.getElementById('calSelectedMovieId').value);
+        const date    = document.getElementById('calEventDate').value;
+        const notes   = document.getElementById('calEventNotes').value.trim();
+        const groupEl = document.getElementById('calEventGroup');
+        const groupId = groupEl && groupEl.value ? parseInt(groupEl.value) : null;
+
+        if (!movieId) { showToast('Please select a movie first', 'error'); return; }
+        if (!date)    { showToast('Please pick a date', 'error'); return; }
+
+        try {
+            const params = { movie_id: movieId, planned_date: date, notes };
+            if (groupId) params.group_id = groupId;
+            await apiCall('calendar_add', params);
+            showToast('📅 Added to calendar!', 'success');
+            closeAddToCalendarModal();
+            calendarLoad();
+            calendarLoadUpcoming();
+        } catch (e) { showToast('Failed to save: ' + e.message, 'error'); }
+    }
+
+    async function deleteCalendarEvent(eventId) {
+        try {
+            await apiCall('calendar_delete', { event_id: eventId });
+            showToast('Removed from calendar', 'info');
+            calendarLoad();
+            calendarLoadUpcoming();
+        } catch (e) { showToast('Could not remove event', 'error'); }
+    }
+
+    async function markCalendarComplete(eventId) {
+        try {
+            await apiCall('calendar_complete', { event_id: eventId, completed: 1 });
+            showToast('✅ Marked as watched!', 'success');
+            calendarLoad();
+            calendarLoadUpcoming();
+        } catch (e) { showToast('Could not update event', 'error'); }
+    }
+
+    function quickAddToCalendar(movieId, title) {
+        openAddToCalendarModal();
+        calSelectMovie(movieId, title);
+    }
+
+    // ========================================================
+    // CINESHELF RATING (v7.0.0)
+    // ========================================================
+
+    let _cineRatingMovieId = null;
+    let _cineStarValue = null;
+
+    async function openCineRatingModal(movieId) {
+        _cineRatingMovieId = movieId;
+        _cineStarValue = null;
+
+        // Find movie in collection
+        const group = collection.find(c => c.movie.movie_id === movieId);
+        const movie = group ? group.movie : null;
+
+        if (movie) {
+            document.getElementById('cineRatingTitle').textContent = movie.display_title || movie.title;
+            document.getElementById('cineRatingYear').textContent  = movie.year || '';
+            document.getElementById('cineRatingPoster').src = movie.poster_url || '';
+        }
+        document.getElementById('cineRatingMovieId').value = movieId;
+        document.getElementById('cineRatingComment').value = '';
+        document.getElementById('cineRatingValue').value = '';
+        document.getElementById('starRatingLabel').textContent = 'No rating — tap a star';
+        document.querySelectorAll('.star-btn').forEach(s => s.classList.remove('active'));
+        document.getElementById('cineWatchedDate').value = new Date().toISOString().substring(0, 10);
+
+        // Load family members into selector
+        await cineRatingPopulateMembers();
+
+        // Load group selector
+        await cineRatingPopulateGroups();
+
+        document.getElementById('cineRatingModal').classList.add('active');
+    }
+
+    function closeCineRatingModal() {
+        document.getElementById('cineRatingModal').classList.remove('active');
+    }
+
+    async function cineRatingPopulateMembers() {
+        const sel = document.getElementById('cineRatingMember');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Me (my account)</option>';
+        try {
+            const groups = await apiCall('list_groups');
+            for (const g of (groups || [])) {
+                const members = await apiCall('family_member_list', { group_id: g.id });
+                (members || []).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = `${m.avatar} ${m.name} (${g.name})`;
+                    opt.dataset.groupId = g.id;
+                    sel.appendChild(opt);
+                });
+            }
+        } catch (_) {}
+    }
+
+    async function cineRatingPopulateGroups() {
+        const sel = document.getElementById('cineRatingGroup');
+        if (!sel) return;
+        try {
+            const groups = await apiCall('list_groups');
+            sel.innerHTML = '<option value="">Personal only</option>' +
+                (groups || []).map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+        } catch (_) {}
+    }
+
+    function setStarRating(val) {
+        _cineStarValue = val;
+        document.getElementById('cineRatingValue').value = val;
+        const labels = ['','★ Poor','★★ Fair','★★★ Good','★★★★ Great','★★★★★ Outstanding'];
+        document.getElementById('starRatingLabel').textContent = labels[val] || '';
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.classList.toggle('active', parseInt(s.dataset.val) <= val);
+        });
+    }
+
+    async function saveCineRating() {
+        const movieId  = parseInt(document.getElementById('cineRatingMovieId').value);
+        const memberSel = document.getElementById('cineRatingMember');
+        const memberId = memberSel && memberSel.value ? parseInt(memberSel.value) : null;
+        const groupSel = document.getElementById('cineRatingGroup');
+        const groupId  = groupSel && groupSel.value ? parseInt(groupSel.value) : null;
+
+        // If a family member is selected, use their group automatically
+        const effectiveGroupId = groupId || (memberSel && memberSel.selectedOptions[0] ? parseInt(memberSel.selectedOptions[0].dataset.groupId || 0) || null : null);
+
+        const rating    = _cineStarValue || null;
+        const comment   = document.getElementById('cineRatingComment').value.trim();
+        const watchedDate = document.getElementById('cineWatchedDate').value;
+
+        if (!movieId) { showToast('No movie selected', 'error'); return; }
+
+        try {
+            const params = { movie_id: movieId, watched_date: watchedDate };
+            if (memberId) params.family_member_id = memberId;
+            if (effectiveGroupId) params.group_id = effectiveGroupId;
+            if (rating) params.rating = rating;
+            if (comment) params.comment = comment;
+
+            await apiCall('log_view', params);
+            showToast('⭐ Rating saved!', 'success');
+            closeCineRatingModal();
+
+            // Refresh the rating panel inside the movie detail modal
+            if (document.getElementById('movieDetailModal').classList.contains('active')) {
+                loadCineRatingsForMovie(movieId);
+            }
+        } catch (e) { showToast('Failed to save rating: ' + e.message, 'error'); }
+    }
+
+    async function deleteView(viewId, movieId) {
+        if (!confirm('Remove this viewing record?')) return;
+        try {
+            await apiCall('delete_view', { view_id: viewId });
+            showToast('Removed', 'info');
+            loadCineRatingsForMovie(movieId);
+        } catch (e) { showToast('Could not remove', 'error'); }
+    }
+
+    async function loadCineRatingsForMovie(movieId) {
+        const container = document.getElementById(`cineRatingContent_${movieId}`);
+        if (!container) return;
+        try {
+            const data = await apiCall('get_movie_views', { movie_id: movieId });
+            const views = data.views || [];
+            const avgRating = data.avg_rating;
+            const ratedCount = data.rated_count;
+
+            if (views.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">No viewings logged yet. Be the first to rate!</p>';
+                return;
+            }
+
+            const avgHtml = avgRating
+                ? `<div class="cine-avg-rating">
+                    <span class="cine-avg-stars">${'★'.repeat(Math.round(avgRating))}${'☆'.repeat(5 - Math.round(avgRating))}</span>
+                    <span class="cine-avg-score">${avgRating} / 5</span>
+                    <span class="cine-avg-count">(${ratedCount} rating${ratedCount !== 1 ? 's' : ''})</span>
+                   </div>`
+                : '';
+
+            const viewsHtml = views.map(v => {
+                const viewer = v.member_name
+                    ? `<span class="cine-viewer-badge" style="background:${v.member_color || '#667eea'}">${v.member_avatar || '👤'} ${escapeHtml(v.member_name)}</span>`
+                    : `<span class="cine-viewer-badge">${escapeHtml(v.user_display_name || v.user_username || 'Me')}</span>`;
+                const stars = v.rating
+                    ? `<span class="cine-stars">${'★'.repeat(v.rating)}${'☆'.repeat(5 - v.rating)}</span>`
+                    : '<span class="cine-no-rating">No rating</span>';
+                const dateStr = v.watched_date
+                    ? new Date(v.watched_date + 'T00:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+                    : '';
+                return `<div class="cine-view-entry">
+                    <div class="cine-view-header">
+                        ${viewer}
+                        ${stars}
+                        ${dateStr ? `<span class="cine-watch-date">${dateStr}</span>` : ''}
+                        <button class="cine-view-del" onclick="App.deleteView(${v.id}, ${movieId})" title="Remove">×</button>
+                    </div>
+                    ${v.comment ? `<div class="cine-view-comment">"${escapeHtml(v.comment)}"</div>` : ''}
+                </div>`;
+            }).join('');
+
+            container.innerHTML = avgHtml + `<div class="cine-views-list">${viewsHtml}</div>`;
+        } catch (e) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Could not load ratings.</p>';
+        }
+    }
+
+    // ========================================================
+    // FAMILY MEMBERS & RATINGS TAB (v7.0.0)
+    // ========================================================
+
+    let _currentRatingsGroupId = null;
+    let _selectedMemberAvatar  = '👤';
+    let _selectedMemberColor   = '#667eea';
+
+    async function ratingsTabInit() {
+        // Populate group selector
+        const sel = document.getElementById('ratingsGroupSelect');
+        if (!sel) return;
+        try {
+            const groups = await apiCall('list_groups');
+            sel.innerHTML = '<option value="">Select a group…</option>' +
+                (groups || []).map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+        } catch (_) {}
+    }
+
+    async function loadGroupRatings(groupId) {
+        _currentRatingsGroupId = groupId ? parseInt(groupId) : null;
+        const emptyState = document.getElementById('emptyRatings');
+        const membersSection = document.getElementById('familyMembersSection');
+        const unseenSection  = document.getElementById('unseenSection');
+        const activitySection = document.getElementById('ratingsActivity');
+
+        if (!_currentRatingsGroupId) {
+            if (emptyState) emptyState.style.display = '';
+            if (membersSection) membersSection.style.display = 'none';
+            if (unseenSection)  unseenSection.style.display  = 'none';
+            if (activitySection) activitySection.style.display = 'none';
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        // Load family members
+        await loadFamilyMembers(_currentRatingsGroupId);
+        if (membersSection) membersSection.style.display = '';
+
+        // Load unseen
+        await loadUnseenMovies(_currentRatingsGroupId);
+        if (unseenSection) unseenSection.style.display = '';
+
+        // Load recent activity
+        await loadRatingsActivity(_currentRatingsGroupId);
+        if (activitySection) activitySection.style.display = '';
+    }
+
+    async function loadFamilyMembers(groupId) {
+        const container = document.getElementById('familyMembersList');
+        if (!container) return;
+        try {
+            const members = await apiCall('family_member_list', { group_id: groupId });
+            if (!members || members.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">No family members yet. Add some!</p>';
+                return;
+            }
+            container.innerHTML = members.map(m => `
+                <div class="family-member-card" style="border-color:${m.color || '#667eea'}40;">
+                    <div class="family-member-avatar" style="background:${m.color || '#667eea'}30;">${m.avatar || '👤'}</div>
+                    <div class="family-member-name">${escapeHtml(m.name)}</div>
+                    <button class="cine-view-del" onclick="App.deleteFamilyMember(${m.id})" title="Remove">×</button>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Could not load members.</p>';
+        }
+    }
+
+    async function loadUnseenMovies(groupId) {
+        const container = document.getElementById('unseenContent');
+        if (!container) return;
+        container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Loading…</p>';
+        try {
+            const data = await apiCall('family_unseen', { group_id: groupId });
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:0.85rem;">Everyone has seen everything! 🎉</p>';
+                return;
+            }
+            container.innerHTML = data.slice(0, 20).map(m => {
+                const unseenBadges = m.unseen_by.map(u =>
+                    `<span class="cine-viewer-badge" style="background:${u.color || '#667eea'}40;">${u.avatar || '👤'} ${escapeHtml(u.name)}</span>`
+                ).join('');
+                return `<div class="unseen-row">
+                    ${m.poster_url ? `<img src="${m.poster_url}" style="width:36px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : ''}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(m.title)}${m.year ? ` (${m.year})` : ''}</div>
+                        <div style="margin-top:0.25rem;display:flex;flex-wrap:wrap;gap:0.3rem;">
+                            <span style="color:rgba(255,255,255,0.4);font-size:0.75rem;align-self:center;">Not seen by:</span>
+                            ${unseenBadges}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Could not load data.</p>';
+        }
+    }
+
+    async function loadRatingsActivity(groupId) {
+        const container = document.getElementById('ratingsActivityContent');
+        if (!container) return;
+        container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Loading…</p>';
+        try {
+            const data = await apiCall('family_ratings_overview', { group_id: groupId });
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:0.85rem;">No ratings yet. Open a movie and tap "Log Viewing" to add the first one!</p>';
+                return;
+            }
+            container.innerHTML = data.slice(0, 30).map(v => {
+                const viewer = v.member_name
+                    ? `<span class="cine-viewer-badge" style="background:${v.member_color || '#667eea'}40;">${v.member_avatar || '👤'} ${escapeHtml(v.member_name)}</span>`
+                    : `<span class="cine-viewer-badge">${escapeHtml(v.user_display_name || 'Me')}</span>`;
+                const stars = v.rating ? `<span class="cine-stars">${'★'.repeat(v.rating)}${'☆'.repeat(5-v.rating)}</span>` : '';
+                const dateStr = v.watched_date ? new Date(v.watched_date + 'T00:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
+                return `<div class="cine-view-entry">
+                    <div class="cine-view-header">
+                        ${v.poster_url ? `<img src="${v.poster_url}" style="width:28px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0;">` : ''}
+                        <span style="font-weight:600;font-size:0.88rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(v.title)}${v.year ? ` (${v.year})` : ''}</span>
+                        ${viewer}
+                        ${stars}
+                        ${dateStr ? `<span class="cine-watch-date">${dateStr}</span>` : ''}
+                    </div>
+                    ${v.comment ? `<div class="cine-view-comment">"${escapeHtml(v.comment)}"</div>` : ''}
+                </div>`;
+            }).join('');
+        } catch (e) {
+            container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Could not load ratings.</p>';
+        }
+    }
+
+    function openAddFamilyMemberModal() {
+        if (!_currentRatingsGroupId) { showToast('Select a group first', 'error'); return; }
+        _selectedMemberAvatar = '👤';
+        _selectedMemberColor  = '#667eea';
+        document.getElementById('familyMemberName').value = '';
+        document.getElementById('familyMemberAvatar').value = '👤';
+        document.getElementById('selectedAvatarDisplay').textContent = '👤';
+        document.getElementById('familyMemberColor').value = '#667eea';
+        document.getElementById('familyMemberGroupId').value = _currentRatingsGroupId;
+        // Reset swatch selection
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.avatar-opt').forEach(s => s.classList.remove('active'));
+        document.getElementById('addFamilyMemberModal').classList.add('active');
+    }
+
+    function closeAddFamilyMemberModal() {
+        document.getElementById('addFamilyMemberModal').classList.remove('active');
+    }
+
+    function pickAvatar(emoji) {
+        _selectedMemberAvatar = emoji;
+        document.getElementById('familyMemberAvatar').value = emoji;
+        document.getElementById('selectedAvatarDisplay').textContent = emoji;
+        document.querySelectorAll('.avatar-opt').forEach(s => s.classList.toggle('active', s.textContent === emoji));
+    }
+
+    function pickMemberColor(color) {
+        _selectedMemberColor = color;
+        document.getElementById('familyMemberColor').value = color;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s.style.background === color));
+    }
+
+    async function saveFamilyMember() {
+        const groupId = parseInt(document.getElementById('familyMemberGroupId').value);
+        const name    = document.getElementById('familyMemberName').value.trim();
+        const avatar  = document.getElementById('familyMemberAvatar').value || '👤';
+        const color   = document.getElementById('familyMemberColor').value || '#667eea';
+
+        if (!name) { showToast('Enter a name', 'error'); return; }
+        if (!groupId) { showToast('No group selected', 'error'); return; }
+
+        try {
+            await apiCall('family_member_add', { group_id: groupId, name, avatar, color });
+            showToast(`${avatar} ${name} added!`, 'success');
+            closeAddFamilyMemberModal();
+            await loadFamilyMembers(groupId);
+        } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function deleteFamilyMember(memberId) {
+        if (!confirm('Remove this family member? Their ratings will also be removed.')) return;
+        try {
+            await apiCall('family_member_delete', { member_id: memberId });
+            showToast('Member removed', 'info');
+            if (_currentRatingsGroupId) await loadFamilyMembers(_currentRatingsGroupId);
+        } catch (e) { showToast('Could not remove member', 'error'); }
+    }
+
     // ========================================
     // PUBLIC API
     // ========================================
@@ -12290,7 +12957,54 @@ return {
     // shelf unit config
     updateWizardCapacity,
     loadWizardShelfUnitConfig,
-    saveWizardShelfUnitConfig
+    saveWizardShelfUnitConfig,
+
+    // ======================================================
+    // VIEWING CALENDAR PUBLIC API (v7.0.0)
+    // ======================================================
+    calendarInit,
+    calendarPrevMonth,
+    calendarNextMonth,
+    calendarGroupChanged,
+    openAddToCalendarModal,
+    closeAddToCalendarModal,
+    calSearchCollection,
+    calClearMovie,
+    calSelectMovie,
+    saveCalendarEvent,
+    deleteCalendarEvent,
+    markCalendarComplete,
+    quickAddToCalendar,
+
+    // ======================================================
+    // CINESHELF RATING PUBLIC API (v7.0.0)
+    // ======================================================
+    openCineRatingModal,
+    closeCineRatingModal,
+    setStarRating,
+    saveCineRating,
+    deleteView,
+    loadCineRatingsForMovie,
+
+    // ======================================================
+    // FAMILY MEMBERS & RATINGS TAB PUBLIC API (v7.0.0)
+    // ======================================================
+    loadGroupRatings,
+    openAddFamilyMemberModal,
+    closeAddFamilyMemberModal,
+    pickAvatar,
+    pickMemberColor,
+    saveFamilyMember,
+    deleteFamilyMember,
+
+    // ======================================================
+    // COVER ART SOURCES PUBLIC API (v7.0.0)
+    // ======================================================
+    applyCustomPosterUrl,
+    uploadCoverFile,
+
+    // internal calendar helper used by day cells
+    _calDayClick
 };
 
 })();

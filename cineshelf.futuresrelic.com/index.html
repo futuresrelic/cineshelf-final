@@ -157,6 +157,10 @@
                 <span class="tab-icon">➕</span>
                 <span class="tab-label">Add Title</span>
             </button>
+            <button class="tab" data-tab="calendar" onclick="App.switchTab('calendar')">
+                <span class="tab-icon">📅</span>
+                <span class="tab-label">Calendar</span>
+            </button>
             <button class="tab" data-tab="trivia" onclick="App.switchTab('trivia')">
                 <span class="tab-icon">🎮</span>
                 <span class="tab-label">Trivia</span>
@@ -435,6 +439,7 @@
         <div class="groups-tabs">
             <button class="groups-tab active" data-groups-tab="manage" onclick="App.switchGroupsTab('manage')">👥 Manage Groups</button>
             <button class="groups-tab" data-groups-tab="family" onclick="App.switchGroupsTab('family')">🏠 Family Collection</button>
+            <button class="groups-tab" data-groups-tab="ratings" onclick="App.switchGroupsTab('ratings')">⭐ Ratings</button>
             <button class="groups-tab" data-groups-tab="wishlist" onclick="App.switchGroupsTab('wishlist')">❤️ Group Wishlist</button>
             <button class="groups-tab" data-groups-tab="borrowed" onclick="App.switchGroupsTab('borrowed')">📥 Borrowed</button>
             <button class="groups-tab" data-groups-tab="lent" onclick="App.switchGroupsTab('lent')">📤 Lent</button>
@@ -501,6 +506,43 @@
                 <div class="empty-icon">❤️</div>
                 <h3>Select a group to view wishlists</h3>
                 <p>See what movies your group members want!</p>
+            </div>
+        </div>
+
+        <!-- CineShelf Ratings (family reviews) -->
+        <div id="ratingsPanel" class="groups-subtab">
+            <div class="section-header">
+                <h2>⭐ CineShelf Ratings</h2>
+                <select id="ratingsGroupSelect" onchange="App.loadGroupRatings(this.value)" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:0.4rem 0.75rem;border-radius:6px;font-size:0.85rem;">
+                    <option value="">Select a group…</option>
+                </select>
+            </div>
+
+            <!-- Family Members management -->
+            <div id="familyMembersSection" style="display:none;margin-bottom:2rem;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                    <h3 style="color:rgba(255,255,255,0.8);">👨‍👩‍👧‍👦 Family Members</h3>
+                    <button class="btn btn-sm" onclick="App.openAddFamilyMemberModal()">+ Add Member</button>
+                </div>
+                <div id="familyMembersList" class="family-members-grid"></div>
+            </div>
+
+            <!-- Who hasn't seen what -->
+            <div id="unseenSection" style="display:none;margin-bottom:2rem;">
+                <h3 style="color:rgba(255,255,255,0.8);margin-bottom:0.75rem;">🎬 Not Yet Seen By…</h3>
+                <div id="unseenContent"></div>
+            </div>
+
+            <!-- Recent ratings activity -->
+            <div id="ratingsActivity" style="display:none;">
+                <h3 style="color:rgba(255,255,255,0.8);margin-bottom:0.75rem;">📋 Recent Ratings</h3>
+                <div id="ratingsActivityContent"></div>
+            </div>
+
+            <div id="emptyRatings" class="empty-state">
+                <div class="empty-icon">⭐</div>
+                <h3>Family Ratings</h3>
+                <p>Select a group to see who has watched what and read family reviews!</p>
             </div>
         </div>
 
@@ -1398,7 +1440,208 @@
             </div>
         </section>
 
+        <!-- =====================================================
+             CALENDAR TAB
+             ===================================================== -->
+        <section id="calendar" class="tab-content">
+            <div class="section-header">
+                <h2>📅 Viewing Calendar</h2>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <select id="calendarGroupSelect" onchange="App.calendarGroupChanged()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:0.4rem 0.75rem;border-radius:6px;font-size:0.85rem;">
+                        <option value="">Personal</option>
+                    </select>
+                    <button class="btn btn-sm" onclick="App.openAddToCalendarModal()">+ Plan Movie Night</button>
+                </div>
+            </div>
+
+            <!-- Month navigation -->
+            <div class="calendar-nav">
+                <button class="cal-nav-btn" onclick="App.calendarPrevMonth()">‹</button>
+                <span id="calendarMonthLabel" class="cal-month-label">March 2026</span>
+                <button class="cal-nav-btn" onclick="App.calendarNextMonth()">›</button>
+            </div>
+
+            <!-- Calendar grid -->
+            <div class="calendar-grid-wrap">
+                <div class="calendar-day-headers">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+
+            <!-- Upcoming events list -->
+            <div style="margin-top:2rem;">
+                <h3 style="color:rgba(255,255,255,0.8); margin-bottom:1rem;">📋 Upcoming Screenings</h3>
+                <div id="calendarUpcoming" class="calendar-upcoming-list"></div>
+            </div>
+        </section>
+
+        <!-- =====================================================
+             CINESHELF RATING TAB (accessible from Groups)
+             ===================================================== -->
+
     </main>
+
+    <!-- =====================================================
+         ADD TO CALENDAR MODAL
+         ===================================================== -->
+    <div id="addToCalendarModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📅 Plan a Movie Night</h3>
+                <button class="modal-close" onclick="App.closeAddToCalendarModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Movie / TV Show</label>
+                    <input type="text" id="calSearchInput" placeholder="Search your collection…" oninput="App.calSearchCollection(this.value)" autocomplete="off" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
+                    <div id="calSearchResults" style="max-height:220px;overflow-y:auto;margin-top:0.5rem;"></div>
+                    <div id="calSelectedMovie" style="display:none;margin-top:0.5rem;padding:0.6rem;background:rgba(102,126,234,0.15);border-radius:6px;border:1px solid rgba(102,126,234,0.3);">
+                        <span id="calSelectedMovieTitle" style="font-weight:600;"></span>
+                        <button onclick="App.calClearMovie()" style="float:right;background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;">×</button>
+                    </div>
+                    <input type="hidden" id="calSelectedMovieId">
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Date</label>
+                    <input type="date" id="calEventDate" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Notes (optional)</label>
+                    <input type="text" id="calEventNotes" placeholder="Family movie night, popcorn ready 🍿" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Group (optional)</label>
+                    <select id="calEventGroup" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#1a1a2e;color:white;font-size:0.9rem;">
+                        <option value="">Personal only</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+                    <button class="btn" onclick="App.saveCalendarEvent()" style="flex:1;">📅 Add to Calendar</button>
+                    <button class="btn btn-secondary" onclick="App.closeAddToCalendarModal()" style="flex:1;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         CINESHELF RATING MODAL (Log a viewing + rate)
+         ===================================================== -->
+    <div id="cineRatingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⭐ CineShelf Rating</h3>
+                <button class="modal-close" onclick="App.closeCineRatingModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="cineRatingMovieInfo" style="display:flex;gap:1rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <img id="cineRatingPoster" src="" alt="" style="width:60px;height:90px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+                    <div>
+                        <div id="cineRatingTitle" style="font-weight:700;font-size:1.05rem;"></div>
+                        <div id="cineRatingYear" style="color:rgba(255,255,255,0.5);font-size:0.85rem;"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Who watched it?</label>
+                    <select id="cineRatingMember" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#1a1a2e;color:white;font-size:0.9rem;">
+                        <option value="">Me (my account)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Rating</label>
+                    <div class="star-picker" id="starPicker">
+                        <span class="star-btn" data-val="1" onclick="App.setStarRating(1)">★</span>
+                        <span class="star-btn" data-val="2" onclick="App.setStarRating(2)">★</span>
+                        <span class="star-btn" data-val="3" onclick="App.setStarRating(3)">★</span>
+                        <span class="star-btn" data-val="4" onclick="App.setStarRating(4)">★</span>
+                        <span class="star-btn" data-val="5" onclick="App.setStarRating(5)">★</span>
+                    </div>
+                    <div style="font-size:0.8rem;color:rgba(255,255,255,0.4);margin-top:0.3rem;" id="starRatingLabel">No rating</div>
+                    <input type="hidden" id="cineRatingValue">
+                </div>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Date Watched</label>
+                    <input type="date" id="cineWatchedDate" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
+                </div>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Review / Comment</label>
+                    <textarea id="cineRatingComment" rows="3" placeholder="What did you think?" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;resize:vertical;font-family:inherit;"></textarea>
+                </div>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Group (so family can see)</label>
+                    <select id="cineRatingGroup" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#1a1a2e;color:white;font-size:0.9rem;">
+                        <option value="">Personal only</option>
+                    </select>
+                </div>
+
+                <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+                    <button class="btn" onclick="App.saveCineRating()" style="flex:1;">⭐ Save Rating</button>
+                    <button class="btn btn-secondary" onclick="App.closeCineRatingModal()" style="flex:1;">Cancel</button>
+                </div>
+
+                <input type="hidden" id="cineRatingMovieId">
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Family Member Modal -->
+    <div id="addFamilyMemberModal" class="modal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>👤 Add Family Member</h3>
+                <button class="modal-close" onclick="App.closeAddFamilyMemberModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="familyMemberName" placeholder="e.g. Mom, Dad, Alice…" style="width:100%;padding:0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:0.9rem;">
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Avatar emoji</label>
+                    <div class="avatar-picker" id="avatarPicker">
+                        <span class="avatar-opt" onclick="App.pickAvatar('👦')">👦</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👧')">👧</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👨')">👨</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👩')">👩</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('🧑')">🧑</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👴')">👴</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👵')">👵</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('🧒')">🧒</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('👶')">👶</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('🎭')">🎭</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('🦁')">🦁</span>
+                        <span class="avatar-opt" onclick="App.pickAvatar('🐻')">🐻</span>
+                    </div>
+                    <input type="hidden" id="familyMemberAvatar" value="👤">
+                    <div style="margin-top:0.4rem;font-size:0.8rem;color:rgba(255,255,255,0.4);">Selected: <span id="selectedAvatarDisplay">👤</span></div>
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label>Colour</label>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <span class="color-swatch" style="background:#667eea;" onclick="App.pickMemberColor('#667eea')"></span>
+                        <span class="color-swatch" style="background:#f5576c;" onclick="App.pickMemberColor('#f5576c')"></span>
+                        <span class="color-swatch" style="background:#4caf50;" onclick="App.pickMemberColor('#4caf50')"></span>
+                        <span class="color-swatch" style="background:#ff9800;" onclick="App.pickMemberColor('#ff9800')"></span>
+                        <span class="color-swatch" style="background:#00bcd4;" onclick="App.pickMemberColor('#00bcd4')"></span>
+                        <span class="color-swatch" style="background:#e91e63;" onclick="App.pickMemberColor('#e91e63')"></span>
+                        <span class="color-swatch" style="background:#9c27b0;" onclick="App.pickMemberColor('#9c27b0')"></span>
+                        <span class="color-swatch" style="background:#795548;" onclick="App.pickMemberColor('#795548')"></span>
+                    </div>
+                    <input type="hidden" id="familyMemberColor" value="#667eea">
+                </div>
+                <input type="hidden" id="familyMemberGroupId">
+                <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+                    <button class="btn" onclick="App.saveFamilyMember()" style="flex:1;">Add Member</button>
+                    <button class="btn btn-secondary" onclick="App.closeAddFamilyMemberModal()" style="flex:1;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Copy Manager Modal -->
     <div id="copyManagerModal" class="modal">

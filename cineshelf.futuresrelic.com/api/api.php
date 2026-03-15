@@ -1401,14 +1401,16 @@ case 'get_movie_posters':
 
 case 'update_movie_poster':
     $movieId = intval($input['movie_id'] ?? 0);
-    $posterPath = sanitize($input['poster_path'] ?? '', 200);
-    
-    if (empty($movieId) || empty($posterPath)) {
-        jsonResponse(false, null, 'Movie ID and poster path required');
+    $posterPath = sanitize($input['poster_path'] ?? '', 500);
+    // Also accept a direct poster_url (custom URLs, uploaded files, OMDB, etc.)
+    $directUrl  = sanitize($input['poster_url'] ?? '', 500);
+
+    if (empty($movieId) || (empty($posterPath) && empty($directUrl))) {
+        jsonResponse(false, null, 'Movie ID and poster path or URL required');
     }
-    
-    // Build full poster URL (handle both TMDB relative paths and full URLs from UMDB)
-    $posterUrl = resolveImageUrl($posterPath);
+
+    // If a direct URL is provided, use it as-is; otherwise resolve from path
+    $posterUrl = $directUrl ?: resolveImageUrl($posterPath);
     
     // Update movie poster
     $stmt = $db->prepare("
@@ -10350,6 +10352,319 @@ Return ONLY the JSON object, no markdown.'
             }
 
             jsonResponse(true, $out);
+            break;
+        }
+
+        // ============================================================
+        // VIEWING CALENDAR
+        // ============================================================
+
+        case 'calendar_add': {
+            $movieId = intval($body['movie_id'] ?? 0);
+            $plannedDate = sanitize($body['planned_date'] ?? '');
+            $notes = sanitize($body['notes'] ?? '', 500);
+            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+
+            if (!$movieId || !$plannedDate) {
+                jsonResponse(false, null, 'movie_id and planned_date are required');
+            }
+
+            $stmt = $db->prepare("INSERT INTO viewing_calendar (user_id, group_id, movie_id, planned_date, notes) VALUES (?,?,?,?,?)");
+            $stmt->execute([$currentUserId, $groupId, $movieId, $plannedDate, $notes ?: null]);
+            $newId = $db->lastInsertId();
+
+            // Return the event with movie info
+            $evt = $db->prepare("SELECT vc.*, m.title, m.poster_url, m.year, m.media_type FROM viewing_calendar vc JOIN movies m ON m.id = vc.movie_id WHERE vc.id = ?");
+            $evt->execute([$newId]);
+            jsonResponse(true, $evt->fetch());
+            break;
+        }
+
+        case 'calendar_list': {
+            $year  = intval($body['year']  ?? date('Y'));
+            $month = intval($body['month'] ?? date('n'));
+            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+
+            if ($groupId) {
+                // Members of this group can see the shared calendar
+                $stmt = $db->prepare("
+                    SELECT vc.*, m.title, m.poster_url, m.year AS movie_year, m.media_type, m.genre,
+                           u.display_name as added_by_name, u.username as added_by_username
+                    FROM viewing_calendar vc
+                    JOIN movies m ON m.id = vc.movie_id
+                    LEFT JOIN users u ON u.id = vc.user_id
+                    WHERE vc.group_id = ? AND strftime('%Y', vc.planned_date) = ? AND strftime('%m', vc.planned_date) = ?
+                    ORDER BY vc.planned_date ASC
+                ");
+                $stmt->execute([$groupId, sprintf('%04d', $year), sprintf('%02d', $month)]);
+            } else {
+                $stmt = $db->prepare("
+                    SELECT vc.*, m.title, m.poster_url, m.year AS movie_year, m.media_type, m.genre,
+                           u.display_name as added_by_name, u.username as added_by_username
+                    FROM viewing_calendar vc
+                    JOIN movies m ON m.id = vc.movie_id
+                    LEFT JOIN users u ON u.id = vc.user_id
+                    WHERE vc.user_id = ? AND strftime('%Y', vc.planned_date) = ? AND strftime('%m', vc.planned_date) = ?
+                    ORDER BY vc.planned_date ASC
+                ");
+                $stmt->execute([$currentUserId, sprintf('%04d', $year), sprintf('%02d', $month)]);
+            }
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+        }
+
+        case 'calendar_delete': {
+            $eventId = intval($body['event_id'] ?? 0);
+            if (!$eventId) jsonResponse(false, null, 'event_id required');
+
+            $stmt = $db->prepare("DELETE FROM viewing_calendar WHERE id = ? AND user_id = ?");
+            $stmt->execute([$eventId, $currentUserId]);
+            jsonResponse(true, ['deleted' => $stmt->rowCount() > 0]);
+            break;
+        }
+
+        case 'calendar_complete': {
+            $eventId = intval($body['event_id'] ?? 0);
+            $completed = isset($body['completed']) ? (int)(bool)$body['completed'] : 1;
+            if (!$eventId) jsonResponse(false, null, 'event_id required');
+
+            $stmt = $db->prepare("UPDATE viewing_calendar SET is_completed = ?, completed_at = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$completed, $completed ? date('Y-m-d H:i:s') : null, $eventId, $currentUserId]);
+            jsonResponse(true, ['updated' => $stmt->rowCount() > 0]);
+            break;
+        }
+
+        case 'calendar_upcoming': {
+            $limit = min(intval($body['limit'] ?? 10), 50);
+            $groupId = !empty($body['group_id']) ? intval($body['group_id']) : null;
+
+            if ($groupId) {
+                $stmt = $db->prepare("
+                    SELECT vc.*, m.title, m.poster_url, m.year AS movie_year, m.media_type
+                    FROM viewing_calendar vc
+                    JOIN movies m ON m.id = vc.movie_id
+                    WHERE vc.group_id = ? AND vc.planned_date >= date('now') AND vc.is_completed = 0
+                    ORDER BY vc.planned_date ASC LIMIT ?
+                ");
+                $stmt->execute([$groupId, $limit]);
+            } else {
+                $stmt = $db->prepare("
+                    SELECT vc.*, m.title, m.poster_url, m.year AS movie_year, m.media_type
+                    FROM viewing_calendar vc
+                    JOIN movies m ON m.id = vc.movie_id
+                    WHERE vc.user_id = ? AND vc.planned_date >= date('now') AND vc.is_completed = 0
+                    ORDER BY vc.planned_date ASC LIMIT ?
+                ");
+                $stmt->execute([$currentUserId, $limit]);
+            }
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+        }
+
+        // ============================================================
+        // FAMILY MEMBERS
+        // ============================================================
+
+        case 'family_member_add': {
+            $groupId = intval($body['group_id'] ?? 0);
+            $name    = sanitize($body['name'] ?? '', 60);
+            $avatar  = sanitize($body['avatar'] ?? '👤', 10);
+            $color   = sanitize($body['color'] ?? '#667eea', 20);
+            $linkedUserId = !empty($body['user_id']) ? intval($body['user_id']) : null;
+
+            if (!$groupId || !$name) jsonResponse(false, null, 'group_id and name required');
+
+            // Verify user is member of this group
+            $chk = $db->prepare("SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?");
+            $chk->execute([$groupId, $currentUserId]);
+            if (!$chk->fetch()) jsonResponse(false, null, 'Not a member of this group');
+
+            $stmt = $db->prepare("INSERT INTO family_members (group_id, user_id, name, avatar, color) VALUES (?,?,?,?,?)");
+            $stmt->execute([$groupId, $linkedUserId, $name, $avatar, $color]);
+            $newId = $db->lastInsertId();
+
+            $row = $db->prepare("SELECT * FROM family_members WHERE id = ?");
+            $row->execute([$newId]);
+            jsonResponse(true, $row->fetch());
+            break;
+        }
+
+        case 'family_member_list': {
+            $groupId = intval($body['group_id'] ?? 0);
+            if (!$groupId) jsonResponse(false, null, 'group_id required');
+
+            $stmt = $db->prepare("
+                SELECT fm.*, u.display_name as user_display_name, u.profile_picture as user_avatar
+                FROM family_members fm
+                LEFT JOIN users u ON u.id = fm.user_id
+                WHERE fm.group_id = ?
+                ORDER BY fm.sort_order ASC, fm.name ASC
+            ");
+            $stmt->execute([$groupId]);
+            jsonResponse(true, $stmt->fetchAll());
+            break;
+        }
+
+        case 'family_member_update': {
+            $memberId = intval($body['member_id'] ?? 0);
+            $name   = sanitize($body['name'] ?? '', 60);
+            $avatar = sanitize($body['avatar'] ?? '👤', 10);
+            $color  = sanitize($body['color'] ?? '#667eea', 20);
+            if (!$memberId) jsonResponse(false, null, 'member_id required');
+
+            // Ensure member belongs to a group the current user is in
+            $chk = $db->prepare("SELECT fm.group_id FROM family_members fm JOIN group_members gm ON gm.group_id = fm.group_id WHERE fm.id = ? AND gm.user_id = ?");
+            $chk->execute([$memberId, $currentUserId]);
+            if (!$chk->fetch()) jsonResponse(false, null, 'Member not found or not authorised');
+
+            $stmt = $db->prepare("UPDATE family_members SET name=?, avatar=?, color=? WHERE id=?");
+            $stmt->execute([$name, $avatar, $color, $memberId]);
+            jsonResponse(true, ['updated' => true]);
+            break;
+        }
+
+        case 'family_member_delete': {
+            $memberId = intval($body['member_id'] ?? 0);
+            if (!$memberId) jsonResponse(false, null, 'member_id required');
+
+            $chk = $db->prepare("SELECT fm.group_id FROM family_members fm JOIN group_members gm ON gm.group_id = fm.group_id WHERE fm.id = ? AND gm.user_id = ?");
+            $chk->execute([$memberId, $currentUserId]);
+            if (!$chk->fetch()) jsonResponse(false, null, 'Member not found or not authorised');
+
+            $db->prepare("DELETE FROM family_members WHERE id=?")->execute([$memberId]);
+            jsonResponse(true, ['deleted' => true]);
+            break;
+        }
+
+        // ============================================================
+        // CINESHELF RATINGS — Movie views & star ratings
+        // ============================================================
+
+        case 'log_view': {
+            $movieId       = intval($body['movie_id'] ?? 0);
+            $memberId      = !empty($body['family_member_id']) ? intval($body['family_member_id']) : null;
+            $groupId       = !empty($body['group_id']) ? intval($body['group_id']) : null;
+            $rating        = isset($body['rating']) && $body['rating'] !== '' && $body['rating'] !== null ? intval($body['rating']) : null;
+            $comment       = sanitize($body['comment'] ?? '', 1000);
+            $watchedDate   = sanitize($body['watched_date'] ?? '', 20) ?: date('Y-m-d');
+
+            if (!$movieId) jsonResponse(false, null, 'movie_id required');
+            if ($rating !== null && ($rating < 1 || $rating > 5)) jsonResponse(false, null, 'rating must be 1-5');
+
+            $stmt = $db->prepare("INSERT INTO movie_views (movie_id, user_id, family_member_id, group_id, watched_date, rating, comment) VALUES (?,?,?,?,?,?,?)");
+            $stmt->execute([$movieId, $currentUserId, $memberId, $groupId, $watchedDate, $rating, $comment ?: null]);
+            $newId = $db->lastInsertId();
+
+            $row = $db->prepare("
+                SELECT mv.*, fm.name as member_name, fm.avatar as member_avatar, fm.color as member_color,
+                       u.display_name as user_display_name, u.username as user_username
+                FROM movie_views mv
+                LEFT JOIN family_members fm ON fm.id = mv.family_member_id
+                LEFT JOIN users u ON u.id = mv.user_id
+                WHERE mv.id = ?
+            ");
+            $row->execute([$newId]);
+            jsonResponse(true, $row->fetch());
+            break;
+        }
+
+        case 'get_movie_views': {
+            $movieId = intval($body['movie_id'] ?? 0);
+            if (!$movieId) jsonResponse(false, null, 'movie_id required');
+
+            $stmt = $db->prepare("
+                SELECT mv.*, fm.name as member_name, fm.avatar as member_avatar, fm.color as member_color,
+                       u.display_name as user_display_name, u.username as user_username, u.profile_picture as user_pic
+                FROM movie_views mv
+                LEFT JOIN family_members fm ON fm.id = mv.family_member_id
+                LEFT JOIN users u ON u.id = mv.user_id
+                WHERE mv.movie_id = ?
+                ORDER BY mv.watched_date DESC, mv.created_at DESC
+            ");
+            $stmt->execute([$movieId]);
+            $views = $stmt->fetchAll();
+
+            // Compute aggregate rating
+            $ratings = array_filter(array_column($views, 'rating'), fn($r) => $r !== null && $r !== '');
+            $avgRating = count($ratings) > 0 ? round(array_sum($ratings) / count($ratings), 1) : null;
+
+            jsonResponse(true, [
+                'views' => $views,
+                'count' => count($views),
+                'avg_rating' => $avgRating,
+                'rated_count' => count($ratings)
+            ]);
+            break;
+        }
+
+        case 'delete_view': {
+            $viewId = intval($body['view_id'] ?? 0);
+            if (!$viewId) jsonResponse(false, null, 'view_id required');
+
+            $stmt = $db->prepare("DELETE FROM movie_views WHERE id = ? AND user_id = ?");
+            $stmt->execute([$viewId, $currentUserId]);
+            jsonResponse(true, ['deleted' => $stmt->rowCount() > 0]);
+            break;
+        }
+
+        case 'family_unseen': {
+            // Movies in collection that specific family members haven't seen
+            $groupId = intval($body['group_id'] ?? 0);
+            if (!$groupId) jsonResponse(false, null, 'group_id required');
+
+            // Get all family members in the group
+            $members = $db->prepare("SELECT id, name, avatar, color FROM family_members WHERE group_id = ?");
+            $members->execute([$groupId]);
+            $memberList = $members->fetchAll();
+
+            // Get all movies in group's shared collection
+            $movies = $db->prepare("
+                SELECT DISTINCT m.id, m.title, m.poster_url, m.year, m.media_type
+                FROM movies m
+                JOIN copies c ON c.movie_id = m.id
+                JOIN group_members gm ON gm.user_id = c.user_id
+                WHERE gm.group_id = ?
+                ORDER BY m.title ASC
+            ");
+            $movies->execute([$groupId]);
+            $movieList = $movies->fetchAll();
+
+            // For each movie, find which members have/haven't seen it
+            $seen = $db->prepare("SELECT DISTINCT family_member_id FROM movie_views WHERE movie_id = ? AND group_id = ? AND family_member_id IS NOT NULL");
+
+            $result = [];
+            foreach ($movieList as $m) {
+                $seen->execute([$m['id'], $groupId]);
+                $seenMemberIds = array_column($seen->fetchAll(), 'family_member_id');
+                $unseenMembers = array_filter($memberList, fn($mem) => !in_array($mem['id'], $seenMemberIds));
+                if (count($unseenMembers) > 0) {
+                    $m['unseen_by'] = array_values($unseenMembers);
+                    $m['seen_count'] = count($memberList) - count($unseenMembers);
+                    $result[] = $m;
+                }
+            }
+            jsonResponse(true, $result);
+            break;
+        }
+
+        case 'family_ratings_overview': {
+            $groupId = intval($body['group_id'] ?? 0);
+            if (!$groupId) jsonResponse(false, null, 'group_id required');
+
+            $stmt = $db->prepare("
+                SELECT mv.movie_id, m.title, m.poster_url, m.year, m.media_type,
+                       mv.family_member_id, mv.user_id, mv.rating, mv.comment, mv.watched_date,
+                       fm.name as member_name, fm.avatar as member_avatar, fm.color as member_color,
+                       u.display_name as user_display_name
+                FROM movie_views mv
+                JOIN movies m ON m.id = mv.movie_id
+                LEFT JOIN family_members fm ON fm.id = mv.family_member_id
+                LEFT JOIN users u ON u.id = mv.user_id
+                WHERE mv.group_id = ?
+                ORDER BY mv.watched_date DESC, mv.created_at DESC
+            ");
+            $stmt->execute([$groupId]);
+            jsonResponse(true, $stmt->fetchAll());
             break;
         }
 

@@ -411,6 +411,70 @@ function getDb() {
         try { $db->exec("ALTER TABLE movies ADD COLUMN umdb_movie_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
         try { $db->exec("CREATE INDEX IF NOT EXISTS idx_movies_umdb_movie ON movies(umdb_movie_id)"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Viewing Calendar (v7.0.0)
+        // Plan viewing dates for movies/shows for a user or group
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS viewing_calendar (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                group_id INTEGER,
+                movie_id INTEGER NOT NULL,
+                planned_date DATE NOT NULL,
+                notes TEXT,
+                is_completed INTEGER DEFAULT 0,
+                completed_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+                FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_viewing_cal_user ON viewing_calendar(user_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_viewing_cal_date ON viewing_calendar(planned_date)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_viewing_cal_movie ON viewing_calendar(movie_id)");
+        } catch (PDOException $e) {}
+
+        // Auto-migrate: Family Members (v7.0.0)
+        // Named profiles for family members — may or may not have a user account
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL,
+                user_id INTEGER,
+                name TEXT NOT NULL,
+                avatar TEXT DEFAULT '👤',
+                color TEXT DEFAULT '#667eea',
+                sort_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_family_members_group ON family_members(group_id)");
+        } catch (PDOException $e) {}
+
+        // Auto-migrate: Movie Views / CineShelfRating (v7.0.0)
+        // Tracks who has seen what, with individual star ratings and comments
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS movie_views (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_id INTEGER NOT NULL,
+                user_id INTEGER,
+                family_member_id INTEGER,
+                group_id INTEGER,
+                watched_date DATE,
+                rating INTEGER CHECK(rating IS NULL OR (rating BETWEEN 1 AND 5)),
+                comment TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (family_member_id) REFERENCES family_members(id) ON DELETE CASCADE,
+                FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_views_movie ON movie_views(movie_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_views_user ON movie_views(user_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_views_member ON movie_views(family_member_id)");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_views_group ON movie_views(group_id)");
+        } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {
