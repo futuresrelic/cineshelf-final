@@ -1,6 +1,6 @@
 <?php
 // Admin tool to backfill missing spine colors for existing movies
-// Color extraction runs in-browser via Canvas API (same algorithm as the main app)
+// Color extraction runs SERVER-SIDE via PHP GD + cURL (bypasses CORS entirely)
 
 session_start();
 
@@ -24,6 +24,72 @@ function isAdmin() {
     return $user && $user['is_admin'] == 1;
 }
 
+/**
+ * Fetch an image URL server-side and extract the average poster color using GD.
+ * Mirrors the same edge-weighted average + saturation boost used in app.js.
+ *
+ * @param string $url  Full URL of the poster image
+ * @return string|null  Hex color string like "#a3b2c1", or null on failure
+ */
+function extractColorFromUrl($url) {
+    if (empty($url)) return null;
+
+    // Fetch image bytes via cURL (no CORS restrictions server-side)
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT        => 12,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_USERAGENT      => 'CineShelf-Backfill/1.0',
+        CURLOPT_HTTPHEADER     => ['Accept: image/*'],
+    ]);
+    $imageData = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if (!$imageData || $httpCode !== 200) return null;
+
+    // Decode the image with GD
+    $img = @imagecreatefromstring($imageData);
+    if (!$img) return null;
+
+    // Resample down to 50×75 (matches Canvas size in JS)
+    $thumb = imagecreatetruecolor(50, 75);
+    imagecopyresampled($thumb, $img, 0, 0, 0, 0, 50, 75, imagesx($img), imagesy($img));
+    imagedestroy($img);
+
+    // Edge-weighted average colour (mirrors JS extractAverageColor)
+    $r = $g = $b = $count = 0;
+    for ($y = 0; $y < 75; $y++) {
+        for ($x = 0; $x < 50; $x++) {
+            $pixel      = imagecolorat($thumb, $x, $y);
+            $edgeWeight = ($x < 8 || $x > 42) ? 3 : 1;
+            $r     += (($pixel >> 16) & 0xFF) * $edgeWeight;
+            $g     += (($pixel >>  8) & 0xFF) * $edgeWeight;
+            $b     +=  ($pixel        & 0xFF) * $edgeWeight;
+            $count += $edgeWeight;
+        }
+    }
+    imagedestroy($thumb);
+
+    $r = (int)round($r / $count);
+    $g = (int)round($g / $count);
+    $b = (int)round($b / $count);
+
+    // Saturation boost (mirrors JS)
+    $max = max($r, $g, $b);
+    $min = min($r, $g, $b);
+    if ($max - $min > 20) {
+        $avg = ($r + $g + $b) / 3;
+        $r   = min(255, (int)round($avg + ($r - $avg) * 1.2));
+        $g   = min(255, (int)round($avg + ($g - $avg) * 1.2));
+        $b   = min(255, (int)round($avg + ($b - $avg) * 1.2));
+    }
+
+    return sprintf('#%02x%02x%02x', $r, $g, $b);
+}
+
 $action = $_GET['action'] ?? 'show_form';
 
 if ($action !== 'show_form') {
@@ -36,30 +102,53 @@ if ($action !== 'show_form') {
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 if ($action === 'get_stats') {
-    $db = getDB();
-    $total     = $db->query("SELECT COUNT(*) FROM movies")->fetchColumn();
-    $missing   = $db->query("SELECT COUNT(*) FROM movies WHERE (spine_color IS NULL OR spine_color = '') AND poster_url IS NOT NULL AND poster_url != ''")->fetchColumn();
-    $noPoster  = $db->query("SELECT COUNT(*) FROM movies WHERE poster_url IS NULL OR poster_url = ''")->fetchColumn();
+    $db      = getDB();
+    $total   = $db->query("SELECT COUNT(*) FROM movies")->fetchColumn();
+    $missing = $db->query("SELECT COUNT(*) FROM movies WHERE (spine_color IS NULL OR spine_color = '') AND poster_url IS NOT NULL AND poster_url != ''")->fetchColumn();
+    $noPoster= $db->query("SELECT COUNT(*) FROM movies WHERE poster_url IS NULL OR poster_url = ''")->fetchColumn();
     echo json_encode(['total' => (int)$total, 'missing' => (int)$missing, 'no_poster' => (int)$noPoster]);
     exit;
 }
 
-// ── Batch of movies needing colour ────────────────────────────────────────
-if ($action === 'get_batch') {
-    $offset = max(0, intval($_GET['offset'] ?? 0));
-    $limit  = min(50, max(1, intval($_GET['limit'] ?? 20)));
-    $db = getDB();
+// ── Server-side batch: fetch images, extract colours, save to DB ───────────
+if ($action === 'process_batch') {
+    if (!function_exists('imagecreatefromstring')) {
+        echo json_encode(['error' => 'PHP GD extension is not available on this server.']);
+        exit;
+    }
+    if (!function_exists('curl_init')) {
+        echo json_encode(['error' => 'PHP cURL extension is not available on this server.']);
+        exit;
+    }
+
+    $limit = min(50, max(1, intval($_GET['limit'] ?? 10)));
+    $db    = getDB();
+
+    // Always fetch from offset 0: processed rows get a spine_color and disappear from this query
     $stmt = $db->prepare("
         SELECT id, title, poster_url
         FROM movies
         WHERE (spine_color IS NULL OR spine_color = '')
           AND poster_url IS NOT NULL AND poster_url != ''
         ORDER BY id ASC
-        LIMIT ? OFFSET ?
+        LIMIT ?
     ");
-    $stmt->execute([$limit, $offset]);
+    $stmt->execute([$limit]);
     $movies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(['movies' => $movies]);
+
+    $results = [];
+    foreach ($movies as $movie) {
+        $color = extractColorFromUrl($movie['poster_url']);
+        if ($color !== null) {
+            $upd = $db->prepare("UPDATE movies SET spine_color = ? WHERE id = ?");
+            $upd->execute([$color, $movie['id']]);
+            $results[] = ['id' => (int)$movie['id'], 'title' => $movie['title'], 'color' => $color, 'status' => 'saved'];
+        } else {
+            $results[] = ['id' => (int)$movie['id'], 'title' => $movie['title'], 'color' => null, 'status' => 'error'];
+        }
+    }
+
+    echo json_encode(['results' => $results, 'done' => count($movies) === 0]);
     exit;
 }
 
@@ -101,6 +190,16 @@ if ($action === 'show_form') {
             color: rgba(255,255,255,0.8);
             margin-bottom: 2rem;
             line-height: 1.6;
+        }
+
+        .notice {
+            background: rgba(100,181,246,0.2);
+            border-left: 4px solid #64b5f6;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.9);
         }
 
         .stats-grid {
@@ -196,7 +295,7 @@ if ($action === 'show_form') {
             background: rgba(0,0,0,0.3);
             border-radius: 8px;
             padding: 1rem;
-            max-height: 280px;
+            max-height: 320px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 0.82rem;
@@ -245,8 +344,13 @@ if ($action === 'show_form') {
     <h1>🎨 Backfill Spine Colors</h1>
     <p class="subtitle">
         Extracts the dominant poster color for every movie that doesn't have one stored yet.
-        This runs entirely in your browser using the same Canvas-based algorithm as the live shelf view.
+        Color extraction runs <strong>server-side</strong> using PHP GD — no browser CORS issues.
     </p>
+
+    <div class="notice">
+        ℹ️ Colors are calculated by averaging the poster image pixels (edge-weighted + saturation boost),
+        then stored in the database so the shelf view uses them instantly without recalculating.
+    </div>
 
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
@@ -267,7 +371,7 @@ if ($action === 'show_form') {
         <button class="btn" id="startBtn" onclick="startBackfill()">🚀 Start Backfill</button>
         <button class="btn danger" id="stopBtn" onclick="stopBackfill()" style="display:none">⏹ Stop</button>
         <label>Batch size:
-            <input type="number" id="batchSize" value="10" min="1" max="50" style="width:70px; margin-left:6px">
+            <input type="number" id="batchSize" value="10" min="1" max="30" style="width:70px; margin-left:6px">
         </label>
     </div>
 
@@ -283,66 +387,9 @@ if ($action === 'show_form') {
 </div>
 
 <script>
-const API_URL = '/api/api.php';
-
 let running = false;
 let totalMissing = 0;
 let processed = 0, saved = 0, errors = 0;
-
-// ── Canvas-based color extraction (mirrors app.js extractAverageColor) ──
-function extractAverageColor(imageUrl) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 50;
-            canvas.height = 75;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, 50, 75);
-            const data = ctx.getImageData(0, 0, 50, 75).data;
-
-            let r = 0, g = 0, b = 0, count = 0;
-            for (let y = 0; y < 75; y++) {
-                for (let x = 0; x < 50; x++) {
-                    const i = (y * 50 + x) * 4;
-                    const edgeWeight = (x < 8 || x > 42) ? 3 : 1;
-                    r += data[i]     * edgeWeight;
-                    g += data[i + 1] * edgeWeight;
-                    b += data[i + 2] * edgeWeight;
-                    count += edgeWeight;
-                }
-            }
-            r = Math.round(r / count);
-            g = Math.round(g / count);
-            b = Math.round(b / count);
-
-            const max = Math.max(r, g, b), min = Math.min(r, g, b);
-            if (max - min > 20) {
-                const avg = (r + g + b) / 3;
-                r = Math.min(255, Math.round(avg + (r - avg) * 1.2));
-                g = Math.min(255, Math.round(avg + (g - avg) * 1.2));
-                b = Math.min(255, Math.round(avg + (b - avg) * 1.2));
-            }
-
-            resolve('#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join(''));
-        };
-        img.onerror = () => resolve(null); // null = skip, no fallback stored
-        img.src = imageUrl;
-    });
-}
-
-// ── Save via existing API endpoint ────────────────────────────────────────
-async function saveSpineColor(movieId, color) {
-    const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action: 'save_movie_spine_color', movie_id: movieId, spine_color: color })
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'API error');
-}
 
 // ── Load stats ────────────────────────────────────────────────────────────
 async function loadStats() {
@@ -366,7 +413,7 @@ function addLog(msg, type = 'info', color = null) {
 }
 
 function updateProgress() {
-    const pct = totalMissing > 0 ? Math.round((processed / totalMissing) * 100) : 100;
+    const pct = totalMissing > 0 ? Math.min(100, Math.round((processed / totalMissing) * 100)) : 100;
     document.getElementById('progressFill').style.width = pct + '%';
     document.getElementById('progressFill').textContent = pct + '%';
     document.getElementById('progressMeta').textContent =
@@ -385,48 +432,39 @@ async function startBackfill() {
     document.getElementById('resultBanner').style.display = 'none';
     document.getElementById('logContainer').innerHTML = '';
 
-    const batchSize = Math.min(50, Math.max(1, parseInt(document.getElementById('batchSize').value) || 10));
-    addLog(`Starting — ${totalMissing} movies to process (batch ${batchSize})`, 'info');
-
-    let offset = 0;
+    const batchSize = Math.min(30, Math.max(1, parseInt(document.getElementById('batchSize').value) || 10));
+    addLog(`Starting — ${totalMissing} movies to process (server-side, batch ${batchSize})`, 'info');
 
     while (running) {
-        let batch;
+        let data;
         try {
-            const res = await fetch(`?action=get_batch&offset=${offset}&limit=${batchSize}`);
-            const data = await res.json();
-            batch = data.movies || [];
+            const res = await fetch(`?action=process_batch&limit=${batchSize}`);
+            data = await res.json();
         } catch (e) {
-            addLog('Network error fetching batch: ' + e.message, 'error');
+            addLog('Network error: ' + e.message, 'error');
             break;
         }
 
-        if (batch.length === 0) break;
-
-        for (const movie of batch) {
-            if (!running) break;
-
-            try {
-                const color = await extractAverageColor(movie.poster_url);
-                if (color) {
-                    await saveSpineColor(movie.id, color);
-                    saved++;
-                    addLog(`✓ ${movie.title}`, 'success', color);
-                } else {
-                    errors++;
-                    addLog(`⚠ ${movie.title} — image failed to load`, 'warn');
-                }
-            } catch (e) {
-                errors++;
-                addLog(`✗ ${movie.title} — ${e.message}`, 'error');
-            }
-
-            processed++;
-            updateProgress();
+        if (data.error) {
+            addLog('Server error: ' + data.error, 'error');
+            break;
         }
 
-        // offset doesn't advance because processed rows are no longer returned
-        // (they now have spine_color set), so we always fetch from offset 0
+        const results = data.results || [];
+
+        if (results.length === 0 || data.done) break;
+
+        for (const r of results) {
+            if (r.status === 'saved') {
+                saved++;
+                addLog(`✓ ${r.title}`, 'success', r.color);
+            } else {
+                errors++;
+                addLog(`⚠ ${r.title} — image unavailable`, 'warn');
+            }
+            processed++;
+        }
+        updateProgress();
     }
 
     running = false;
@@ -439,7 +477,7 @@ async function startBackfill() {
         <strong>✅ Done!</strong><br>
         Processed: <strong>${processed}</strong> &nbsp;|&nbsp;
         Saved: <strong>${saved}</strong> &nbsp;|&nbsp;
-        Errors: <strong>${errors}</strong><br>
+        Errors / No Poster: <strong>${errors}</strong><br>
         <a href="/" style="color:white;text-decoration:underline;margin-top:0.5rem;display:inline-block">
             → Open CineShelf to see the colors
         </a>
