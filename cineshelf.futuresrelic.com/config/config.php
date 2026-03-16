@@ -454,6 +454,9 @@ function getDb() {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_family_members_group ON family_members(group_id)");
         } catch (PDOException $e) {}
 
+        // Auto-migrate: Spine colour extracted from cover art (v7.1.0)
+        try { $db->exec("ALTER TABLE movies ADD COLUMN spine_color TEXT"); } catch (PDOException $e) {}
+
         // Auto-migrate: Movie Views / CineShelfRating (v7.0.0)
         // Tracks who has seen what, with individual star ratings and comments
         try {
