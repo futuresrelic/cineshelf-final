@@ -232,8 +232,7 @@ const App = (function() {
     if (physRegionDropdown) physRegionDropdown.value = settings.defaultPhysicalRegion || '';
 
     // Migrate legacy autoSpineColors boolean to new spineColorMode string
-    // 'auto' is broken due to CORS restrictions on canvas pixel reading — migrate to 'shelf'
-    if (!settings.spineColorMode || settings.spineColorMode === 'auto') {
+    if (!settings.spineColorMode) {
         settings.spineColorMode = (settings.autoSpineColors === false) ? 'format' : 'shelf';
     }
     const spineColorModeDropdown = document.getElementById('settingSpineColorMode');
