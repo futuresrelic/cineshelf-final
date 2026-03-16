@@ -232,11 +232,12 @@ const App = (function() {
     if (physRegionDropdown) physRegionDropdown.value = settings.defaultPhysicalRegion || '';
 
     // Migrate legacy autoSpineColors boolean to new spineColorMode string
-    if (!settings.spineColorMode) {
-        settings.spineColorMode = (settings.autoSpineColors === false) ? 'format' : 'auto';
+    // 'auto' is broken due to CORS restrictions on canvas pixel reading — migrate to 'shelf'
+    if (!settings.spineColorMode || settings.spineColorMode === 'auto') {
+        settings.spineColorMode = (settings.autoSpineColors === false) ? 'format' : 'shelf';
     }
     const spineColorModeDropdown = document.getElementById('settingSpineColorMode');
-    if (spineColorModeDropdown) spineColorModeDropdown.value = settings.spineColorMode || 'auto';
+    if (spineColorModeDropdown) spineColorModeDropdown.value = settings.spineColorMode || 'shelf';
 
     // Load data (sorting will be applied automatically)
     loadCollection();
@@ -4063,7 +4064,7 @@ function getCertColor(cert) {
 
     function spineColorForItem(item, shelfColor) {
         if (item.is_container) return null; // handled separately
-        const mode = (settings.spineColorMode) || 'auto';
+        const mode = (settings.spineColorMode) || 'shelf';
         if (mode === 'shelf') return shelfColor || '#667eea';
         // 'auto' and 'format' both use format-based colour as the initial/fallback value
         const fmt = (item.format || '').toLowerCase();
@@ -4432,7 +4433,7 @@ function getCertColor(cert) {
         content.innerHTML = html;
 
         // Auto-color spines from cover art — only in 'auto' mode (v2.9.2)
-        if ((settings.spineColorMode || 'auto') === 'auto') {
+        if ((settings.spineColorMode || 'shelf') === 'auto') {
             applyPosterSpineColors(content);
         }
     }

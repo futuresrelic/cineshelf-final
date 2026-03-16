@@ -1172,14 +1172,14 @@
                     <div class="setting-item setting-item-stacked">
                         <label>Spine Colour Mode</label>
                         <select id="settingSpineColorMode" onchange="App.saveSetting('spineColorMode', this.value)">
-                            <option value="auto">Auto — extract from cover art</option>
+                            <option value="shelf" selected>Shelf Colour — match the shelf's colour</option>
                             <option value="format">By Format — 4K gold · Blu-ray blue · DVD red</option>
-                            <option value="shelf">Shelf Colour — match the shelf's colour</option>
+                            <option value="auto">Auto — extract from cover art</option>
                         </select>
                         <small style="color:rgba(255,255,255,0.45); display:block; line-height:1.4;">
-                            <strong>Auto</strong>: samples each cover's dominant colour (best looking, slight load time).<br>
-                            <strong>By Format</strong>: instant, consistent colour-coding by disc type.<br>
-                            <strong>Shelf Colour</strong>: every spine matches its shelf's assigned colour.
+                            <strong>Shelf Colour</strong>: every spine matches its shelf's assigned colour (recommended).<br>
+                            <strong>By Format</strong>: instant colour-coding by disc type (requires format data).<br>
+                            <strong>Auto</strong>: samples each cover's dominant colour (may not work on all browsers).
                         </small>
                     </div>
 
