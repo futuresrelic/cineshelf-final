@@ -231,8 +231,12 @@ const App = (function() {
     const physRegionDropdown = document.getElementById('settingDefaultPhysicalRegion');
     if (physRegionDropdown) physRegionDropdown.value = settings.defaultPhysicalRegion || '';
 
-    const autoSpineCheckbox = document.getElementById('settingAutoSpineColors');
-    if (autoSpineCheckbox) autoSpineCheckbox.checked = (settings.autoSpineColors !== false);
+    // Migrate legacy autoSpineColors boolean to new spineColorMode string
+    if (!settings.spineColorMode) {
+        settings.spineColorMode = (settings.autoSpineColors === false) ? 'format' : 'auto';
+    }
+    const spineColorModeDropdown = document.getElementById('settingSpineColorMode');
+    if (spineColorModeDropdown) spineColorModeDropdown.value = settings.spineColorMode || 'auto';
 
     // Load data (sorting will be applied automatically)
     loadCollection();
@@ -4059,6 +4063,9 @@ function getCertColor(cert) {
 
     function spineColorForItem(item, shelfColor) {
         if (item.is_container) return null; // handled separately
+        const mode = (settings.spineColorMode) || 'auto';
+        if (mode === 'shelf') return shelfColor || '#667eea';
+        // 'auto' and 'format' both use format-based colour as the initial/fallback value
         const fmt = (item.format || '').toLowerCase();
         for (const [key, val] of Object.entries(SPINE_FORMAT_COLORS)) {
             if (fmt.includes(key)) return val;
@@ -4374,7 +4381,7 @@ function getCertColor(cert) {
                     }
                 }
 
-                const spineIsOpen = !!_spineExpanded[shelf.id];
+                const spineIsOpen = _spineExpanded[shelf.id] !== false;
                 const spineGlyph = spineIsOpen ? '▼' : '▶';
                 const shelfColorVal = shelf.color || '#667eea';
                 html += `
@@ -4424,8 +4431,8 @@ function getCertColor(cert) {
 
         content.innerHTML = html;
 
-        // Auto-color spines from cover art (v2.9.1) — runs async, non-blocking
-        if (settings.autoSpineColors !== false) {
+        // Auto-color spines from cover art — only in 'auto' mode (v2.9.2)
+        if ((settings.spineColorMode || 'auto') === 'auto') {
             applyPosterSpineColors(content);
         }
     }
@@ -4540,10 +4547,10 @@ function getCertColor(cert) {
 
     // ── Per-shelf spine strip toggle (v2.9.1) ─────────────────────────
     function toggleShelfSpine(shelfId) {
-        if (_spineExpanded[shelfId]) {
-            delete _spineExpanded[shelfId];
+        if (_spineExpanded[shelfId] === false) {
+            delete _spineExpanded[shelfId]; // back to default (open)
         } else {
-            _spineExpanded[shelfId] = true;
+            _spineExpanded[shelfId] = false; // explicitly close
         }
         try { localStorage.setItem('cineshelf_spineExpanded', JSON.stringify(_spineExpanded)); } catch(e) {}
         renderShelfViewLevel();
