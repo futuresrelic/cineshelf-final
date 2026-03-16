@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.9.1] - 2026-03-15
+## [2.9.1] - 2026-03-16
 
 ### Added
+- **Collapsible shelf spine strips** — shelves in the Shelf View are now collapsed by default, showing only the coloured header frame:
+  - Each shelf row is wrapped in a coloured border frame using the shelf's assigned colour
+  - Click (or tap) the shelf header to expand/collapse the movie spine strip beneath it
+  - The `›` arrow button drills into sub-shelves as before
+  - Collapse state persists across sessions via `localStorage` (`cineshelf_spineExpanded`)
+- **Auto Spine Colors from Cover Art** — the `applyPosterSpineColors` engine is now active:
+  - After rendering the shelf view, each spine is automatically re-coloured using the dominant edge colour extracted from the movie's cover art image
+  - Uses a weighted Canvas API approach (edge pixels contribute more, matching real spine colour)
+  - Saturation is gently boosted for more vivid spines
+  - Can be toggled in **Settings → Display Settings → Auto Spine Colors from Cover Art**
+  - Defaults to **enabled**; state persists in `cineshelf_settings`
 - **Cover Scanner: Scan & Match** — new instant-match mode alongside the existing batch scan workflow:
   - New **"Scan & Match"** button (green) in the Cover Scanner modal, next to the existing "Scan Cover" button
   - After AI title recognition, the right panel slides into a tabbed match results view (no need to leave the scanner)
@@ -27,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Requires `OMDB_API_KEY` env var or entry in `config/secrets.php` (free key at omdbapi.com)
   - Returns empty array (not an error) when no matches; returns structured error when key not configured
 - **`OMDB_API_KEY` config** — added to `config/config.php` with env-var and secrets.php fallback
+
+### Fixed
+- **Placeholder image 404 storm** — the `/placeholder.png` fallback for failed movie-cover loads no longer generates HTTP 404 errors; replaced with an inline SVG data URI (`PLACEHOLDER_IMG` constant) that requires no network request
 
 ---
 

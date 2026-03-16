@@ -1170,6 +1170,18 @@
                     </div>
 
                     <div class="setting-item">
+                        <label>Auto Spine Colors from Cover Art</label>
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <input type="checkbox" id="settingAutoSpineColors"
+                                   onchange="App.saveSetting('autoSpineColors', this.checked)"
+                                   style="width:1.1rem; height:1.1rem; cursor:pointer;">
+                            <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">
+                                Extract the dominant colour from each movie's cover art and apply it to the spine strip. Disable if you prefer format-based colours.
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
                         <label>Default Physical Media Region</label>
                         <select id="settingDefaultPhysicalRegion" onchange="App.saveSetting('defaultPhysicalRegion', this.value)">
                             <option value="">None (ask each time)</option>

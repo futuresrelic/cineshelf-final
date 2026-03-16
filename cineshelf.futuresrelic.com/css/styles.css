@@ -568,8 +568,13 @@ select option {
 /* ── SPINE VIEW (parent levels) ────────────────── */
 
 /* One row per shelf section */
+/* Shelf row: colored frame around the whole unit (v2.9.1) */
 .shelf-row {
-    margin-bottom: 1.75rem;
+    margin-bottom: 1.25rem;
+    border: 2px solid var(--shelf-color, #667eea);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
 }
 
 /* Clickable header above each spine row */
@@ -580,16 +585,38 @@ select option {
     padding: 0.5rem 0.75rem;
     margin-bottom: 0;
     cursor: pointer;
-    border-left: 4px solid var(--shelf-color, #667eea);
     background: rgba(255,255,255,0.04);
-    border-radius: 0 var(--radius) var(--radius) 0;
     transition: background 0.2s;
+    user-select: none;
 }
 .shelf-row-header:hover { background: rgba(255,255,255,0.09); }
 .shelf-row-icon { font-size: 1.1rem; flex-shrink: 0; }
 .shelf-row-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
 .shelf-row-meta { font-size: 0.78rem; color: rgba(255,255,255,0.45); }
-.shelf-row-arrow { font-size: 1.1rem; color: rgba(255,255,255,0.35); flex-shrink: 0; }
+
+/* Spine expand/collapse glyph in the header */
+.shelf-spine-toggle {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    flex-shrink: 0;
+    transition: color 0.15s;
+    line-height: 1;
+}
+.shelf-row-header:hover .shelf-spine-toggle { color: rgba(255,255,255,0.8); }
+
+/* Drill-in arrow: now a button so it doesn't trigger the collapse toggle */
+.shelf-drill-btn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.35);
+    cursor: pointer;
+    padding: 0 0.15rem;
+    flex-shrink: 0;
+    line-height: 1;
+    transition: color 0.15s;
+}
+.shelf-drill-btn:hover { color: rgba(255,255,255,0.85); }
 
 /* Horizontal scrollable spine strip — like books standing on a shelf */
 .shelf-spine-row {
@@ -601,13 +628,14 @@ select option {
     padding: 0.6rem 0.5rem 0.5rem;
     min-height: 150px;
     background: rgba(0,0,0,0.25);
-    border-radius: 0 0 var(--radius) var(--radius);
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
 .shelf-spine-row::-webkit-scrollbar { height: 4px; }
 .shelf-spine-row::-webkit-scrollbar-track { background: transparent; }
 .shelf-spine-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+/* Collapsed spine row is hidden via HTML hidden attribute */
+.shelf-spine-row[hidden] { display: none; }
 
 /* Layout section chips — shown between shelf header and spine strip (Goal C/D) */
 .shelf-section-chips {

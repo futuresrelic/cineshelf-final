@@ -3,7 +3,10 @@
 // Version: Managed by version-manager.html (see version.json)
 
 // VersionGuard: this constant must match version.json on every frontend-touching commit.
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.9.1';
+
+// Inline SVG placeholder — no network request, no 404 errors
+const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 138' width='92' height='138'%3E%3Crect fill='%23331a4a' width='92' height='138'/%3E%3Crect fill='%23553c7b' x='8' y='12' width='76' height='114' rx='5'/%3E%3Ctext x='46' y='76' text-anchor='middle' dominant-baseline='middle' fill='rgba(255,255,255,0.4)' font-size='36' font-family='sans-serif'%3E%3F%3C%2Ftext%3E%3C%2Fsvg%3E";
 
 async function checkVersionGuard() {
     try {
@@ -227,6 +230,9 @@ const App = (function() {
 
     const physRegionDropdown = document.getElementById('settingDefaultPhysicalRegion');
     if (physRegionDropdown) physRegionDropdown.value = settings.defaultPhysicalRegion || '';
+
+    const autoSpineCheckbox = document.getElementById('settingAutoSpineColors');
+    if (autoSpineCheckbox) autoSpineCheckbox.checked = (settings.autoSpineColors !== false);
 
     // Load data (sorting will be applied automatically)
     loadCollection();
@@ -4038,6 +4044,11 @@ function getCertColor(cert) {
         try { return localStorage.getItem('cineshelf_showSections') === 'true'; }
         catch(e) { return false; }
     })();
+    // Per-shelf spine-strip expansion state (v2.9.1): empty = all collapsed by default
+    let _spineExpanded = (() => {
+        try { return JSON.parse(localStorage.getItem('cineshelf_spineExpanded') || '{}'); }
+        catch(e) { return {}; }
+    })();
 
     // Format → spine color mapping
     const SPINE_FORMAT_COLORS = {
@@ -4363,22 +4374,27 @@ function getCertColor(cert) {
                     }
                 }
 
+                const spineIsOpen = !!_spineExpanded[shelf.id];
+                const spineGlyph = spineIsOpen ? '▼' : '▶';
+                const shelfColorVal = shelf.color || '#667eea';
                 html += `
-                <div class="shelf-row">
-                    <div class="shelf-row-header" onclick="App.shelfViewDrillIn(${shelf.id}, '${safeName}')"
-                         style="border-left-color:${shelf.color || '#667eea'}">
+                <div class="shelf-row ${spineIsOpen ? 'spine-open' : 'spine-closed'}"
+                     style="--shelf-color:${shelfColorVal}">
+                    <div class="shelf-row-header"
+                         onclick="App.toggleShelfSpine(${shelf.id})">
                         ${caretHtml}
+                        <span class="shelf-spine-toggle" title="${spineIsOpen ? 'Collapse' : 'Expand'} spine strip">${spineGlyph}</span>
                         <span class="shelf-row-icon">${shelf.icon || '📂'}</span>
                         <span class="shelf-row-name">${shelf.name}</span>
                         <span class="shelf-row-meta">
                             ${shelfMovies.length} film${shelfMovies.length !== 1 ? 's' : ''}
                             ${sectionCountPillHtml ? ' · ' + sectionCountPillHtml : (subSectionCount > 0 ? ` · ${subSectionCount} section${subSectionCount !== 1 ? 's' : ''}` : '')}
                         </span>
-                        <span class="shelf-row-arrow">›</span>
+                        <button class="shelf-drill-btn" onclick="event.stopPropagation();App.shelfViewDrillIn(${shelf.id}, '${safeName}')" title="Browse ${safeName}">›</button>
                     </div>
                     ${sectionRowsHtml}
-                    <div class="shelf-spine-row" style="--shelf-color:${shelf.color || '#667eea'}">
-                        ${renderSpineStrip(shelfMovies, shelf.color || '#667eea')}
+                    <div class="shelf-spine-row" style="--shelf-color:${shelfColorVal}" ${spineIsOpen ? '' : 'hidden'}>
+                        ${renderSpineStrip(shelfMovies, shelfColorVal)}
                     </div>
                 </div>`;
             });
@@ -4407,6 +4423,11 @@ function getCertColor(cert) {
         }
 
         content.innerHTML = html;
+
+        // Auto-color spines from cover art (v2.9.1) — runs async, non-blocking
+        if (settings.autoSpineColors !== false) {
+            applyPosterSpineColors(content);
+        }
     }
 
     function shelfViewGoTo(stackIndex) {
@@ -4514,6 +4535,17 @@ function getCertColor(cert) {
     function toggleShowSections() {
         _showSections = !_showSections;
         try { localStorage.setItem('cineshelf_showSections', String(_showSections)); } catch(e) {}
+        renderShelfViewLevel();
+    }
+
+    // ── Per-shelf spine strip toggle (v2.9.1) ─────────────────────────
+    function toggleShelfSpine(shelfId) {
+        if (_spineExpanded[shelfId]) {
+            delete _spineExpanded[shelfId];
+        } else {
+            _spineExpanded[shelfId] = true;
+        }
+        try { localStorage.setItem('cineshelf_spineExpanded', JSON.stringify(_spineExpanded)); } catch(e) {}
         renderShelfViewLevel();
     }
 
@@ -6023,7 +6055,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 console.log('[Search Movies] Rendering movie with ID:', movie.id, 'Title:', movie.title);
                 return `
                     <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})">
-                        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : '/placeholder.png'}" alt="${movie.title}">
+                        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : PLACEHOLDER_IMG}" alt="${movie.title}">
                         <div class="result-info">
                             <h4>${movie.title}</h4>
                             <p>${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
@@ -6156,7 +6188,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.3); width: 30px;">
                     ${movie.disc_number}
                 </div>
-                <img src="${movie.poster_url || '/placeholder.png'}"
+                <img src="${movie.poster_url || PLACEHOLDER_IMG}"
                      style="width: 50px; height: 75px; object-fit: cover; border-radius: 4px;"
                      alt="${movie.title}">
                 <div style="flex: 1;">
@@ -9898,7 +9930,7 @@ async function getCurrentUserId() {
                          data-idx="${idx}" data-type="copy" data-id="${item.copy_id}"
                          ${dragAttrs}>
                         ${dragHandle}
-                        <img src="${item.edition_cover_url || item.poster_url || '/placeholder.png'}"
+                        <img src="${item.edition_cover_url || item.poster_url || PLACEHOLDER_IMG}"
                              alt="${item.title}"
                              class="shelf-movie-poster">
                         <div class="shelf-movie-info">
@@ -10192,7 +10224,7 @@ async function getCurrentUserId() {
                     `;
                 } else {
                     // Render regular movie copy — prefer UMDB edition cover over generic movie poster
-                    const copyPoster = item.edition_cover_url || item.poster_url || '/placeholder.png';
+                    const copyPoster = item.edition_cover_url || item.poster_url || PLACEHOLDER_IMG;
                     const umdbBadge = item.edition_umdb_release_id ? ' <span class="umdb-link-badge" style="font-size:0.65rem;vertical-align:middle;">UMDB</span>' : '';
                     return `
                         <div class="unassigned-movie-card ${isSelected ? 'selected' : ''}" data-item-id="${itemId}">
@@ -10204,7 +10236,7 @@ async function getCurrentUserId() {
                             <img src="${copyPoster}"
                                  alt="${item.title}"
                                  class="unassigned-movie-poster"
-                                 onerror="this.src='${item.poster_url || '/placeholder.png'}'"
+                                 onerror="this.onerror=null;this.src='${item.poster_url || PLACEHOLDER_IMG}'"
                                  onclick="App.toggleMovieSelection(${item.copy_id})">
                             <div class="unassigned-movie-info" onclick="App.toggleMovieSelection(${item.copy_id})">
                                 <h4>${item.display_title || item.title}${umdbBadge}</h4>
@@ -12941,6 +12973,7 @@ return {
     // section split / move (v2.8.21)
     toggleShelfSections,
     toggleShowSections,
+    toggleShelfSpine,
     openSectionSplitModal,
     closeSectionSplitModal,
     confirmSectionSplitMove,
