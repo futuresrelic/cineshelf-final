@@ -4066,7 +4066,9 @@ function getCertColor(cert) {
         if (item.is_container) return null; // handled separately
         const mode = (settings.spineColorMode) || 'shelf';
         if (mode === 'shelf') return shelfColor || '#667eea';
-        // 'auto' and 'format' both use format-based colour as the initial/fallback value
+        // 'auto' mode: prefer stored per-movie color extracted from cover art
+        if (mode === 'auto' && item.movie_spine_color) return item.movie_spine_color;
+        // 'auto' and 'format' both fall back to format-based colour
         const fmt = (item.format || '').toLowerCase();
         for (const [key, val] of Object.entries(SPINE_FORMAT_COLORS)) {
             if (fmt.includes(key)) return val;
@@ -4232,15 +4234,20 @@ function getCertColor(cert) {
         }).join('');
     }
 
-    // Apply average poster colors to spine items after rendering
+    // Apply average poster colors to spine items after rendering; persist to DB on first extraction
     async function applyPosterSpineColors(container) {
         const spineItems = container.querySelectorAll('.spine-item[data-poster-url]:not(.spine-container)');
         for (const spine of spineItems) {
             const posterUrl = spine.dataset.posterUrl;
+            const movieId   = spine.dataset.movieId;
             if (posterUrl && posterUrl !== 'null' && posterUrl !== '') {
                 try {
                     const color = await extractAverageColor(posterUrl);
                     spine.style.setProperty('--spine-color', color);
+                    // Persist extracted colour so future renders use the stored value
+                    if (movieId) {
+                        apiCall('save_movie_spine_color', { movie_id: parseInt(movieId), spine_color: color }).catch(() => {});
+                    }
                 } catch (e) { /* keep default */ }
             }
         }

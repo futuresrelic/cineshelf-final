@@ -1427,6 +1427,20 @@ case 'update_movie_poster':
     jsonResponse(true, ['movie_id' => $movieId, 'poster_url' => $posterUrl]);
     break;
 
+case 'save_movie_spine_color':
+    $movieId   = intval($input['movie_id'] ?? 0);
+    $spineColor = sanitize($input['spine_color'] ?? '', 20);
+
+    if (empty($movieId) || empty($spineColor)) {
+        jsonResponse(false, null, 'movie_id and spine_color required');
+    }
+
+    $stmt = $db->prepare("UPDATE movies SET spine_color = ? WHERE id = ?");
+    $stmt->execute([$spineColor, $movieId]);
+
+    jsonResponse(true, ['movie_id' => $movieId, 'spine_color' => $spineColor]);
+    break;
+
 // ========================================
 // WISHLIST ACTIONS
 // ========================================
@@ -5342,6 +5356,7 @@ case 'resolve_movie':
                     m.overview,
                     m.media_type,
                     m.number_of_seasons,
+                    m.spine_color as movie_spine_color,
                     c.seasons_owned,
                     -- Edition cover (from UMDB-linked edition)
                     me.cover_image_url as edition_cover_url,
