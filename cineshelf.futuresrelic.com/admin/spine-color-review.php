@@ -578,4 +578,3 @@ loadMovies();
 </script>
 </body>
 </html>
-<?php } ?>
