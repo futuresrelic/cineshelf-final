@@ -4226,7 +4226,8 @@ function getCertColor(cert) {
                              onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"
                              style="--spine-color:${color}"
                              data-poster-url="${posterUrl || ''}"
-                             data-movie-id="${item.movie_id}">
+                             data-movie-id="${item.movie_id}"
+                             ${item.movie_spine_color ? 'data-stored-color="1"' : ''}>
                             <span class="spine-title">${item.display_title || item.title}</span>
                         </div>`;
             }
@@ -4237,6 +4238,8 @@ function getCertColor(cert) {
     async function applyPosterSpineColors(container) {
         const spineItems = container.querySelectorAll('.spine-item[data-poster-url]:not(.spine-container)');
         for (const spine of spineItems) {
+            // Skip spines that already have a DB-stored color — no need to re-extract
+            if (spine.dataset.storedColor) continue;
             const posterUrl = spine.dataset.posterUrl;
             const movieId   = spine.dataset.movieId;
             if (posterUrl && posterUrl !== 'null' && posterUrl !== '') {
@@ -6659,7 +6662,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
                 resolve(hex);
             };
-            img.onerror = () => resolve('#667eea');
+            img.onerror = () => reject(new Error('Image load failed'));
             img.src = imageUrl;
         });
     }
