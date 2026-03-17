@@ -50,44 +50,88 @@ function extractColorFromUrl($url) {
 
     if (!$imageData || $httpCode !== 200) return null;
 
-    // Decode the image with GD
     $img = @imagecreatefromstring($imageData);
     if (!$img) return null;
 
-    // Resample down to 50×75 (matches Canvas size in JS)
-    $thumb = imagecreatetruecolor(50, 75);
-    imagecopyresampled($thumb, $img, 0, 0, 0, 0, 50, 75, imagesx($img), imagesy($img));
+    // Resample to 60×90 for more detail
+    $thumb = imagecreatetruecolor(60, 90);
+    imagecopyresampled($thumb, $img, 0, 0, 0, 0, 60, 90, imagesx($img), imagesy($img));
     imagedestroy($img);
 
-    // Edge-weighted average colour (mirrors JS extractAverageColor)
-    $r = $g = $b = $count = 0;
-    for ($y = 0; $y < 75; $y++) {
-        for ($x = 0; $x < 50; $x++) {
-            $pixel      = imagecolorat($thumb, $x, $y);
-            $edgeWeight = ($x < 8 || $x > 42) ? 3 : 1;
-            $r     += (($pixel >> 16) & 0xFF) * $edgeWeight;
-            $g     += (($pixel >>  8) & 0xFF) * $edgeWeight;
-            $b     +=  ($pixel        & 0xFF) * $edgeWeight;
-            $count += $edgeWeight;
+    // Bucket pixels by hue (12 × 30° segments), weighting by saturation²
+    // This picks the dominant vivid color rather than a muddy average.
+    $hueBuckets = array_fill(0, 12, ['r' => 0.0, 'g' => 0.0, 'b' => 0.0, 'weight' => 0.0]);
+    $fallbackR = $fallbackG = $fallbackB = $fallbackCount = 0;
+
+    for ($y = 0; $y < 90; $y++) {
+        for ($x = 0; $x < 60; $x++) {
+            $pixel = imagecolorat($thumb, $x, $y);
+            $r = ($pixel >> 16) & 0xFF;
+            $g = ($pixel >>  8) & 0xFF;
+            $b =  $pixel        & 0xFF;
+
+            // Skip near-black and near-white (they dominate averages but look bad as spine colors)
+            $brightness = ($r + $g + $b) / 3;
+            if ($brightness < 25 || $brightness > 235) continue;
+
+            $max = max($r, $g, $b);
+            $min = min($r, $g, $b);
+            $delta = $max - $min;
+            $saturation = ($max === 0) ? 0 : $delta / $max;
+            $weight = $saturation * $saturation + 0.05;
+
+            // Compute hue 0–360
+            if ($delta === 0) {
+                $hue = 0;
+            } elseif ($max === $r) {
+                $hue = 60 * fmod(($g - $b) / $delta, 6);
+            } elseif ($max === $g) {
+                $hue = 60 * (($b - $r) / $delta + 2);
+            } else {
+                $hue = 60 * (($r - $g) / $delta + 4);
+            }
+            if ($hue < 0) $hue += 360;
+
+            $bucket = (int)floor($hue / 30) % 12;
+            $hueBuckets[$bucket]['r']      += $r * $weight;
+            $hueBuckets[$bucket]['g']      += $g * $weight;
+            $hueBuckets[$bucket]['b']      += $b * $weight;
+            $hueBuckets[$bucket]['weight'] += $weight;
+
+            $fallbackR += $r; $fallbackG += $g; $fallbackB += $b; $fallbackCount++;
         }
     }
     imagedestroy($thumb);
 
-    $r = (int)round($r / $count);
-    $g = (int)round($g / $count);
-    $b = (int)round($b / $count);
-
-    // Saturation boost (mirrors JS)
-    $max = max($r, $g, $b);
-    $min = min($r, $g, $b);
-    if ($max - $min > 20) {
-        $avg = ($r + $g + $b) / 3;
-        $r   = min(255, (int)round($avg + ($r - $avg) * 1.2));
-        $g   = min(255, (int)round($avg + ($g - $avg) * 1.2));
-        $b   = min(255, (int)round($avg + ($b - $avg) * 1.2));
+    // Pick the heaviest bucket
+    $bestBucket = 0; $bestWeight = -1;
+    foreach ($hueBuckets as $i => $bucket) {
+        if ($bucket['weight'] > $bestWeight) { $bestWeight = $bucket['weight']; $bestBucket = $i; }
     }
 
-    return sprintf('#%02x%02x%02x', $r, $g, $b);
+    if ($bestWeight > 0) {
+        $w = $hueBuckets[$bestBucket]['weight'];
+        $r = (int)round($hueBuckets[$bestBucket]['r'] / $w);
+        $g = (int)round($hueBuckets[$bestBucket]['g'] / $w);
+        $b = (int)round($hueBuckets[$bestBucket]['b'] / $w);
+        // Saturation boost for vivid spine color
+        $max = max($r, $g, $b); $min = min($r, $g, $b);
+        if ($max - $min > 10) {
+            $avg = ($r + $g + $b) / 3;
+            $r = min(255, max(0, (int)round($avg + ($r - $avg) * 1.4)));
+            $g = min(255, max(0, (int)round($avg + ($g - $avg) * 1.4)));
+            $b = min(255, max(0, (int)round($avg + ($b - $avg) * 1.4)));
+        }
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    if ($fallbackCount > 0) {
+        return sprintf('#%02x%02x%02x',
+            (int)round($fallbackR / $fallbackCount),
+            (int)round($fallbackG / $fallbackCount),
+            (int)round($fallbackB / $fallbackCount));
+    }
+    return null;
 }
 
 $action = $_GET['action'] ?? 'show_form';
