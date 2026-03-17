@@ -226,6 +226,62 @@ if ($action !== 'page') {
         exit;
     }
 
+    // ── Copy-level actions ────────────────────────────────────────────────
+    if ($action === 'get_copies') {
+        // Return all copies that have an edition cover OR any copy with a stored color
+        $filter = $_GET['filter'] ?? 'all'; // all | with_edition_cover | with_color | without_color
+        $where = match($filter) {
+            'with_edition_cover' => "AND me.cover_image_url IS NOT NULL AND me.cover_image_url != ''",
+            'with_color'         => "AND (c.spine_color IS NOT NULL AND c.spine_color != '')",
+            'without_color'      => "AND (c.spine_color IS NULL OR c.spine_color = '')",
+            default              => "AND (me.cover_image_url IS NOT NULL AND me.cover_image_url != '' OR c.spine_color IS NOT NULL AND c.spine_color != '')",
+        };
+        $stmt = $db->query("
+            SELECT c.id as copy_id, c.format, c.edition, c.spine_color as copy_spine_color,
+                   m.id as movie_id, m.title, m.display_title, m.year, m.poster_url, m.spine_color as movie_spine_color,
+                   me.cover_image_url as edition_cover_url, me.name as edition_name
+            FROM copies c
+            JOIN movies m ON c.movie_id = m.id
+            LEFT JOIN media_editions me ON c.edition_id = me.id
+            WHERE 1=1 $where
+            ORDER BY COALESCE(m.display_title, m.title) ASC, c.id ASC
+        ");
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    }
+
+    if ($action === 'reextract_copy') {
+        $copyId = intval($_GET['copy_id'] ?? 0);
+        $source = $_GET['source'] ?? 'edition'; // 'edition' | 'tmdb'
+        if (!$copyId) { echo json_encode(['error' => 'copy_id required']); exit; }
+        $row = $db->query("
+            SELECT c.id as copy_id, c.movie_id, m.poster_url, me.cover_image_url as edition_cover_url
+            FROM copies c
+            JOIN movies m ON c.movie_id = m.id
+            LEFT JOIN media_editions me ON c.edition_id = me.id
+            WHERE c.id = $copyId
+        ")->fetch(PDO::FETCH_ASSOC);
+        if (!$row) { echo json_encode(['error' => 'Copy not found']); exit; }
+
+        $url = ($source === 'edition' && !empty($row['edition_cover_url']))
+            ? $row['edition_cover_url']
+            : $row['poster_url'];
+        $color = extractDominantColor($url);
+        if ($color) {
+            $db->prepare("UPDATE copies SET spine_color = ? WHERE id = ?")->execute([$color, $copyId]);
+            echo json_encode(['ok' => true, 'color' => $color, 'copy_id' => $copyId, 'source_url' => $url]);
+        } else {
+            echo json_encode(['ok' => false, 'error' => 'Extraction failed', 'copy_id' => $copyId]);
+        }
+        exit;
+    }
+
+    if ($action === 'wipe_copy_colors') {
+        $db->exec("UPDATE copies SET spine_color = NULL");
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
     echo json_encode(['error' => 'Unknown action']);
     exit;
 }
@@ -249,6 +305,29 @@ body {
     min-height: 100vh;
     color: #e0e0e0;
 }
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 0;
+    background: #16213e;
+    border-bottom: 2px solid #2a2a4a;
+    padding: 0 2rem;
+}
+.tab-btn {
+    padding: 0.7rem 1.4rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #999;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: -2px;
+}
+.tab-btn.active { color: #fff; border-bottom-color: #667eea; }
+.tab-btn:hover { color: #fff; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 header {
     background: linear-gradient(135deg,#667eea,#764ba2);
     padding: 1.2rem 2rem;
@@ -395,6 +474,53 @@ select {
 .legend-item { display: flex; align-items: center; gap: 0.4rem; }
 .legend-swatch { width: 20px; height: 8px; border-radius: 2px; }
 
+/* Copy cards */
+.copy-card {
+    background: #16213e;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+}
+.copy-card:hover { border-color: #667eea; }
+.copy-card .swatch { height: 8px; width: 100%; }
+.copy-card .covers {
+    display: flex;
+    gap: 0;
+}
+.copy-card .cover-slot {
+    flex: 1;
+    position: relative;
+}
+.copy-card .cover-slot img {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+    background: #2a2a4a;
+}
+.copy-card .cover-slot .cover-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.75);
+    color: #ddd;
+    font-size: 0.55rem;
+    text-align: center;
+    padding: 2px;
+}
+.copy-card .info { padding: 0.4rem 0.5rem 0.5rem; }
+.copy-card .title { font-size: 0.7rem; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+.copy-card .sub   { font-size: 0.6rem; color: #888; margin-bottom: 0.25rem; }
+.copy-card .hex   { font-size: 0.65rem; color: #888; font-family: monospace; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.25rem; }
+.copy-card .hex .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.copy-card .no-color { font-size: 0.65rem; color: #666; font-style: italic; margin-bottom: 0.25rem; }
+.copy-card .source-row { display: flex; gap: 0.3rem; align-items: center; margin-top: 0.25rem; }
+.copy-card .source-row select { flex: 1; padding: 0.2rem 0.3rem; font-size: 0.65rem; }
+.copy-card .source-row button { padding: 0.2rem 0.4rem; font-size: 0.65rem; background: #667eea; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.copy-card .source-row button:hover { background: #556dcc; }
+
 /* Batch log */
 .batch-log {
     background: #0d0d1a;
@@ -419,6 +545,13 @@ select {
     </div>
 </header>
 
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('movies')">🎬 Movies (TMDB)</button>
+    <button class="tab-btn" onclick="switchTab('copies')">📀 Copies (Edition Covers)</button>
+</div>
+
+<!-- ── MOVIES TAB ───────────────────────────────────────────── -->
+<div class="tab-panel active" id="tab-movies">
 <div class="toolbar">
     <div class="stats" id="stats">Loading…</div>
     <select id="filterSel" onchange="loadMovies()">
@@ -443,6 +576,30 @@ select {
 
 <div class="batch-log" id="batchLog"></div>
 <div class="grid" id="grid"><div class="loading">Loading movies…</div></div>
+</div><!-- /tab-movies -->
+
+<!-- ── COPIES TAB ───────────────────────────────────────────── -->
+<div class="tab-panel" id="tab-copies">
+<div class="toolbar">
+    <div class="stats" id="copyStats">Loading…</div>
+    <select id="copyFilterSel" onchange="loadCopies()">
+        <option value="all">All copies with edition covers</option>
+        <option value="with_edition_cover">Has edition cover</option>
+        <option value="with_color">Has stored copy color</option>
+        <option value="without_color">Missing copy color</option>
+    </select>
+    <button class="btn-danger" onclick="wipeCopyColors()" id="btnWipeCopies">🗑 Wipe All Copy Colors</button>
+</div>
+
+<div class="legend">
+    <span>Each card shows the edition cover (left) and TMDB poster (right) for a copy.</span>
+    <span>Use the <strong>Source</strong> dropdown to choose which image to extract the spine color from, then click <strong>Extract</strong>.</span>
+    <div class="legend-item"><div class="legend-swatch" style="background:#27ae60"></div>Green swatch = copy has its own stored color (overrides movie color)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#2a2a4a"></div>Dark = no copy-level color stored (falls back to movie color)</div>
+</div>
+
+<div class="grid" id="copyGrid"><div class="loading">Loading copies…</div></div>
+</div><!-- /tab-copies -->
 
 <script>
 const BASE = '/admin/spine-color-review.php';
@@ -570,6 +727,100 @@ async function wipeAll() {
 
 function escHtml(str) {
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (i === 0 ? 'movies' : 'copies') === tab);
+    });
+    document.getElementById('tab-movies').classList.toggle('active', tab === 'movies');
+    document.getElementById('tab-copies').classList.toggle('active', tab === 'copies');
+    if (tab === 'copies') loadCopies();
+}
+
+// ── Copy tab logic ─────────────────────────────────────────────────────────
+async function loadCopies() {
+    const filter = document.getElementById('copyFilterSel').value;
+    const grid = document.getElementById('copyGrid');
+    grid.innerHTML = '<div class="loading">Loading…</div>';
+    const copies = await api({ action: 'get_copies', filter });
+    if (!Array.isArray(copies) || !copies.length) {
+        grid.innerHTML = '<div class="empty">No copies found. Copies need to be linked to a UMDB edition (which has a cover image) to appear here.</div>';
+        updateCopyStats(copies);
+        return;
+    }
+    grid.innerHTML = copies.map(c => renderCopyCard(c)).join('');
+    updateCopyStats(copies);
+}
+
+function updateCopyStats(copies) {
+    if (!Array.isArray(copies)) { document.getElementById('copyStats').textContent = '—'; return; }
+    const total = copies.length;
+    const withColor = copies.filter(c => c.copy_spine_color).length;
+    const withEdition = copies.filter(c => c.edition_cover_url).length;
+    document.getElementById('copyStats').innerHTML =
+        `<strong>${total}</strong> copies · <strong>${withEdition}</strong> with edition cover · <strong>${withColor}</strong> with stored copy color`;
+}
+
+function renderCopyCard(c) {
+    const color = c.copy_spine_color || '#2a2a4a';
+    const swatchBorder = c.copy_spine_color ? 'outline: 1px solid #27ae60;' : '';
+    const title = escHtml(c.display_title || c.title);
+    const sub   = [c.format, c.edition_name || c.edition].filter(Boolean).join(' · ');
+    const colorInfo = c.copy_spine_color
+        ? `<div class="hex"><div class="dot" style="background:${c.copy_spine_color}"></div>${c.copy_spine_color} <small style="color:#27ae60">(copy)</small></div>`
+        : `<div class="no-color">no copy color${c.movie_spine_color ? ' (uses movie: ' + c.movie_spine_color + ')' : ''}</div>`;
+
+    const editionImg = c.edition_cover_url
+        ? `<div class="cover-slot"><img src="${escHtml(c.edition_cover_url)}" loading="lazy" onerror="this.style.display='none'"><div class="cover-label">Edition Cover</div></div>`
+        : `<div class="cover-slot"><div style="width:100%;aspect-ratio:2/3;background:#111;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#444">📀</div><div class="cover-label">No edition cover</div></div>`;
+    const tmdbImg = c.poster_url
+        ? `<div class="cover-slot"><img src="${escHtml(c.poster_url)}" loading="lazy" onerror="this.style.display='none'"><div class="cover-label">TMDB Poster</div></div>`
+        : `<div class="cover-slot"><div style="width:100%;aspect-ratio:2/3;background:#111;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#444">🎬</div><div class="cover-label">No TMDB poster</div></div>`;
+
+    const hasEdition = !!c.edition_cover_url;
+    const sourceOptions = hasEdition
+        ? `<option value="edition" selected>Edition Cover</option><option value="tmdb">TMDB Poster</option>`
+        : `<option value="tmdb" selected>TMDB Poster</option>`;
+
+    return `<div class="copy-card" id="copycard-${c.copy_id}">
+        <div class="swatch" style="background:${color};${swatchBorder}"></div>
+        <div class="covers">${editionImg}${tmdbImg}</div>
+        <div class="info">
+            <div class="title">${title}</div>
+            ${sub ? `<div class="sub">${escHtml(sub)}</div>` : ''}
+            ${colorInfo}
+            <div class="source-row">
+                <select id="src-${c.copy_id}">${sourceOptions}</select>
+                <button onclick="reextractCopy(${c.copy_id})">Extract</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function reextractCopy(copyId) {
+    const card = document.getElementById('copycard-' + copyId);
+    if (!card) return;
+    const source = document.getElementById('src-' + copyId)?.value || 'edition';
+    card.style.opacity = '0.5';
+    const res = await api({ action: 'reextract_copy', copy_id: copyId, source });
+    card.style.opacity = '1';
+    if (res.ok) {
+        card.querySelector('.swatch').style.background = res.color;
+        card.querySelector('.swatch').style.outline = '1px solid #27ae60';
+        const colorDiv = card.querySelector('.hex, .no-color');
+        if (colorDiv) colorDiv.outerHTML = `<div class="hex"><div class="dot" style="background:${res.color}"></div>${res.color} <small style="color:#27ae60">(copy)</small></div>`;
+    } else {
+        card.style.outline = '2px solid #c0392b';
+        setTimeout(() => { card.style.outline = ''; }, 2000);
+    }
+}
+
+async function wipeCopyColors() {
+    if (!confirm('Wipe ALL stored per-copy spine colors? Movie-level colors are unaffected.')) return;
+    await api({ action: 'wipe_copy_colors' });
+    loadCopies();
 }
 
 // Init

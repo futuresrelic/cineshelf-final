@@ -457,6 +457,9 @@ function getDb() {
         // Auto-migrate: Spine colour extracted from cover art (v7.1.0)
         try { $db->exec("ALTER TABLE movies ADD COLUMN spine_color TEXT"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Per-copy spine colour (overrides movie-level; extracted from edition cover art)
+        try { $db->exec("ALTER TABLE copies ADD COLUMN spine_color TEXT"); } catch (PDOException $e) {}
+
         // Auto-migrate: Movie Views / CineShelfRating (v7.0.0)
         // Tracks who has seen what, with individual star ratings and comments
         try {

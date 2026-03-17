@@ -1441,6 +1441,20 @@ case 'save_movie_spine_color':
     jsonResponse(true, ['movie_id' => $movieId, 'spine_color' => $spineColor]);
     break;
 
+case 'save_copy_spine_color':
+    $copyId     = intval($input['copy_id'] ?? 0);
+    $spineColor = sanitize($input['spine_color'] ?? '', 20);
+
+    if (empty($copyId) || empty($spineColor)) {
+        jsonResponse(false, null, 'copy_id and spine_color required');
+    }
+
+    $stmt = $db->prepare("UPDATE copies SET spine_color = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$spineColor, $copyId, $userId]);
+
+    jsonResponse(true, ['copy_id' => $copyId, 'spine_color' => $spineColor]);
+    break;
+
 // ========================================
 // WISHLIST ACTIONS
 // ========================================
@@ -5357,6 +5371,7 @@ case 'resolve_movie':
                     m.media_type,
                     m.number_of_seasons,
                     m.spine_color as movie_spine_color,
+                    c.spine_color as copy_spine_color,
                     c.seasons_owned,
                     -- Edition cover (from UMDB-linked edition)
                     me.cover_image_url as edition_cover_url,

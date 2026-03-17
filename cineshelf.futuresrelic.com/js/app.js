@@ -4065,7 +4065,8 @@ function getCertColor(cert) {
         if (item.is_container) return null; // handled separately
         const mode = (settings.spineColorMode) || 'shelf';
         if (mode === 'shelf') return shelfColor || '#667eea';
-        // 'auto' mode: prefer stored per-movie color extracted from cover art
+        // 'auto' mode: per-copy color (from edition cover) takes precedence, then movie-level color
+        if (mode === 'auto' && item.copy_spine_color) return item.copy_spine_color;
         if (mode === 'auto' && item.movie_spine_color) return item.movie_spine_color;
         // 'auto' and 'format' both fall back to format-based colour
         const fmt = (item.format || '').toLowerCase();
@@ -4219,15 +4220,20 @@ function getCertColor(cert) {
             } else {
                 const color = spineColorForItem(item, shelfColor);
                 const title = (item.display_title || item.title || '').replace(/"/g,'&quot;');
-                // Check if poster-based spine coloring is enabled
-                const posterUrl = item.poster_url;
+                // Prefer edition cover (copy-specific art) for color extraction; fall back to TMDB poster
+                const posterUrl = item.edition_cover_url || item.poster_url;
+                // Only skip extraction if the per-source color is already stored
+                const hasStoredColor = item.edition_cover_url
+                    ? !!item.copy_spine_color
+                    : !!item.movie_spine_color;
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
                              onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"
                              style="--spine-color:${color}"
                              data-poster-url="${posterUrl || ''}"
                              data-movie-id="${item.movie_id}"
-                             ${item.movie_spine_color ? 'data-stored-color="1"' : ''}>
+                             data-copy-id="${item.copy_id || ''}"
+                             ${hasStoredColor ? 'data-stored-color="1"' : ''}>
                             <span class="spine-title">${item.display_title || item.title}</span>
                         </div>`;
             }
@@ -4242,12 +4248,15 @@ function getCertColor(cert) {
             if (spine.dataset.storedColor) continue;
             const posterUrl = spine.dataset.posterUrl;
             const movieId   = spine.dataset.movieId;
+            const copyId = spine.dataset.copyId;
             if (posterUrl && posterUrl !== 'null' && posterUrl !== '') {
                 try {
                     const color = await extractAverageColor(posterUrl);
                     spine.style.setProperty('--spine-color', color);
-                    // Persist extracted colour so future renders use the stored value
-                    if (movieId) {
+                    // Persist extracted colour: per-copy when a copy has its own cover, else per-movie
+                    if (copyId) {
+                        apiCall('save_copy_spine_color', { copy_id: parseInt(copyId), spine_color: color }).catch(() => {});
+                    } else if (movieId) {
                         apiCall('save_movie_spine_color', { movie_id: parseInt(movieId), spine_color: color }).catch(() => {});
                     }
                 } catch (e) { /* keep default */ }
