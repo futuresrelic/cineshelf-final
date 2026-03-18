@@ -1846,7 +1846,8 @@ function renderCollection() {
                                         <div class="edition-actions">
                                             <button class="btn-sm" onclick="App.openComponentChecklist(${copy.id}, ${movieId})">Checklist</button>
                                             ${hasUmdb
-                                                ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Re-pull from UMDB">Sync</button>
+                                                ? `<button class="btn-sm btn-umdb-sm" onclick="App.syncEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Re-pull latest data from UMDB">Sync ↓</button>
+                                                   <button class="btn-sm btn-umdb-sm" onclick="App.updateUmdbRelease(${copy.edition_id}, ${movieId})" title="Push local changes up to UMDB">Update ↑</button>
                                                    <button class="btn-sm btn-sm-muted" onclick="App.unlinkEditionFromUmdb(${copy.edition_id}, ${movieId})" title="Remove UMDB link">Unlink UMDB</button>`
                                                 : `<button class="btn-sm btn-umdb-sm" onclick="App.pushEditionToUmdb(${copy.edition_id}, ${movieId})" title="Push to UMDB">Push to UMDB</button>
                                                    <button class="btn-sm btn-sm-muted" onclick="App.linkEditionToUmdb(${copy.edition_id}, ${movieId})" title="Link to existing UMDB release">Link UMDB</button>`
@@ -3363,20 +3364,48 @@ async function deleteCopy(copyId, movieId) {
         try {
             const result = await apiCall('push_edition_to_umdb', { edition_id: editionId });
             if (result && result.umdb_release_id) {
-                let msg;
                 if (result.duplicate) {
-                    msg = `Linked to existing UMDB release (duplicate barcode): ${result.umdb_release_id}`;
-                } else if (result.movie_auto_created) {
-                    msg = `Movie added to UMDB and edition pushed: ${result.umdb_release_id}`;
+                    // Offer the user a chance to correct wrong data on the existing UMDB release
+                    const doUpdate = confirm(
+                        `⚠️ UMDB already has a release with this barcode:\n${result.umdb_release_id}\n\n` +
+                        `Your edition has been linked to it, but the existing UMDB release may have different data ` +
+                        `(e.g. wrong format like Blu-ray instead of DVD).\n\n` +
+                        `Would you like to UPDATE the UMDB release with this edition's current data (format, name, distributor, etc.)?`
+                    );
+                    if (doUpdate) {
+                        await _doUpdateUmdbRelease(editionId, movieId);
+                        return;
+                    }
+                    showToast(`Linked to existing UMDB release (duplicate barcode): ${result.umdb_release_id}`, 'info');
                 } else {
-                    msg = `Pushed to UMDB: ${result.umdb_release_id}`;
+                    const msg = result.movie_auto_created
+                        ? `Movie added to UMDB and edition pushed: ${result.umdb_release_id}`
+                        : `Pushed to UMDB: ${result.umdb_release_id}`;
+                    showToast(msg, 'success');
                 }
-                showToast(msg, 'success');
                 await openCopyManager(movieId);
             }
         } catch (error) {
             console.error('Failed to push to UMDB:', error);
             showToast(error.message || 'Failed to push edition to UMDB', 'error');
+        }
+    }
+
+    async function updateUmdbRelease(editionId, movieId) {
+        if (!confirm('Update the UMDB release with this edition\'s current data?\n\nThis will overwrite the format, name, distributor, barcode and other fields on UMDB.')) return;
+        await _doUpdateUmdbRelease(editionId, movieId);
+    }
+
+    async function _doUpdateUmdbRelease(editionId, movieId) {
+        try {
+            const result = await apiCall('update_umdb_release', { edition_id: editionId });
+            if (result) {
+                showToast('UMDB release updated with your edition data!', 'success');
+                await openCopyManager(movieId);
+            }
+        } catch (error) {
+            console.error('Failed to update UMDB release:', error);
+            showToast(error.message || 'Failed to update UMDB release', 'error');
         }
     }
 
@@ -13426,6 +13455,7 @@ return {
     importUmdbRelease,
     importUmdbBoxset,
     pushEditionToUmdb,
+    updateUmdbRelease,
     syncEditionFromUmdb,
     pushBoxSetToUmdb,
     syncBoxSetFromUmdb,

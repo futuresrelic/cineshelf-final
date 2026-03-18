@@ -7760,6 +7760,65 @@ Return ONLY the JSON object, no markdown.'
             ]);
             break;
 
+        case 'update_umdb_release':
+            // Push local edition changes (format, name, distributor, etc.) to UMDB via PUT
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured');
+            }
+
+            $editionId = intval($input['edition_id'] ?? 0);
+            if (empty($editionId)) {
+                jsonResponse(false, null, 'Edition ID required');
+            }
+
+            $stmt = $db->prepare("
+                SELECT me.*, m.tmdb_id, m.imdb_id
+                FROM media_editions me
+                JOIN movies m ON m.id = me.movie_id
+                WHERE me.id = ?
+            ");
+            $stmt->execute([$editionId]);
+            $edition = $stmt->fetch();
+
+            if (!$edition) {
+                jsonResponse(false, null, 'Edition not found');
+            }
+            if (empty($edition['umdb_release_id'])) {
+                jsonResponse(false, null, 'This edition is not linked to a UMDB release');
+            }
+
+            $updatePayload = [
+                'name'         => $edition['name'],
+                'format'       => $edition['format'],
+                'package_type' => $edition['package_type'],
+                'region'       => $edition['region'],
+                'barcode'      => $edition['barcode'],
+                'release_date' => $edition['release_date'],
+                'distributor'  => $edition['distributor'],
+                'country'      => $edition['country'],
+                'disc_count'   => intval($edition['disc_count']),
+                'notes'        => $edition['notes'],
+            ];
+
+            // Remove null/empty values so we don't blank out fields on UMDB
+            $updatePayload = array_filter($updatePayload, fn($v) => $v !== null && $v !== '');
+
+            $updateResult = umdbPut('/releases/' . urlencode($edition['umdb_release_id']), $updatePayload);
+
+            if (!$updateResult) {
+                $detail = $GLOBALS['_umdb_last_error'] ?? '';
+                jsonResponse(false, null, 'Failed to update UMDB release' . ($detail ? " — $detail" : ''));
+            }
+
+            logAction($db, $userId, 'edition_updated_on_umdb', 'media_edition', $editionId, [
+                'umdb_release_id' => $edition['umdb_release_id'],
+            ]);
+            jsonResponse(true, [
+                'edition_id'      => $editionId,
+                'umdb_release_id' => $edition['umdb_release_id'],
+            ]);
+            break;
+
         case 'sync_edition_from_umdb':
             // Re-pull data from UMDB for an already-linked edition
             $editionId = intval($input['edition_id'] ?? 0);
