@@ -3802,14 +3802,18 @@ function getCertColor(cert) {
     }
 
     // Called from Shelf / Physical Media views where each physical copy is a nav item
-    function viewCopyDetailsWithNav(copyId, movieId, copyNavList) {
+    // copyNavStr is a comma-separated "copyId:movieId" string (no quotes = safe in onclick attrs)
+    function viewCopyDetailsWithNav(copyId, movieId, copyNavStr) {
         boxSetNavList = [];
         boxSetNavIndex = -1;
         currentContainerId = null;
         shelfNavMovieList = [];
         shelfNavIndex = -1;
-        shelfNavCopyList = copyNavList;
-        shelfNavCopyIndex = copyNavList.findIndex(n => n.c === copyId);
+        // Parse "c:m,c:m,..." into [{c,m},...]
+        shelfNavCopyList = (typeof copyNavStr === 'string' && copyNavStr)
+            ? copyNavStr.split(',').map(pair => { const [c,m] = pair.split(':').map(Number); return {c,m}; })
+            : [];
+        shelfNavCopyIndex = shelfNavCopyList.findIndex(n => n.c === copyId);
         viewMovieDetails(movieId, copyId);
         _updateCopyNavUI();
     }
@@ -4271,11 +4275,9 @@ function getCertColor(cert) {
         );
     }
 
-    // Copy-aware nav list: one entry per physical copy item (Shelf / Physical views)
+    // Copy-aware nav list: "copyId:movieId,copyId:movieId,..." — no JSON quotes, safe in onclick attrs
     function _shelfNavCopies(items) {
-        return JSON.stringify(
-            items.filter(i => !i.is_container).map(i => ({ c: i.copy_id || 0, m: i.movie_id }))
-        );
+        return items.filter(i => !i.is_container).map(i => `${i.copy_id||0}:${i.movie_id}`).join(',');
     }
 
     function renderSpineStrip(items, shelfColor) {
@@ -4322,7 +4324,7 @@ function getCertColor(cert) {
                     : !!item.movie_spine_color;
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
-                             onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${navIds})"
+                             onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, '${navIds}')"
                              style="--spine-color:${color}"
                              data-poster-url="${posterUrl || ''}"
                              data-movie-id="${item.movie_id}"
@@ -4376,7 +4378,7 @@ function getCertColor(cert) {
             } else {
                 const shelfPoster = item.edition_cover_url || item.poster_url;
                 const shelfFallback = item.edition_cover_url && item.poster_url ? item.poster_url : null;
-                html += `<div class="shelf-view-movie-card" onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${navIds})">
+                html += `<div class="shelf-view-movie-card" onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, '${navIds}')">
                     ${shelfPoster
                         ? `<img src="${shelfPoster}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="${shelfFallback ? `this.src='${shelfFallback}'` : "this.parentElement.classList.add('no-poster');this.style.display='none'"}">`
                         : `<div class="shelf-view-poster-placeholder">🎬</div>`}
@@ -4889,12 +4891,12 @@ function getCertColor(cert) {
 
     function _physicalItemClick(item, copyNavIds) {
         if (item.is_container) return `onclick="App.showBoxSetDetails(${item.container_id})"`;
-        return `onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${copyNavIds})"`;
+        return `onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, '${copyNavIds}')"`;
     }
 
     // ── Unified physical media renderer (matches Movies card structure) ──
     function renderPhysicalItems(items) {
-        const navIds = JSON.stringify(items.filter(i => !i.is_container).map(i => ({ c: i.copy_id || 0, m: i.movie_id })));
+        const navIds = items.filter(i => !i.is_container).map(i => `${i.copy_id||0}:${i.movie_id}`).join(',');
         const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
         return `<div class="movie-grid ${viewClass}">` + items.map(item => {
             // Box set containers
