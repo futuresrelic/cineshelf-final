@@ -2339,6 +2339,7 @@ async function deleteCopy(copyId, movieId) {
                     <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button class="btn" onclick="App.showCreateEdition(${copyId}, ${movieId})">+ Create New Edition</button>
                         <button class="btn btn-umdb" onclick="App.showImportFromUmdb(${copyId}, ${movieId})">Import from UMDB</button>
+                        <button class="btn btn-amazon" onclick="App.showImportFromAmazon(${copyId}, ${movieId})">🛒 Import from Amazon</button>
                         <button class="btn-secondary" onclick="App.openCopyManager(${movieId})">Cancel</button>
                     </div>
                 </div>
@@ -2935,6 +2936,239 @@ async function deleteCopy(copyId, movieId) {
             showToast(error.message || 'Failed to import UMDB release', 'error');
         }
     }
+
+    // ── Amazon Import ─────────────────────────────────────────────────────
+    function showImportFromAmazon(copyId, movieId) {
+        const modal = document.getElementById('copyManagerContent');
+        modal.innerHTML = `
+            <div class="amazon-import-view">
+                <h4>🛒 Import from Amazon</h4>
+                <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+                    Paste an Amazon product URL to automatically extract cover images, languages,
+                    disc count, ASIN, and more. Review the data before saving.
+                </p>
+                <div class="form-group">
+                    <label>Amazon Product URL</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="url" id="amazon-url-input" class="form-control"
+                               placeholder="https://www.amazon.com/dp/XXXXXXXXXX"
+                               style="flex:1;" onkeydown="if(event.key==='Enter') App.fetchAmazonProduct(${copyId},${movieId})">
+                        <button class="btn btn-amazon" id="amazon-fetch-btn"
+                                onclick="App.fetchAmazonProduct(${copyId},${movieId})">Fetch →</button>
+                    </div>
+                </div>
+                <div id="amazon-import-result"></div>
+                <div style="margin-top:1rem;">
+                    <button class="btn-secondary" onclick="App.openEditionPicker(${copyId},${movieId})">← Back</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async function fetchAmazonProduct(copyId, movieId) {
+        const urlInput = document.getElementById('amazon-url-input');
+        const url = urlInput?.value.trim();
+        if (!url) { showToast('Please enter an Amazon URL', 'error'); return; }
+
+        const btn = document.getElementById('amazon-fetch-btn');
+        const resultDiv = document.getElementById('amazon-import-result');
+        if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
+        if (resultDiv) resultDiv.innerHTML = '<p style="color:#aaa;font-size:0.9rem;margin-top:1rem;">Fetching Amazon page…</p>';
+
+        try {
+            const resp = await fetch(`/api/amazon-import.php?url=${encodeURIComponent(url)}`);
+            const json = await resp.json();
+
+            if (!json.ok) {
+                resultDiv.innerHTML = `
+                    <div class="amazon-error">
+                        <strong>⚠️ ${escHtml(json.error)}</strong>
+                        ${json.asin ? `<p style="margin-top:0.5rem;font-size:0.85rem;color:#aaa;">ASIN detected: <code>${json.asin}</code> — you can still fill in the form manually below.</p>` : ''}
+                    </div>
+                    ${buildAmazonForm(copyId, movieId, {asin: json.asin||''})}
+                `;
+            } else {
+                resultDiv.innerHTML = buildAmazonForm(copyId, movieId, json.data);
+                if (json.data.images && json.data.images.length > 0) {
+                    // Auto-select first image
+                    selectAmazonImage(json.data.images[0]);
+                }
+            }
+        } catch (e) {
+            resultDiv.innerHTML = `<div class="amazon-error">Failed to reach the server. Check your connection.</div>
+                                   ${buildAmazonForm(copyId, movieId, {})}`;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Fetch →'; }
+        }
+    }
+
+    function buildAmazonForm(copyId, movieId, d) {
+        const imgs = d.images || [];
+        const esc = s => String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const val = s => s ? `value="${esc(s)}"` : '';
+
+        const imgGallery = imgs.length > 0 ? `
+            <div class="amazon-img-gallery">
+                <label style="display:block;margin-bottom:0.4rem;font-size:0.8rem;color:#aaa;">
+                    Select cover image (click to choose):
+                </label>
+                <div class="amazon-img-strip" id="amazon-img-strip">
+                    ${imgs.map((src, i) => `
+                        <div class="amazon-img-thumb ${i===0?'selected':''}" onclick="App.selectAmazonImage('${esc(src)}')" data-src="${esc(src)}">
+                            <img src="${esc(src)}" alt="Image ${i+1}" onerror="this.parentElement.style.display='none'">
+                            <span>${i===0?'Front':i===1?'Back':i===2?'Spine':'Alt '+(i+1)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <input type="hidden" id="amazon-selected-image" value="${esc(imgs[0]||'')}">
+            </div>
+        ` : '<p style="color:#888;font-size:0.85rem;margin-bottom:0.5rem;">No images found — you can paste an image URL manually below.</p><div class="form-group"><label>Cover Image URL</label><input type="url" id="amazon-selected-image" class="form-control" placeholder="https://..."></div>';
+
+        // Determine friendly edition name from title
+        const titleSuggest = d.edition_name || d.title || '';
+        const format = d.format || 'DVD';
+        const discCount = d.disc_count || 1;
+
+        return `
+            <div class="amazon-form-section">
+                <h5 style="margin:1rem 0 0.5rem;color:#a8b8ff;">📀 Edition Details</h5>
+                ${imgGallery}
+                <div class="form-row" style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+                    <div class="form-group" style="flex:3;">
+                        <label>Edition Name *</label>
+                        <input type="text" id="az-edition-name" class="form-control" ${val(titleSuggest)}
+                               placeholder="e.g., Special Edition — DVD">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Format</label>
+                        <select id="az-format" class="form-control">
+                            ${['DVD','Blu-ray','4K UHD','VHS','LaserDisc'].map(f=>`<option ${f===format?'selected':''}>${f}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:0.5rem;">
+                    <div class="form-group" style="flex:2;">
+                        <label>Distributor / Studio</label>
+                        <input type="text" id="az-distributor" class="form-control" ${val(d.distributor)} placeholder="e.g., Sony Pictures">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Disc Count</label>
+                        <input type="number" id="az-disc-count" class="form-control" value="${discCount}" min="1" max="20">
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Audio Languages</label>
+                        <input type="text" id="az-languages" class="form-control" ${val(d.languages)} placeholder="e.g., English, French">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Dubbed</label>
+                        <input type="text" id="az-dubbed" class="form-control" ${val(d.dubbed)} placeholder="e.g., French, Spanish">
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Subtitles</label>
+                        <input type="text" id="az-subtitles" class="form-control" ${val(d.subtitles)} placeholder="e.g., English, French">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Audio Formats</label>
+                        <input type="text" id="az-audio-formats" class="form-control" ${val(d.audio_formats)} placeholder="e.g., Dolby Digital 5.1">
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Region</label>
+                        <input type="text" id="az-region" class="form-control" ${val(d.region)} placeholder="e.g., Region 1 (US/CA)">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Country</label>
+                        <input type="text" id="az-country" class="form-control" ${val(d.country)} placeholder="e.g., USA">
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:0.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Release Date</label>
+                        <input type="date" id="az-release-date" class="form-control" ${val(d.release_date)}>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Barcode / UPC</label>
+                        <input type="text" id="az-barcode" class="form-control" ${val(d.barcode)} placeholder="Model number / UPC">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>ASIN</label>
+                        <input type="text" id="az-asin" class="form-control" ${val(d.asin)} placeholder="e.g., B00005O3VC">
+                    </div>
+                </div>
+                ${d.aspect_ratio ? `<div class="form-group"><label>Aspect Ratio (applied to copy)</label>
+                    <input type="text" id="az-aspect-ratio" class="form-control" value="${esc(d.aspect_ratio)}"></div>` : ''}
+                <div class="form-actions" style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap;">
+                    <button class="btn btn-amazon" onclick="App.saveAmazonEdition(${copyId},${movieId})">
+                        💾 Save Edition &amp; Link to Copy
+                    </button>
+                    <button class="btn-secondary" onclick="App.openEditionPicker(${copyId},${movieId})">Cancel</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function selectAmazonImage(src) {
+        // Highlight selected thumbnail
+        document.querySelectorAll('.amazon-img-thumb').forEach(el => {
+            el.classList.toggle('selected', el.dataset.src === src);
+        });
+        const hidden = document.getElementById('amazon-selected-image');
+        if (hidden) hidden.value = src;
+    }
+
+    async function saveAmazonEdition(copyId, movieId) {
+        const name = document.getElementById('az-edition-name')?.value.trim();
+        if (!name) { showToast('Edition name is required', 'error'); return; }
+
+        const format = document.getElementById('az-format')?.value || 'DVD';
+        const coverUrl = document.getElementById('amazon-selected-image')?.value.trim() || '';
+        const languages = [
+            document.getElementById('az-languages')?.value.trim(),
+            document.getElementById('az-dubbed')?.value.trim() ? `Dubbed: ${document.getElementById('az-dubbed').value.trim()}` : ''
+        ].filter(Boolean).join('; ');
+        const aspectRatio = document.getElementById('az-aspect-ratio')?.value.trim() || '';
+
+        try {
+            const result = await apiCall('create_edition', {
+                movie_id:        movieId,
+                name:            name,
+                format:          format,
+                distributor:     document.getElementById('az-distributor')?.value.trim() || '',
+                disc_count:      parseInt(document.getElementById('az-disc-count')?.value || '1'),
+                languages:       languages,
+                audio_formats:   document.getElementById('az-audio-formats')?.value.trim() || '',
+                subtitles:       document.getElementById('az-subtitles')?.value.trim() || '',
+                region:          document.getElementById('az-region')?.value.trim() || '',
+                country:         document.getElementById('az-country')?.value.trim() || '',
+                release_date:    document.getElementById('az-release-date')?.value || '',
+                barcode:         document.getElementById('az-barcode')?.value.trim() || '',
+                asin:            document.getElementById('az-asin')?.value.trim() || '',
+                cover_image_url: coverUrl,
+            });
+
+            if (result && result.edition_id) {
+                // Also update the copy's aspect_ratio and format if we have them
+                const updatePayload = { copy_id: copyId, format: format };
+                if (aspectRatio) updatePayload.aspect_ratio = aspectRatio;
+                const regionVal = document.getElementById('az-region')?.value.trim();
+                if (regionVal) updatePayload.region = regionVal;
+                await apiCall('update_copy', { ...updatePayload });
+
+                showToast('Edition created from Amazon data!', 'success');
+                await linkCopyToEdition(copyId, result.edition_id, movieId);
+            }
+        } catch (e) {
+            console.error('saveAmazonEdition error:', e);
+            showToast(e.message || 'Failed to save edition', 'error');
+        }
+    }
+
+    // ── End Amazon Import ──────────────────────────────────────────────────
 
     async function pushEditionToUmdb(editionId, movieId) {
         if (!confirm('Push this edition to UMDB? It will be shared with the universal database.')) return;
@@ -12993,6 +13227,10 @@ return {
     deleteContainerComponent,
     // UMDB Two-Way Sync (v4.1.0)
     showImportFromUmdb,
+    showImportFromAmazon,
+    fetchAmazonProduct,
+    selectAmazonImage,
+    saveAmazonEdition,
     searchUmdbReleases,
     searchUmdbByExternalId,
     importUmdbRelease,

@@ -6722,6 +6722,14 @@ Return ONLY the JSON object, no markdown.'
             $discCount = intval($input['disc_count'] ?? 1);
             $notes = sanitize($input['notes'] ?? '', 500);
             $umdbReleaseId = sanitize($input['umdb_release_id'] ?? '', 80);
+            // Extended fields (Amazon / manual import)
+            $languages    = sanitize($input['languages'] ?? '', 500);
+            $audioFormats = sanitize($input['audio_formats'] ?? '', 500);
+            $subtitles    = sanitize($input['subtitles'] ?? '', 500);
+            $asin         = sanitize($input['asin'] ?? '', 20);
+            $coverImageUrl = sanitize($input['cover_image_url'] ?? '', 500);
+            $editionType  = sanitize($input['edition_type'] ?? '', 50);
+            $videoSystem  = sanitize($input['video_system'] ?? '', 20);
 
             if (empty($movieId) || empty($name)) {
                 jsonResponse(false, null, 'Movie ID and edition name required');
@@ -6735,13 +6743,16 @@ Return ONLY the JSON object, no markdown.'
             }
 
             $stmt = $db->prepare("
-                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO media_editions (movie_id, umdb_release_id, name, format, package_type, region, barcode, release_date, distributor, country, disc_count, notes, languages, audio_formats, subtitles, asin, cover_image_url, edition_type, video_system, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $movieId, $umdbReleaseId ?: null, $name, $format ?: null, $packageType ?: null, $region ?: null,
                 $barcode ?: null, $releaseDate ?: null, $distributor ?: null, $country ?: null,
-                $discCount, $notes ?: null, $userId
+                $discCount, $notes ?: null,
+                $languages ?: null, $audioFormats ?: null, $subtitles ?: null,
+                $asin ?: null, $coverImageUrl ?: null, $editionType ?: null, $videoSystem ?: null,
+                $userId
             ]);
 
             $editionId = $db->lastInsertId();
