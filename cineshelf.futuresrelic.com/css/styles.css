@@ -2402,6 +2402,68 @@ body.modal-open {
     font-size: 0.9rem;
 }
 
+/* Copy item inner layout (thumbnail + text) */
+.copy-layout {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+.copy-thumb {
+    width: 52px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.05);
+}
+
+/* Currently viewed copy gets a brighter border + subtle glow */
+.copy-summary-item.copy-active {
+    border-left-color: #a78bfa;
+    background: rgba(167,139,250,0.12);
+    box-shadow: 0 0 0 1px rgba(167,139,250,0.25);
+}
+.copy-summary-item.copy-active .copy-number { color: #a78bfa; }
+
+/* Other copies are clickable */
+.copy-summary-item.copy-other {
+    cursor: pointer;
+    transition: background 0.15s, border-left-color 0.15s;
+}
+.copy-summary-item.copy-other:hover {
+    background: rgba(255,255,255,0.09);
+    border-left-color: #667eea;
+}
+
+/* Badges inside copy header row */
+.copy-current-badge {
+    display: inline-block;
+    background: #a78bfa;
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 0.4rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+.copy-view-btn {
+    display: inline-block;
+    background: rgba(102,126,234,0.3);
+    color: #a0b0ff;
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-left: 0.4rem;
+    font-weight: 600;
+    vertical-align: middle;
+    transition: background 0.15s;
+}
+.copy-summary-item.copy-other:hover .copy-view-btn {
+    background: #667eea;
+    color: #fff;
+}
+
 /* ========================================
    RESOLVE FEATURE STYLES
    ======================================== */

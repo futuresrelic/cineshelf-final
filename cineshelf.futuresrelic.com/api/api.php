@@ -1329,6 +1329,7 @@ case 'update_copy':
                     me.barcode as edition_barcode,
                     me.release_date as edition_release_date,
                     me.country as edition_country,
+                    me.cover_image_url as edition_cover_url,
                     (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = c.edition_id) as edition_component_count,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id AND cc.is_present = 1) as components_present,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total

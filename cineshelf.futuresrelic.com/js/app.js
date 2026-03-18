@@ -3474,7 +3474,7 @@ async function selectPoster(movieId, posterPath) {
     }
 }
 
-async function viewMovieDetails(movieId) {
+async function viewMovieDetails(movieId, activeCopyId = null) {
     try {
         const group = collection.find(c => c.movie.movie_id === movieId);
 
@@ -3492,7 +3492,16 @@ async function viewMovieDetails(movieId) {
         }
 
         const content = document.getElementById('movieDetailContent');
-        const posterUrl = movie.poster_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
+        const fallbackPoster = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'450\'%3E%3Crect fill=\'%23333\' width=\'300\' height=\'450\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' fill=\'white\' font-size=\'20\'%3ENo Poster%3C/text%3E%3C/svg%3E';
+
+        // In Shelf / Physical views, prefer the active copy's edition cover
+        let posterUrl = movie.poster_url || fallbackPoster;
+        if (activeCopyId && copies.length) {
+            const activeCopy = copies.find(c => c.id === activeCopyId);
+            if (activeCopy && activeCopy.edition_cover_url) {
+                posterUrl = activeCopy.edition_cover_url;
+            }
+        }
 
         // Build clickable genre tags
         const genreTags = movie.genre ? movie.genre.split(',').map(g => g.trim()).filter(Boolean).map(g =>
@@ -3589,9 +3598,11 @@ async function viewMovieDetails(movieId) {
                         ${copies.length > 0 ? `
                             <div class="copies-summary">
                                 ${copies.map((copy, i) => {
+                                    const isActive = activeCopyId != null && copy.id === activeCopyId;
+                                    const isOther  = activeCopyId != null && !isActive;
                                     const edName = copy.edition_name || copy.edition || '';
                                     const edType = copy.edition_edition_type || '';
-                                    const pkgType = (copy.package_type && copy.package_type !== 'Standard Amaray') ? copy.package_type : (copy.edition_disc_color ? '' : '');
+                                    const pkgType = (copy.package_type && copy.package_type !== 'Standard Amaray') ? copy.package_type : '';
                                     const videoSys = copy.edition_video_system || '';
                                     const region = copy.region || copy.edition_region || '';
                                     const langs = copy.edition_languages || '';
@@ -3599,16 +3610,29 @@ async function viewMovieDetails(movieId) {
                                     const discCount = copy.edition_disc_count;
                                     const distributor = copy.edition_distributor || '';
                                     const tags = [edType, pkgType, videoSys, region].filter(Boolean);
+                                    const thumb = copy.edition_cover_url || '';
+                                    const itemClass = `copy-summary-item${isActive ? ' copy-active' : isOther ? ' copy-other' : ''}`;
+                                    const clickAttr = isOther ? `onclick="App.jumpToCopy(${copy.id})" title="Switch to this copy"` : '';
                                     return `
-                                    <div class="copy-summary-item">
-                                        <div class="copy-number">Copy ${i + 1}${umdbLinked ? ' <span class="umdb-link-badge">UMDB</span>' : ''}</div>
-                                        <div class="copy-details">
-                                            <div class="copy-summary-format">${copy.format}${copy.condition ? ` <span class="copy-summary-condition">${copy.condition}</span>` : ''}</div>
-                                            ${edName ? `<div class="copy-summary-edition">${edName}</div>` : ''}
-                                            ${langs ? `<div class="copy-summary-langs">${langs}</div>` : ''}
-                                            ${tags.length > 0 ? `<div class="copy-summary-tags">${tags.map(t => `<span class="copy-summary-tag">${t}</span>`).join('')}</div>` : ''}
-                                            ${distributor ? `<div class="copy-summary-dist">${distributor}${discCount > 1 ? ` &bull; ${discCount} discs` : ''}</div>` : (discCount > 1 ? `<div class="copy-summary-dist">${discCount} discs</div>` : '')}
-                                            ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
+                                    <div class="${itemClass}" ${clickAttr}>
+                                        <div class="copy-layout">
+                                            ${thumb ? `<img class="copy-thumb" src="${thumb}" alt="${edName || 'Copy ' + (i+1)}" onerror="this.style.display='none'">` : ''}
+                                            <div style="flex:1;min-width:0;">
+                                                <div class="copy-number">
+                                                    Copy ${i + 1}
+                                                    ${umdbLinked ? '<span class="umdb-link-badge">UMDB</span>' : ''}
+                                                    ${isActive ? '<span class="copy-current-badge">Viewing</span>' : ''}
+                                                    ${isOther ? '<span class="copy-view-btn">Switch →</span>' : ''}
+                                                </div>
+                                                <div class="copy-details">
+                                                    <div class="copy-summary-format">${copy.format}${copy.condition ? ` <span class="copy-summary-condition">${copy.condition}</span>` : ''}</div>
+                                                    ${edName ? `<div class="copy-summary-edition">${edName}</div>` : ''}
+                                                    ${langs ? `<div class="copy-summary-langs">${langs}</div>` : ''}
+                                                    ${tags.length > 0 ? `<div class="copy-summary-tags">${tags.map(t => `<span class="copy-summary-tag">${t}</span>`).join('')}</div>` : ''}
+                                                    ${distributor ? `<div class="copy-summary-dist">${distributor}${discCount > 1 ? ` &bull; ${discCount} discs` : ''}</div>` : (discCount > 1 ? `<div class="copy-summary-dist">${discCount} discs</div>` : '')}
+                                                    ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>`;
                                 }).join('')}
@@ -3733,9 +3757,11 @@ function getCertColor(cert) {
         }
 
         document.getElementById('movieDetailModal').classList.remove('active');
-        // Clear shelf nav context when closing
+        // Clear shelf/copy nav context when closing
         shelfNavMovieList = [];
         shelfNavIndex = -1;
+        shelfNavCopyList = [];
+        shelfNavCopyIndex = -1;
         const nav = document.getElementById('movieDetailNav');
         if (nav) nav.style.display = 'none';
     }
@@ -3747,6 +3773,9 @@ function getCertColor(cert) {
 
     let shelfNavMovieList = []; // array of movie_ids in current shelf level
     let shelfNavIndex = -1;     // current position in that list
+    // Copy-aware navigation (Shelf / Physical Media views)
+    let shelfNavCopyList  = []; // [{c: copyId, m: movieId}, ...] one entry per physical copy
+    let shelfNavCopyIndex = -1;
 
     // Ordered movie_id lists captured at render time for collection and wishlist
     let collectionNavList = [];
@@ -3764,10 +3793,64 @@ function getCertColor(cert) {
         boxSetNavList = [];
         boxSetNavIndex = -1;
         currentContainerId = null;
+        shelfNavCopyList = [];
+        shelfNavCopyIndex = -1;
         shelfNavMovieList = movieList;
         shelfNavIndex = movieList.indexOf(movieId);
         viewMovieDetails(movieId);
         _updateShelfNavUI();
+    }
+
+    // Called from Shelf / Physical Media views where each physical copy is a nav item
+    function viewCopyDetailsWithNav(copyId, movieId, copyNavList) {
+        boxSetNavList = [];
+        boxSetNavIndex = -1;
+        currentContainerId = null;
+        shelfNavMovieList = [];
+        shelfNavIndex = -1;
+        shelfNavCopyList = copyNavList;
+        shelfNavCopyIndex = copyNavList.findIndex(n => n.c === copyId);
+        viewMovieDetails(movieId, copyId);
+        _updateCopyNavUI();
+    }
+
+    function shelfCopyNav(direction) {
+        if (!shelfNavCopyList.length) return;
+        const next = shelfNavCopyIndex + direction;
+        if (next < 0 || next >= shelfNavCopyList.length) return;
+        shelfNavCopyIndex = next;
+        const entry = shelfNavCopyList[shelfNavCopyIndex];
+        viewMovieDetails(entry.m, entry.c);
+        _updateCopyNavUI();
+    }
+
+    function _updateCopyNavUI() {
+        const nav = document.getElementById('movieDetailNav');
+        const label = document.getElementById('movieDetailNavLabel');
+        const prev = document.getElementById('movieDetailPrev');
+        const next = document.getElementById('movieDetailNext');
+        if (!nav) return;
+        if (shelfNavCopyList.length > 1) {
+            nav.style.display = 'flex';
+            label.textContent = `${shelfNavCopyIndex + 1} / ${shelfNavCopyList.length}`;
+            prev.disabled = shelfNavCopyIndex <= 0;
+            next.disabled = shelfNavCopyIndex >= shelfNavCopyList.length - 1;
+            prev.onclick = () => shelfCopyNav(-1);
+            next.onclick = () => shelfCopyNav(1);
+        } else {
+            nav.style.display = 'none';
+        }
+    }
+
+    // Called from the "Other copies" links in the modal when copy-nav is active
+    function jumpToCopy(copyId) {
+        const idx = shelfNavCopyList.findIndex(n => n.c === copyId);
+        if (idx !== -1) {
+            shelfNavCopyIndex = idx;
+            const entry = shelfNavCopyList[shelfNavCopyIndex];
+            viewMovieDetails(entry.m, entry.c);
+            _updateCopyNavUI();
+        }
     }
 
     function shelfMovieNav(direction) {
@@ -3851,6 +3934,8 @@ function getCertColor(cert) {
             // If viewing a box set detail, navigate box sets
             if (boxSetNavList.length > 1 && currentContainerId) {
                 boxSetNav(dir);
+            } else if (shelfNavCopyList.length) {
+                shelfCopyNav(dir);
             } else if (shelfNavMovieList.length) {
                 shelfMovieNav(dir);
             }
@@ -3895,6 +3980,8 @@ function getCertColor(cert) {
                 const dir = dx < 0 ? 1 : -1;
                 if (boxSetNavList.length > 1 && currentContainerId) {
                     boxSetNav(dir);
+                } else if (shelfNavCopyList.length) {
+                    shelfCopyNav(dir);
                 } else if (shelfNavMovieList.length) {
                     shelfMovieNav(dir);
                 }
@@ -4184,11 +4271,18 @@ function getCertColor(cert) {
         );
     }
 
+    // Copy-aware nav list: one entry per physical copy item (Shelf / Physical views)
+    function _shelfNavCopies(items) {
+        return JSON.stringify(
+            items.filter(i => !i.is_container).map(i => ({ c: i.copy_id || 0, m: i.movie_id }))
+        );
+    }
+
     function renderSpineStrip(items, shelfColor) {
         if (!items || items.length === 0) {
             return `<span class="spine-empty-msg">Empty</span>`;
         }
-        const navIds = _shelfNavIds(items);
+        const navIds = _shelfNavCopies(items);
         return items.map(item => {
             if (item.is_container) {
                 const count = item.container_movie_count || 0;
@@ -4228,7 +4322,7 @@ function getCertColor(cert) {
                     : !!item.movie_spine_color;
                 return `<div class="spine-item"
                              title="${title} (${item.year || '?'}) · ${item.format || ''}"
-                             onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"
+                             onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${navIds})"
                              style="--spine-color:${color}"
                              data-poster-url="${posterUrl || ''}"
                              data-movie-id="${item.movie_id}"
@@ -4266,7 +4360,7 @@ function getCertColor(cert) {
 
     function renderPosterGrid(items) {
         if (!items || items.length === 0) return '';
-        const navIds = _shelfNavIds(items);
+        const navIds = _shelfNavCopies(items);
         let html = `<div class="shelf-view-movies-grid">`;
         items.forEach(item => {
             if (item.is_container) {
@@ -4282,7 +4376,7 @@ function getCertColor(cert) {
             } else {
                 const shelfPoster = item.edition_cover_url || item.poster_url;
                 const shelfFallback = item.edition_cover_url && item.poster_url ? item.poster_url : null;
-                html += `<div class="shelf-view-movie-card" onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})">
+                html += `<div class="shelf-view-movie-card" onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${navIds})">
                     ${shelfPoster
                         ? `<img src="${shelfPoster}" alt="${(item.display_title||item.title||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="${shelfFallback ? `this.src='${shelfFallback}'` : "this.parentElement.classList.add('no-poster');this.style.display='none'"}">`
                         : `<div class="shelf-view-poster-placeholder">🎬</div>`}
@@ -4793,14 +4887,14 @@ function getCertColor(cert) {
         return JSON.stringify(items.filter(i => !i.is_container).map(i => i.movie_id));
     }
 
-    function _physicalItemClick(item, navIds) {
+    function _physicalItemClick(item, copyNavIds) {
         if (item.is_container) return `onclick="App.showBoxSetDetails(${item.container_id})"`;
-        return `onclick="App.viewMovieDetailsWithNav(${item.movie_id}, ${navIds})"`;
+        return `onclick="App.viewCopyDetailsWithNav(${item.copy_id || 0}, ${item.movie_id}, ${copyNavIds})"`;
     }
 
     // ── Unified physical media renderer (matches Movies card structure) ──
     function renderPhysicalItems(items) {
-        const navIds = _physicalNavIds(items);
+        const navIds = JSON.stringify(items.filter(i => !i.is_container).map(i => ({ c: i.copy_id || 0, m: i.movie_id })));
         const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
         return `<div class="movie-grid ${viewClass}">` + items.map(item => {
             // Box set containers
@@ -6886,9 +6980,11 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             currentContainerId = containerId;
             currentContainer = container;
 
-            // Reset movie nav (will be overridden by box set nav if applicable)
+            // Reset movie/copy nav (will be overridden by box set nav if applicable)
             shelfNavMovieList = [];
             shelfNavIndex = -1;
+            shelfNavCopyList = [];
+            shelfNavCopyIndex = -1;
 
             // Build cover image: UMDB cover takes priority, then custom upload, then poster mosaic
             let coverHTML = '';
@@ -13010,7 +13106,10 @@ return {
     showRelatedMovies,
     closeRelatedMovies,
     viewMovieDetailsWithNav,
+    viewCopyDetailsWithNav,
+    jumpToCopy,
     shelfMovieNav,
+    shelfCopyNav,
     closeBoxSetDetails,
     showCreateBoxSetModal,
     editBoxSet,
