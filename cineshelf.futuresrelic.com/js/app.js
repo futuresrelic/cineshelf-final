@@ -283,6 +283,19 @@ const App = (function() {
             }
         });
 
+        // Handle redirect from URL Reader tool (?openAmazonImport=1)
+        if (new URLSearchParams(window.location.search).get('openAmazonImport') === '1') {
+            const hasSavedText = !!sessionStorage.getItem('cineshelf_amazon_paste_text');
+            showToast(
+                hasSavedText
+                    ? '📋 Amazon text is ready — open a copy and use "🛒 Import from Amazon" to load it'
+                    : '📋 Open a copy and use "🛒 Import from Amazon" → Paste Text tab',
+                'info'
+            );
+            // Clean up the query param without a page reload
+            history.replaceState({}, '', window.location.pathname);
+        }
+
         console.log('CineShelf ready!');
     }
     
@@ -2938,31 +2951,206 @@ async function deleteCopy(copyId, movieId) {
     }
 
     // ── Amazon Import ─────────────────────────────────────────────────────
-    function showImportFromAmazon(copyId, movieId) {
+    function showImportFromAmazon(copyId, movieId, defaultTab) {
+        // Check if there's pre-loaded text from the URL Reader tool
+        const savedText = sessionStorage.getItem('cineshelf_amazon_paste_text') || '';
+        const activeTab = defaultTab || (savedText ? 'paste' : 'url');
+
         const modal = document.getElementById('copyManagerContent');
         modal.innerHTML = `
             <div class="amazon-import-view">
                 <h4>🛒 Import from Amazon</h4>
-                <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
-                    Paste an Amazon product URL to automatically extract cover images, languages,
-                    disc count, ASIN, and more. Review the data before saving.
-                </p>
-                <div class="form-group">
-                    <label>Amazon Product URL</label>
-                    <div style="display:flex; gap:0.5rem;">
-                        <input type="url" id="amazon-url-input" class="form-control"
-                               placeholder="https://www.amazon.com/dp/XXXXXXXXXX"
-                               style="flex:1;" onkeydown="if(event.key==='Enter') App.fetchAmazonProduct(${copyId},${movieId})">
-                        <button class="btn btn-amazon" id="amazon-fetch-btn"
-                                onclick="App.fetchAmazonProduct(${copyId},${movieId})">Fetch →</button>
+                <div class="amazon-tabs" style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid #2a2a4a;">
+                    <button id="az-tab-url" class="az-tab-btn ${activeTab==='url'?'az-tab-active':''}"
+                            onclick="App.switchAmazonTab('url',${copyId},${movieId})"
+                            style="padding:0.5rem 1rem;background:${activeTab==='url'?'#667eea':'transparent'};color:${activeTab==='url'?'#fff':'#aaa'};border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                        🔗 URL Fetch
+                    </button>
+                    <button id="az-tab-paste" class="az-tab-btn ${activeTab==='paste'?'az-tab-active':''}"
+                            onclick="App.switchAmazonTab('paste',${copyId},${movieId})"
+                            style="padding:0.5rem 1rem;background:${activeTab==='paste'?'#667eea':'transparent'};color:${activeTab==='paste'?'#fff':'#aaa'};border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                        📋 Paste Text
+                    </button>
+                </div>
+
+                <div id="az-panel-url" style="display:${activeTab==='url'?'block':'none'};">
+                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">
+                        Paste an Amazon product URL to automatically extract cover images, languages,
+                        disc count, ASIN, and more. <em>Note: Amazon often blocks server-side requests —
+                        use the Paste Text tab if this fails.</em>
+                    </p>
+                    <div class="form-group">
+                        <label>Amazon Product URL</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="url" id="amazon-url-input" class="form-control"
+                                   placeholder="https://www.amazon.com/dp/XXXXXXXXXX"
+                                   style="flex:1;" onkeydown="if(event.key==='Enter') App.fetchAmazonProduct(${copyId},${movieId})">
+                            <button class="btn btn-amazon" id="amazon-fetch-btn"
+                                    onclick="App.fetchAmazonProduct(${copyId},${movieId})">Fetch →</button>
+                        </div>
+                    </div>
+                    <p style="font-size:0.8rem;color:#888;margin-top:0.25rem;">
+                        If Amazon blocks the fetch, open the product page in your browser →
+                        <a href="/admin/url-reader.php" target="_blank" style="color:#a8b8ff;">URL Text Reader</a>
+                        → then use the Paste Text tab.
+                    </p>
+                </div>
+
+                <div id="az-panel-paste" style="display:${activeTab==='paste'?'block':'none'};">
+                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:0.75rem;">
+                        Open the Amazon page in your browser → press <kbd style="background:#333;padding:1px 5px;border-radius:3px;font-size:0.8rem;">Ctrl+A</kbd>
+                        then <kbd style="background:#333;padding:1px 5px;border-radius:3px;font-size:0.8rem;">Ctrl+C</kbd>
+                        → paste below. Or use the
+                        <a href="/admin/url-reader.php" target="_blank" style="color:#a8b8ff;">URL Text Reader</a>
+                        and click "Use in Amazon Import".
+                    </p>
+                    <div class="form-group">
+                        <label>Paste Amazon page text here:</label>
+                        <textarea id="amazon-paste-text" class="form-control"
+                                  style="width:100%;height:140px;font-family:monospace;font-size:0.78rem;resize:vertical;"
+                                  placeholder="Paste the full Amazon product page text here (Ctrl+A → Ctrl+C on the Amazon page)…">${savedText ? savedText.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <button class="btn btn-amazon" onclick="App.parseAmazonText(${copyId},${movieId})">Parse →</button>
+                        ${savedText ? `<span style="color:#7ec8a0;font-size:0.82rem;">✓ Text loaded from URL Reader</span>` : ''}
                     </div>
                 </div>
+
                 <div id="amazon-import-result"></div>
                 <div style="margin-top:1rem;">
                     <button class="btn-secondary" onclick="App.openEditionPicker(${copyId},${movieId})">← Back</button>
                 </div>
             </div>
         `;
+
+        // If there's saved text from URL Reader, auto-parse it
+        if (savedText && activeTab === 'paste') {
+            sessionStorage.removeItem('cineshelf_amazon_paste_text');
+            sessionStorage.removeItem('cineshelf_amazon_paste_url');
+            // Small delay so DOM is ready
+            setTimeout(() => parseAmazonText(copyId, movieId), 80);
+        }
+    }
+
+    function switchAmazonTab(tab, copyId, movieId) {
+        document.getElementById('az-panel-url').style.display   = tab === 'url'   ? 'block' : 'none';
+        document.getElementById('az-panel-paste').style.display = tab === 'paste' ? 'block' : 'none';
+        document.querySelectorAll('.az-tab-btn').forEach(btn => {
+            const isActive = btn.id === `az-tab-${tab}`;
+            btn.style.background = isActive ? '#667eea' : 'transparent';
+            btn.style.color      = isActive ? '#fff' : '#aaa';
+        });
+    }
+
+    // Parse Amazon product page text (pasted by user) into structured data
+    function _parseAmazonTextToData(raw) {
+        // Normalize Unicode whitespace characters Amazon injects (LTR mark, RTL mark, NBSP)
+        const clean = s => s.replace(/[\u200E\u200F\u00A0\u202A\u202C]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+        const lines = raw.split(/\r?\n/).map(clean).filter(Boolean);
+        const details = {};
+
+        // Parse "Label : Value" patterns (Amazon uses ‏ : ‎ separators too)
+        for (const line of lines) {
+            const m = line.match(/^([^:]{2,50}?)\s*[:]\s*(.+)$/);
+            if (m) {
+                const label = clean(m[1]).toLowerCase().replace(/^[•·\-–—*]+\s*/, '');
+                const value = clean(m[2]);
+                if (label && value && value.length < 300) {
+                    details[label] = value;
+                }
+            }
+        }
+
+        const find = (...keys) => {
+            for (const k of keys) {
+                const kl = k.toLowerCase();
+                for (const [label, val] of Object.entries(details)) {
+                    if (label.includes(kl)) return val;
+                }
+            }
+            return '';
+        };
+
+        // Title: look for a line before the first key:value that looks like a product title
+        let title = '';
+        for (const line of lines) {
+            if (line.length > 10 && line.length < 250 && !line.includes(':')) {
+                // Skip obvious navigation/UI text
+                if (/^(skip|back|visit|shop|see|add|buy|gift|share|sign|read|by |sold|have|deliver|choose|select|in stock|free|prime|qty|quantity|4[.]|5[.]|[0-9]+ star|customer|review|question|answer|filter|page|loading|product)/i.test(line)) continue;
+                title = line;
+                break;
+            }
+        }
+
+        // ASIN — explicit or extract from Amazon URL in text
+        let asin = find('asin') || '';
+        if (!asin) {
+            const asinMatch = raw.match(/\/dp\/([A-Z0-9]{10})/i);
+            if (asinMatch) asin = asinMatch[1].toUpperCase();
+        }
+
+        // Format detection
+        const formatHint = (find('media format', 'format') + ' ' + title + ' ' + raw.substring(0, 500)).toLowerCase();
+        let format = 'DVD';
+        if (/4k|ultra hd|uhd/.test(formatHint))     format = '4K UHD';
+        else if (/blu.?ray|bluray/.test(formatHint)) format = 'Blu-ray';
+        else if (/vhs/.test(formatHint))             format = 'VHS';
+        else if (/laserdisc/.test(formatHint))       format = 'LaserDisc';
+
+        // Disc count
+        const discRaw = find('number of discs', 'disc count', 'discs');
+        const discCount = parseInt((discRaw || '1').replace(/\D/g, '')) || 1;
+
+        // Release date
+        let releaseDate = '';
+        const rdRaw = find('release date', 'date first available', 'date first');
+        if (rdRaw) {
+            const ts = Date.parse(rdRaw);
+            if (!isNaN(ts)) {
+                const d = new Date(ts);
+                releaseDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            }
+        }
+
+        // Edition name suggestion
+        let editionName = title;
+        if (format && editionName && !editionName.toLowerCase().includes(format.toLowerCase())) {
+            editionName = editionName + ' — ' + format;
+        }
+        if (discCount > 1) editionName += ` — ${discCount} Discs`;
+
+        return {
+            title,
+            edition_name: editionName,
+            format,
+            asin,
+            disc_count: discCount,
+            languages:    find('language', 'audio'),
+            dubbed:       find('dubbed'),
+            subtitles:    find('subtitles', 'subtitle'),
+            audio_formats: find('audio format', 'sound format', 'audio mix'),
+            distributor:  find('studio', 'label', 'manufacturer', 'brand', 'publisher', 'distributor'),
+            country:      find('country of origin', 'country'),
+            region:       find('region'),
+            barcode:      find('model number', 'item model', 'upc', 'ean', 'barcode'),
+            release_date: releaseDate,
+            aspect_ratio: find('aspect ratio'),
+            images:       [],
+            raw_details:  details,
+        };
+    }
+
+    function parseAmazonText(copyId, movieId) {
+        const textarea = document.getElementById('amazon-paste-text');
+        const text = textarea?.value.trim();
+        if (!text) { showToast('Please paste some Amazon page text first', 'error'); return; }
+
+        const data = _parseAmazonTextToData(text);
+        const resultDiv = document.getElementById('amazon-import-result');
+        if (resultDiv) {
+            resultDiv.innerHTML = buildAmazonForm(copyId, movieId, data);
+        }
     }
 
     async function fetchAmazonProduct(copyId, movieId) {
@@ -13228,7 +13416,9 @@ return {
     // UMDB Two-Way Sync (v4.1.0)
     showImportFromUmdb,
     showImportFromAmazon,
+    switchAmazonTab,
     fetchAmazonProduct,
+    parseAmazonText,
     selectAmazonImage,
     saveAmazonEdition,
     searchUmdbReleases,
