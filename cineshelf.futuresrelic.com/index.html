@@ -1542,6 +1542,35 @@
     </div>
 
     <!-- =====================================================
+         STATS MODAL (Viewing history + collection stats)
+         ===================================================== -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content" style="max-width:580px;max-height:88vh;overflow-y:auto;">
+            <div class="modal-header">
+                <h3>📊 Your CineShelf Stats</h3>
+                <button class="modal-close" onclick="document.getElementById('statsModal').classList.remove('active')">×</button>
+            </div>
+            <div class="modal-body" id="statsModalBody">
+                <p style="color:#aaa;">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         QUICK OWN MODAL (Wishlist → Add to Collection)
+         ===================================================== -->
+    <div id="quickOwnModal" class="modal">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>📦 Own It Now</h3>
+                <button class="modal-close" onclick="document.getElementById('quickOwnModal').classList.remove('active')">×</button>
+            </div>
+            <div class="modal-body" id="quickOwnBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
          CINESHELF RATING MODAL (Log a viewing + rate)
          ===================================================== -->
     <div id="cineRatingModal" class="modal">

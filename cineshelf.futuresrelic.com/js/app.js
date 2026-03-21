@@ -1113,7 +1113,7 @@ function renderCollection() {
                     </div>
                     <div class="movie-actions">
                         <button class="btn-icon" onclick="event.stopPropagation(); App.openMovieWithNav(${item.movie_id}, 'wishlist');" title="Details">👁️</button>
-                        <button class="btn-icon" onclick="event.stopPropagation(); App.moveToCollection(${item.movie_id});" title="Add to Collection">➕</button>
+                        <button class="btn btn-sm" style="font-size:0.8rem;padding:4px 10px;" onclick="event.stopPropagation(); App.quickOwnWishlistItem(${item.movie_id});" title="Add to Collection">📦 Own It</button>
                         <button class="btn-icon" onclick="event.stopPropagation(); App.removeFromWishlist(${item.movie_id});" title="Remove">🗑️</button>
                     </div>
                 </div>
@@ -1136,7 +1136,7 @@ function renderCollection() {
                         ${item.target_format ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); margin-top: 0.25rem;">Want: ${item.target_format}</div>` : ''}
                         <div class="hover-actions">
                             <button class="hover-btn" onclick="event.stopPropagation(); App.openMovieWithNav(${item.movie_id}, 'wishlist');" title="Details">👁️</button>
-                            <button class="hover-btn" onclick="event.stopPropagation(); App.moveToCollection(${item.movie_id});" title="Add to Collection">➕</button>
+                            <button class="hover-btn" style="background:rgba(102,126,234,0.7);border-radius:6px;padding:4px 8px;font-size:0.8rem;" onclick="event.stopPropagation(); App.quickOwnWishlistItem(${item.movie_id});" title="Add to Collection">📦 Own It</button>
                             <button class="hover-btn" onclick="event.stopPropagation(); App.removeFromWishlist(${item.movie_id});" title="Remove">🗑️</button>
                         </div>
                     </div>
@@ -1159,6 +1159,86 @@ function renderCollection() {
             loadWishlist();
         } catch (error) {
             console.error('Failed to remove from wishlist:', error);
+        }
+    }
+
+    function quickOwnWishlistItem(movieId) {
+        const item = wishlist.find(w => w.movie_id === movieId);
+        if (!item) return;
+        const modal = document.getElementById('quickOwnModal');
+        const body  = document.getElementById('quickOwnBody');
+        if (!modal || !body) { moveToCollection(movieId); return; }
+
+        const esc = s => String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const safeTitle = esc(item.display_title || item.title || 'Unknown');
+        const preFmt   = item.target_format || 'DVD';
+        const preNotes = [item.target_edition ? `Edition: ${item.target_edition}` : '', item.notes || ''].filter(Boolean).join(' | ');
+
+        body.innerHTML = `
+            <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid rgba(255,255,255,0.1);">
+                <img src="${esc(item.poster_url||'')}" alt="${safeTitle}"
+                     style="width:44px;height:66px;object-fit:cover;border-radius:4px;flex-shrink:0;"
+                     onerror="this.style.display='none'">
+                <div>
+                    <div style="font-weight:700;font-size:0.95rem;">${safeTitle}</div>
+                    ${item.year ? `<div style="color:#aaa;font-size:0.82rem;">${item.year}</div>` : ''}
+                    ${item.target_format ? `<div style="color:#a8b8ff;font-size:0.8rem;">Wanted: ${esc(item.target_format)}</div>` : ''}
+                </div>
+            </div>
+            <div class="form-row" style="display:flex;gap:0.5rem;">
+                <div class="form-group" style="flex:1;">
+                    <label>Format *</label>
+                    <select id="qown-format" class="form-control">
+                        ${['DVD','Blu-ray','4K UHD','VHS','LaserDisc','Digital'].map(f => `<option value="${f}" ${f===preFmt?'selected':''}>${f}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>Condition</label>
+                    <select id="qown-condition" class="form-control">
+                        ${['Mint','Near Mint','Good','Fair','Poor'].map(c => `<option value="${c}" ${c==='Good'?'selected':''}>${c}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="qown-notes" class="form-control" rows="2"
+                    placeholder="Optional notes…">${preNotes ? esc(preNotes) : ''}</textarea>
+            </div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+                <button class="btn" onclick="App._saveQuickOwn(${movieId})">📦 Add to Collection</button>
+                <button class="btn-secondary" onclick="document.getElementById('quickOwnModal').classList.remove('active')">Cancel</button>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function _saveQuickOwn(movieId) {
+        const item = wishlist.find(w => w.movie_id === movieId);
+        if (!item) return;
+        const format    = document.getElementById('qown-format')?.value || 'DVD';
+        const condition = document.getElementById('qown-condition')?.value || 'Good';
+        const notes     = document.getElementById('qown-notes')?.value.trim() || '';
+
+        try {
+            await apiCall('add_copy', {
+                movie_id:  movieId,
+                tmdb_id:   item.tmdb_id,
+                format,
+                condition,
+                notes,
+                media_type: item.media_type || 'movie',
+            });
+            document.getElementById('quickOwnModal').classList.remove('active');
+            showToast(`"${item.display_title||item.title}" added to your collection!`, 'success');
+            await loadCollection();
+            // Offer to remove from wishlist
+            if (confirm('Added! Remove from wishlist now?')) {
+                await apiCall('remove_wishlist', { movie_id: movieId });
+                await loadWishlist();
+                showToast('Removed from wishlist', 'info');
+            }
+        } catch (e) {
+            showToast(e.message || 'Failed to add to collection', 'error');
         }
     }
 
@@ -1821,12 +1901,22 @@ function renderCollection() {
                                     const avTags = [edVideo, edRegion, edCopyProt ? '🔒 Copy Protected' : ''].filter(Boolean);
                                     const pkgTags = [edType, copy.package_type && copy.package_type !== 'Standard Amaray' ? copy.package_type : ''].filter(Boolean);
 
+                                    const edCover = copy.edition_cover_url || '';
                                     return `
                                     <div class="edition-panel">
                                         <div class="edition-panel-header">
-                                            <span class="edition-panel-name">${copy.edition_name || 'Linked Edition'}</span>
-                                            ${hasUmdb ? `<span class="umdb-link-badge" title="${copy.edition_umdb_release_id}">UMDB</span>` : ''}
-                                            ${copy.components_total > 0 ? `<span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>` : ''}
+                                            ${edCover ? `
+                                            <a href="${edCover}" target="_blank" title="View full cover image" class="edition-cover-thumb-link">
+                                                <img class="edition-cover-thumb" src="${edCover}"
+                                                     alt="Cover" onerror="this.parentElement.style.display='none'">
+                                            </a>` : ''}
+                                            <div style="flex:1;min-width:0;">
+                                                <span class="edition-panel-name">${copy.edition_name || 'Linked Edition'}</span>
+                                                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem;">
+                                                    ${hasUmdb ? `<span class="umdb-link-badge" title="${copy.edition_umdb_release_id}">UMDB</span>` : ''}
+                                                    ${copy.components_total > 0 ? `<span class="edition-badge-count">${copy.components_present}/${copy.components_total} components</span>` : ''}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         ${(edLangs || avTags.length > 0 || pkgTags.length > 0 || edAudio || edSubs || edAsin || edDiscColor || edDist || edBarcode) ? `
@@ -3535,7 +3625,10 @@ async function deleteCopy(copyId, movieId) {
                 release_id: releaseId.trim()
             });
             if (result) {
-                showToast(`Linked to UMDB: ${result.umdb_release_id}`, 'success');
+                const compMsg = result.components_added > 0
+                    ? ` (+${result.components_added} components imported)`
+                    : '';
+                showToast(`Linked to UMDB: ${result.umdb_release_id}${compMsg}`, 'success');
                 await openCopyManager(movieId);
             }
         } catch (error) {
@@ -4183,6 +4276,7 @@ async function viewMovieDetails(movieId, activeCopyId = null) {
                                                     ${tags.length > 0 ? `<div class="copy-summary-tags">${tags.map(t => `<span class="copy-summary-tag">${t}</span>`).join('')}</div>` : ''}
                                                     ${distributor ? `<div class="copy-summary-dist">${distributor}${discCount > 1 ? ` &bull; ${discCount} discs` : ''}</div>` : (discCount > 1 ? `<div class="copy-summary-dist">${discCount} discs</div>` : '')}
                                                     ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
+                                                    ${copy.notes ? `<div class="copy-summary-notes" title="${(copy.notes||'').replace(/"/g,'&quot;')}">💬 ${(copy.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,80)}${copy.notes.length>80?'…':''}</div>` : ''}
                                                     ${copy.container_id ? `<div style="margin-top:0.3rem;"><button class="btn-sm btn-sm-muted" style="font-size:0.72rem;padding:2px 7px;" onclick="event.stopPropagation();App.showBoxSetDetails(${copy.container_id})" title="View box set">📦 ${(copy.container_name||'Box Set').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button></div>` : ''}
                                                 </div>
                                             </div>
@@ -5799,25 +5893,108 @@ function getCertColor(cert) {
     }
 
     async function showStats() {
+        const modal = document.getElementById('statsModal');
+        const body  = document.getElementById('statsModalBody');
+        if (!modal || !body) return;
+        modal.classList.add('active');
+        body.innerHTML = '<p style="color:#aaa;text-align:center;padding:2rem;">Loading…</p>';
+
         try {
-            const stats = await apiCall('get_stats');
+            const s = await apiCall('get_stats');
+            const esc = v => String(v||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const formatIcons = { 'DVD':'💿', 'Blu-ray':'🔵', '4K UHD':'✨', '4K Ultra HD':'✨', 'VHS':'📼', 'LaserDisc':'🟡', 'Digital':'☁️' };
 
-            let message = `📊 Collection Statistics\n\n`;
-            message += `Total Copies: ${stats.total_copies}\n`;
-            message += `Unique Movies: ${stats.unique_movies}\n`;
-            message += `Wishlist: ${stats.wishlist_count}\n\n`;
+            // ── Year chart ─────────────────────────────────────────────────
+            const years = s.viewings_by_year || [];
+            const maxYearCount = Math.max(...years.map(y => parseInt(y.count)), 1);
+            const yearBars = years.length > 0 ? `
+                <div class="stats-section">
+                    <h4 class="stats-section-title">📅 Viewings by Year</h4>
+                    <div class="stats-bars">
+                        ${years.map(y => `
+                            <div class="stats-bar-row">
+                                <span class="stats-bar-label">${esc(y.year)}</span>
+                                <div class="stats-bar-track">
+                                    <div class="stats-bar-fill" style="width:${Math.round(parseInt(y.count)/maxYearCount*100)}%"></div>
+                                </div>
+                                <span class="stats-bar-count">${y.count}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
 
-            if (stats.by_format && stats.by_format.length > 0) {
-                message += `By Format:\n`;
-                stats.by_format.forEach(item => {
-                    message += `  ${item.format}: ${item.count}\n`;
-                });
-            }
+            // ── Format chart ───────────────────────────────────────────────
+            const formats = s.by_format || [];
+            const maxFmtCount = Math.max(...formats.map(f => parseInt(f.count)), 1);
+            const fmtBars = formats.length > 0 ? `
+                <div class="stats-section">
+                    <h4 class="stats-section-title">📀 Collection by Format</h4>
+                    <div class="stats-bars">
+                        ${formats.map(f => `
+                            <div class="stats-bar-row">
+                                <span class="stats-bar-label">${formatIcons[f.format]||'📀'} ${esc(f.format)}</span>
+                                <div class="stats-bar-track">
+                                    <div class="stats-bar-fill" style="width:${Math.round(parseInt(f.count)/maxFmtCount*100)}%"></div>
+                                </div>
+                                <span class="stats-bar-count">${f.count}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
 
-            alert(message);
+            // ── Top watched ────────────────────────────────────────────────
+            const top = s.top_watched || [];
+            const topWatched = top.length > 0 ? `
+                <div class="stats-section">
+                    <h4 class="stats-section-title">🔁 Most Rewatched</h4>
+                    <div class="stats-top-list">
+                        ${top.map((m, i) => `
+                            <div class="stats-top-item">
+                                <span class="stats-top-rank">${i+1}</span>
+                                <span class="stats-top-title">${esc(m.display_title||m.title)}${m.year ? ` <span style="color:#666">(${m.year})</span>` : ''}</span>
+                                <span class="stats-top-count">${m.views}×</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
 
+            body.innerHTML = `
+                <div class="stats-overview">
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.total_copies || 0}</span>
+                        <span class="stats-kpi-label">Physical Copies</span>
+                    </div>
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.unique_movies || 0}</span>
+                        <span class="stats-kpi-label">Unique Titles</span>
+                    </div>
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.viewings_total || 0}</span>
+                        <span class="stats-kpi-label">Viewings Logged</span>
+                    </div>
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.avg_rating ? '★ ' + s.avg_rating : '—'}</span>
+                        <span class="stats-kpi-label">Avg Rating</span>
+                    </div>
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.longest_streak || 0}</span>
+                        <span class="stats-kpi-label">Day Streak 🔥</span>
+                    </div>
+                    <div class="stats-kpi">
+                        <span class="stats-kpi-value">${s.wishlist_count || 0}</span>
+                        <span class="stats-kpi-label">On Wishlist</span>
+                    </div>
+                </div>
+                ${yearBars}
+                ${fmtBars}
+                ${topWatched}
+            `;
         } catch (error) {
             console.error('Failed to load stats:', error);
+            document.getElementById('statsModalBody').innerHTML = '<p style="color:#f87;padding:1rem;">Failed to load stats.</p>';
         }
     }
     
@@ -13578,6 +13755,8 @@ return {
     viewMovieDetails,
     closeMovieDetail,
     removeFromWishlist,
+    quickOwnWishlistItem,
+    _saveQuickOwn,
     moveToCollection,
     openPresetLists,
     closePresetLists,

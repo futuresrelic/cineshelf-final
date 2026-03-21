@@ -1807,6 +1807,70 @@ case 'resolve_movie':
             $stmt->execute([$userId]);
             $stats['wishlist_count'] = $stmt->fetch()['count'];
 
+            // ── Viewing stats ─────────────────────────────────────────────────
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM movie_views WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $stats['viewings_total'] = intval($stmt->fetch()['count']);
+
+            $stmt = $db->prepare("
+                SELECT ROUND(AVG(rating), 1) as avg
+                FROM movie_views WHERE user_id = ? AND rating IS NOT NULL
+            ");
+            $stmt->execute([$userId]);
+            $stats['avg_rating'] = $stmt->fetch()['avg'];
+
+            $stmt = $db->prepare("
+                SELECT strftime('%Y', watched_date) as year, COUNT(*) as count
+                FROM movie_views
+                WHERE user_id = ? AND watched_date IS NOT NULL
+                GROUP BY year ORDER BY year DESC LIMIT 10
+            ");
+            $stmt->execute([$userId]);
+            $stats['viewings_by_year'] = $stmt->fetchAll();
+
+            $stmt = $db->prepare("
+                SELECT m.title, m.display_title, m.year, COUNT(*) as views
+                FROM movie_views mv
+                JOIN movies m ON m.id = mv.movie_id
+                WHERE mv.user_id = ?
+                GROUP BY mv.movie_id
+                ORDER BY views DESC
+                LIMIT 6
+            ");
+            $stmt->execute([$userId]);
+            $stats['top_watched'] = $stmt->fetchAll();
+
+            // Longest consecutive viewing streak
+            $stmt = $db->prepare("
+                SELECT DISTINCT DATE(watched_date) as d
+                FROM movie_views
+                WHERE user_id = ? AND watched_date IS NOT NULL
+                ORDER BY d ASC
+            ");
+            $stmt->execute([$userId]);
+            $dates = array_column($stmt->fetchAll(), 'd');
+            $longest = 0; $current = 0; $prev = null;
+            foreach ($dates as $d) {
+                if ($prev === null) {
+                    $current = 1;
+                } else {
+                    $diff = (new DateTime($d))->diff(new DateTime($prev))->days;
+                    $current = ($diff === 1) ? $current + 1 : 1;
+                }
+                if ($current > $longest) $longest = $current;
+                $prev = $d;
+            }
+            $stats['longest_streak'] = $longest;
+
+            // ── Format breakdown (copies) ──────────────────────────────────────
+            $stmt = $db->prepare("
+                SELECT format, COUNT(*) as count
+                FROM copies WHERE user_id = ?
+                GROUP BY format ORDER BY count DESC
+            ");
+            $stmt->execute([$userId]);
+            $stats['by_format'] = $stmt->fetchAll();
+
             jsonResponse(true, $stats);
             break;
 
@@ -7966,12 +8030,63 @@ Return ONLY the JSON object, no markdown.'
             $stmt = $db->prepare("UPDATE media_editions SET umdb_release_id = ?, updated_at = datetime('now') WHERE id = ?");
             $stmt->execute([$releaseId, $editionId]);
 
+            // Auto-import cover image and components from UMDB on link
+            $componentsAdded = 0;
+            $umdbComponents = $umdbRelease['components'] ?? $umdbRelease['contents'] ?? [];
+            if (!empty($umdbComponents) && is_array($umdbComponents)) {
+                $stmt = $db->prepare("SELECT component_name FROM edition_components WHERE edition_id = ?");
+                $stmt->execute([$editionId]);
+                $existingNames = array_column($stmt->fetchAll(), 'component_name');
+                $compStmt = $db->prepare("
+                    INSERT INTO edition_components (edition_id, component_type, component_name, description, position)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                foreach ($umdbComponents as $i => $comp) {
+                    $compName = sanitize($comp['component_name'] ?? $comp['name'] ?? 'Component', 200);
+                    if (!in_array($compName, $existingNames)) {
+                        $compStmt->execute([
+                            $editionId,
+                            sanitize($comp['component_type'] ?? $comp['type'] ?? 'other', 50),
+                            $compName,
+                            sanitize($comp['description'] ?? '', 500),
+                            intval($comp['position'] ?? $i)
+                        ]);
+                        $componentsAdded++;
+                    }
+                }
+                // Also seed copy_components for all linked copies
+                if ($componentsAdded > 0) {
+                    $stmt = $db->prepare("SELECT id FROM copies WHERE edition_id = ?");
+                    $stmt->execute([$editionId]);
+                    $linkedCopies = $stmt->fetchAll();
+                    if (!empty($linkedCopies)) {
+                        $stmt = $db->prepare("SELECT id FROM edition_components WHERE edition_id = ?");
+                        $stmt->execute([$editionId]);
+                        $newCompIds = array_column($stmt->fetchAll(), 'id');
+                        $insertCC = $db->prepare("INSERT OR IGNORE INTO copy_components (copy_id, edition_component_id, is_present, condition) VALUES (?, ?, 1, 'Good')");
+                        foreach ($linkedCopies as $lc) {
+                            foreach ($newCompIds as $cid) {
+                                $insertCC->execute([$lc['id'], $cid]);
+                            }
+                        }
+                    }
+                }
+            }
+            // Also sync cover image if available and not already set
+            $umdbCover = $umdbRelease['cover_image'] ?? $umdbRelease['cover_image_url'] ?? null;
+            if ($umdbCover) {
+                $stmt = $db->prepare("UPDATE media_editions SET cover_image_url = COALESCE(NULLIF(cover_image_url,''), ?) WHERE id = ?");
+                $stmt->execute([$umdbCover, $editionId]);
+            }
+
             logAction($db, $userId, 'edition_linked_to_umdb', 'media_edition', $editionId, [
-                'umdb_release_id' => $releaseId
+                'umdb_release_id' => $releaseId,
+                'components_added' => $componentsAdded,
             ]);
             jsonResponse(true, [
-                'edition_id' => $editionId,
-                'umdb_release_id' => $releaseId
+                'edition_id'      => $editionId,
+                'umdb_release_id' => $releaseId,
+                'components_added' => $componentsAdded,
             ]);
             break;
 
