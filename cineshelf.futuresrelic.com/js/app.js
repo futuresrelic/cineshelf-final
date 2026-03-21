@@ -2593,84 +2593,98 @@ async function deleteCopy(copyId, movieId) {
             const data = await apiCall('get_copy_components', { copy_id: copyId });
             const modal = document.getElementById('copyManagerContent');
 
-            if (!data || !data.edition || !data.components || data.components.length === 0) {
-                showToast('No components to track', 'info');
-                return;
-            }
+            const edition    = data?.edition || null;
+            const components = data?.components || [];
+            const editionId  = edition?.id || null;
+            const format     = edition?.format || 'DVD';
+            const discCount  = parseInt(edition?.disc_count || 1) || 1;
 
-            const edition = data.edition;
-            const components = data.components;
-
-            const conditionOptions = ['Mint', 'Like New', 'Good', 'Fair', 'Poor'];
-
+            const conditionOptions = ['Mint', 'Near Mint', 'Good', 'Fair', 'Poor', 'Missing'];
             const typeIcons = {
-                disc: '\uD83D\uDCBF',
-                booklet: '\uD83D\uDCD6',
-                insert: '\uD83D\uDCC4',
-                slipcover: '\uD83D\uDDBC\uFE0F',
-                poster: '\uD83D\uDDBC\uFE0F',
-                art_cards: '\uD83C\uDFA8',
-                digital_code: '\uD83D\uDD11',
-                case: '\uD83D\uDCE6',
-                outer_case: '\uD83D\uDCE6',
-                stickers: '\u2B50',
-                other: '\uD83D\uDCCC'
+                disc: '💿', booklet: '📖', insert: '📄', slipcover: '🖼️', poster: '🖼️',
+                art_cards: '🎨', digital_code: '🔑', case: '📦', outer_case: '📦',
+                stickers: '⭐', other: '📌'
             };
+            const typeLabels = {
+                disc: 'Disc', booklet: 'Booklet / Book', insert: 'Insert / Paper',
+                slipcover: 'Slipcover', poster: 'Poster', art_cards: 'Art Cards',
+                digital_code: 'Digital Code', case: 'Case', outer_case: 'Outer Case / Slipbox',
+                stickers: 'Stickers', other: 'Other'
+            };
+            const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
             let html = `
                 <div class="component-checklist">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
                         <div>
                             <h4 style="margin:0;">Component Checklist</h4>
-                            <p class="text-muted" style="font-size:0.85rem; margin:0.25rem 0 0;">
-                                ${edition.name}${edition.distributor ? ' &mdash; ' + edition.distributor : ''}
+                            <p class="text-muted" style="font-size:0.82rem; margin:0.25rem 0 0;">
+                                ${edition ? esc(edition.name||'') + (edition.distributor ? ' &mdash; ' + esc(edition.distributor) : '') : 'No edition linked'}
                             </p>
                         </div>
                         <button class="btn-secondary" style="font-size:0.85rem;" onclick="App.openCopyManager(${movieId})">Back</button>
                     </div>
-
-                    <div class="component-items">
             `;
 
-            for (const comp of components) {
-                const icon = typeIcons[comp.component_type] || '\uD83D\uDCCC';
-                const present = comp.is_present == 1;
-                const condition = comp.user_condition || 'Good';
-
+            if (!editionId) {
+                html += `<p style="color:#aaa;font-size:0.9rem;margin:1rem 0;">Link a physical edition to this copy first, then you can track its components here.</p>`;
+            } else if (components.length === 0) {
                 html += `
-                    <div class="component-item ${present ? 'component-present' : 'component-missing'}" id="comp-item-${comp.edition_component_id}">
-                        <div class="component-item-header">
-                            <label class="component-toggle">
-                                <input type="checkbox" ${present ? 'checked' : ''}
-                                    onchange="App.toggleComponent(${copyId}, ${comp.edition_component_id}, this.checked, ${movieId})">
-                                <span class="component-toggle-label">
-                                    <span class="component-icon">${icon}</span>
-                                    ${comp.component_name}
-                                </span>
-                            </label>
+                    <div style="text-align:center;padding:1.5rem 0.5rem;">
+                        <p style="color:#aaa;font-size:0.9rem;margin-bottom:1rem;">No components defined for this edition yet.</p>
+                        <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+                            <button class="btn btn-sm" onclick="App.addStandardComponents(${editionId},${copyId},${movieId},'${esc(format)}',${discCount})">
+                                📋 Add Standard Items (${esc(format)})
+                            </button>
+                            <button class="btn-secondary btn-sm" onclick="App._showAddComponentForm(${editionId},${copyId},${movieId})">
+                                ➕ Custom Item
+                            </button>
                         </div>
-                        <div class="component-item-details" style="${present ? '' : 'opacity:0.4;'}">
-                            <select class="form-control component-condition"
-                                    data-copy-id="${copyId}"
-                                    data-comp-id="${comp.edition_component_id}"
-                                    onchange="App.updateComponentCondition(${copyId}, ${comp.edition_component_id}, this.value)">
-                                ${conditionOptions.map(c => `<option value="${c}" ${condition === c ? 'selected' : ''}>${c}</option>`).join('')}
-                            </select>
-                            ${comp.description ? `<span class="component-desc">${comp.description}</span>` : ''}
+                    </div>
+                `;
+            } else {
+                const presentCount = components.filter(c => c.is_present == 1).length;
+                html += `<div class="component-items">`;
+                for (const comp of components) {
+                    const icon    = typeIcons[comp.component_type] || '📌';
+                    const present = comp.is_present == 1;
+                    const condition = comp.user_condition || 'Good';
+                    html += `
+                        <div class="component-item ${present ? 'component-present' : 'component-missing'}" id="comp-item-${comp.edition_component_id}">
+                            <div class="component-item-header">
+                                <label class="component-toggle">
+                                    <input type="checkbox" ${present ? 'checked' : ''}
+                                        onchange="App.toggleComponent(${copyId}, ${comp.edition_component_id}, this.checked, ${movieId})">
+                                    <span class="component-toggle-label">
+                                        <span class="component-icon">${icon}</span>
+                                        ${esc(comp.component_name)}
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="component-item-details" style="${present ? '' : 'opacity:0.4;'}">
+                                <select class="form-control component-condition"
+                                        data-copy-id="${copyId}"
+                                        data-comp-id="${comp.edition_component_id}"
+                                        onchange="App.updateComponentCondition(${copyId}, ${comp.edition_component_id}, this.value)">
+                                    ${conditionOptions.map(c => `<option value="${c}" ${condition === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                </select>
+                                ${comp.description ? `<span class="component-desc">${esc(comp.description)}</span>` : ''}
+                            </div>
                         </div>
+                    `;
+                }
+                html += `</div>
+                    <div class="component-summary">
+                        <span id="comp-summary-count">${presentCount} of ${components.length}</span> components present
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+                        <button class="btn-secondary btn-sm" style="font-size:0.8rem;"
+                                onclick="App._showAddComponentForm(${editionId},${copyId},${movieId})">➕ Add Item</button>
                     </div>
                 `;
             }
 
-            const presentCount = components.filter(c => c.is_present == 1).length;
-            html += `
-                    </div>
-                    <div class="component-summary">
-                        <span id="comp-summary-count">${presentCount} of ${components.length}</span> components present
-                    </div>
-                </div>
-            `;
-
+            html += `<div id="add-component-form-slot" style="margin-top:0.75rem;"></div></div>`;
             modal.innerHTML = html;
         } catch (error) {
             console.error('Failed to load components:', error);
@@ -2678,23 +2692,110 @@ async function deleteCopy(copyId, movieId) {
         }
     }
 
+    function _showAddComponentForm(editionId, copyId, movieId) {
+        const slot = document.getElementById('add-component-form-slot');
+        if (!slot) return;
+        const opts = {
+            disc: '💿 Disc', booklet: '📖 Booklet / Book', insert: '📄 Insert / Paper',
+            slipcover: '🖼️ Slipcover', poster: '🖼️ Poster', art_cards: '🎨 Art Cards',
+            digital_code: '🔑 Digital Code', case: '📦 Case', outer_case: '📦 Outer Case / Slipbox',
+            stickers: '⭐ Stickers', other: '📌 Other'
+        };
+        slot.innerHTML = `
+            <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:0.75rem;border:1px solid rgba(255,255,255,0.12);">
+                <h5 style="margin:0 0 0.6rem;font-size:0.85rem;color:#a8b8ff;">Add New Item</h5>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:2;min-width:120px;">
+                        <input type="text" id="new-comp-name" class="form-control" style="font-size:0.85rem;"
+                               placeholder="e.g. Booklet, Slipcase, Bonus Disc…"
+                               onkeydown="if(event.key==='Enter') App.saveAddedComponent(${editionId},${copyId},${movieId})">
+                    </div>
+                    <div style="flex:1;min-width:110px;">
+                        <select id="new-comp-type" class="form-control" style="font-size:0.85rem;">
+                            ${Object.entries(opts).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+                        </select>
+                    </div>
+                    <button class="btn btn-sm" style="font-size:0.82rem;"
+                            onclick="App.saveAddedComponent(${editionId},${copyId},${movieId})">Add →</button>
+                    <button class="btn-secondary btn-sm" style="font-size:0.82rem;"
+                            onclick="document.getElementById('add-component-form-slot').innerHTML=''">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('new-comp-name')?.focus();
+    }
+
+    async function saveAddedComponent(editionId, copyId, movieId) {
+        const name = document.getElementById('new-comp-name')?.value.trim();
+        const type = document.getElementById('new-comp-type')?.value || 'other';
+        if (!name) { showToast('Please enter an item name', 'error'); return; }
+        try {
+            await apiCall('add_edition_component', {
+                edition_id: editionId,
+                component_type: type,
+                component_name: name,
+                position: 99
+            });
+            await openComponentChecklist(copyId, movieId);
+        } catch (e) {
+            showToast(e.message || 'Failed to add item', 'error');
+        }
+    }
+
+    async function addStandardComponents(editionId, copyId, movieId, format, discCount) {
+        const discLabel =
+            format === 'Blu-ray'                         ? 'Blu-ray Disc'      :
+            (format === '4K UHD' || format === '4K Ultra HD') ? '4K Ultra HD Disc' :
+            format === 'VHS'                             ? 'VHS Cassette'       :
+            format === 'LaserDisc'                       ? 'LaserDisc'          : 'DVD Disc';
+        const count = parseInt(discCount) || 1;
+        const comps = [{ type: 'case', name: 'Case', pos: 0 }];
+        for (let i = 1; i <= Math.min(count, 6); i++) {
+            comps.push({ type: 'disc', name: count > 1 ? `${discLabel} ${i}` : discLabel, pos: i });
+        }
+        if (format === '4K UHD' || format === '4K Ultra HD') {
+            comps.push({ type: 'disc', name: 'Blu-ray Disc', pos: count + 1 });
+        }
+        try {
+            for (const c of comps) {
+                await apiCall('add_edition_component', {
+                    edition_id: editionId, component_type: c.type,
+                    component_name: c.name, position: c.pos
+                });
+            }
+            showToast(`${comps.length} standard items added`, 'success');
+            await openComponentChecklist(copyId, movieId);
+        } catch (e) {
+            showToast(e.message || 'Failed to add standard items', 'error');
+        }
+    }
+
     async function toggleComponent(copyId, editionComponentId, isPresent, movieId) {
         try {
-            const item = document.getElementById(`comp-item-${editionComponentId}`);
-            const details = item?.querySelector('.component-item-details');
-            const condition = item?.querySelector('.component-condition')?.value || 'Good';
+            const item        = document.getElementById(`comp-item-${editionComponentId}`);
+            const details     = item?.querySelector('.component-item-details');
+            const conditionSel = item?.querySelector('.component-condition');
+            let condition     = conditionSel?.value || 'Good';
 
             if (isPresent) {
                 item?.classList.remove('component-missing');
                 item?.classList.add('component-present');
                 if (details) details.style.opacity = '';
+                // Reset from Missing → Good when re-checking
+                if (conditionSel && conditionSel.value === 'Missing') {
+                    conditionSel.value = 'Good';
+                    condition = 'Good';
+                }
             } else {
                 item?.classList.remove('component-present');
                 item?.classList.add('component-missing');
                 if (details) details.style.opacity = '0.4';
+                // Auto-mark as Missing when unchecked
+                if (conditionSel) conditionSel.value = 'Missing';
+                condition = 'Missing';
             }
 
-            // Update summary
+            // Update summary count
             const checkboxes = document.querySelectorAll('.component-toggle input[type="checkbox"]');
             const presentCount = Array.from(checkboxes).filter(cb => cb.checked).length;
             const summaryEl = document.getElementById('comp-summary-count');
@@ -4082,6 +4183,7 @@ async function viewMovieDetails(movieId, activeCopyId = null) {
                                                     ${tags.length > 0 ? `<div class="copy-summary-tags">${tags.map(t => `<span class="copy-summary-tag">${t}</span>`).join('')}</div>` : ''}
                                                     ${distributor ? `<div class="copy-summary-dist">${distributor}${discCount > 1 ? ` &bull; ${discCount} discs` : ''}</div>` : (discCount > 1 ? `<div class="copy-summary-dist">${discCount} discs</div>` : '')}
                                                     ${copy.seasons_owned ? `<div class="season-info">Seasons: ${copy.seasons_owned}</div>` : ''}
+                                                    ${copy.container_id ? `<div style="margin-top:0.3rem;"><button class="btn-sm btn-sm-muted" style="font-size:0.72rem;padding:2px 7px;" onclick="event.stopPropagation();App.showBoxSetDetails(${copy.container_id})" title="View box set">📦 ${(copy.container_name||'Box Set').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button></div>` : ''}
                                                 </div>
                                             </div>
                                         </div>
@@ -13435,6 +13537,9 @@ return {
     addEditionComponentRow,
     saveNewEdition,
     openComponentChecklist,
+    _showAddComponentForm,
+    saveAddedComponent,
+    addStandardComponents,
     toggleComponent,
     updateComponentCondition,
     // Container component checklist (v2.9.0)

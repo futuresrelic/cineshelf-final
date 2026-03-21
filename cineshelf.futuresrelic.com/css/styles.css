@@ -1963,6 +1963,11 @@ body.modal-open {
     z-index: 2400;
 }
 
+/* Calendar/schedule modal must sit above the movie detail modal (2000) */
+#addToCalendarModal {
+    z-index: 2150;
+}
+
 /* Modal stack: wizard sits below cloud picker so picker appears on top */
 #aiWizardModal    { z-index: 1000; }
 #cloudPickerModal { z-index: 1100; }

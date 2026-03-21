@@ -1332,9 +1332,13 @@ case 'update_copy':
                     me.cover_image_url as edition_cover_url,
                     (SELECT COUNT(*) FROM edition_components ec WHERE ec.edition_id = c.edition_id) as edition_component_count,
                     (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id AND cc.is_present = 1) as components_present,
-                    (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total
+                    (SELECT COUNT(*) FROM copy_components cc WHERE cc.copy_id = c.id) as components_total,
+                    cc_link.container_id as container_id,
+                    cont.name as container_name
                 FROM copies c
                 LEFT JOIN media_editions me ON c.edition_id = me.id
+                LEFT JOIN container_contents cc_link ON cc_link.copy_id = c.id
+                LEFT JOIN containers cont ON cont.id = cc_link.container_id
                 WHERE c.movie_id = ? AND c.user_id = ?
                 ORDER BY c.created_at DESC
             ");
