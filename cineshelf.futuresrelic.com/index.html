@@ -250,6 +250,12 @@
             <!-- ── SUB-PANEL: Physical Media ── -->
             <div id="subviewPhysical" class="subview-panel" style="display:none">
                 <div class="subview-toolbar physical-toolbar">
+                    <div class="subview-search-wrap">
+                        <input type="search" id="physicalSearch" class="subview-search"
+                               placeholder="Search physical media…"
+                               oninput="App.filterPhysicalMedia(this.value)"
+                               autocomplete="off">
+                    </div>
                     <select id="physicalGroupBy" onchange="App.renderPhysicalMedia()" class="physical-select">
                         <option value="shelf">Group by Shelf</option>
                         <option value="format">Group by Format</option>
@@ -396,6 +402,12 @@
             <!-- ── SUB-PANEL: Box Sets ── -->
             <div id="subviewBoxSets" class="subview-panel" style="display:none">
                 <div class="subview-toolbar">
+                    <div class="subview-search-wrap">
+                        <input type="search" id="boxSetSearch" class="subview-search"
+                               placeholder="Search box sets…"
+                               oninput="App.filterBoxSets(this.value)"
+                               autocomplete="off">
+                    </div>
                     <button class="btn" onclick="App.showCreateBoxSetModal()">➕ Create New Box Set</button>
                 </div>
 
@@ -2824,5 +2836,9 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     <div class="global-loader-bar"></div>
     <span class="loader-text">Working…</span>
 </div>
+
+<!-- ── Floating Add button — always visible, keeps the Add tab reachable ── -->
+<button class="fab-add" id="fabAdd" onclick="App.switchTab('add')" title="Add to Collection">➕</button>
+
 </body>
 </html>

@@ -5167,16 +5167,22 @@ function getCertColor(cert) {
                 <div class="shelf-row ${spineIsOpen ? 'spine-open' : 'spine-closed'}"
                      style="--shelf-color:${shelfColorVal}">
                     <div class="shelf-row-header"
-                         onclick="App.toggleShelfSpine(${shelf.id})">
+                         onclick="App.shelfViewDrillIn(${shelf.id}, '${safeName}')"
+                         title="Open ${safeName}">
+                        <!-- Small ▼/▶ spine-strip toggle — stops propagation so it won't drill in -->
+                        <button class="shelf-spine-toggle-btn"
+                                onclick="event.stopPropagation();App.toggleShelfSpine(${shelf.id})"
+                                title="${spineIsOpen ? 'Collapse' : 'Expand'} spine strip">
+                            ${spineGlyph}
+                        </button>
                         ${caretHtml}
-                        <span class="shelf-spine-toggle" title="${spineIsOpen ? 'Collapse' : 'Expand'} spine strip">${spineGlyph}</span>
                         <span class="shelf-row-icon">${shelf.icon || '📂'}</span>
                         <span class="shelf-row-name">${shelf.name}</span>
                         <span class="shelf-row-meta">
                             ${shelfMovies.length} film${shelfMovies.length !== 1 ? 's' : ''}
                             ${sectionCountPillHtml ? ' · ' + sectionCountPillHtml : (subSectionCount > 0 ? ` · ${subSectionCount} section${subSectionCount !== 1 ? 's' : ''}` : '')}
                         </span>
-                        <button class="shelf-drill-btn" onclick="event.stopPropagation();App.shelfViewDrillIn(${shelf.id}, '${safeName}')" title="Browse ${safeName}">›</button>
+                        <span class="shelf-drill-arrow">›</span>
                     </div>
                     ${sectionRowsHtml}
                     <div class="shelf-spine-row" style="--shelf-color:${shelfColorVal}" ${spineIsOpen ? '' : 'hidden'}>
@@ -5432,6 +5438,12 @@ function getCertColor(cert) {
     // ========================================
 
     let physicalMediaCache = [];
+    let _physicalSearchQuery = '';
+
+    function filterPhysicalMedia(val) {
+        _physicalSearchQuery = (val || '').toLowerCase().trim();
+        renderPhysicalMedia();
+    }
 
     function setPhysicalView(mode) {
         setView(mode);
@@ -5500,12 +5512,30 @@ function getCertColor(cert) {
         }
 
         const seen = new Set();
-        const unique = items.filter(item => {
+        let unique = items.filter(item => {
             const key = item.is_container ? `c_${item.container_id}` : `m_${item.copy_id}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
         });
+
+        // Apply search filter if active
+        if (_physicalSearchQuery) {
+            unique = unique.filter(item => {
+                const t = (item.is_container
+                    ? (item.container_name || '')
+                    : (item.display_title || item.title || '')
+                ).toLowerCase();
+                return t.includes(_physicalSearchQuery);
+            });
+            if (unique.length === 0) {
+                content.innerHTML = `<div class="empty-state" style="padding:3rem 0">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No results for "${_physicalSearchQuery.replace(/</g,'&lt;')}"</h3>
+                    <p>Try a different search term.</p></div>`;
+                return;
+            }
+        }
 
         let html = '';
         const renderFn = renderPhysicalItems;
@@ -7646,6 +7676,20 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // ========================================
     // END BOX SET COVER
     // ========================================
+
+    function filterBoxSets(val) {
+        const q = (val || '').toLowerCase().trim();
+        const cards = document.querySelectorAll('#boxSetsList .movie-card');
+        let shown = 0;
+        cards.forEach(card => {
+            const title = (card.querySelector('.movie-title')?.textContent || '').toLowerCase();
+            const visible = !q || title.includes(q);
+            card.style.display = visible ? '' : 'none';
+            if (visible) shown++;
+        });
+        const empty = document.getElementById('emptyBoxSets');
+        if (empty) empty.style.display = (shown === 0 && cards.length > 0) ? 'flex' : 'none';
+    }
 
     async function loadBoxSets() {
         try {
@@ -13894,6 +13938,8 @@ return {
     splitModalQuickAdd,
     splitModalSetAll,
     renderPhysicalMedia,
+    filterPhysicalMedia,
+    filterBoxSets,
     setPhysicalView,
     showRelatedMovies,
     closeRelatedMovies,
