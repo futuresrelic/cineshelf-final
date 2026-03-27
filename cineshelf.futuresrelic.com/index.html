@@ -185,53 +185,67 @@
         <!-- Collection Tab (Movies + Wishlist + Physical Media) -->
         <section id="collection" class="tab-content active">
 
-            <!-- Sub-navigation: switch between the five views -->
-            <div class="collection-subview-nav">
-                <button class="subview-btn" data-subview="physical" onclick="App.switchCollectionView('physical')" title="Physical Media">
-                    💿
-                </button>
-                <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')" title="Movies">
-                    🎬
-                </button>
-                <button class="subview-btn" data-subview="wishlist" onclick="App.switchCollectionView('wishlist')" title="Wishlist">
-                    ❤️
-                </button>
-                <button class="subview-btn" data-subview="boxsets" onclick="App.switchCollectionView('boxsets')" title="Box Sets">
-                    📦
-                </button>
-                <button class="subview-btn" data-subview="shelfview" onclick="App.switchCollectionView('shelfview')" title="Shelf View">
-                    🗂️
-                </button>
-                <button class="subview-btn" data-subview="spreadsheet" onclick="App.switchCollectionView('spreadsheet')" title="Bulk Editor">
-                    📊
-                </button>
-            </div>
+            <!-- ══ Sticky collection toolbar ══ -->
+            <div class="collection-sticky-bar">
 
-            <!-- Shared top controls: sort, view toggle (shelf filter is movies-only) -->
-            <div class="section-header">
-                <h2 id="collectionHeader">Your Collection</h2>
-                <div class="view-controls">
-                    <select id="shelfFilter" onchange="App.filterByShelf()">
-                        <option value="">All Movies</option>
-                    </select>
+                <!-- Sub-navigation: switch between the six views -->
+                <div class="collection-subview-nav">
+                    <button class="subview-btn" data-subview="physical" onclick="App.switchCollectionView('physical')" title="Physical Media">
+                        💿 <span class="subview-label">Physical</span>
+                    </button>
+                    <button class="subview-btn active" data-subview="movies" onclick="App.switchCollectionView('movies')" title="Movies">
+                        🎬 <span class="subview-label">Movies</span>
+                    </button>
+                    <button class="subview-btn" data-subview="wishlist" onclick="App.switchCollectionView('wishlist')" title="Wishlist">
+                        ❤️ <span class="subview-label">Wishlist</span>
+                    </button>
+                    <button class="subview-btn" data-subview="boxsets" onclick="App.switchCollectionView('boxsets')" title="Box Sets">
+                        📦 <span class="subview-label">Box Sets</span>
+                    </button>
+                    <button class="subview-btn" data-subview="shelfview" onclick="App.switchCollectionView('shelfview')" title="Shelf View">
+                        🗂️ <span class="subview-label">Shelf</span>
+                    </button>
+                    <button class="subview-btn" data-subview="spreadsheet" onclick="App.switchCollectionView('spreadsheet')" title="Bulk Editor">
+                        📊 <span class="subview-label">Bulk</span>
+                    </button>
+                </div>
 
-                    <select id="sortBy" onchange="App.sortCollection()">
-                        <option value="title">Sort by Title</option>
-                        <option value="year">Sort by Year</option>
-                        <option value="rating">Sort by Rating</option>
-                        <option value="runtime">Sort by Runtime</option>
-                        <option value="certification">Sort by Classification</option>
-                        <option value="created_at">Sort by Added</option>
-                    </select>
+                <!-- Shared top controls: sort, view toggle, inline search -->
+                <div class="section-header">
+                    <h2 id="collectionHeader">Your Collection</h2>
 
-                    <div class="view-switcher">
-                        <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
-                        <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
-                        <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
-                        <button class="view-btn filter-toggle-btn" id="filterToggleBtn" onclick="App.toggleFilters()" title="Filters & Sort">🔍</button>
+                    <!-- Inline quick-search (movies subview only; hidden for other subviews) -->
+                    <div class="toolbar-search" id="toolbarSearchWrap">
+                        <input type="search" id="quickSearch"
+                               placeholder="Search titles…"
+                               oninput="App.onQuickSearch(this.value)"
+                               autocomplete="off">
+                    </div>
+
+                    <div class="view-controls">
+                        <select id="shelfFilter" onchange="App.filterByShelf()">
+                            <option value="">All Movies</option>
+                        </select>
+
+                        <select id="sortBy" onchange="App.sortCollection()">
+                            <option value="title">Sort by Title</option>
+                            <option value="year">Sort by Year</option>
+                            <option value="rating">Sort by Rating</option>
+                            <option value="runtime">Sort by Runtime</option>
+                            <option value="certification">Sort by Classification</option>
+                            <option value="created_at">Sort by Added</option>
+                        </select>
+
+                        <div class="view-switcher">
+                            <button class="view-btn active" data-view="grid" onclick="App.setView('grid')" title="Grid View">⊞</button>
+                            <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
+                            <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
+                            <button class="view-btn filter-toggle-btn" id="filterToggleBtn" onclick="App.toggleFilters()" title="Advanced Filters">⚙️</button>
+                        </div>
                     </div>
                 </div>
-            </div>
+
+            </div><!-- /.collection-sticky-bar -->
 
             <!-- ── SUB-PANEL: Physical Media ── -->
             <div id="subviewPhysical" class="subview-panel" style="display:none">
@@ -1128,7 +1142,38 @@
                 
                 <div class="settings-group">
                     <h3>Display Settings</h3>
-                    
+
+                    <!-- ── Color Theme ── -->
+                    <div class="setting-item setting-item-stacked">
+                        <label>Color Theme</label>
+                        <div class="theme-picker" id="themePicker">
+                            <button class="theme-swatch active" data-theme="midnight" data-label="Midnight"
+                                    style="background:linear-gradient(135deg,#667eea,#764ba2)"
+                                    onclick="App.applyTheme('midnight')" title="Midnight (default)"></button>
+                            <button class="theme-swatch" data-theme="slate" data-label="Slate"
+                                    style="background:linear-gradient(135deg,#3b82f6,#1e40af)"
+                                    onclick="App.applyTheme('slate')" title="Slate"></button>
+                            <button class="theme-swatch" data-theme="forest" data-label="Forest"
+                                    style="background:linear-gradient(135deg,#22c55e,#15803d)"
+                                    onclick="App.applyTheme('forest')" title="Forest"></button>
+                            <button class="theme-swatch" data-theme="crimson" data-label="Crimson"
+                                    style="background:linear-gradient(135deg,#e11d48,#9d174d)"
+                                    onclick="App.applyTheme('crimson')" title="Crimson"></button>
+                            <button class="theme-swatch" data-theme="amber" data-label="Amber"
+                                    style="background:linear-gradient(135deg,#f59e0b,#b45309)"
+                                    onclick="App.applyTheme('amber')" title="Amber"></button>
+                            <button class="theme-swatch" data-theme="sepia" data-label="Sepia"
+                                    style="background:linear-gradient(135deg,#c8956c,#8b5e3c)"
+                                    onclick="App.applyTheme('sepia')" title="Sepia"></button>
+                            <button class="theme-swatch" data-theme="ice" data-label="Ice"
+                                    style="background:linear-gradient(135deg,#0ea5e9,#0891b2)"
+                                    onclick="App.applyTheme('ice')" title="Ice"></button>
+                        </div>
+                        <small style="color:rgba(255,255,255,0.4);display:block;margin-top:1.2rem;line-height:1.4;">
+                            Changes the app's accent colour and background. Hover a swatch to see its name.
+                        </small>
+                    </div>
+
                     <div class="setting-item">
                         <label>Default View</label>
                         <select id="settingDefaultView" onchange="App.saveSetting('defaultView', this.value)">

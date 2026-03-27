@@ -209,6 +209,14 @@ const App = (function() {
     loadSettings();
     loadBrandSettings();
 
+    // Apply stored theme immediately (before any rendering)
+    if (settings.theme && settings.theme !== 'midnight') {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+    }
+    // Measure sticky header height now and on resize
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+
     // Set dropdown values from settings before loading data
     const sortDropdown = document.getElementById('sortBy');
     const settingsDropdown = document.getElementById('settingDefaultSort');
@@ -237,6 +245,12 @@ const App = (function() {
     }
     const spineColorModeDropdown = document.getElementById('settingSpineColorMode');
     if (spineColorModeDropdown) spineColorModeDropdown.value = settings.spineColorMode || 'shelf';
+
+    // Restore active theme swatch
+    const activeTheme = settings.theme || 'midnight';
+    document.querySelectorAll('.theme-swatch').forEach(s => {
+        s.classList.toggle('active', s.dataset.theme === activeTheme);
+    });
 
     // Load data (sorting will be applied automatically)
     loadCollection();
@@ -4739,6 +4753,9 @@ function getCertColor(cert) {
         if (sortBy)      sortBy.style.display          = (view === 'movies' || view === 'wishlist') ? '' : 'none';
         if (filterBar)   filterBar.style.display        = view === 'movies' ? '' : 'none';
         if (filterToggleBtn) filterToggleBtn.style.display = view === 'movies' ? '' : 'none';
+        // Show inline quick-search only for movies subview
+        const toolbarSearchWrap = document.getElementById('toolbarSearchWrap');
+        if (toolbarSearchWrap) toolbarSearchWrap.style.display = view === 'movies' ? '' : 'none';
         // Show view switcher for movies, wishlist, boxsets, physical; hide for shelfview and spreadsheet
         if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'spreadsheet') ? 'none' : '';
 
@@ -5766,6 +5783,35 @@ function getCertColor(cert) {
         }
     }
     
+    // ── Theme system ────────────────────────────────────────────────
+    function applyTheme(name) {
+        const theme = name || 'midnight';
+        document.documentElement.setAttribute('data-theme', theme === 'midnight' ? '' : theme);
+        settings.theme = theme;
+        saveSettings();
+        // Update swatch active state
+        document.querySelectorAll('.theme-swatch').forEach(s => {
+            s.classList.toggle('active', s.dataset.theme === theme);
+        });
+        showToast(`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`, 'info');
+    }
+
+    // ── Sticky header height measurement ────────────────────────────
+    function updateHeaderHeight() {
+        const h = document.querySelector('.header');
+        if (h) {
+            document.documentElement.style.setProperty('--header-h', h.offsetHeight + 'px');
+        }
+    }
+
+    // ── Toolbar quick-search ─────────────────────────────────────────
+    function onQuickSearch(val) {
+        // Sync with the filter drawer's search field
+        const fs = document.getElementById('filterSearch');
+        if (fs) fs.value = val;
+        onFilterChange('search', val);
+    }
+
     function saveSetting(key, value) {
     settings[key] = value;
     saveSettings();
@@ -13792,6 +13838,8 @@ return {
     switchUser,
     updateDisplayName,
     showStats,
+    applyTheme,
+    onQuickSearch,
     exportData,
     importCSV,
     loadUnresolved,
