@@ -109,6 +109,9 @@
     <!-- Header -->
     <header class="header">
 <div class="header-content">
+    <button class="hamburger-btn" id="drawerToggle" onclick="App.openDrawer()" aria-label="Open menu">
+        <span></span><span></span><span></span>
+    </button>
     <h1 class="logo" onclick="location.reload(true)" style="cursor: pointer;" title="Click to refresh">
         <img src="/app-icon-192.png" alt="CineShelf" class="logo-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
         <span class="logo-fallback" style="display:none;">🎬</span>
@@ -134,9 +137,6 @@
                 </button>
             </div>
         </div>
-        <button class="hamburger-btn" id="drawerToggle" onclick="App.openDrawer()" aria-label="Open menu">
-            <span></span><span></span><span></span>
-        </button>
     </div>
 </div>
 

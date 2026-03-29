@@ -286,6 +286,147 @@
 [data-theme-mode="light"] .movie-title { color: var(--text); }
 [data-theme-mode="light"] .modal-content { box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
 
+/* ── Light mode: Collection subview nav ────────────────────────────── */
+[data-theme-mode="light"] .collection-sticky-bar {
+    border-bottom: 1px solid var(--border);
+}
+[data-theme-mode="light"] .subview-btn {
+    background: var(--bg-hover);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] .subview-btn:hover {
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--primary);
+}
+[data-theme-mode="light"] .subview-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff; /* white on coloured bg is always fine */
+}
+[data-theme-mode="light"] .subview-btn .badge {
+    background: rgba(0,0,0,0.15);
+    color: inherit;
+}
+[data-theme-mode="light"] .section-header h2 { color: var(--text); }
+
+/* ── Light mode: shelf rows ────────────────────────────────────────── */
+[data-theme-mode="light"] .shelf-row-header {
+    background: rgba(0,0,0,0.03);
+}
+[data-theme-mode="light"] .shelf-row-header:hover {
+    background: rgba(var(--primary-rgb), 0.08);
+}
+[data-theme-mode="light"] .shelf-row-header:hover .shelf-row-name {
+    color: var(--text); /* was: #fff */
+}
+[data-theme-mode="light"] .shelf-row-meta {
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] .shelf-spine-toggle-btn {
+    color: var(--text-muted);
+}
+
+/* ── Light mode: movie detail modal ───────────────────────────────── */
+[data-theme-mode="light"] .movie-detail-meta span {
+    background: rgba(0,0,0,0.06);
+}
+[data-theme-mode="light"] .movie-detail-genre,
+[data-theme-mode="light"] .movie-detail-director,
+[data-theme-mode="light"] .movie-detail-overview {
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] .movie-detail-section h3 {
+    color: var(--text);
+    border-bottom-color: var(--border);
+}
+[data-theme-mode="light"] .movie-detail-section h4 {
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] .copy-summary-item {
+    background: rgba(0,0,0,0.03);
+}
+[data-theme-mode="light"] .copy-summary-item .copy-details,
+[data-theme-mode="light"] .copy-summary-item .copy-summary-notes {
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] .copy-summary-item.copy-other:hover {
+    background: rgba(var(--primary-rgb), 0.07);
+}
+[data-theme-mode="light"] .movie-nav-btn {
+    background: rgba(0,0,0,0.08);
+    border-color: rgba(0,0,0,0.15);
+    color: var(--text);
+}
+[data-theme-mode="light"] .movie-nav-btn:hover:not(:disabled) {
+    background: rgba(0,0,0,0.14);
+}
+[data-theme-mode="light"] .modal-close:hover {
+    background: rgba(0,0,0,0.08);
+}
+
+/* ── Light mode: bulk editor (spreadsheet) ─────────────────────────── */
+[data-theme-mode="light"] .spreadsheet-table th {
+    background: rgba(var(--primary-rgb), 0.12);
+    color: var(--text);
+    border-bottom-color: rgba(var(--primary-rgb), 0.25);
+}
+[data-theme-mode="light"] .spreadsheet-table td {
+    color: var(--text);
+    border-bottom-color: var(--border);
+}
+[data-theme-mode="light"] .spreadsheet-table tr:hover td {
+    background: rgba(0,0,0,0.03);
+}
+[data-theme-mode="light"] .spreadsheet-table select,
+[data-theme-mode="light"] .spreadsheet-table input[type="text"] {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text);
+}
+[data-theme-mode="light"] .spreadsheet-toolbar {
+    background: var(--bg);
+}
+[data-theme-mode="light"] .spreadsheet-search {
+    background: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text);
+}
+[data-theme-mode="light"] .spreadsheet-search::placeholder {
+    color: var(--text-muted);
+}
+
+/* ── Light mode: misc controls that use white-on-dark patterns ─────── */
+[data-theme-mode="light"] .btn-icon {
+    background: rgba(0,0,0,0.06);
+    color: var(--text);
+}
+[data-theme-mode="light"] .btn-icon:hover {
+    background: rgba(0,0,0,0.12);
+}
+[data-theme-mode="light"] .view-controls select,
+[data-theme-mode="light"] .view-controls .btn-icon {
+    border-color: var(--border);
+}
+[data-theme-mode="light"] .groups-tabs {
+    border-bottom-color: var(--border);
+}
+[data-theme-mode="light"] .preset-list-card {
+    border-color: var(--border);
+}
+[data-theme-mode="light"] .wishlist-search,
+[data-theme-mode="light"] .subview-search {
+    background: var(--bg-card);
+    color: var(--text);
+    border-color: var(--border);
+}
+[data-theme-mode="light"] .wishlist-search::placeholder,
+[data-theme-mode="light"] .subview-search::placeholder {
+    color: var(--text-muted);
+}
+[data-theme-mode="light"] #quickSearch::placeholder { color: var(--text-muted); }
+
 * {
     margin: 0;
     padding: 0;
