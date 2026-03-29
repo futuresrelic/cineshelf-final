@@ -759,7 +759,7 @@ select option {
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
-    padding-bottom: calc(2rem + 68px); /* clear the bottom nav */
+    padding-bottom: calc(2rem + 68px + env(safe-area-inset-bottom, 0px)); /* clear the bottom nav + device safe area */
     min-height: calc(100vh - 150px);
 }
 
@@ -895,7 +895,8 @@ select option {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-card);
     border-top: 1px solid var(--border);
     display: flex;
@@ -1019,8 +1020,13 @@ select option {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0.85rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;          /* single row — scrolls horizontally */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;      /* hide scrollbar on Firefox */
+    padding-bottom: 2px;        /* prevent clipping of focus ring */
 }
+.collection-subview-nav::-webkit-scrollbar { display: none; }
 
 .subview-btn {
     background: rgba(255, 255, 255, 0.08);
@@ -1175,6 +1181,13 @@ select option {
     gap: 0.75rem;
     flex-wrap: wrap;
     align-items: center;
+    /* Stick below the collection sticky bar so search never scrolls away */
+    position: sticky;
+    top: calc(var(--header-h, 0px) + var(--sticky-bar-h, 0px));
+    z-index: 190;
+    background: var(--bg);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
 }
 
 @media (max-width: 480px) {
@@ -1185,6 +1198,107 @@ select option {
         padding: 0.4rem 0.75rem;
         font-size: 0.82rem;
     }
+}
+
+/* ══════════════════════════════════════
+   MOBILE LAYOUT (≤640px) — compact everything
+   ══════════════════════════════════════ */
+@media (max-width: 640px) {
+    /* Shrink main content padding to match sticky bar bleed */
+    .main-content {
+        padding: 0.75rem;
+        padding-bottom: calc(0.75rem + 64px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Fix bleed margins to match reduced padding */
+    .collection-sticky-bar {
+        margin-left: -0.75rem;
+        margin-right: -0.75rem;
+        padding: 0.5rem 0.75rem 0.4rem;
+    }
+
+    /* Compact the subview nav row */
+    .collection-subview-nav {
+        margin-bottom: 0.5rem;
+        gap: 0.35rem;
+    }
+    .subview-btn {
+        padding: 0.35rem 0.55rem;
+        font-size: 0.78rem;
+        gap: 0.3rem;
+    }
+    .subview-label {
+        font-size: 0.68rem;
+    }
+
+    /* Section header: put h2 and controls on same line,
+       search box on second line full-width */
+    .section-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .section-header h2 {
+        font-size: 1rem;
+        margin-right: auto;
+    }
+    #toolbarSearchWrap {
+        order: 3;
+        width: 100%;
+    }
+    #toolbarSearchWrap #quickSearch {
+        width: 100%;
+    }
+
+    /* Subview toolbar: search full-width on first row,
+       other controls on second row */
+    .subview-toolbar {
+        gap: 0.5rem;
+        padding: 0.4rem 0;
+    }
+    .subview-search-wrap {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        flex: 0 0 100%; /* full first row */
+    }
+
+    /* Wishlist toolbar: search + filters grid */
+    .wishlist-toolbar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+    .wishlist-toolbar .wishlist-search-input {
+        grid-column: 1 / -1;
+    }
+    .wishlist-toolbar .wishlist-browse-btn {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ══════════════════════════════════════
+   WISHLIST TOOLBAR — CSS-driven styles (replaces inline styles)
+   Works in both dark and light mode
+   ══════════════════════════════════════ */
+.wishlist-search-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+.wishlist-search-input::placeholder { color: var(--text-muted); }
+
+.wishlist-filter-select {
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    font-size: 0.9rem;
 }
 
 /* ========================================
@@ -2852,7 +2966,7 @@ body.modal-open {
 .subview-search-wrap {
     position: relative;
     flex: 1;
-    min-width: 180px;
+    min-width: 120px;  /* was 180px — allows shrinking on small phones */
     max-width: 320px;
 }
 .subview-search-wrap::before {

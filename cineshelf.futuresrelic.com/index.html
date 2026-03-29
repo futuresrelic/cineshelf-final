@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CineShelf - Your Movie Collection</title>
     
     <!-- PWA Manifest -->
@@ -356,17 +356,17 @@
 
             <!-- ── SUB-PANEL: Wishlist ── -->
             <div id="subviewWishlist" class="subview-panel" style="display:none">
-                <div class="subview-toolbar" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                    <input type="text" id="wishlistSearch" placeholder="Search wishlist..."
-                           oninput="App.filterWishlist()"
-                           style="flex:1; min-width:140px; padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
-                    <select id="wishlistGenreFilter" onchange="App.filterWishlist()" style="padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
+                <div class="subview-toolbar wishlist-toolbar">
+                    <input type="text" id="wishlistSearch" class="subview-search wishlist-search-input"
+                           placeholder="Search wishlist..."
+                           oninput="App.filterWishlist()">
+                    <select id="wishlistGenreFilter" class="wishlist-filter-select" onchange="App.filterWishlist()">
                         <option value="all">All Genres</option>
                     </select>
-                    <select id="wishlistRatingFilter" onchange="App.filterWishlist()" style="padding:0.45rem 0.75rem; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:white; font-size:0.9rem;">
+                    <select id="wishlistRatingFilter" class="wishlist-filter-select" onchange="App.filterWishlist()">
                         <option value="all">All Ratings</option>
                     </select>
-                    <button class="btn-ghost" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
+                    <button class="btn-ghost wishlist-browse-btn" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
                 </div>
 
                 <div id="wishlistGrid" class="movie-grid grid-view"></div>

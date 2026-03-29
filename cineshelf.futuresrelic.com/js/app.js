@@ -219,9 +219,10 @@ const App = (function() {
         const btn = document.getElementById('themeModeToggle');
         if (btn) btn.textContent = '☀️';
     }
-    // Measure sticky header height now and on resize
+    // Measure sticky header + collection bar height now and on resize
     updateHeaderHeight();
-    window.addEventListener('resize', updateHeaderHeight);
+    updateStickyBarHeight();
+    window.addEventListener('resize', () => { updateHeaderHeight(); updateStickyBarHeight(); });
 
     // Set dropdown values from settings before loading data
     const sortDropdown = document.getElementById('sortBy');
@@ -4798,6 +4799,9 @@ function getCertColor(cert) {
         } else if (view === 'spreadsheet') {
             loadSpreadsheetData();
         }
+
+        // Re-measure sticky bar height after content/controls change
+        requestAnimationFrame(updateStickyBarHeight);
     }
 
     // ========================================
@@ -5960,11 +5964,18 @@ function getCertColor(cert) {
         showToast(`${nextMode === 'light' ? 'Light' : 'Dark'} mode`, 'info');
     }
 
-    // ── Sticky header height measurement ────────────────────────────
+    // ── Sticky header + sticky bar height measurement ──────────────
     function updateHeaderHeight() {
         const h = document.querySelector('.header');
         if (h) {
             document.documentElement.style.setProperty('--header-h', h.offsetHeight + 'px');
+        }
+    }
+
+    function updateStickyBarHeight() {
+        const bar = document.querySelector('.collection-sticky-bar');
+        if (bar) {
+            document.documentElement.style.setProperty('--sticky-bar-h', bar.offsetHeight + 'px');
         }
     }
 
