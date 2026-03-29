@@ -213,6 +213,12 @@ const App = (function() {
     if (settings.theme && settings.theme !== 'midnight') {
         document.documentElement.setAttribute('data-theme', settings.theme);
     }
+    // Apply stored light/dark mode
+    if (settings.themeMode === 'light') {
+        document.documentElement.setAttribute('data-theme-mode', 'light');
+        const btn = document.getElementById('themeModeToggle');
+        if (btn) btn.textContent = '☀️';
+    }
     // Measure sticky header height now and on resize
     updateHeaderHeight();
     window.addEventListener('resize', updateHeaderHeight);
@@ -5824,6 +5830,21 @@ function getCertColor(cert) {
             s.classList.toggle('active', s.dataset.theme === theme);
         });
         showToast(`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`, 'info');
+    }
+
+    function toggleThemeMode() {
+        const isLight = document.documentElement.getAttribute('data-theme-mode') === 'light';
+        const nextMode = isLight ? 'dark' : 'light';
+        if (nextMode === 'light') {
+            document.documentElement.setAttribute('data-theme-mode', 'light');
+        } else {
+            document.documentElement.removeAttribute('data-theme-mode');
+        }
+        settings.themeMode = nextMode;
+        saveSettings();
+        const btn = document.getElementById('themeModeToggle');
+        if (btn) btn.textContent = nextMode === 'light' ? '☀️' : '🌙';
+        showToast(`${nextMode === 'light' ? 'Light' : 'Dark'} mode`, 'info');
     }
 
     // ── Sticky header height measurement ────────────────────────────
@@ -13883,6 +13904,7 @@ return {
     updateDisplayName,
     showStats,
     applyTheme,
+    toggleThemeMode,
     onQuickSearch,
     exportData,
     importCSV,
