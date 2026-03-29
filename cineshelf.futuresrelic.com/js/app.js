@@ -258,6 +258,10 @@ const App = (function() {
         s.classList.toggle('active', s.dataset.theme === activeTheme);
     });
 
+    // Build bottom nav and nav picker
+    buildBottomNav();
+    renderNavPicker();
+
     // Load data (sorting will be applied automatically)
     loadCollection();
     loadWishlist();
@@ -4669,6 +4673,7 @@ function getCertColor(cert) {
         if (tabName === 'wishlist') {
             switchTab('collection');
             switchCollectionView('wishlist');
+            _syncBottomNavActive('wishlist');
             return;
         }
         if (tabName === 'boxsets') {
@@ -4687,7 +4692,7 @@ function getCertColor(cert) {
         // Show selected tab
         document.getElementById(tabName).classList.add('active');
 
-        // Update tab navigation buttons
+        // Update hidden tab navigation buttons (used for active-state tracking)
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -4695,6 +4700,10 @@ function getCertColor(cert) {
         if (activeTab) {
             activeTab.classList.add('active');
         }
+
+        // Sync bottom nav and drawer active states
+        _syncBottomNavActive(tabName);
+        _syncDrawerActive(tabName);
 
         // Load calendar when switching to calendar tab
         if (tabName === 'calendar') {
@@ -4725,6 +4734,7 @@ function getCertColor(cert) {
         // Update PWA install UI when switching to settings tab
         if (tabName === 'settings') {
             initPWAInstallUI();
+            renderNavPicker();
         }
     }
 
@@ -5820,6 +5830,109 @@ function getCertColor(cert) {
     }
     
     // ── Theme system ────────────────────────────────────────────────
+    // ── Bottom nav & drawer ─────────────────────────────────────────────
+
+    // All available nav items. 'wishlist' maps to collection+subview switch.
+    const NAV_ITEMS = {
+        collection: { icon: '📚', label: 'Collection',   tab: 'collection' },
+        wishlist:   { icon: '❤️',  label: 'Wishlist',     tab: 'wishlist'   },
+        add:        { icon: '➕',  label: 'Add',          tab: 'add', center: true },
+        shelves:    { icon: '🗂️', label: 'Shelves',      tab: 'shelves'    },
+        groups:     { icon: '👥',  label: 'Groups',       tab: 'groups'     },
+        calendar:   { icon: '📅',  label: 'Calendar',     tab: 'calendar'   },
+        trivia:     { icon: '🎮',  label: 'Trivia',       tab: 'trivia'     },
+        settings:   { icon: '⚙️',  label: 'Settings',     tab: 'settings'   },
+    };
+
+    const DEFAULT_BOTTOM_NAV = ['collection', 'add', 'wishlist', 'shelves'];
+
+    function buildBottomNav() {
+        const nav = document.getElementById('bottomNav');
+        if (!nav) return;
+        const items = settings.bottomNavItems || DEFAULT_BOTTOM_NAV;
+        nav.innerHTML = '';
+
+        items.forEach(key => {
+            const def = NAV_ITEMS[key];
+            if (!def) return;
+            const btn = document.createElement('button');
+            btn.className = 'bottom-nav-item' + (def.center ? ' bottom-nav-center' : '');
+            btn.dataset.navTab = key;
+            btn.onclick = () => switchTab(def.tab);
+            btn.innerHTML = `<span class="bnav-icon">${def.icon}</span><span class="bnav-label">${def.label}</span>`;
+            nav.appendChild(btn);
+        });
+
+        // Always-present More button
+        const moreBtn = document.createElement('button');
+        moreBtn.className = 'bottom-nav-item bottom-nav-more';
+        moreBtn.setAttribute('aria-label', 'More');
+        moreBtn.onclick = openDrawer;
+        moreBtn.innerHTML = '<span class="bnav-icon">☰</span><span class="bnav-label">More</span>';
+        nav.appendChild(moreBtn);
+
+        _syncBottomNavActive(currentTab || 'collection');
+    }
+
+    function _syncBottomNavActive(tabName) {
+        document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.navTab === tabName);
+        });
+    }
+
+    function _syncDrawerActive(tabName) {
+        document.querySelectorAll('.drawer-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.drawerTab === tabName);
+        });
+    }
+
+    function openDrawer() {
+        document.getElementById('sideDrawer').classList.add('open');
+        document.getElementById('drawerBackdrop').classList.add('open');
+        document.body.classList.add('drawer-open');
+    }
+
+    function closeDrawer() {
+        document.getElementById('sideDrawer').classList.remove('open');
+        document.getElementById('drawerBackdrop').classList.remove('open');
+        document.body.classList.remove('drawer-open');
+    }
+
+    function renderNavPicker() {
+        const container = document.getElementById('navPicker');
+        if (!container) return;
+        const current = settings.bottomNavItems || DEFAULT_BOTTOM_NAV;
+        container.innerHTML = Object.entries(NAV_ITEMS).map(([key, def]) => {
+            const active = current.includes(key);
+            return `<button class="nav-picker-chip ${active ? 'active' : ''}"
+                        data-nav-key="${key}"
+                        onclick="App.toggleNavPickerItem('${key}')">
+                        ${def.icon} ${def.label}
+                    </button>`;
+        }).join('');
+        const count = document.getElementById('navPickerCount');
+        if (count) count.textContent = current.length;
+    }
+
+    function toggleNavPickerItem(key) {
+        const current = [...(settings.bottomNavItems || DEFAULT_BOTTOM_NAV)];
+        const idx = current.indexOf(key);
+        if (idx >= 0) {
+            if (current.length <= 1) return; // always keep at least 1
+            current.splice(idx, 1);
+        } else {
+            if (current.length >= 4) {
+                showToast('Maximum 4 items in the bottom bar', 'error');
+                return;
+            }
+            current.push(key);
+        }
+        settings.bottomNavItems = current;
+        saveSettings();
+        buildBottomNav();
+        renderNavPicker();
+    }
+
     function applyTheme(name) {
         const theme = name || 'midnight';
         document.documentElement.setAttribute('data-theme', theme === 'midnight' ? '' : theme);
@@ -13905,6 +14018,10 @@ return {
     showStats,
     applyTheme,
     toggleThemeMode,
+    openDrawer,
+    closeDrawer,
+    toggleNavPickerItem,
+    renderNavPicker,
     onQuickSearch,
     exportData,
     importCSV,

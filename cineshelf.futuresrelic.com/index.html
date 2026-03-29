@@ -134,6 +134,9 @@
                 </button>
             </div>
         </div>
+        <button class="hamburger-btn" id="drawerToggle" onclick="App.openDrawer()" aria-label="Open menu">
+            <span></span><span></span><span></span>
+        </button>
     </div>
 </div>
 
@@ -142,40 +145,16 @@
         <option value="">My Collection</option>
     </select>
 
-        <!-- Navigation Tabs -->
-        <nav class="tabs">
-            <button class="tab active" data-tab="collection" onclick="App.switchTab('collection')">
-                <span class="tab-icon">📚</span>
-                <span class="tab-label">Collection</span>
-            </button>
-            <button class="tab" data-tab="groups" onclick="App.switchTab('groups')">
-                <span class="tab-icon">👨‍👩‍👧‍👦</span>
-                <span class="tab-label">Groups</span>
-            </button>
-            <button class="tab" data-tab="shelves" onclick="App.switchTab('shelves')">
-                <span class="tab-icon">📚</span>
-                <span class="tab-label">Shelves</span>
-            </button>
-            <button class="tab" data-tab="add" onclick="App.switchTab('add')">
-                <span class="tab-icon">➕</span>
-                <span class="tab-label">Add Title</span>
-            </button>
-            <button class="tab" data-tab="calendar" onclick="App.switchTab('calendar')">
-                <span class="tab-icon">📅</span>
-                <span class="tab-label">Calendar</span>
-            </button>
-            <button class="tab" data-tab="trivia" onclick="App.switchTab('trivia')">
-                <span class="tab-icon">🎮</span>
-                <span class="tab-label">Trivia</span>
-            </button>
-            <button class="tab admin-only" data-tab="resolve" onclick="App.switchTab('resolve')">
-                <span class="tab-icon">🔍</span>
-                <span class="tab-label">Resolve</span>
-            </button>
-            <button class="tab" data-tab="settings" onclick="App.switchTab('settings')">
-                <span class="tab-icon">⚙️</span>
-                <span class="tab-label">Settings</span>
-            </button>
+        <!-- Hidden tab buttons — used only by JS active-state tracking -->
+        <nav class="tabs tabs-hidden" aria-hidden="true">
+            <button class="tab active" data-tab="collection"></button>
+            <button class="tab" data-tab="groups"></button>
+            <button class="tab" data-tab="shelves"></button>
+            <button class="tab" data-tab="add"></button>
+            <button class="tab" data-tab="calendar"></button>
+            <button class="tab" data-tab="trivia"></button>
+            <button class="tab admin-only" data-tab="resolve"></button>
+            <button class="tab" data-tab="settings"></button>
         </nav>
     </header>
 
@@ -1197,6 +1176,17 @@
                         <small style="color:var(--text-muted);display:block;margin-top:0.75rem;line-height:1.4;">
                             Changes the app's accent colour and background. Hover a swatch to see its name.
                         </small>
+                    </div>
+
+                    <!-- ── Bottom Nav Customisation ── -->
+                    <div class="setting-item setting-item-stacked">
+                        <label>Bottom Navigation</label>
+                        <small style="color:var(--text-muted);display:block;margin-bottom:0.75rem;line-height:1.4;">
+                            Choose up to 4 items for your bottom bar. The ☰ More button is always included.
+                        </small>
+                        <div class="nav-picker" id="navPicker">
+                            <!-- Populated by App.renderNavPicker() -->
+                        </div>
                     </div>
 
                     <div class="setting-item">
@@ -2850,8 +2840,54 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
     <span class="loader-text">Working…</span>
 </div>
 
-<!-- ── Floating Add button — always visible, keeps the Add tab reachable ── -->
-<button class="fab-add" id="fabAdd" onclick="App.switchTab('add')" title="Add to Collection">➕</button>
+<!-- ── Drawer backdrop ── -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="App.closeDrawer()"></div>
+
+<!-- ── Side drawer ── -->
+<nav class="side-drawer" id="sideDrawer">
+    <div class="drawer-header">
+        <span class="drawer-logo">🎬 CineShelf</span>
+        <button class="drawer-close-btn" onclick="App.closeDrawer()" aria-label="Close menu">✕</button>
+    </div>
+    <div class="drawer-nav">
+        <button class="drawer-item" data-drawer-tab="collection" onclick="App.switchTab('collection');App.closeDrawer()">
+            <span class="drawer-icon">📚</span><span>Collection</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="wishlist" onclick="App.switchTab('wishlist');App.closeDrawer()">
+            <span class="drawer-icon">❤️</span><span>Wishlist</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="shelves" onclick="App.switchTab('shelves');App.closeDrawer()">
+            <span class="drawer-icon">🗂️</span><span>Shelves</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="groups" onclick="App.switchTab('groups');App.closeDrawer()">
+            <span class="drawer-icon">👥</span><span>Groups</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="add" onclick="App.switchTab('add');App.closeDrawer()">
+            <span class="drawer-icon">➕</span><span>Add Title</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="calendar" onclick="App.switchTab('calendar');App.closeDrawer()">
+            <span class="drawer-icon">📅</span><span>Calendar</span>
+        </button>
+        <button class="drawer-item" data-drawer-tab="trivia" onclick="App.switchTab('trivia');App.closeDrawer()">
+            <span class="drawer-icon">🎮</span><span>Trivia</span>
+        </button>
+        <button class="drawer-item admin-only" data-drawer-tab="resolve" onclick="App.switchTab('resolve');App.closeDrawer()">
+            <span class="drawer-icon">🔍</span><span>Resolve</span>
+        </button>
+        <div class="drawer-divider"></div>
+        <button class="drawer-item" data-drawer-tab="settings" onclick="App.switchTab('settings');App.closeDrawer()">
+            <span class="drawer-icon">⚙️</span><span>Settings</span>
+        </button>
+        <button class="drawer-item" onclick="App.openFamilyManager();App.closeDrawer()">
+            <span class="drawer-icon">👨‍👩‍👧</span><span>Family Members</span>
+        </button>
+    </div>
+</nav>
+
+<!-- ── Bottom navigation bar ── -->
+<nav class="bottom-nav" id="bottomNav">
+    <!-- Populated by App.buildBottomNav() on startup -->
+</nav>
 
 </body>
 </html>
