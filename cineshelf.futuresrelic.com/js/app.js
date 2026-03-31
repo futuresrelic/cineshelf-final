@@ -4770,11 +4770,27 @@ function getCertColor(cert) {
         if (sortBy)      sortBy.style.display          = (view === 'movies' || view === 'wishlist') ? '' : 'none';
         if (filterBar)   filterBar.style.display        = view === 'movies' ? '' : 'none';
         if (filterToggleBtn) filterToggleBtn.style.display = view === 'movies' ? '' : 'none';
-        // Show inline quick-search only for movies subview
-        const toolbarSearchWrap = document.getElementById('toolbarSearchWrap');
-        if (toolbarSearchWrap) toolbarSearchWrap.style.display = view === 'movies' ? '' : 'none';
         // Show view switcher for movies, wishlist, boxsets, physical; hide for shelfview and spreadsheet
         if (viewSwitcher) viewSwitcher.style.display = (view === 'shelfview' || view === 'spreadsheet') ? 'none' : '';
+
+        // Update floating search: close it, clear results, update placeholder
+        const floatingBar = document.getElementById('floatingSearchBar');
+        const searchFabBtn = document.getElementById('searchFabBtn');
+        const floatingInp = document.getElementById('floatingSearchInput');
+        if (floatingBar && floatingBar.classList.contains('open')) {
+            floatingBar.classList.remove('open');
+            floatingBar.setAttribute('aria-hidden', 'true');
+            if (searchFabBtn) searchFabBtn.classList.remove('active');
+            if (floatingInp) floatingInp.value = '';
+            // Clear the search in whichever subview we're leaving
+            onQuickSearch('');
+        }
+        if (floatingInp) {
+            const placeholders = { movies: 'Search movies…', wishlist: 'Search wishlist…', physical: 'Search physical media…', boxsets: 'Search box sets…' };
+            floatingInp.placeholder = placeholders[view] || 'Search…';
+        }
+        // Hide search FAB for spreadsheet and shelfview
+        if (searchFabBtn) searchFabBtn.style.display = (view === 'shelfview' || view === 'spreadsheet') ? 'none' : '';
 
         // Update the section heading
         const header = document.getElementById('collectionHeader');
@@ -5988,6 +6004,67 @@ function getCertColor(cert) {
         const fs = document.getElementById('filterSearch');
         if (fs) fs.value = val;
         onFilterChange('search', val);
+    }
+
+    // ── Floating search bubble ────────────────────────────────────────
+    const _searchPlaceholders = {
+        movies:      'Search movies…',
+        wishlist:    'Search wishlist…',
+        physical:    'Search physical media…',
+        boxsets:     'Search box sets…',
+    };
+
+    function toggleFloatingSearch() {
+        const bar = document.getElementById('floatingSearchBar');
+        const btn = document.getElementById('searchFabBtn');
+        if (!bar) return;
+        const opening = !bar.classList.contains('open');
+        if (opening) {
+            bar.classList.add('open');
+            bar.setAttribute('aria-hidden', 'false');
+            if (btn) btn.classList.add('active');
+            const inp = document.getElementById('floatingSearchInput');
+            if (inp) {
+                inp.placeholder = _searchPlaceholders[currentCollectionSubview] || 'Search…';
+                requestAnimationFrame(() => inp.focus());
+            }
+        } else {
+            closeFloatingSearch();
+        }
+    }
+
+    function closeFloatingSearch() {
+        const bar = document.getElementById('floatingSearchBar');
+        const btn = document.getElementById('searchFabBtn');
+        if (bar) { bar.classList.remove('open'); bar.setAttribute('aria-hidden', 'true'); }
+        if (btn) btn.classList.remove('active');
+        const inp = document.getElementById('floatingSearchInput');
+        if (inp) inp.value = '';
+        // Clear active search in current subview
+        onFloatingSearch('');
+    }
+
+    function onFloatingSearch(val) {
+        const subview = currentCollectionSubview;
+        if (subview === 'movies') {
+            onQuickSearch(val);
+        } else if (subview === 'wishlist') {
+            const inp = document.getElementById('wishlistSearch');
+            if (inp) inp.value = val;
+            filterWishlist();
+        } else if (subview === 'physical') {
+            filterPhysicalMedia(val);
+        } else if (subview === 'boxsets') {
+            // Basic box set title filter
+            const grid = document.getElementById('boxSetsList');
+            if (grid) {
+                const q = val.toLowerCase().trim();
+                grid.querySelectorAll('.movie-card').forEach(card => {
+                    const title = (card.querySelector('.movie-title')?.textContent || '').toLowerCase();
+                    card.style.display = (!q || title.includes(q)) ? '' : 'none';
+                });
+            }
+        }
     }
 
     function saveSetting(key, value) {
@@ -14037,6 +14114,9 @@ return {
     toggleNavPickerItem,
     renderNavPicker,
     onQuickSearch,
+    toggleFloatingSearch,
+    closeFloatingSearch,
+    onFloatingSearch,
     exportData,
     importCSV,
     loadUnresolved,

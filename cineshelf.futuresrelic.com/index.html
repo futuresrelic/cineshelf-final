@@ -193,13 +193,7 @@
                 <div class="section-header">
                     <h2 id="collectionHeader">Your Collection</h2>
 
-                    <!-- Inline quick-search (movies subview only; hidden for other subviews) -->
-                    <div class="toolbar-search" id="toolbarSearchWrap">
-                        <input type="search" id="quickSearch"
-                               placeholder="Search titles…"
-                               oninput="App.onQuickSearch(this.value)"
-                               autocomplete="off">
-                    </div>
+                    <!-- Inline quick-search removed; handled by floating search bubble (#searchFabBtn) -->
 
                     <div class="view-controls">
                         <select id="shelfFilter" onchange="App.filterByShelf()">
@@ -220,12 +214,23 @@
                             <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
                             <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
                             <button class="view-btn" data-view="gallery" onclick="App.setView('gallery')" title="Gallery (Posters Only)">🖼</button>
+                            <button class="view-btn search-fab-btn" id="searchFabBtn" onclick="App.toggleFloatingSearch()" title="Search">🔍</button>
                             <button class="view-btn filter-toggle-btn" id="filterToggleBtn" onclick="App.toggleFilters()" title="Advanced Filters">⚙️</button>
                         </div>
                     </div>
                 </div>
 
             </div><!-- /.collection-sticky-bar -->
+
+            <!-- ── Floating search bar (slides in below sticky bar) ── -->
+            <div id="floatingSearchBar" class="floating-search-bar" aria-hidden="true">
+                <span class="floating-search-icon">🔍</span>
+                <input type="search" id="floatingSearchInput" class="floating-search-input"
+                       placeholder="Search movies…"
+                       oninput="App.onFloatingSearch(this.value)"
+                       autocomplete="off">
+                <button class="floating-search-close" onclick="App.closeFloatingSearch()" aria-label="Close search">✕</button>
+            </div>
 
             <!-- ── SUB-PANEL: Physical Media ── -->
             <div id="subviewPhysical" class="subview-panel" style="display:none">
