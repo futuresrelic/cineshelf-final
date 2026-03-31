@@ -427,6 +427,27 @@
 }
 [data-theme-mode="light"] #quickSearch::placeholder { color: var(--text-muted); }
 
+/* ── Light mode: shelf breadcrumb navigation ─────────────────────── */
+[data-theme-mode="light"] .shelf-view-back-btn {
+    background: rgba(0,0,0,0.06);
+    border-color: var(--border);
+    color: var(--text);
+}
+[data-theme-mode="light"] .shelf-view-back-btn:hover {
+    background: rgba(0,0,0,0.12);
+}
+[data-theme-mode="light"] .shelf-crumb         { color: var(--text-muted); }
+[data-theme-mode="light"] .shelf-crumb:hover   { color: var(--text); }
+[data-theme-mode="light"] .shelf-crumb-active  { color: var(--text); }
+[data-theme-mode="light"] .shelf-crumb-sep     { color: var(--border); }
+[data-theme-mode="light"] .shelf-view-section-label { color: var(--text-muted); }
+[data-theme-mode="light"] .shelf-drill-btn     { color: var(--text-muted); }
+[data-theme-mode="light"] .shelf-drill-btn:hover { color: var(--text); }
+[data-theme-mode="light"] .shelf-row-header    { background: rgba(0,0,0,0.02); }
+[data-theme-mode="light"] .shelf-row {
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
+}
+
 * {
     margin: 0;
     padding: 0;
