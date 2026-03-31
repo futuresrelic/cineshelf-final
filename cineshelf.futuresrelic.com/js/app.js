@@ -5611,7 +5611,7 @@ function getCertColor(cert) {
     // ── Unified physical media renderer (matches Movies card structure) ──
     function renderPhysicalItems(items) {
         const navIds = items.filter(i => !i.is_container).map(i => `${i.copy_id||0}:${i.movie_id}`).join(',');
-        const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
+        const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : currentView === 'gallery' ? 'gallery-view' : 'grid-view';
         return `<div class="movie-grid ${viewClass}">` + items.map(item => {
             // Box set containers
             if (item.is_container) {
@@ -5726,13 +5726,15 @@ function getCertColor(cert) {
             if (!grid) return;
 
             // Remove all view classes
-            grid.classList.remove('grid-view', 'compact-view', 'list-view');
+            grid.classList.remove('grid-view', 'compact-view', 'list-view', 'gallery-view');
 
             // Add the selected view class
             if (viewType === 'list') {
                 grid.classList.add('list-view');
             } else if (viewType === 'compact') {
                 grid.classList.add('compact-view');
+            } else if (viewType === 'gallery') {
+                grid.classList.add('gallery-view');
             } else {
                 grid.classList.add('grid-view');
             }
@@ -5741,7 +5743,8 @@ function getCertColor(cert) {
         // Update box sets grid view class
         const boxSetsGrid = document.getElementById('boxSetsList');
         if (boxSetsGrid) {
-            boxSetsGrid.className = 'movie-grid ' + (viewType === 'list' ? 'list-view' : viewType === 'compact' ? 'compact-view' : 'grid-view');
+            const cls = viewType === 'list' ? 'list-view' : viewType === 'compact' ? 'compact-view' : viewType === 'gallery' ? 'gallery-view' : 'grid-view';
+            boxSetsGrid.className = 'movie-grid ' + cls;
         }
 
         // Trigger re-renders to update HTML structure based on view
@@ -7853,7 +7856,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             emptyState.style.display = 'none';
 
             // Apply movie-grid view classes
-            const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : 'grid-view';
+            const viewClass = currentView === 'list' ? 'list-view' : currentView === 'compact' ? 'compact-view' : currentView === 'gallery' ? 'gallery-view' : 'grid-view';
             container.className = 'movie-grid ' + viewClass;
 
             // Fetch movie posters for each box set

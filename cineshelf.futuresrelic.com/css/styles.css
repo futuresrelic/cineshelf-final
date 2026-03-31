@@ -409,6 +409,23 @@
 [data-theme-mode="light"] .view-controls .btn-icon {
     border-color: var(--border);
 }
+[data-theme-mode="light"] .view-controls select {
+    background: var(--bg-card);
+    color: var(--text);
+    -webkit-appearance: none;
+    appearance: none;
+}
+[data-theme-mode="light"] .physical-select {
+    background: var(--bg-card);
+    color: var(--text);
+    border-color: var(--border);
+    -webkit-appearance: none;
+    appearance: none;
+}
+[data-theme-mode="light"] select option {
+    background: var(--bg-card);
+    color: var(--text);
+}
 [data-theme-mode="light"] .groups-tabs {
     border-bottom-color: var(--border);
 }
@@ -2062,6 +2079,61 @@ select option {
 .movie-grid.list-view .hover-actions,
 .movie-grid.list-view .genre-emojis {
     display: none; /* Hide in list view for cleaner look */
+}
+
+/* ── Gallery view: 4-wide poster-only grid ────────────────────────── */
+.movie-grid.gallery-view {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+    padding: 0.35rem;
+}
+
+.movie-grid.gallery-view .movie-card {
+    cursor: pointer;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.movie-grid.gallery-view .movie-poster-container {
+    aspect-ratio: 2 / 3;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.movie-grid.gallery-view .movie-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: var(--radius);
+}
+
+.movie-grid.gallery-view .movie-info,
+.movie-grid.gallery-view .hover-overlay,
+.movie-grid.gallery-view .genre-emojis,
+.movie-grid.gallery-view .badge,
+.movie-grid.gallery-view .wishlist-badge,
+.movie-grid.gallery-view .format-badge,
+.movie-grid.gallery-view .umdb-badge,
+.movie-grid.gallery-view .boxset-member-badge {
+    display: none;
+}
+
+.movie-grid.gallery-view .movie-card:hover .movie-poster {
+    opacity: 0.85;
+    transform: scale(1.03);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+@media (max-width: 640px) {
+    .movie-grid.gallery-view {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.25rem;
+        padding: 0.25rem;
+    }
 }
 
 .movie-card {
