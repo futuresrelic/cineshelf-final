@@ -1224,6 +1224,7 @@ select option {
         margin-right: -0.75rem;
         padding: 0.45rem 0.75rem 0.35rem;
         box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+        overflow-x: hidden;
     }
 
     /* ── Header: tighter on small phones ── */
@@ -1307,13 +1308,25 @@ select option {
         flex-shrink: 0;
         order: 2;
         align-items: center;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
+    .view-controls::-webkit-scrollbar { display: none; }
     .view-controls select {
         font-size: 0.72rem;
-        padding: 0.22rem 0.28rem;
+        padding: 0.22rem 1.2rem 0.22rem 0.28rem;
         min-width: 0;
-        max-width: 86px;
+        max-width: 80px;
         width: auto !important;
+        -webkit-appearance: none;
+        appearance: none;
+        flex-shrink: 0;
+        /* Minimal custom arrow */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M0 0l4 6 4-6z' fill='%23888'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.28rem center;
+        background-size: 7px 5px;
     }
     .view-switcher {
         grid-column: unset !important;
