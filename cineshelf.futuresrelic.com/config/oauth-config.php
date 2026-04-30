@@ -37,7 +37,7 @@ if (!$googleClientSecret) {
     error_log('WARNING: GOOGLE_CLIENT_SECRET is not set. Please set environment variable!');
 }
 if (!$googleRedirectUri) {
-    $googleRedirectUri = 'https://cineshelf.futuresrelic.com/api/auth.php';
+    $googleRedirectUri = 'https://cineshelf.ca/api/auth.php';
     error_log('WARNING: Using hardcoded GOOGLE_REDIRECT_URI. Please set environment variable!');
 }
 
