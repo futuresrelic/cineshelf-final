@@ -315,6 +315,32 @@ function buildPublicCoverUrl(?string $localPath): ?string {
 }
 
 /**
+ * Map a CineShelf free-text format string to a UMDB PhysicalFormat enum value.
+ */
+function normalizeFormatForUmdb(string $format): string {
+    $f = strtolower(trim($format));
+    if (str_contains($f, '4k') || str_contains($f, 'uhd') || str_contains($f, 'ultra hd')) return 'BLU_RAY_4K';
+    if (str_contains($f, 'blu') || str_contains($f, 'bluray')) return 'BLU_RAY';
+    if (str_contains($f, 'dvd')) return 'DVD';
+    if (str_contains($f, 'vhs')) return 'VHS';
+    if (str_contains($f, 'laser')) return 'LASERDISC';
+    if (str_contains($f, 'betamax')) return 'BETAMAX';
+    if (str_contains($f, 'hd-dvd') || str_contains($f, 'hd dvd') || $f === 'hddvd') return 'HD_DVD';
+    if (str_contains($f, 'digital')) return 'DIGITAL';
+    if (str_contains($f, 'stream')) return 'STREAMING';
+    if (str_contains($f, '70mm')) return 'FILM_70MM';
+    if (str_contains($f, '35mm')) return 'FILM_35MM';
+    if (str_contains($f, '16mm')) return 'FILM_16MM';
+    if (str_contains($f, '8mm')) return 'FILM_8MM';
+    if (str_contains($f, 'mini') && str_contains($f, 'disc')) return 'MINI_DISC';
+    if ($f === 'cd') return 'CD';
+    if ($f === 'vinyl') return 'VINYL';
+    if (str_contains($f, 'cassette')) return 'CASSETTE';
+    if (str_contains($f, '8-track') || str_contains($f, 'eight track')) return 'EIGHT_TRACK';
+    return 'OTHER';
+}
+
+/**
  * Build the correct detail-fetch URL for a movie/tv id.
  * Returns [url, source] where source is 'umdb' or 'tmdb'.
  *
@@ -1009,6 +1035,15 @@ try {
             $has3d = intval($input['has_3d'] ?? 0);
             // Edition link (v4.0.0)
             $editionId = !empty($input['edition_id']) ? intval($input['edition_id']) : null;
+            // UMDB-compatible collector fields (v8.0.0)
+            $ean = sanitize($input['ean'] ?? '', 20);
+            $editionPublisher = sanitize($input['edition_publisher'] ?? '', 150);
+            $bonusContent = sanitize($input['bonus_content'] ?? '', 500);
+            $videoStandard = sanitize($input['video_standard'] ?? '', 20);
+            $language = sanitize($input['language'] ?? '', 100);
+            $copyStudio = sanitize($input['studio'] ?? '', 150);
+            $asin = sanitize($input['asin'] ?? '', 20);
+            $country = sanitize($input['country'] ?? '', 50);
 
             // Accept either tmdb_id (legacy) or movie_id (for box sets where movie is already created)
             if (empty($tmdbId) && empty($movieId)) {
@@ -1162,13 +1197,16 @@ try {
             file_put_contents('php://stderr', "[add_copy] Creating copy: userId=$userId, movieId=$movieId, format=$format, editionId=$editionId\n");
             $stmt = $db->prepare("
                 INSERT INTO copies (user_id, movie_id, edition_id, format, edition, region, condition, notes, barcode, seasons_owned,
-                    aspect_ratio, package_type, feature_count, has_slipcover, has_booklet, has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    aspect_ratio, package_type, feature_count, has_slipcover, has_booklet, has_bonus_disc, bonus_disc_count, has_digital_copy, has_3d,
+                    ean, edition_publisher, bonus_content, video_standard, language, studio, asin, country, umdb_sync_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
             $stmt->execute([$userId, $movieId, $editionId, $format, $edition, $region, $condition, $notes, $barcode, $seasonsOwned ?: null,
                 $aspectRatio ?: null, $packageType ?: null, $featureCount ?: 'Single',
-                $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d]);
+                $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d,
+                $ean ?: null, $editionPublisher ?: null, $bonusContent ?: null, $videoStandard ?: null,
+                $language ?: null, $copyStudio ?: null, $asin ?: null, $country ?: null, 'UNSYNCED']);
 
             $newCopyId = $db->lastInsertId();
             file_put_contents('php://stderr', "[add_copy] Copy created with ID: $newCopyId\n");
@@ -1202,7 +1240,196 @@ try {
 
             jsonResponse(true, ['copy_id' => $newCopyId]);
             break;
-        
+
+        case 'barcode_lookup':
+            // Look up a barcode in UMDB to prefill the add-copy form.
+            // Supports UPC (12 digits), EAN-13 (13 digits), ASIN (10 alphanumeric).
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY not configured');
+            }
+
+            $barcode = sanitize($input['barcode'] ?? '', 30);
+            if (empty($barcode)) {
+                jsonResponse(false, null, 'Barcode required');
+            }
+
+            $umdbResult = umdbFetch('/api/physical-copies/fetch-barcode/' . urlencode($barcode));
+            if ($umdbResult === false) {
+                jsonResponse(false, null, 'Barcode lookup failed — UMDB may be unavailable');
+            }
+
+            $results = $umdbResult['results'] ?? [];
+            if (empty($results)) {
+                jsonResponse(true, ['found' => false, 'barcode' => $barcode]);
+            }
+
+            // Return the highest-confidence result's data in a form the UI can use directly
+            usort($results, fn($a, $b) => ($b['confidence'] ?? 0) <=> ($a['confidence'] ?? 0));
+            $best = $results[0];
+            $data = $best['data'] ?? [];
+
+            jsonResponse(true, [
+                'found'            => true,
+                'barcode'          => $barcode,
+                'source'           => $best['source'] ?? null,
+                'confidence'       => $best['confidence'] ?? null,
+                'distributor'      => $data['distributor'] ?? $data['editionPublisher'] ?? null,
+                'edition_name'     => $data['editionName'] ?? null,
+                'edition_publisher'=> $data['editionPublisher'] ?? null,
+                'studio'           => $data['studio'] ?? null,
+                'cover_image_url'  => $data['coverImageUrl'] ?? null,
+                'upc'              => $data['upc'] ?? null,
+                'ean'              => $data['ean'] ?? null,
+                'asin'             => $data['asin'] ?? null,
+                'format'           => $data['format'] ?? null,
+                'disc_count'       => $data['discCount'] ?? null,
+                'country'          => $data['country'] ?? null,
+                'language'         => $data['language'] ?? null,
+                'all_results'      => $results,
+            ]);
+            break;
+
+        case 'push_copy_to_umdb':
+            // Push a user's physical copy to UMDB as a release record.
+            if (empty(UMDB_API_KEY)) {
+                jsonResponse(false, null, 'UMDB_API_KEY is not configured. Set it in Railway environment variables to enable UMDB sync.');
+            }
+
+            $copyId = intval($input['copy_id'] ?? 0);
+            if (empty($copyId)) {
+                jsonResponse(false, null, 'Copy ID required');
+            }
+
+            // Fetch copy with movie data
+            $stmt = $db->prepare("
+                SELECT c.*, m.tmdb_id, m.imdb_id, m.title as movie_title, m.year as movie_year,
+                       m.poster_url, m.overview, m.runtime, m.director, m.genre,
+                       m.rating as movie_rating, m.media_type, m.certification
+                FROM copies c
+                JOIN movies m ON m.id = c.movie_id
+                WHERE c.id = ? AND c.user_id = ?
+            ");
+            $stmt->execute([$copyId, $userId]);
+            $copy = $stmt->fetch();
+
+            if (!$copy) {
+                jsonResponse(false, null, 'Copy not found');
+            }
+
+            if (!empty($copy['umdb_physical_copy_id'])) {
+                jsonResponse(false, null, 'This copy is already linked to UMDB release: ' . $copy['umdb_physical_copy_id']);
+            }
+
+            $umdbFormat = normalizeFormatForUmdb($copy['format'] ?? '');
+
+            // Build UMDB release payload (matches POST /api/v1/releases schema)
+            $releasePayload = [
+                'format'            => $umdbFormat,
+                'barcode'           => $copy['barcode'] ?: null,
+                'region'            => $copy['region'] ?: null,
+                'distributor'       => $copy['edition_publisher'] ?: null,
+                'country'           => $copy['country'] ?: null,
+                'disc_count'        => $copy['bonus_disc_count'] ? (1 + intval($copy['bonus_disc_count'])) : null,
+                'notes'             => $copy['notes'] ?: null,
+                'edition_name'      => $copy['edition'] ?: null,
+                'source_type'       => 'HYBRID',
+                'upc'               => strlen($copy['barcode'] ?? '') === 12 ? $copy['barcode'] : null,
+                'ean'               => $copy['ean'] ?: (strlen($copy['barcode'] ?? '') === 13 ? $copy['barcode'] : null),
+                'asin'              => $copy['asin'] ?: null,
+            ];
+
+            // Link movie in UMDB
+            if (!empty($copy['tmdb_id'])) {
+                if (isUmdbId($copy['tmdb_id'])) {
+                    $releasePayload['movie_id'] = $copy['tmdb_id'];
+                } else {
+                    $releasePayload['tmdb_id'] = $copy['tmdb_id'];
+                }
+            }
+            if (!empty($copy['imdb_id'])) {
+                $releasePayload['imdb_id'] = $copy['imdb_id'];
+            }
+
+            $GLOBALS['_umdb_last_error'] = null;
+            $umdbResult = umdbPost('/api/v1/releases', $releasePayload);
+
+            if (!$umdbResult) {
+                $detail = $GLOBALS['_umdb_last_error'] ?? '';
+
+                // Auto-create movie in UMDB if it's missing, then retry
+                if (strpos($detail, '422') !== false && strpos($detail, 'Could not resolve movie') !== false) {
+                    $moviePayload = [
+                        'title'         => $copy['movie_title'],
+                        'year'          => intval($copy['movie_year'] ?? 0),
+                        'overview'      => $copy['overview'] ?? '',
+                        'runtime'       => intval($copy['runtime'] ?? 0),
+                        'director'      => $copy['director'] ?? '',
+                        'genre'         => $copy['genre'] ?? '',
+                        'rating'        => floatval($copy['movie_rating'] ?? 0),
+                        'media_type'    => $copy['media_type'] ?: 'movie',
+                        'certification' => $copy['certification'] ?? '',
+                        'poster_url'    => $copy['poster_url'] ?? '',
+                    ];
+                    if (!empty($copy['tmdb_id']) && !isUmdbId($copy['tmdb_id'])) {
+                        $moviePayload['tmdb_id'] = $copy['tmdb_id'];
+                    }
+                    if (!empty($copy['imdb_id'])) {
+                        $moviePayload['imdb_id'] = $copy['imdb_id'];
+                    }
+
+                    $GLOBALS['_umdb_last_error'] = null;
+                    $movieResult = umdbPost('/api/v1/movies', $moviePayload);
+
+                    if ($movieResult && !empty($movieResult['id'])) {
+                        $releasePayload['movie_id'] = $movieResult['id'];
+                        unset($releasePayload['tmdb_id'], $releasePayload['imdb_id']);
+
+                        $GLOBALS['_umdb_last_error'] = null;
+                        $umdbResult = umdbPost('/api/v1/releases', $releasePayload);
+
+                        if (!$umdbResult) {
+                            $retryErr = $GLOBALS['_umdb_last_error'] ?? '';
+                            jsonResponse(false, null, 'Movie was added to UMDB but copy push failed' . ($retryErr ? " — $retryErr" : ''));
+                        }
+                    } else {
+                        $movieErr = $GLOBALS['_umdb_last_error'] ?? '';
+                        jsonResponse(false, null, 'Could not auto-add movie to UMDB' . ($movieErr ? " — $movieErr" : '') . '. Original error: ' . $detail);
+                    }
+                } else {
+                    jsonResponse(false, null, 'Failed to push copy to UMDB' . ($detail ? " — $detail" : ' — UMDB may be unavailable'));
+                }
+            }
+
+            // Extract release ID from response
+            $isDuplicate = !empty($umdbResult['duplicate']);
+            $releaseData = $umdbResult['edition'] ?? $umdbResult['release'] ?? null;
+            $umdbReleaseId = null;
+            if ($releaseData && is_array($releaseData)) {
+                $umdbReleaseId = $releaseData['id'] ?? $releaseData['release_id'] ?? null;
+            }
+            if (empty($umdbReleaseId)) {
+                $umdbReleaseId = $umdbResult['id'] ?? $umdbResult['release_id'] ?? null;
+            }
+            if (empty($umdbReleaseId)) {
+                jsonResponse(false, null, 'UMDB did not return a release ID');
+            }
+
+            // Store link and mark as PENDING verification
+            $stmt = $db->prepare("UPDATE copies SET umdb_physical_copy_id = ?, umdb_sync_status = 'PENDING' WHERE id = ?");
+            $stmt->execute([$umdbReleaseId, $copyId]);
+
+            logAction($db, $userId, 'copy_pushed_to_umdb', 'copy', $copyId, [
+                'umdb_physical_copy_id' => $umdbReleaseId,
+                'duplicate' => $isDuplicate,
+            ]);
+
+            jsonResponse(true, [
+                'copy_id'               => $copyId,
+                'umdb_physical_copy_id' => $umdbReleaseId,
+                'duplicate'             => $isDuplicate,
+            ]);
+            break;
+
         case 'list_collection':
             $stmt = $db->prepare("
                 SELECT 
@@ -1271,6 +1498,16 @@ case 'update_copy':
     $bonusDiscCount = intval($input['bonus_disc_count'] ?? 0);
     $hasDigitalCopy = intval($input['has_digital_copy'] ?? 0);
     $has3d = intval($input['has_3d'] ?? 0);
+    // UMDB-compatible collector fields (v8.0.0)
+    $barcode = sanitize($input['barcode'] ?? '', 50);
+    $ean = sanitize($input['ean'] ?? '', 20);
+    $asin = sanitize($input['asin'] ?? '', 20);
+    $editionPublisher = sanitize($input['edition_publisher'] ?? '', 150);
+    $copyStudio = sanitize($input['studio'] ?? '', 150);
+    $country = sanitize($input['country'] ?? '', 50);
+    $language = sanitize($input['language'] ?? '', 100);
+    $videoStandard = sanitize($input['video_standard'] ?? '', 20);
+    $bonusContent = sanitize($input['bonus_content'] ?? '', 500);
 
     if (empty($copyId) || empty($format)) {
         jsonResponse(false, null, 'Copy ID and format required');
@@ -1295,12 +1532,16 @@ case 'update_copy':
         SET format = ?, edition = ?, region = ?, condition = ?, notes = ?, seasons_owned = ?,
             aspect_ratio = ?, package_type = ?, feature_count = ?,
             has_slipcover = ?, has_booklet = ?, has_bonus_disc = ?, bonus_disc_count = ?,
-            has_digital_copy = ?, has_3d = ?
+            has_digital_copy = ?, has_3d = ?,
+            barcode = ?, ean = ?, asin = ?, edition_publisher = ?, studio = ?,
+            country = ?, language = ?, video_standard = ?, bonus_content = ?
         WHERE id = ? AND user_id = ?
     ");
     $stmt->execute([$format, $edition, $region, $condition, $notes, $seasonsOwned ?: null,
         $aspectRatio ?: null, $packageType ?: null, $featureCount ?: 'Single',
         $hasSlipcover, $hasBooklet, $hasBonusDisc, $bonusDiscCount, $hasDigitalCopy, $has3d,
+        $barcode ?: null, $ean ?: null, $asin ?: null, $editionPublisher ?: null, $copyStudio ?: null,
+        $country ?: null, $language ?: null, $videoStandard ?: null, $bonusContent ?: null,
         $copyId, $userId]);
     
     logAction($db, $userId, 'copy_updated', 'copy', $copyId);  // ← FIXED!

@@ -1879,8 +1879,14 @@ function renderCollection() {
                 ${copies.map((copy, index) => `
                     <div class="copy-item" id="copy-item-${copy.id}">
                         <div class="copy-header">
-                            <strong>Copy #${index + 1}</strong>
-                            <div style="display: flex; gap: 0.5rem;">
+                            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                                <strong>Copy #${index + 1}</strong>
+                                ${copy.umdb_physical_copy_id
+                                    ? `<span class="umdb-link-badge" title="${copy.umdb_physical_copy_id}">UMDB ${copy.umdb_sync_status === 'PENDING' ? '⏳' : '✓'}</span>`
+                                    : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items:center;">
+                                ${!copy.umdb_physical_copy_id ? `<button class="btn-sm btn-umdb-sm" onclick="App.pushCopyToUmdb(${copy.id}, ${movieId})" title="Push to UMDB">Push to UMDB</button>` : ''}
                                 <button class="btn-icon" onclick="App.editCopy(${copy.id})" title="Edit">✏️</button>
                                 <button class="btn-icon" onclick="App.deleteCopy(${copy.id}, ${movieId})" title="Delete">🗑️</button>
                             </div>
@@ -1891,9 +1897,14 @@ function renderCollection() {
                             <div><strong>Format:</strong> ${copy.format}</div>
                             ${copy.aspect_ratio ? `<div><strong>Aspect Ratio:</strong> ${copy.aspect_ratio}</div>` : ''}
                             ${copy.edition ? `<div><strong>Edition:</strong> ${copy.edition}</div>` : ''}
+                            ${copy.edition_publisher ? `<div><strong>Publisher:</strong> ${copy.edition_publisher}</div>` : ''}
+                            ${copy.studio ? `<div><strong>Studio:</strong> ${copy.studio}</div>` : ''}
                             ${copy.package_type ? `<div><strong>Package:</strong> ${copy.package_type}</div>` : ''}
                             ${copy.feature_count && copy.feature_count !== 'Single' ? `<div><strong>Features:</strong> ${copy.feature_count}</div>` : ''}
                             ${copy.region ? `<div><strong>Region:</strong> ${copy.region}</div>` : ''}
+                            ${copy.country ? `<div><strong>Country:</strong> ${copy.country}</div>` : ''}
+                            ${copy.language ? `<div><strong>Language(s):</strong> ${copy.language}</div>` : ''}
+                            ${copy.video_standard ? `<div><strong>Video Standard:</strong> ${copy.video_standard}</div>` : ''}
                             ${copy.condition ? `<div><strong>Condition:</strong> ${copy.condition}</div>` : ''}
                             ${copy.seasons_owned ? `<div><strong>Seasons:</strong> ${copy.seasons_owned}</div>` : ''}
                             ${(copy.has_slipcover || copy.has_booklet || copy.has_bonus_disc || copy.has_digital_copy || copy.has_3d) ? `
@@ -1904,6 +1915,9 @@ function renderCollection() {
                                 copy.has_digital_copy ? 'Digital Copy' : '',
                                 copy.has_3d ? '3D' : ''
                             ].filter(Boolean).join(', ')}</div>` : ''}
+                            ${copy.bonus_content ? `<div><strong>Bonus Content:</strong> ${copy.bonus_content}</div>` : ''}
+                            ${copy.barcode ? `<div><strong>Barcode:</strong> <span style="font-family:monospace;">${copy.barcode}</span>${copy.ean && copy.ean !== copy.barcode ? ` / EAN: <span style="font-family:monospace;">${copy.ean}</span>` : ''}</div>` : ''}
+                            ${copy.asin ? `<div><strong>ASIN:</strong> <span style="font-family:monospace;">${copy.asin}</span></div>` : ''}
                             ${copy.notes ? `<div><strong>Notes:</strong> ${copy.notes}</div>` : ''}
 
                             <!-- Physical Edition & Component Tracking -->
@@ -2090,6 +2104,55 @@ function renderCollection() {
                             </div>
                             ` : ''}
 
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Edition Publisher</label>
+                                    <input type="text" id="edit-edition-publisher-${copy.id}" class="form-control" value="${copy.edition_publisher || ''}" placeholder="e.g., Criterion, Arrow">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Studio / Distributor</label>
+                                    <input type="text" id="edit-studio-${copy.id}" class="form-control" value="${copy.studio || ''}" placeholder="e.g., Warner Bros.">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Country</label>
+                                    <input type="text" id="edit-country-${copy.id}" class="form-control" value="${copy.country || ''}" placeholder="e.g., US, CA, UK">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Language(s)</label>
+                                    <input type="text" id="edit-language-${copy.id}" class="form-control" value="${copy.language || ''}" placeholder="e.g., English, French">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Video Standard</label>
+                                    <select id="edit-video-standard-${copy.id}" class="form-control">
+                                        <option value="" ${!copy.video_standard ? 'selected' : ''}>Not Specified</option>
+                                        <option value="NTSC" ${copy.video_standard === 'NTSC' ? 'selected' : ''}>NTSC</option>
+                                        <option value="PAL" ${copy.video_standard === 'PAL' ? 'selected' : ''}>PAL</option>
+                                        <option value="SECAM" ${copy.video_standard === 'SECAM' ? 'selected' : ''}>SECAM</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Barcode (UPC)</label>
+                                    <input type="text" id="edit-barcode-${copy.id}" class="form-control" value="${copy.barcode || ''}" placeholder="12-digit UPC">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display:flex; gap:0.5rem;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>EAN</label>
+                                    <input type="text" id="edit-ean-${copy.id}" class="form-control" value="${copy.ean || ''}" placeholder="13-digit EAN">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>ASIN</label>
+                                    <input type="text" id="edit-asin-${copy.id}" class="form-control" value="${copy.asin || ''}" placeholder="Amazon ASIN">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Bonus Content</label>
+                                <input type="text" id="edit-bonus-content-${copy.id}" class="form-control" value="${copy.bonus_content || ''}" placeholder="e.g., Director's commentary, featurettes">
+                            </div>
                             <div class="form-group">
                                 <label>Notes</label>
                                 <textarea id="edit-notes-${copy.id}"
@@ -2113,6 +2176,15 @@ function renderCollection() {
             <div id="addCopyFormInline" style="display: none; margin-top: 1rem;" class="copy-item">
                 <div class="copy-header"><strong>New Copy</strong></div>
                 <div class="copy-edit-form" style="display: block;">
+                    <!-- Barcode lookup -->
+                    <div class="form-group">
+                        <label>Barcode (UPC / EAN / ASIN)</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="text" id="new-copy-barcode" class="form-control" placeholder="Scan or type barcode…" style="flex:1;">
+                            <button class="btn-secondary" style="white-space:nowrap;" onclick="App.lookupBarcode('new-copy', ${movieId})">🔍 Look Up</button>
+                        </div>
+                        <div id="new-copy-barcode-result" style="font-size:0.8rem; margin-top:0.25rem; color:var(--text-muted);"></div>
+                    </div>
                     <div class="form-row" style="display:flex; gap:0.5rem;">
                         <div class="form-group" style="flex:1;">
                             <label>Format *</label>
@@ -2124,6 +2196,11 @@ function renderCollection() {
                                 <option value="Digital">Digital</option>
                                 <option value="VHS">VHS</option>
                                 <option value="LaserDisc">LaserDisc</option>
+                                <option value="Betamax">Betamax</option>
+                                <option value="HD-DVD">HD-DVD</option>
+                                <option value="8mm Film">8mm Film</option>
+                                <option value="16mm Film">16mm Film</option>
+                                <option value="35mm Film">35mm Film</option>
                             </select>
                         </div>
                         <div class="form-group" style="flex:1;">
@@ -2144,6 +2221,22 @@ function renderCollection() {
                             <input type="text" id="new-copy-edition" class="form-control" placeholder="e.g., Director's Cut">
                         </div>
                         <div class="form-group" style="flex:1;">
+                            <label>Edition Publisher</label>
+                            <input type="text" id="new-copy-edition-publisher" class="form-control" placeholder="e.g., Criterion, Arrow">
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Studio / Distributor</label>
+                            <input type="text" id="new-copy-studio" class="form-control" placeholder="e.g., Warner Bros.">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Country of Release</label>
+                            <input type="text" id="new-copy-country" class="form-control" placeholder="e.g., US, CA, UK">
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
                             <label>Package Type</label>
                             <select id="new-copy-package-type" class="form-control">
                                 <option value="">Standard Amaray</option>
@@ -2156,6 +2249,15 @@ function renderCollection() {
                                 <option value="Eco Case">Eco Case</option>
                                 <option value="Keep Case">Keep Case</option>
                                 <option value="Tin Case">Tin Case</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Video Standard</label>
+                            <select id="new-copy-video-standard" class="form-control">
+                                <option value="">Not Specified</option>
+                                <option value="NTSC">NTSC</option>
+                                <option value="PAL">PAL</option>
+                                <option value="SECAM">SECAM</option>
                             </select>
                         </div>
                     </div>
@@ -2185,9 +2287,25 @@ function renderCollection() {
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Region</label>
-                        <input type="text" id="new-copy-region" class="form-control" value="${settings.defaultPhysicalRegion || ''}" placeholder="e.g., Region 1">
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Region</label>
+                            <input type="text" id="new-copy-region" class="form-control" value="${settings.defaultPhysicalRegion || ''}" placeholder="e.g., Region 1">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Language(s)</label>
+                            <input type="text" id="new-copy-language" class="form-control" placeholder="e.g., English, French">
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:flex; gap:0.5rem;">
+                        <div class="form-group" style="flex:1;">
+                            <label>EAN</label>
+                            <input type="text" id="new-copy-ean" class="form-control" placeholder="13-digit barcode">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>ASIN</label>
+                            <input type="text" id="new-copy-asin" class="form-control" placeholder="Amazon ASIN">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Packaging Extras</label>
@@ -2198,6 +2316,10 @@ function renderCollection() {
                             <label class="toggle-chip"><input type="checkbox" id="new-copy-digital-copy"><span>Digital Copy</span></label>
                             <label class="toggle-chip"><input type="checkbox" id="new-copy-3d"><span>3D</span></label>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Bonus Content</label>
+                        <input type="text" id="new-copy-bonus-content" class="form-control" placeholder="e.g., Director's commentary, featurettes">
                     </div>
                     ${isTV ? `
                     <div class="form-group">
@@ -2246,6 +2368,53 @@ function hideAddCopyForm() {
     document.getElementById('addCopyBtn').style.display = 'block';
 }
 
+async function lookupBarcode(prefix, movieId) {
+    const barcodeEl = document.getElementById(`${prefix}-barcode`);
+    const resultEl = document.getElementById(`${prefix}-barcode-result`);
+    const barcode = barcodeEl?.value.trim();
+    if (!barcode) { showToast('Enter a barcode first', 'error'); return; }
+
+    if (resultEl) resultEl.textContent = 'Looking up…';
+    try {
+        const data = await apiCall('barcode_lookup', { barcode });
+        if (!data.found) {
+            if (resultEl) resultEl.textContent = 'No results found for this barcode.';
+            return;
+        }
+        if (resultEl) resultEl.textContent = `Found via ${data.source || 'UMDB'} (confidence: ${data.confidence ?? '?'})`;
+
+        // Prefill form fields with lookup data
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+        set(`${prefix}-edition-publisher`, data.edition_publisher || data.distributor);
+        set(`${prefix}-studio`, data.studio);
+        set(`${prefix}-country`, data.country);
+        set(`${prefix}-language`, data.language);
+        set(`${prefix}-ean`, data.ean || (barcode.length === 13 ? barcode : ''));
+        set(`${prefix}-asin`, data.asin);
+        if (data.edition_name) set(`${prefix}-edition`, data.edition_name);
+
+        // Auto-select format if detected
+        if (data.format) {
+            const fmtEl = document.getElementById(`${prefix}-format`);
+            if (fmtEl) {
+                const opts = Array.from(fmtEl.options);
+                const match = opts.find(o => o.value.toLowerCase() === data.format.toLowerCase());
+                if (match) fmtEl.value = match.value;
+            }
+        }
+
+        if (data.cover_image_url) {
+            const img = document.querySelector(`#copyManagerModal .movie-poster-img`);
+            if (img) img.src = data.cover_image_url;
+        }
+
+        showToast('Form prefilled from barcode lookup!', 'success');
+    } catch (err) {
+        if (resultEl) resultEl.textContent = 'Lookup failed — check your connection.';
+        showToast(err.message || 'Barcode lookup failed', 'error');
+    }
+}
+
 async function saveNewCopy(movieId) {
     const format = document.getElementById('new-copy-format').value;
     const aspectRatio = document.getElementById('new-copy-aspect-ratio')?.value || '';
@@ -2262,6 +2431,15 @@ async function saveNewCopy(movieId) {
     const seasonsEl = document.getElementById('new-copy-seasons');
     const seasonsOwned = seasonsEl ? seasonsEl.value.trim() : '';
     const notes = document.getElementById('new-copy-notes').value.trim();
+    const barcode = document.getElementById('new-copy-barcode')?.value.trim() || '';
+    const ean = document.getElementById('new-copy-ean')?.value.trim() || '';
+    const asin = document.getElementById('new-copy-asin')?.value.trim() || '';
+    const editionPublisher = document.getElementById('new-copy-edition-publisher')?.value.trim() || '';
+    const studio = document.getElementById('new-copy-studio')?.value.trim() || '';
+    const country = document.getElementById('new-copy-country')?.value.trim() || '';
+    const language = document.getElementById('new-copy-language')?.value.trim() || '';
+    const videoStandard = document.getElementById('new-copy-video-standard')?.value || '';
+    const bonusContent = document.getElementById('new-copy-bonus-content')?.value.trim() || '';
 
     try {
         await apiCall('add_copy', {
@@ -2271,6 +2449,7 @@ async function saveNewCopy(movieId) {
             region,
             condition,
             notes,
+            barcode,
             seasons_owned: seasonsOwned,
             cert_region: settings.certRegion || 'US',
             aspect_ratio: aspectRatio,
@@ -2281,7 +2460,15 @@ async function saveNewCopy(movieId) {
             has_bonus_disc: hasBonusDisc,
             bonus_disc_count: hasBonusDisc ? 1 : 0,
             has_digital_copy: hasDigitalCopy,
-            has_3d: has3d
+            has_3d: has3d,
+            ean,
+            asin,
+            edition_publisher: editionPublisher,
+            studio,
+            country,
+            language,
+            video_standard: videoStandard,
+            bonus_content: bonusContent
         });
 
         showToast('Copy added!', 'success');
@@ -2324,6 +2511,16 @@ async function saveCopyEdit(copyId, movieId) {
     const bonusDiscCount = hasBonusDisc ? parseInt(document.getElementById(`edit-bonus-disc-count-${copyId}`)?.value || '1') : 0;
     const hasDigitalCopy = document.getElementById(`edit-digital-copy-${copyId}`)?.checked ? 1 : 0;
     const has3d = document.getElementById(`edit-3d-${copyId}`)?.checked ? 1 : 0;
+    // UMDB-compatible fields (v8.0.0)
+    const barcode = document.getElementById(`edit-barcode-${copyId}`)?.value.trim() || '';
+    const ean = document.getElementById(`edit-ean-${copyId}`)?.value.trim() || '';
+    const asin = document.getElementById(`edit-asin-${copyId}`)?.value.trim() || '';
+    const editionPublisher = document.getElementById(`edit-edition-publisher-${copyId}`)?.value.trim() || '';
+    const studio = document.getElementById(`edit-studio-${copyId}`)?.value.trim() || '';
+    const country = document.getElementById(`edit-country-${copyId}`)?.value.trim() || '';
+    const language = document.getElementById(`edit-language-${copyId}`)?.value.trim() || '';
+    const videoStandard = document.getElementById(`edit-video-standard-${copyId}`)?.value || '';
+    const bonusContent = document.getElementById(`edit-bonus-content-${copyId}`)?.value.trim() || '';
 
     if (!format) {
         showToast('Format is required', 'error');
@@ -2338,6 +2535,7 @@ async function saveCopyEdit(copyId, movieId) {
             region,
             condition,
             notes,
+            barcode,
             seasons_owned: seasonsOwned,
             aspect_ratio: aspectRatio,
             package_type: packageType,
@@ -2347,7 +2545,15 @@ async function saveCopyEdit(copyId, movieId) {
             has_bonus_disc: hasBonusDisc,
             bonus_disc_count: bonusDiscCount,
             has_digital_copy: hasDigitalCopy,
-            has_3d: has3d
+            has_3d: has3d,
+            ean,
+            asin,
+            edition_publisher: editionPublisher,
+            studio,
+            country,
+            language,
+            video_standard: videoStandard,
+            bonus_content: bonusContent
         });
         
         showToast('Copy updated successfully!', 'success');
@@ -3604,6 +3810,23 @@ async function deleteCopy(copyId, movieId) {
         } catch (error) {
             console.error('Failed to push to UMDB:', error);
             showToast(error.message || 'Failed to push edition to UMDB', 'error');
+        }
+    }
+
+    async function pushCopyToUmdb(copyId, movieId) {
+        if (!confirm('Push this copy to UMDB as a release record?\n\nThis will sync your physical copy details (format, barcode, edition, publisher, etc.) to the Universal Media Database.')) return;
+        try {
+            const result = await apiCall('push_copy_to_umdb', { copy_id: copyId });
+            if (result && result.umdb_physical_copy_id) {
+                const msg = result.duplicate
+                    ? `Linked to existing UMDB release (duplicate): ${result.umdb_physical_copy_id}`
+                    : `Pushed to UMDB: ${result.umdb_physical_copy_id}`;
+                showToast(msg, 'success');
+                await openCopyManager(movieId);
+            }
+        } catch (error) {
+            console.error('Failed to push copy to UMDB:', error);
+            showToast(error.message || 'Failed to push copy to UMDB', 'error');
         }
     }
 
@@ -14020,6 +14243,7 @@ return {
     saveCopyEdit,
     showAddCopyForm,
     hideAddCopyForm,
+    lookupBarcode,
     saveNewCopy,
     // Physical Media Editions & Component Tracking (v4.0.0)
     openEditionPicker,
@@ -14052,6 +14276,7 @@ return {
     importUmdbRelease,
     importUmdbBoxset,
     pushEditionToUmdb,
+    pushCopyToUmdb,
     updateUmdbRelease,
     syncEditionFromUmdb,
     pushBoxSetToUmdb,

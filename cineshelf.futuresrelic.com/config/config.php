@@ -484,6 +484,23 @@ function getDb() {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_movie_views_group ON movie_views(group_id)");
         } catch (PDOException $e) {}
 
+        // Auto-migrate: UMDB Physical Copy Integration (v8.0.0)
+        try { $db->exec("ALTER TABLE copies ADD COLUMN ean TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN edition_publisher TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN bonus_content TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN video_standard TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN language TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN studio TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN asin TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN country TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN umdb_physical_copy_id TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE copies ADD COLUMN umdb_sync_status TEXT DEFAULT 'UNSYNCED'"); } catch (PDOException $e) {}
+        try { $db->exec("CREATE INDEX IF NOT EXISTS idx_copies_umdb_physical ON copies(umdb_physical_copy_id)"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE movies ADD COLUMN original_title TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE movies ADD COLUMN tagline TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN edition_publisher TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE media_editions ADD COLUMN cover_image_url TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {
