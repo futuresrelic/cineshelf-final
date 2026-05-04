@@ -373,6 +373,7 @@
                         <option value="all">All Ratings</option>
                     </select>
                     <button class="btn-ghost wishlist-browse-btn" onclick="App.openPresetLists()" title="Browse curated movie lists">📚 Browse Lists</button>
+                    <button class="btn-ghost wishlist-browse-btn" onclick="App.openWishlistScraper()" title="Import from a web article or top-10 list">🌐 Scrape List</button>
                 </div>
 
                 <div id="wishlistGrid" class="movie-grid grid-view"></div>
@@ -1635,6 +1636,59 @@
                 <button class="modal-close" onclick="document.getElementById('quickOwnModal').classList.remove('active')">×</button>
             </div>
             <div class="modal-body" id="quickOwnBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         WISHLIST SCRAPER MODAL
+         ===================================================== -->
+    <div id="wishlistScraperModal" class="modal">
+        <div class="modal-content" style="max-width:560px;">
+            <div class="modal-header">
+                <h3>🌐 Import from Web List</h3>
+                <button class="modal-close" onclick="App.closeWishlistScraper()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">
+                    Paste a URL from any top-10 or best-of list and AI will extract the movies and add them to your wishlist.
+                </p>
+                <div class="form-group">
+                    <label>Article / List URL</label>
+                    <div style="display:flex;gap:0.5rem;">
+                        <input type="url" id="scrapeUrl" class="form-control"
+                               placeholder="https://www.imdb.com/list/…" style="flex:1;">
+                        <button class="btn" onclick="App.runWishlistScrape()">🤖 Extract</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:normal;">
+                        <input type="checkbox" id="scrapeUseAI" checked style="width:auto;">
+                        <span>AI-assisted extraction (recommended)</span>
+                    </label>
+                </div>
+                <div id="scrapeStatus" style="display:none;font-size:0.85rem;padding:0.5rem 0.75rem;border-radius:6px;margin-bottom:0.75rem;"></div>
+
+                <details style="margin-bottom:0.75rem;">
+                    <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted);">Or paste movie titles manually</summary>
+                    <div style="margin-top:0.5rem;">
+                        <textarea id="scrapeManualText" class="form-control" rows="5"
+                            placeholder="One per line, e.g.&#10;The Godfather (1972)&#10;Blade Runner (1982)"></textarea>
+                        <button class="btn-secondary" style="margin-top:0.5rem;width:100%;" onclick="App.parseWishlistManual()">Parse Titles</button>
+                    </div>
+                </details>
+
+                <div id="scrapeResults" style="display:none;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                        <strong id="scrapeCount" style="font-size:0.9rem;"></strong>
+                        <button class="btn-secondary" style="font-size:0.8rem;padding:4px 10px;" onclick="App.clearScrapeResults()">Clear</button>
+                    </div>
+                    <div id="scrapeMovieList" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem;"></div>
+                    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <button class="btn" style="flex:1;" onclick="App.addScrapeResultsToWishlist()">❤️ Add All New to Wishlist</button>
+                        <button class="btn-secondary" onclick="App.closeWishlistScraper()">Done</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

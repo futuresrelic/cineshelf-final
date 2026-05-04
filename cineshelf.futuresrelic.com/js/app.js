@@ -1229,7 +1229,11 @@ function renderCollection() {
                 <textarea id="qown-notes" class="form-control" rows="2"
                     placeholder="Optional notes…">${preNotes ? esc(preNotes) : ''}</textarea>
             </div>
-            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:0.6rem;margin-top:0.75rem;cursor:pointer;padding:0.6rem 0.75rem;border-radius:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);">
+                <input type="checkbox" id="qown-remove-wishlist" checked style="width:auto;accent-color:#10b981;">
+                <span style="font-size:0.875rem;">Remove from wishlist after adding</span>
+            </label>
+            <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
                 <button class="btn" onclick="App._saveQuickOwn(${movieId})">📦 Add to Collection</button>
                 <button class="btn-secondary" onclick="document.getElementById('quickOwnModal').classList.remove('active')">Cancel</button>
             </div>
@@ -1240,28 +1244,39 @@ function renderCollection() {
     async function _saveQuickOwn(movieId) {
         const item = wishlist.find(w => w.movie_id === movieId);
         if (!item) return;
-        const format    = document.getElementById('qown-format')?.value || 'DVD';
-        const condition = document.getElementById('qown-condition')?.value || 'Good';
-        const notes     = document.getElementById('qown-notes')?.value.trim() || '';
+        const format         = document.getElementById('qown-format')?.value || 'DVD';
+        const condition      = document.getElementById('qown-condition')?.value || 'Good';
+        const notes          = document.getElementById('qown-notes')?.value.trim() || '';
+        const removeWishlist = document.getElementById('qown-remove-wishlist')?.checked !== false;
+
+        // Close the modal immediately — no more waiting mid-flow
+        document.getElementById('quickOwnModal').classList.remove('active');
 
         try {
-            await apiCall('add_copy', {
-                movie_id:  movieId,
-                tmdb_id:   item.tmdb_id,
-                format,
-                condition,
-                notes,
-                media_type: item.media_type || 'movie',
-            });
-            document.getElementById('quickOwnModal').classList.remove('active');
-            showToast(`"${item.display_title||item.title}" added to your collection!`, 'success');
-            await loadCollection();
-            // Offer to remove from wishlist
-            if (confirm('Added! Remove from wishlist now?')) {
-                await apiCall('remove_wishlist', { movie_id: movieId });
-                await loadWishlist();
-                showToast('Removed from wishlist', 'info');
+            // Fire both operations concurrently when possible
+            const ops = [
+                apiCall('add_copy', {
+                    movie_id:   movieId,
+                    tmdb_id:    item.tmdb_id,
+                    format,
+                    condition,
+                    notes,
+                    media_type: item.media_type || 'movie',
+                })
+            ];
+            if (removeWishlist) {
+                ops.push(apiCall('remove_wishlist', { movie_id: movieId }));
             }
+            await Promise.all(ops);
+
+            const title = item.display_title || item.title || 'Film';
+            const msg = removeWishlist
+                ? `"${title}" added to collection and removed from wishlist`
+                : `"${title}" added to collection`;
+            showToast(msg, 'success');
+
+            // Refresh both lists in parallel
+            await Promise.all([loadCollection(), removeWishlist ? loadWishlist() : Promise.resolve()]);
         } catch (e) {
             showToast(e.message || 'Failed to add to collection', 'error');
         }
@@ -1333,6 +1348,164 @@ function renderCollection() {
             console.error('Failed to load presets:', error);
             PRESET_LISTS = {}; // Fallback to empty if load fails
         }
+    }
+
+    // ── Wishlist Web Scraper ──────────────────────────────────────────────────
+    let _scrapeMovies = [];   // {title, year} objects from last extraction
+
+    function openWishlistScraper() {
+        _scrapeMovies = [];
+        const modal = document.getElementById('wishlistScraperModal');
+        if (!modal) return;
+        document.getElementById('scrapeUrl').value = '';
+        document.getElementById('scrapeStatus').style.display = 'none';
+        document.getElementById('scrapeResults').style.display = 'none';
+        if (document.getElementById('scrapeManualText')) document.getElementById('scrapeManualText').value = '';
+        modal.classList.add('active');
+    }
+
+    function closeWishlistScraper() {
+        const modal = document.getElementById('wishlistScraperModal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    function _setScrapeStatus(msg, type) {
+        const el = document.getElementById('scrapeStatus');
+        if (!el) return;
+        el.style.display = 'block';
+        el.textContent = msg;
+        el.style.background = type === 'error' ? 'rgba(239,68,68,0.15)' :
+                              type === 'success' ? 'rgba(16,185,129,0.15)' :
+                              'rgba(102,126,234,0.15)';
+        el.style.color = type === 'error' ? 'var(--error,#ef4444)' :
+                         type === 'success' ? '#10b981' : 'var(--text)';
+    }
+
+    function _parseTitleLines(text) {
+        const movies = [];
+        const seen = new Set();
+        for (const raw of text.split('\n')) {
+            const line = raw.trim().replace(/^\d+[\.\)]\s*/, '').trim();
+            if (!line) continue;
+            const m = line.match(/^(.+?)\s*\((\d{4})\)\s*$/);
+            const title = m ? m[1].trim() : line.replace(/\b\d{4}\b/, '').replace(/[()]/g,'').trim();
+            const year  = m ? parseInt(m[2]) : (line.match(/\b(\d{4})\b/)?.[1] ? parseInt(line.match(/\b(\d{4})\b/)[1]) : null);
+            if (!title || seen.has(title.toLowerCase())) continue;
+            seen.add(title.toLowerCase());
+            movies.push({ title, year });
+        }
+        return movies;
+    }
+
+    function _renderScrapeResults() {
+        const listEl = document.getElementById('scrapeMovieList');
+        const countEl = document.getElementById('scrapeCount');
+        const resultsEl = document.getElementById('scrapeResults');
+        if (!listEl) return;
+
+        const wishlistIds = new Set(wishlist.map(w => (w.display_title || w.title || '').toLowerCase()));
+
+        countEl.textContent = `${_scrapeMovies.length} film${_scrapeMovies.length !== 1 ? 's' : ''} extracted`;
+        listEl.innerHTML = _scrapeMovies.map((m, i) => {
+            const key = m.title.toLowerCase();
+            const alreadyIn = wishlistIds.has(key);
+            return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);${alreadyIn ? 'opacity:0.5;' : ''}">
+                <div style="flex:1;min-width:0;">
+                    <span style="font-weight:600;font-size:0.9rem;">${m.title}</span>
+                    ${m.year ? `<span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.4rem;">${m.year}</span>` : ''}
+                    ${alreadyIn ? `<span style="font-size:0.75rem;color:#10b981;margin-left:0.4rem;">✓ in wishlist</span>` : ''}
+                </div>
+                ${!alreadyIn ? `<button style="font-size:0.75rem;padding:2px 8px;background:rgba(239,68,68,0.15);border:none;border-radius:4px;cursor:pointer;color:var(--text);" onclick="App._removeScrapeResult(${i})">✕</button>` : ''}
+            </div>`;
+        }).join('');
+        resultsEl.style.display = 'block';
+    }
+
+    function _removeScrapeResult(index) {
+        _scrapeMovies.splice(index, 1);
+        _renderScrapeResults();
+    }
+
+    function clearScrapeResults() {
+        _scrapeMovies = [];
+        document.getElementById('scrapeResults').style.display = 'none';
+        document.getElementById('scrapeStatus').style.display = 'none';
+    }
+
+    function parseWishlistManual() {
+        const text = document.getElementById('scrapeManualText')?.value || '';
+        _scrapeMovies = _parseTitleLines(text);
+        if (_scrapeMovies.length === 0) {
+            _setScrapeStatus('No movies found — check formatting (Title (Year) per line)', 'error');
+            return;
+        }
+        _setScrapeStatus(`Parsed ${_scrapeMovies.length} titles`, 'success');
+        _renderScrapeResults();
+    }
+
+    async function runWishlistScrape() {
+        const url = document.getElementById('scrapeUrl')?.value.trim();
+        if (!url) { _setScrapeStatus('Enter a URL first', 'error'); return; }
+        const useAI = document.getElementById('scrapeUseAI')?.checked !== false;
+        _setScrapeStatus(useAI ? '🤖 AI is fetching and extracting the list…' : '🔄 Fetching article…', 'info');
+        document.getElementById('scrapeResults').style.display = 'none';
+
+        try {
+            const result = await apiCall('fetch_article', { url, use_ai: useAI });
+            let movies = [];
+            if (result && result.ai_extracted && Array.isArray(result.movies)) {
+                movies = result.movies.map(m => typeof m === 'string'
+                    ? { title: m, year: null }
+                    : { title: m.title || m, year: m.year || null });
+            } else if (result && result.content) {
+                // Fallback: regex parse plain text
+                movies = _parseTitleLines(result.content);
+            }
+            if (movies.length === 0) {
+                _setScrapeStatus('No movies found. Try pasting the text manually instead.', 'error');
+                return;
+            }
+            _scrapeMovies = movies.filter(m => m.title);
+            _setScrapeStatus(`✅ Found ${_scrapeMovies.length} films!`, 'success');
+            _renderScrapeResults();
+        } catch (err) {
+            _setScrapeStatus(`Failed: ${err.message || 'could not reach article'}`, 'error');
+        }
+    }
+
+    async function addScrapeResultsToWishlist() {
+        const wishlistKeys = new Set(wishlist.map(w => (w.display_title || w.title || '').toLowerCase()));
+        const toAdd = _scrapeMovies.filter(m => !wishlistKeys.has(m.title.toLowerCase()));
+        if (toAdd.length === 0) {
+            _setScrapeStatus('All films are already in your wishlist!', 'success');
+            return;
+        }
+        _setScrapeStatus(`Adding ${toAdd.length} film${toAdd.length !== 1 ? 's' : ''} to wishlist…`, 'info');
+
+        let added = 0;
+        let failed = 0;
+        for (const movie of toAdd) {
+            try {
+                // Search TMDB/UMDB to resolve the title to an ID
+                const searchQ = movie.year ? `${movie.title} ${movie.year}` : movie.title;
+                const results = await apiCall('search_multi', { query: searchQ });
+                if (!Array.isArray(results) || !results.length) { failed++; continue; }
+                const match = results[0];
+                const tmdbId = String(match.id || match.tmdb_id || '');
+                if (!tmdbId) { failed++; continue; }
+                await apiCall('add_wishlist', {
+                    tmdb_id:    tmdbId,
+                    media_type: match.media_type || 'movie',
+                });
+                added++;
+            } catch (_) { failed++; }
+        }
+
+        await loadWishlist();
+        _renderScrapeResults();  // Refresh to show "✓ in wishlist" on newly added items
+        const msg = `Added ${added} film${added !== 1 ? 's' : ''} to wishlist` + (failed ? ` (${failed} not found)` : '');
+        _setScrapeStatus(msg, added > 0 ? 'success' : 'error');
+        if (added > 0) showToast(msg, 'success');
     }
 
     // Load presets when app initializes
@@ -14298,6 +14471,13 @@ return {
     quickOwnWishlistItem,
     _saveQuickOwn,
     moveToCollection,
+    openWishlistScraper,
+    closeWishlistScraper,
+    runWishlistScrape,
+    parseWishlistManual,
+    clearScrapeResults,
+    addScrapeResultsToWishlist,
+    _removeScrapeResult,
     openPresetLists,
     closePresetLists,
     viewPresetList,
