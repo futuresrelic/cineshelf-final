@@ -1,0 +1,5 @@
+Options -Indexes
+
+# Route /share/{handle} to share.php
+RewriteEngine On
+RewriteRule ^share/([a-z0-9-]+)/?$ /share.php?u=$1 [L,QSA]

@@ -709,6 +709,11 @@ select option {
     display: none !important;
 }
 
+/* Admin-only elements — hidden for regular users, revealed by auth.js for admins */
+.admin-only {
+    display: none !important;
+}
+
 .tabs {
     max-width: 1400px;
     margin: 0 auto;

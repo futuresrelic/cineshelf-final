@@ -501,6 +501,13 @@ function getDb() {
         try { $db->exec("ALTER TABLE media_editions ADD COLUMN edition_publisher TEXT DEFAULT NULL"); } catch (PDOException $e) {}
         try { $db->exec("ALTER TABLE media_editions ADD COLUMN cover_image_url TEXT DEFAULT NULL"); } catch (PDOException $e) {}
 
+        // Auto-migrate: Public shareable collection (v8.1.0)
+        try { $db->exec("ALTER TABLE users ADD COLUMN public_collection INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+        try { $db->exec("ALTER TABLE users ADD COLUMN public_username TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+        try { $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_public_username ON users(public_username) WHERE public_username IS NOT NULL"); } catch (PDOException $e) {}
+        // Auto-migrate: Seen-before flag for onboarding (v8.1.0)
+        try { $db->exec("ALTER TABLE users ADD COLUMN has_seen_welcome INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
         return $db;
 
     } catch (PDOException $e) {

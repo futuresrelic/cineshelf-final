@@ -1308,6 +1308,40 @@
                     </div>
                 </div>
                 
+                <!-- ── Public Collection ── -->
+                <div class="settings-group">
+                    <h3>Public Collection</h3>
+
+                    <div class="setting-item setting-item-stacked">
+                        <label>Share My Collection</label>
+                        <small style="color:rgba(255,255,255,0.55); display:block; margin-bottom:0.6rem; line-height:1.4;">
+                            Let anyone view your collection without logging in. Choose a unique handle to create your shareable link.
+                        </small>
+                        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                            <label class="toggle-label" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; flex-shrink:0;">
+                                <input type="checkbox" id="publicCollectionToggle" onchange="App.onPublicToggleChange()" style="width:1.1rem; height:1.1rem; cursor:pointer; accent-color:var(--accent);">
+                                <span style="font-size:0.9rem;">Enable public link</span>
+                            </label>
+                        </div>
+                        <div id="publicHandleRow" style="display:none; margin-top:0.75rem;">
+                            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:rgba(255,255,255,0.5); font-size:0.85rem; flex-shrink:0;">cineshelf.ca/share/</span>
+                                <input type="text" id="publicHandleInput" placeholder="your-handle" maxlength="30"
+                                       pattern="[a-z0-9\-]+" title="Lowercase letters, numbers and hyphens only"
+                                       style="flex:1; min-width:120px; max-width:200px;"
+                                       oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+                                <button class="btn" onclick="App.savePublicSettings()" style="padding:0.5rem 1rem; flex-shrink:0;">Save</button>
+                            </div>
+                            <div id="publicShareUrl" style="display:none; margin-top:0.6rem; padding:0.6rem 0.75rem; background:rgba(102,126,234,0.12); border:1px solid rgba(102,126,234,0.3); border-radius:6px;">
+                                <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                                    <a id="publicShareLink" href="#" target="_blank" style="color:var(--accent); font-size:0.85rem; word-break:break-all; flex:1;"></a>
+                                    <button class="btn btn-secondary" onclick="App.copyShareUrl()" style="padding:0.35rem 0.75rem; font-size:0.8rem; flex-shrink:0;">Copy</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="settings-group">
                     <h3>Data Management</h3>
 
@@ -1884,6 +1918,54 @@
         </div>
     </div>
 </div>
+
+    <!-- Onboarding Welcome Modal -->
+    <div id="onboardingModal" class="modal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 style="font-size:1.3rem;">👋 Welcome to CineShelf!</h3>
+                <button class="modal-close" onclick="App.closeOnboarding()">×</button>
+            </div>
+            <div class="modal-body" style="padding:1.5rem;">
+                <p style="color:rgba(255,255,255,0.85); line-height:1.6; margin-bottom:1.25rem;">
+                    Your personal library for every disc you own. Here's how to get started:
+                </p>
+                <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:1.5rem;">
+                    <div style="display:flex; align-items:flex-start; gap:0.9rem;">
+                        <span style="font-size:1.5rem; line-height:1; flex-shrink:0;">🎬</span>
+                        <div>
+                            <strong style="display:block; margin-bottom:0.2rem;">Add films to your collection</strong>
+                            <span style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.4;">Tap <strong>+</strong> and search any title. Add physical copy details — format, edition, barcode — to build your real shelf.</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; gap:0.9rem;">
+                        <span style="font-size:1.5rem; line-height:1; flex-shrink:0;">📋</span>
+                        <div>
+                            <strong style="display:block; margin-bottom:0.2rem;">Build a wishlist</strong>
+                            <span style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.4;">Save films you want to own. Import an entire top-10 article at once with the web scraper.</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; gap:0.9rem;">
+                        <span style="font-size:1.5rem; line-height:1; flex-shrink:0;">📲</span>
+                        <div>
+                            <strong style="display:block; margin-bottom:0.2rem;">Install as an app</strong>
+                            <span style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.4;">CineShelf works offline. Go to <strong>Settings → Install App</strong> to add it to your home screen.</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:flex-start; gap:0.9rem;">
+                        <span style="font-size:1.5rem; line-height:1; flex-shrink:0;">🔗</span>
+                        <div>
+                            <strong style="display:block; margin-bottom:0.2rem;">Share your collection</strong>
+                            <span style="color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.4;">Enable a public link in <strong>Settings → Public Collection</strong> so anyone can browse your shelf.</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn" onclick="App.closeOnboarding()" style="width:100%; padding:0.8rem; font-size:1rem;">
+                    Let's go! 🍿
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Resolve Modal -->
     <div id="resolveModal" class="modal">

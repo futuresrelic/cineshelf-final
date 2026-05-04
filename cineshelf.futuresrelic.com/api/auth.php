@@ -339,7 +339,8 @@ function handleVerify() {
 
     $db = getDb();
     $stmt = $db->prepare('
-        SELECT s.*, u.username, u.email, u.display_name, u.is_admin, u.profile_picture, u.oauth_provider
+        SELECT s.*, u.username, u.email, u.display_name, u.is_admin, u.profile_picture, u.oauth_provider,
+               u.has_seen_welcome, u.public_collection, u.public_username
         FROM sessions s
         JOIN users u ON s.user_id = u.id
         WHERE s.token = ? AND s.expires_at > CURRENT_TIMESTAMP
@@ -364,7 +365,10 @@ function handleVerify() {
         'display_name' => $session['display_name'],
         'is_admin' => (bool)$session['is_admin'],
         'profile_picture' => $session['profile_picture'],
-        'oauth_provider' => $session['oauth_provider']
+        'oauth_provider' => $session['oauth_provider'],
+        'has_seen_welcome' => (bool)($session['has_seen_welcome'] ?? false),
+        'public_collection' => (bool)($session['public_collection'] ?? false),
+        'public_username' => $session['public_username'] ?? null
     ]);
 }
 

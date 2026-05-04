@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — CineShelf</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: rgba(255,255,255,0.87);
+            line-height: 1.7;
+        }
+        nav {
+            position: sticky; top: 0;
+            background: rgba(15,15,15,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 1rem 1.5rem;
+            display: flex; align-items: center; gap: 1rem;
+            z-index: 100;
+        }
+        nav a { color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.9rem; }
+        nav a:hover { color: #fff; }
+        .logo { font-weight: 700; font-size: 1.1rem; color: #fff; text-decoration: none; }
+        .logo span { color: #667eea; }
+        .sep { color: rgba(255,255,255,0.2); }
+        main { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+        h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .subtitle { color: rgba(255,255,255,0.45); font-size: 0.9rem; margin-bottom: 3rem; }
+        h2 {
+            font-size: 1.15rem; font-weight: 600;
+            color: #667eea;
+            margin: 2.5rem 0 0.75rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid rgba(102,126,234,0.2);
+        }
+        p { margin-bottom: 1rem; color: rgba(255,255,255,0.78); }
+        ul { margin: 0.5rem 0 1rem 1.5rem; }
+        li { margin-bottom: 0.4rem; color: rgba(255,255,255,0.78); }
+        strong { color: rgba(255,255,255,0.95); }
+        a { color: #667eea; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .callout {
+            background: rgba(102,126,234,0.1);
+            border: 1px solid rgba(102,126,234,0.25);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .callout p { margin: 0; color: rgba(255,255,255,0.85); }
+        footer { text-align: center; padding: 2rem; color: rgba(255,255,255,0.3); font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="/"><span>Cine</span>Shelf</a>
+    <span class="sep">›</span>
+    <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Privacy Policy</span>
+</nav>
+
+<main>
+    <h1>Privacy Policy</h1>
+    <p class="subtitle">Last updated: May 2026</p>
+
+    <div class="callout">
+        <p><strong>Short version:</strong> CineShelf is a personal collection tool. We store only what you add. We don't sell your data, run ads, or share your information with third parties except as described below. You can delete your account and all data at any time.</p>
+    </div>
+
+    <h2>1. Who We Are</h2>
+    <p>CineShelf ("we", "us", "our") is a free Progressive Web App for cataloguing physical media collections. It is operated as a personal project and is not affiliated with any studio, streaming service, or retailer.</p>
+
+    <h2>2. What Data We Collect</h2>
+    <p>We collect only what is necessary to make the app work:</p>
+    <ul>
+        <li><strong>Account information:</strong> Your name and email address, obtained via Google Sign-In. We do not store your Google password — authentication is handled entirely by Google.</li>
+        <li><strong>Collection data:</strong> Movies, TV shows, physical copy details (format, edition, barcode, etc.), shelves, wishlists, viewing calendar entries, and CineShelf ratings that you choose to add.</li>
+        <li><strong>App settings:</strong> Your display preferences, chosen theme, default views, and other in-app configuration.</li>
+        <li><strong>Session data:</strong> A session token stored in a cookie to keep you logged in. Sessions expire automatically.</li>
+    </ul>
+    <p>We do <strong>not</strong> collect browsing history, device identifiers, location data, or any information outside of what you explicitly add to CineShelf.</p>
+
+    <h2>3. How We Use Your Data</h2>
+    <ul>
+        <li>To display and manage your collection across devices.</li>
+        <li>To sync physical copy data with UMDB (Universal Media Database) when you enable that feature — see Section 6.</li>
+        <li>To provide the public shareable collection page if you choose to enable it — see Section 5.</li>
+        <li>We send no marketing emails.</li>
+    </ul>
+
+    <h2>4. Data Storage and Security</h2>
+    <p>Your data is stored in a private database on servers we control. We take reasonable measures to protect it, including HTTPS-only access, session-based authentication, and regular backups.</p>
+    <p>CineShelf is an offline-first PWA. Some data is also cached locally in your browser's storage (localStorage / IndexedDB) so the app works without an internet connection.</p>
+
+    <h2>5. Public Collection Sharing</h2>
+    <p>CineShelf offers an optional public collection page. If you enable this in Settings:</p>
+    <ul>
+        <li>Your collection (film titles, formats, and edition details) becomes visible at a URL you choose.</li>
+        <li>Personal notes, private barcodes, and your email address are never shown on the public page.</li>
+        <li>You can disable sharing and delete your public handle at any time from Settings.</li>
+    </ul>
+    <p>By default, your collection is <strong>private</strong>. Nothing is public until you explicitly turn it on.</p>
+
+    <h2>6. Third-Party Services</h2>
+    <ul>
+        <li><strong>Google Sign-In:</strong> Used for authentication. Google's <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> governs what Google collects during sign-in.</li>
+        <li><strong>TMDB (The Movie Database):</strong> We query TMDB's public API to fetch movie metadata (titles, posters, ratings) when you add films. Your personal data is not sent to TMDB.</li>
+        <li><strong>UMDB (Universal Media Database):</strong> If you use the UMDB sync feature, your physical copy details are sent to UMDB. UMDB's own privacy policy governs how they handle that data.</li>
+    </ul>
+    <p>We do not use Google Analytics, Facebook Pixel, or any advertising network. We do not sell your data to anyone.</p>
+
+    <h2>7. Your Rights</h2>
+    <p>You have the right to:</p>
+    <ul>
+        <li><strong>Access</strong> all your data via Export in Settings → Data Management.</li>
+        <li><strong>Delete</strong> your account and all associated data by contacting us (see Section 9). Deletion is permanent and cannot be undone.</li>
+        <li><strong>Correct</strong> any data by editing it directly in the app.</li>
+        <li><strong>Port</strong> your data — the CSV export includes your full collection.</li>
+    </ul>
+
+    <h2>8. Children's Privacy</h2>
+    <p>CineShelf is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will delete it promptly.</p>
+
+    <h2>9. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. When we do, we will update the "Last updated" date at the top of this page. Continued use of CineShelf after a change constitutes acceptance of the updated policy.</p>
+
+    <h2>10. Contact</h2>
+    <p>If you have questions about this policy, your data, or a deletion request, please open an issue at our project repository or use the contact information on the <a href="/about">About page</a>.</p>
+</main>
+
+<footer>
+    &copy; 2026 CineShelf &nbsp;&middot;&nbsp;
+    <a href="/">Open App</a> &nbsp;&middot;&nbsp;
+    <a href="/about">About</a>
+</footer>
+
+</body>
+</html>

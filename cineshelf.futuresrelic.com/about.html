@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CineShelf — The ultimate physical media collection manager. Track your Blu-rays, DVDs, LaserDiscs and more. Free, offline-first, installable on any device.">
+    <meta property="og:title" content="CineShelf — Physical Media Collection Manager">
+    <meta property="og:description" content="Catalog your Blu-rays, DVDs, VHS and more. Shelf views, barcode scanning, wishlists, trivia. Free forever.">
+    <meta property="og:image" content="/app-icon.png">
+    <meta property="og:url" content="https://cineshelf.ca/about">
+    <meta name="theme-color" content="#667eea">
+    <title>CineShelf — Physical Media Collection Manager</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --purple: #667eea;
+            --purple-dark: #4c5ec7;
+            --purple-light: #a8b8ff;
+            --gold: #f59e0b;
+            --bg: #0a0a12;
+            --bg2: #12121f;
+            --bg3: #1a1a2e;
+            --card: #1e1e30;
+            --border: rgba(102,126,234,0.2);
+            --text: #f1f1f5;
+            --muted: #9898b8;
+            --radius: 16px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 2rem;
+            background: rgba(10,10,18,0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-logo { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+        .nav-logo img { width: 32px; height: 32px; border-radius: 8px; }
+        .nav-logo span { font-weight: 700; font-size: 1.1rem; color: var(--text); }
+        .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+        .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--purple); color: #fff;
+            padding: 0.5rem 1.2rem; border-radius: 8px;
+            text-decoration: none; font-weight: 600; font-size: 0.9rem;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .nav-cta:hover { background: var(--purple-dark); transform: translateY(-1px); color: #fff; }
+
+        /* ── HERO ── */
+        .hero {
+            position: relative;
+            padding: 6rem 2rem 5rem;
+            text-align: center;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(102,126,234,0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(102,126,234,0.15);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 0.3rem 0.9rem;
+            font-size: 0.8rem; color: var(--purple-light);
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 {
+            font-size: clamp(2.2rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.25rem;
+        }
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--purple-light), var(--purple));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-sub {
+            font-size: clamp(1rem, 2.5vw, 1.25rem);
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+        }
+        .hero-actions {
+            display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+        }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: var(--purple); color: #fff;
+            padding: 0.85rem 1.8rem; border-radius: 12px;
+            text-decoration: none; font-weight: 700; font-size: 1rem;
+            transition: all 0.2s; border: none; cursor: pointer;
+            box-shadow: 0 8px 24px rgba(102,126,234,0.35);
+        }
+        .btn-primary:hover { background: var(--purple-dark); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(102,126,234,0.45); }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(255,255,255,0.06); color: var(--text);
+            padding: 0.85rem 1.8rem; border-radius: 12px;
+            text-decoration: none; font-weight: 600; font-size: 1rem;
+            border: 1px solid var(--border); transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .hero-meta {
+            margin-top: 2rem;
+            font-size: 0.82rem; color: var(--muted);
+            display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;
+        }
+        .hero-meta span { display: flex; align-items: center; gap: 0.35rem; }
+
+        /* Install button states */
+        #installBtn { display: none; }
+        #installBtn.visible { display: inline-flex; }
+        .install-tip {
+            margin-top: 0.75rem;
+            font-size: 0.82rem; color: var(--muted);
+        }
+
+        /* ── STATS BAR ── */
+        .stats {
+            display: flex; justify-content: center;
+            gap: 0; flex-wrap: wrap;
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .stat-item {
+            padding: 1.5rem 3rem;
+            text-align: center;
+            border-right: 1px solid var(--border);
+        }
+        .stat-item:last-child { border-right: none; }
+        .stat-num { font-size: 1.8rem; font-weight: 800; color: var(--purple-light); }
+        .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+        /* ── SECTION WRAPPER ── */
+        .section { padding: 5rem 2rem; }
+        .section-inner { max-width: 1100px; margin: 0 auto; }
+        .section-tag {
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--purple-light);
+            margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 800; line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .section-sub {
+            color: var(--muted); font-size: 1.05rem;
+            max-width: 580px; margin-bottom: 3rem;
+        }
+
+        /* ── FEATURES GRID ── */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+        }
+        .feature-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .feature-card:hover { border-color: var(--purple); transform: translateY(-3px); }
+        .feature-icon {
+            font-size: 2rem; margin-bottom: 0.9rem;
+            display: block;
+        }
+        .feature-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .feature-card p { font-size: 0.875rem; color: var(--muted); line-height: 1.55; }
+
+        /* ── HOW IT WORKS ── */
+        .how-bg { background: var(--bg2); }
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 2rem;
+        }
+        .step {
+            text-align: center;
+        }
+        .step-num {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; font-weight: 800;
+            margin: 0 auto 1rem;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.4);
+        }
+        .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .step p { font-size: 0.85rem; color: var(--muted); }
+
+        /* ── INSTALL SECTION ── */
+        .install-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-top: 2.5rem;
+        }
+        .install-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+        }
+        .install-card h3 {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 1rem; font-weight: 700; margin-bottom: 1rem;
+        }
+        .install-steps { list-style: none; }
+        .install-steps li {
+            display: flex; gap: 0.75rem; align-items: flex-start;
+            font-size: 0.875rem; color: var(--muted); margin-bottom: 0.7rem;
+        }
+        .install-steps li::before {
+            content: attr(data-n);
+            min-width: 22px; height: 22px;
+            background: rgba(102,126,234,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700;
+            color: var(--purple-light); flex-shrink: 0;
+        }
+
+        /* ── UMDB CALLOUT ── */
+        .umdb-callout {
+            background: linear-gradient(135deg, rgba(102,126,234,0.12) 0%, rgba(76,94,199,0.08) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            display: flex; gap: 2rem; align-items: center;
+            flex-wrap: wrap;
+        }
+        .umdb-callout .text { flex: 1; min-width: 260px; }
+        .umdb-callout h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .umdb-callout p { font-size: 0.9rem; color: var(--muted); }
+        .umdb-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(102,126,234,0.2);
+            border: 1px solid rgba(102,126,234,0.4);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.78rem; font-weight: 700; color: var(--purple-light);
+            margin-bottom: 0.5rem;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        .footer-logo { display: flex; align-items: center; gap: 0.6rem; justify-content: center; margin-bottom: 1rem; }
+        .footer-logo img { width: 28px; height: 28px; border-radius: 6px; }
+        .footer-logo span { font-weight: 700; font-size: 1rem; }
+        .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .footer-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--text); }
+        .footer-copy { font-size: 0.8rem; color: var(--muted); }
+
+        /* ── MOBILE ── */
+        @media (max-width: 640px) {
+            nav { padding: 0.75rem 1rem; }
+            .nav-links { display: none; }
+            .hero { padding: 4rem 1.25rem 3rem; }
+            .section { padding: 3.5rem 1.25rem; }
+            .stat-item { padding: 1.25rem 1.5rem; }
+            .umdb-callout { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <a href="/" class="nav-logo">
+        <img src="/app-icon-192.png" alt="CineShelf">
+        <span>CineShelf</span>
+    </a>
+    <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#umdb">UMDB</a>
+        <a href="/privacy-policy.html">Privacy</a>
+        <a href="/" class="nav-cta">Open App →</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-badge">🎬 Built for physical media collectors</div>
+    <h1>Your collection,<br><span>beautifully organized.</span></h1>
+    <p class="hero-sub">
+        CineShelf is the free, offline-first app for cataloging your Blu-rays, DVDs, LaserDiscs, VHS tapes, and more — on any device, no subscription required.
+    </p>
+    <div class="hero-actions">
+        <a href="/" class="btn-primary">🎬 Open CineShelf</a>
+        <button id="installBtn" class="btn-primary" onclick="triggerInstall()">📲 Install on This Device</button>
+        <a href="#install" class="btn-secondary">📖 How to Install</a>
+    </div>
+    <p class="install-tip" id="installTip"></p>
+    <div class="hero-meta">
+        <span>✅ Free forever</span>
+        <span>📴 Works offline</span>
+        <span>🔒 Your data stays yours</span>
+        <span>📱 Install like a native app</span>
+    </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+    <div class="stat-item">
+        <div class="stat-num">19</div>
+        <div class="stat-label">Media formats supported</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-num">∞</div>
+        <div class="stat-label">Films in your collection</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-num">10</div>
+        <div class="stat-label">Visual themes</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Subscriptions required</div>
+    </div>
+</div>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+    <div class="section-inner">
+        <div class="section-tag">What you get</div>
+        <h2 class="section-title">Everything a collector needs.</h2>
+        <p class="section-sub">Built by a collector, for collectors. Every feature exists because it solves a real problem.</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <span class="feature-icon">📚</span>
+                <h3>Beautiful shelf views</h3>
+                <p>See your collection as a real bookshelf with spine art, or as a poster grid. Multiple view modes for browsers and curators alike.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📸</span>
+                <h3>Barcode &amp; AI scanning</h3>
+                <p>Scan a barcode and CineShelf looks up the film, edition, publisher, studio, and format automatically. No typing required.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🌐</span>
+                <h3>Import from any list</h3>
+                <p>Paste a URL from any top-10 article or best-of list — AI extracts the titles and adds them to your wishlist in seconds.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">❤️</span>
+                <h3>Wishlist &amp; hunt mode</h3>
+                <p>Track what you want, set target formats and editions, browse curated preset lists, and mark films as owned instantly.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🧱</span>
+                <h3>Physical copy details</h3>
+                <p>Record every detail: edition, publisher, disc count, slipcover, steelbook, bonus discs, video standard, region, and more.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🎮</span>
+                <h3>Collection trivia</h3>
+                <p>Quiz yourself on your own collection. Sprint, Endless, or Survival mode — the questions are generated from what you own.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">👥</span>
+                <h3>Family &amp; group sharing</h3>
+                <p>Share a collection with family members or a group. Track who borrowed what, manage a shared wishlist, and view combined ratings.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🔗</span>
+                <h3>UMDB sync</h3>
+                <p>Sync your physical copies to the Universal Media Database. Barcode lookups prefill edition and publisher data from UMDB automatically.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📴</span>
+                <h3>Offline-first</h3>
+                <p>Your collection is always available, even without internet. CineShelf is a Progressive Web App — install it once, use it anywhere.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section how-bg">
+    <div class="section-inner">
+        <div class="section-tag">Getting started</div>
+        <h2 class="section-title">Up and running in minutes.</h2>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <h3>Sign in with Google</h3>
+                <p>One tap to create your account. No password, no email verification.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <h3>Install on your device</h3>
+                <p>Add to home screen on iOS or Android for a native-app experience.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <h3>Add your first film</h3>
+                <p>Search by title, scan a barcode, or import from a list. CineShelf fills in the details.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <h3>Organize &amp; explore</h3>
+                <p>Build shelves, add editions, set up your wishlist, and share your collection.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- INSTALL SECTION -->
+<section class="section" id="install">
+    <div class="section-inner">
+        <div class="section-tag">Install guide</div>
+        <h2 class="section-title">Works like a native app.</h2>
+        <p class="section-sub">CineShelf is a Progressive Web App (PWA). No app store required — install directly from your browser in seconds.</p>
+
+        <div class="install-grid">
+            <div class="install-card">
+                <h3>🍎 iPhone &amp; iPad (iOS)</h3>
+                <ol class="install-steps">
+                    <li data-n="1">Open <strong>cineshelf.ca</strong> in Safari (must be Safari, not Chrome)</li>
+                    <li data-n="2">Tap the <strong>Share</strong> button (the box with an arrow pointing up)</li>
+                    <li data-n="3">Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+                    <li data-n="4">Tap <strong>Add</strong> — CineShelf appears on your home screen like any app</li>
+                </ol>
+            </div>
+            <div class="install-card">
+                <h3>🤖 Android</h3>
+                <ol class="install-steps">
+                    <li data-n="1">Open <strong>cineshelf.ca</strong> in Chrome</li>
+                    <li data-n="2">Tap the <strong>three-dot menu</strong> (top right)</li>
+                    <li data-n="3">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></li>
+                    <li data-n="4">Tap <strong>Install</strong> — CineShelf is added to your launcher</li>
+                </ol>
+                <button id="androidInstallBtn" class="btn-primary" style="width:100%;margin-top:1rem;display:none;" onclick="triggerInstall()">📲 Install Now</button>
+            </div>
+            <div class="install-card">
+                <h3>💻 Desktop (Mac / Windows)</h3>
+                <ol class="install-steps">
+                    <li data-n="1">Open <strong>cineshelf.ca</strong> in Chrome or Edge</li>
+                    <li data-n="2">Look for the <strong>install icon</strong> (⊕) in the address bar</li>
+                    <li data-n="3">Click it and select <strong>Install</strong></li>
+                    <li data-n="4">CineShelf opens as a standalone window, no browser UI needed</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- UMDB CALLOUT -->
+<section class="section how-bg" id="umdb">
+    <div class="section-inner">
+        <div class="section-tag">Connected apps</div>
+        <h2 class="section-title">Better together with UMDB.</h2>
+        <p class="section-sub" style="margin-bottom:2rem;">CineShelf connects to the Universal Media Database for barcode lookups, edition metadata, and two-way sync.</p>
+
+        <div class="umdb-callout">
+            <div class="text">
+                <div class="umdb-badge">🔗 UMDB Partner</div>
+                <h3>Scan a barcode. Get everything.</h3>
+                <p>When you scan or type a UPC or EAN barcode, CineShelf queries UMDB to automatically fill in the edition name, publisher, studio, disc count, country, language, and format. No manual entry needed for supported releases.</p>
+                <br>
+                <p>Your physical copies can be pushed to UMDB and become part of the community database — helping other collectors identify their editions too.</p>
+            </div>
+            <div style="flex-shrink:0;">
+                <a href="https://umdb-production.up.railway.app" target="_blank" rel="noopener" class="btn-secondary">Visit UMDB →</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-logo">
+        <img src="/app-icon-192.png" alt="CineShelf">
+        <span>CineShelf</span>
+    </div>
+    <div class="footer-links">
+        <a href="/">Open App</a>
+        <a href="/about.html">About</a>
+        <a href="/privacy-policy.html">Privacy Policy</a>
+        <a href="https://umdb-production.up.railway.app" target="_blank" rel="noopener">UMDB</a>
+    </div>
+    <p class="footer-copy">© 2025 CineShelf. Free, open, and built for collectors. Made with ❤️ for physical media.</p>
+</footer>
+
+<script>
+    // PWA install prompt
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+
+        // Show the hero install button
+        const btn = document.getElementById('installBtn');
+        btn.classList.add('visible');
+
+        // Show Android card button
+        const androidBtn = document.getElementById('androidInstallBtn');
+        if (androidBtn) androidBtn.style.display = 'inline-flex';
+
+        // Update tip
+        const tip = document.getElementById('installTip');
+        if (tip) tip.textContent = '↑ Tap to install CineShelf directly on this device';
+    });
+
+    async function triggerInstall() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+            document.getElementById('installBtn').classList.remove('visible');
+            const tip = document.getElementById('installTip');
+            if (tip) { tip.textContent = '✅ CineShelf installed! Find it on your home screen.'; tip.style.color = '#10b981'; }
+        }
+    }
+
+    // Detect iOS — suggest Safari
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (isIOS && !window.navigator.standalone) {
+        const tip = document.getElementById('installTip');
+        if (tip) {
+            tip.textContent = isSafari
+                ? 'On iPhone: tap the Share button ↑ then "Add to Home Screen"'
+                : '⚠️ For best results on iPhone, open this page in Safari';
+        }
+    }
+</script>
+</body>
+</html>

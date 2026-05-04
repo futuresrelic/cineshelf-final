@@ -101,10 +101,10 @@ const Auth = (function() {
             }
         }
 
-        // Show admin features if admin
+        // Reveal admin-only elements for admins (class hides them by default via CSS)
         if (user.is_admin) {
             document.querySelectorAll('.admin-only').forEach(el => {
-                el.style.display = '';
+                el.classList.remove('admin-only');
             });
         }
 

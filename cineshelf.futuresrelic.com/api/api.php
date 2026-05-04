@@ -2134,6 +2134,130 @@ case 'resolve_movie':
             ]);
             break;
 
+        case 'mark_welcome_seen':
+            $db->prepare("UPDATE users SET has_seen_welcome = 1 WHERE id = ?")->execute([$currentUserId]);
+            jsonResponse(true, ['marked' => true]);
+            break;
+
+        case 'update_public_settings':
+            $publicCollection = intval($input['public_collection'] ?? 0);
+            $rawHandle = strtolower(trim($input['public_username'] ?? ''));
+            // Sanitize to alphanumeric + hyphens, 3-30 chars
+            $publicUsername = preg_replace('/[^a-z0-9\-]/', '', $rawHandle);
+
+            if ($publicCollection && !empty($publicUsername)) {
+                if (strlen($publicUsername) < 3 || strlen($publicUsername) > 30) {
+                    jsonResponse(false, null, 'Handle must be 3–30 characters (letters, numbers, hyphens)');
+                }
+                // Check uniqueness
+                $chk = $db->prepare("SELECT id FROM users WHERE public_username = ? AND id != ?");
+                $chk->execute([$publicUsername, $userId]);
+                if ($chk->fetch()) {
+                    jsonResponse(false, null, 'That handle is already taken — try another');
+                }
+            }
+
+            $stmt = $db->prepare("UPDATE users SET public_collection = ?, public_username = ? WHERE id = ?");
+            $stmt->execute([
+                $publicCollection,
+                ($publicCollection && !empty($publicUsername)) ? $publicUsername : null,
+                $userId
+            ]);
+
+            $shareUrl = ($publicCollection && !empty($publicUsername))
+                ? (($_SERVER['HTTP_HOST'] ?? 'cineshelf.ca') . '/share/' . $publicUsername)
+                : null;
+
+            jsonResponse(true, [
+                'public_collection' => $publicCollection,
+                'public_username'   => $publicUsername ?: null,
+                'share_url'         => $shareUrl ? 'https://' . $shareUrl : null,
+            ]);
+            break;
+
+        case 'get_public_collection':
+            // Public endpoint — no auth required. Returns a user's collection if they've enabled sharing.
+            $handle = strtolower(trim(sanitize($input['handle'] ?? '', 30)));
+            if (empty($handle)) {
+                jsonResponse(false, null, 'Handle required');
+            }
+
+            $stmt = $db->prepare("SELECT id, display_name, username, public_collection FROM users WHERE public_username = ?");
+            $stmt->execute([$handle]);
+            $owner = $stmt->fetch();
+
+            if (!$owner || !$owner['public_collection']) {
+                jsonResponse(false, null, 'Collection not found or not public');
+            }
+
+            $ownerId = $owner['id'];
+            $displayName = $owner['display_name'] ?: $owner['username'] ?: 'Collector';
+
+            // Fetch collection (same join as list_collection, minus user-sensitive fields)
+            $stmt = $db->prepare("
+                SELECT
+                    c.id as copy_id, c.format, c.edition, c.condition, c.barcode,
+                    c.aspect_ratio, c.package_type, c.feature_count,
+                    c.has_slipcover, c.has_booklet, c.has_bonus_disc, c.bonus_disc_count,
+                    c.has_digital_copy, c.has_3d, c.edition_publisher, c.studio,
+                    m.id as movie_id, m.tmdb_id, m.title, m.display_title, m.year,
+                    m.poster_url, m.rating, m.runtime, m.genre, m.media_type,
+                    m.director, m.certification, m.number_of_seasons
+                FROM copies c
+                JOIN movies m ON m.id = c.movie_id
+                WHERE c.user_id = ?
+                ORDER BY m.title ASC
+            ");
+            $stmt->execute([$ownerId]);
+            $copies = $stmt->fetchAll();
+
+            // Group by movie
+            $grouped = [];
+            foreach ($copies as $row) {
+                $mid = $row['movie_id'];
+                if (!isset($grouped[$mid])) {
+                    $grouped[$mid] = [
+                        'movie_id'    => $row['movie_id'],
+                        'tmdb_id'     => $row['tmdb_id'],
+                        'title'       => $row['display_title'] ?: $row['title'],
+                        'year'        => $row['year'],
+                        'poster_url'  => $row['poster_url'],
+                        'rating'      => $row['rating'],
+                        'runtime'     => $row['runtime'],
+                        'genre'       => $row['genre'],
+                        'media_type'  => $row['media_type'],
+                        'director'    => $row['director'],
+                        'certification' => $row['certification'],
+                        'copies'      => [],
+                    ];
+                }
+                $grouped[$mid]['copies'][] = [
+                    'copy_id'         => $row['copy_id'],
+                    'format'          => $row['format'],
+                    'edition'         => $row['edition'],
+                    'condition'       => $row['condition'],
+                    'aspect_ratio'    => $row['aspect_ratio'],
+                    'package_type'    => $row['package_type'],
+                    'feature_count'   => $row['feature_count'],
+                    'has_slipcover'   => $row['has_slipcover'],
+                    'has_booklet'     => $row['has_booklet'],
+                    'has_bonus_disc'  => $row['has_bonus_disc'],
+                    'bonus_disc_count'=> $row['bonus_disc_count'],
+                    'has_digital_copy'=> $row['has_digital_copy'],
+                    'has_3d'          => $row['has_3d'],
+                    'edition_publisher'=> $row['edition_publisher'],
+                    'studio'          => $row['studio'],
+                ];
+            }
+
+            jsonResponse(true, [
+                'owner'      => $displayName,
+                'handle'     => $handle,
+                'total'      => count($grouped),
+                'collection' => array_values($grouped),
+            ]);
+            break;
+
         // ========================================
         // GROUP MANAGEMENT (NEW IN V3.0)
         // ========================================
@@ -6869,8 +6993,10 @@ Return ONLY the JSON object, no markdown.'
         // ========================================
 
         case 'run_migration':
-            // Run a database migration SQL script
-            // SECURITY: Only allow when user is logged in
+            // Run a database migration SQL script — admin only
+            if (!$currentUser['is_admin']) {
+                jsonResponse(false, null, 'Admin privileges required');
+            }
             $sql = $input['sql'] ?? '';
 
             if (empty($sql)) {

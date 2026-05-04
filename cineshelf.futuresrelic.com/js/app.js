@@ -203,6 +203,12 @@ const App = (function() {
                     }
                 }
             }
+
+            // Initialize public collection settings
+            initPublicSettings(authUser);
+
+            // Show first-run onboarding if never seen
+            _maybeShowOnboarding(authUser);
         }
 
         // Load settings
@@ -6543,6 +6549,102 @@ function getCertColor(cert) {
             setTimeout(() => location.reload(), 1000);
         } catch (error) {
             showToast('Failed to update display name', 'error');
+        }
+    }
+
+    // ================================================
+    // PUBLIC COLLECTION SETTINGS
+    // ================================================
+
+    function onPublicToggleChange() {
+        const enabled = document.getElementById('publicCollectionToggle')?.checked;
+        const row = document.getElementById('publicHandleRow');
+        if (row) row.style.display = enabled ? 'block' : 'none';
+    }
+
+    async function savePublicSettings() {
+        const enabled = document.getElementById('publicCollectionToggle')?.checked ? 1 : 0;
+        const handle = document.getElementById('publicHandleInput')?.value.trim();
+
+        if (enabled && !handle) {
+            showToast('Enter a handle to enable your public link', 'error');
+            return;
+        }
+
+        try {
+            const result = await apiCall('update_public_settings', {
+                public_collection: enabled,
+                public_username: handle || ''
+            });
+            if (result.public_username) {
+                _showShareUrl(result.public_username);
+                showToast('Public collection settings saved!', 'success');
+            } else {
+                document.getElementById('publicShareUrl').style.display = 'none';
+                showToast('Public collection disabled', 'success');
+            }
+        } catch (e) {
+            // error toast already shown by apiCall
+        }
+    }
+
+    function _showShareUrl(handle) {
+        const base = `${window.location.origin}/share/${handle}`;
+        const urlDiv = document.getElementById('publicShareUrl');
+        const link = document.getElementById('publicShareLink');
+        if (urlDiv && link) {
+            link.href = base;
+            link.textContent = base;
+            urlDiv.style.display = 'block';
+        }
+    }
+
+    function copyShareUrl() {
+        const link = document.getElementById('publicShareLink');
+        if (!link) return;
+        navigator.clipboard.writeText(link.href)
+            .then(() => showToast('Link copied to clipboard!', 'success'))
+            .catch(() => {
+                // Fallback for older browsers
+                const ta = document.createElement('textarea');
+                ta.value = link.href;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('Link copied!', 'success');
+            });
+    }
+
+    function initPublicSettings(authUser) {
+        const toggle = document.getElementById('publicCollectionToggle');
+        const handleInput = document.getElementById('publicHandleInput');
+        if (!toggle) return;
+
+        toggle.checked = !!authUser.public_collection;
+        if (authUser.public_username) {
+            if (handleInput) handleInput.value = authUser.public_username;
+        }
+        onPublicToggleChange();
+        if (authUser.public_collection && authUser.public_username) {
+            _showShareUrl(authUser.public_username);
+        }
+    }
+
+    // ================================================
+    // ONBOARDING MODAL
+    // ================================================
+
+    function closeOnboarding() {
+        document.getElementById('onboardingModal')?.classList.remove('active');
+        apiCall('mark_welcome_seen', {}).catch(() => {});
+    }
+
+    function _maybeShowOnboarding(authUser) {
+        if (!authUser.has_seen_welcome) {
+            setTimeout(() => {
+                document.getElementById('onboardingModal')?.classList.add('active');
+            }, 1200);
         }
     }
 
@@ -14794,6 +14896,14 @@ return {
     // ======================================================
     applyCustomPosterUrl,
     uploadCoverFile,
+
+    // ======================================================
+    // PUBLIC COLLECTION + ONBOARDING PUBLIC API (v8.1.0)
+    // ======================================================
+    onPublicToggleChange,
+    savePublicSettings,
+    copyShareUrl,
+    closeOnboarding,
 
     // internal calendar helper used by day cells
     _calDayClick
