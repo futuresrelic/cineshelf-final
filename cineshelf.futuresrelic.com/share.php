@@ -23,6 +23,10 @@ if (!$handle) {
     http_response_code(404);
     die('<h1>Not found</h1>');
 }
+
+// Never cache this page — content is live and user-specific
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
