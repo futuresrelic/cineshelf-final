@@ -327,6 +327,9 @@ const App = (function() {
             history.replaceState({}, '', window.location.pathname);
         }
 
+        // Handle UMDB deep-link: ?action=add&tmdb_id=123&title=The+Godfather&year=1972
+        _handleDeepLink();
+
         console.log('CineShelf ready!');
     }
     
@@ -6645,6 +6648,51 @@ function getCertColor(cert) {
             setTimeout(() => {
                 document.getElementById('onboardingModal')?.classList.add('active');
             }, 1200);
+        }
+    }
+
+    // ================================================
+    // UMDB DEEP-LINK HANDLER
+    // Handles ?action=add&tmdb_id=123&title=...&year=...
+    // Linked from UMDB movie/release detail pages
+    // ================================================
+
+    function _handleDeepLink() {
+        const params = new URLSearchParams(window.location.search);
+        const action = params.get('action');
+
+        if (action === 'add') {
+            const tmdbId  = params.get('tmdb_id');
+            const title   = params.get('title') || '';
+            const year    = params.get('year')  || '';
+
+            // Clean up URL immediately
+            history.replaceState({}, '', window.location.pathname);
+
+            // Switch to the Add tab, pre-fill the search box, and run the search
+            setTimeout(async () => {
+                switchTab('add');
+                const searchInput = document.getElementById('movieSearch');
+                if (!searchInput) return;
+
+                // Use tmdb_id directly if available (most precise), else fall back to title + year
+                const query = tmdbId ? (title || tmdbId) : (year ? `${title} ${year}` : title);
+                searchInput.value = query;
+
+                if (query) {
+                    // If we have a tmdb_id, search and auto-select the exact match
+                    if (tmdbId) {
+                        try {
+                            // Run search, then auto-click the card whose data-movie-id matches
+                            await searchMovies();
+                            const card = document.querySelector(`[data-movie-id="${tmdbId}"]`);
+                            if (card) { card.click(); return; }
+                        } catch (_) {}
+                    }
+                    // Fallback: just run the search and let the user pick
+                    await searchMovies();
+                }
+            }, 600);
         }
     }
 
