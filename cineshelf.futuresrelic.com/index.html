@@ -2011,12 +2011,16 @@
                             </div>
                         </div>
                         
-                        <div class="scanner-controls" style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center;">
-                            <button id="captureCoverBtn" class="btn" onclick="CoverScanner.capture()">
+                        <div class="scanner-controls" style="display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center;">
+                            <button id="captureCoverBtn" class="btn" onclick="CoverScanner.capture()" title="Scan one cover — adds to batch list">
                                 <span>📸</span>
                                 <span>Scan Cover</span>
                             </button>
-                            <button id="scanMatchBtn" class="btn" onclick="CoverScanner.scanAndMatch()" style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <button id="scanGroupBtn" class="btn" onclick="CoverScanner.scanMultiCover()" title="Photograph many covers at once — detects all titles in one shot" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                                <span>📚</span>
+                                <span>Scan Group</span>
+                            </button>
+                            <button id="scanMatchBtn" class="btn" onclick="CoverScanner.scanAndMatch()" title="Scan one cover and match it to TMDB immediately" style="background: linear-gradient(135deg, #10b981, #059669);">
                                 <span>🔍</span>
                                 <span>Scan &amp; Match</span>
                             </button>

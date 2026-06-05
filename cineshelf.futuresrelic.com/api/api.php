@@ -6361,6 +6361,45 @@ case 'resolve_movie':
             jsonResponse(true, $normalised);
             break;
 
+        case 'scan_multi_cover':
+            // Recognize ALL movie/TV titles visible across multiple physical media covers in one photo.
+            // Used when the user photographs several discs spread on a surface.
+            $base64Image = $input['image'] ?? '';
+            if (empty($base64Image)) jsonResponse(false, null, 'Image data required');
+            if (empty(OPENAI_API_KEY)) jsonResponse(false, null, 'OpenAI API not configured');
+
+            $smcData = [
+                'model' => 'gpt-4o',
+                'messages' => [[
+                    'role' => 'user',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'This photo shows multiple DVD, Blu-ray, or other physical media covers. Identify every distinct movie or TV show title visible on any cover, spine, or disc label. Return ONLY a JSON array of title strings, like ["Title One", "Title Two"]. Do not include subtitles, edition names, or collection names — just the primary movie/show title for each physical item you can identify. If nothing is recognizable, return [].'],
+                        ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,' . $base64Image]]
+                    ]
+                ]],
+                'max_tokens' => 500
+            ];
+            $smcCh = curl_init();
+            curl_setopt($smcCh, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+            curl_setopt($smcCh, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($smcCh, CURLOPT_POST, true);
+            curl_setopt($smcCh, CURLOPT_POSTFIELDS, json_encode($smcData));
+            curl_setopt($smcCh, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Authorization: Bearer ' . OPENAI_API_KEY]);
+            curl_setopt($smcCh, CURLOPT_TIMEOUT, 60);
+            $smcResponse = curl_exec($smcCh);
+            $smcCode = curl_getinfo($smcCh, CURLINFO_HTTP_CODE);
+            $smcErr = curl_error($smcCh);
+            curl_close($smcCh);
+            if ($smcErr) jsonResponse(false, null, 'Network error: ' . $smcErr);
+            if ($smcCode !== 200) { $smcErrData = json_decode($smcResponse, true); jsonResponse(false, null, 'OpenAI error: ' . ($smcErrData['error']['message'] ?? 'Request failed')); }
+            $smcContent = trim(json_decode($smcResponse, true)['choices'][0]['message']['content'] ?? '');
+            $smcTitles = [];
+            if (preg_match('/\[.*\]/s', $smcContent, $smcMatches)) {
+                $smcTitles = json_decode($smcMatches[0], true) ?: [];
+            }
+            jsonResponse(true, ['titles' => array_values(array_filter(array_map('trim', $smcTitles)))]);
+            break;
+
         case 'scan_boxset_titles':
             // Recognize MULTIPLE movie titles from a box set cover/back using OpenAI Vision API
             $base64Image = $input['image'] ?? '';

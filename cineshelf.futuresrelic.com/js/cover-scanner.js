@@ -289,17 +289,17 @@ async function openScanner() {
 // Process batch: add all to unresolved for TMDB matching
 async function processBatch() {
     if (scanList.length === 0) {
-        alert('No titles to process!');
+        showToastIfAvailable('No titles to process yet — scan some covers first!', 'error');
         return;
     }
-    
+
     const btn = document.getElementById('processBatchBtn');
     btn.disabled = true;
     btn.innerHTML = '<span>⏳</span><span>Processing...</span>';
-    
+
     try {
         const count = scanList.length;
-        
+
         // Add each title as unresolved copy
         for (const item of scanList) {
             await fetch('/api/api.php', {
@@ -312,27 +312,73 @@ async function processBatch() {
                 })
             });
         }
-        
+
         // Clear batch
         scanList = [];
         saveBatchList();
         renderBatchList();
         updateBatchCount();
-        
-        // Close scanner
+
+        // Close scanner and switch to resolve tab
         closeScanner();
-        
-        // Switch to resolve tab
-        App.switchTab('resolve');
-        
-        alert(`✅ ${count} titles added to Resolve tab!\n\nNow match each title with TMDB.`);
-        
+        if (typeof App !== 'undefined') App.switchTab('resolve');
+        showToastIfAvailable(`✅ ${count} title${count !== 1 ? 's' : ''} sent to Resolve tab`, 'success');
+
     } catch (error) {
         console.error('Process batch error:', error);
-        alert('Error processing batch: ' + error.message);
+        showToastIfAvailable('Error processing batch: ' + error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<span>✅</span><span>Process Batch</span>';
+    }
+}
+
+// Scan a group photo: detect all movie covers in one image and add to batch
+async function scanMultiCover() {
+    if (!stream) return;
+
+    const btn = document.getElementById('scanGroupBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>🤖</span><span>Scanning…</span>';
+
+    try {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        const base64Image = imageData.split(',')[1];
+
+        const preview = document.getElementById('scannerPreview');
+        if (preview) { preview.style.background = '#667eea'; setTimeout(() => { preview.style.background = ''; }, 250); }
+
+        const response = await fetch('/api/api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'scan_multi_cover', image: base64Image })
+        });
+        const result = await response.json();
+
+        if (!result.ok) throw new Error(result.error || 'Could not scan image');
+
+        const titles = result.data?.titles || [];
+        if (titles.length === 0) {
+            showToastIfAvailable('No titles recognised. Try better lighting or move covers closer.', 'error');
+            return;
+        }
+
+        titles.forEach(t => addToBatchList(t));
+        playSuccessSound();
+        if (preview) { preview.style.background = '#10b981'; setTimeout(() => { preview.style.background = ''; }, 400); }
+        showToastIfAvailable(`📚 Found ${titles.length} title${titles.length !== 1 ? 's' : ''}!`, 'success');
+
+    } catch (error) {
+        console.error('scanMultiCover error:', error);
+        showToastIfAvailable('Error: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
     
@@ -614,8 +660,6 @@ async function processBatch() {
         const mediaIcon = mediaType === 'tv' ? '📺' : '🎬';
         const sourceTag = source === 'omdb' ? ' (via OMDB/IMDb)' : source === 'umdb' ? ' (UMDB)' : '';
 
-        if (!confirm(`Add to collection?\n\n${mediaIcon} "${title}" (${year})${sourceTag}\n\nFormat will default to DVD — you can change it afterwards.`)) return;
-
         try {
             const user = localStorage.getItem('cineshelf_user') || 'default';
             let tmdbId = String(rawId);
@@ -652,17 +696,26 @@ async function processBatch() {
             if (!result.ok) throw new Error(result.error || 'Failed to add to collection');
 
             playSuccessSound();
-            showToastIfAvailable('✅ "' + title + '" added to your collection!', 'success');
+            showToastIfAvailable(`✅ ${mediaIcon} "${title}" added!`, 'success');
 
-            // Close scanner and refresh collection
-            closeScanner();
+            // Flash the preview green, then go back to the camera ready to scan the next cover
+            const preview = document.getElementById('scannerPreview');
+            if (preview) {
+                preview.style.background = '#10b981';
+                setTimeout(() => { preview.style.background = ''; }, 400);
+            }
+
+            // Return to camera (don't close — user exits manually)
+            hideMatchPanel();
+
+            // Refresh collection silently in background
             if (typeof App !== 'undefined' && typeof App.loadCollection === 'function') {
                 App.loadCollection();
             }
 
         } catch (error) {
             console.error('selectMatch error:', error);
-            alert('Error adding to collection: ' + error.message);
+            showToastIfAvailable('Error adding to collection: ' + error.message, 'error');
         }
     }
 
@@ -692,7 +745,8 @@ async function processBatch() {
         switchMatchTab: switchMatchTab,
         reSearch: reSearch,
         lookupImdb: lookupImdb,
-        selectMatch: selectMatch
+        selectMatch: selectMatch,
+        scanMultiCover: scanMultiCover
     };
 })();
 

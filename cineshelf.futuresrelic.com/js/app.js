@@ -7191,11 +7191,11 @@ function renderUnresolved() {
                     ${movie.copy_count > 1 ? `<span class="unresolved-copies">${movie.copy_count} copies</span>` : ''}
                 </div>
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="btn-resolve" data-movie-id="${movie.movie_id}" data-title="${safeTitle}">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0;">
+                <button class="btn-resolve" data-movie-id="${movie.movie_id}" data-title="${safeTitle}" style="padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap;">
                     🔍 Match
                 </button>
-                <button class="btn-resolve btn-delete-unresolved" data-movie-id="${movie.movie_id}" data-title="${safeTitle}" style="background: rgba(239,68,68,0.2); color: #ef4444;">
+                <button class="btn-resolve btn-delete-unresolved" data-movie-id="${movie.movie_id}" data-title="${safeTitle}" style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap;">
                     🗑️ Delete
                 </button>
             </div>
@@ -7493,75 +7493,65 @@ async function searchForResolve() {
     
 async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     if (!currentResolvingMovie) return;
-    
-    const mediaIcon = mediaType === 'tv' ? '📺' : '🎬';
-    const mediaLabel = mediaType === 'tv' ? 'TV Series' : 'Movie';
-    
-    if (!confirm(`Match "${currentResolvingMovie.title}" with:\n\n${mediaIcon} "${title}" (${year})\nType: ${mediaLabel}\n\nThis will update the movie with full TMDB data.`)) {
-        return;
-    }
-    
+
+    // Remove any previous merge banner
+    document.getElementById('resolveMergeBanner')?.remove();
+
     try {
-        showToast('Resolving...', 'info');
-        
         const result = await apiCall('resolve_movie', {
             movie_id: currentResolvingMovie.movieId,
             tmdb_id: String(tmdbId),
             media_type: mediaType
         });
-        
-        showToast(`✅ Matched "${title}"!`, 'success');
-        
-        // Close modal and reload
+
+        showToast(`✅ Matched!`, 'success');
         closeResolveModal();
         loadUnresolved();
         loadCollection();
-        
+
     } catch (error) {
         console.error('Resolve failed:', error);
-        
-        // Check if it's a duplicate movie error
-        if (error.message && error.message.includes('already exists')) {
-            // Parse the error data (API returns it in error.data when ok=false)
-            const errorData = error.data;
-            
-            if (errorData && errorData.already_exists) {
-                // Show confirmation for adding another copy
-                const existingTitle = errorData.existing_movie.title;
-                const confirmMerge = confirm(
-                    `⚠️ "${existingTitle}" already exists in your collection!\n\n` +
-                    `Do you want to add your unresolved copies to the existing movie?\n\n` +
-                    `YES = Merge unresolved copies with existing movie\n` +
-                    `NO = Cancel (you can delete the unresolved entry manually)`
-                );
-                
-                if (confirmMerge) {
-                    // Call again with confirm_merge flag
-                    try {
-                        showToast('Merging copies...', 'info');
-                        
-                        const mergeResult = await apiCall('resolve_movie', {
-                            movie_id: currentResolvingMovie.movieId,
-                            tmdb_id: String(tmdbId),
-                            media_type: mediaType,
-                            confirm_merge: true
-                        });
-                        
-                        const copiesCount = mergeResult.copies_moved || 0;
-                        showToast(`✅ Merged ${copiesCount} ${copiesCount === 1 ? 'copy' : 'copies'} to existing movie!`, 'success');
-                        
-                        closeResolveModal();
-                        loadUnresolved();
-                        loadCollection();
-                        
-                    } catch (mergeError) {
-                        console.error('Merge failed:', mergeError);
-                        showToast('Failed to merge copies', 'error');
-                    }
+
+        // Duplicate movie — show inline merge banner inside the modal instead of a confirm() dialog
+        if (error.message && error.message.includes('already exists') && error.data?.already_exists) {
+            const existingTitle = error.data.existing_movie?.title || 'an existing entry';
+            const banner = document.createElement('div');
+            banner.id = 'resolveMergeBanner';
+            banner.style.cssText = 'background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:8px;padding:0.9rem 1rem;margin-top:1rem;';
+            banner.innerHTML = `
+                <p style="color:#fca5a5;font-size:0.88rem;margin:0 0 0.65rem;">
+                    ⚠️ <strong>"${existingTitle}"</strong> already exists. Merge unresolved copies into it?
+                </p>
+                <div style="display:flex;gap:0.5rem;">
+                    <button id="mergeYesBtn" class="btn" style="flex:1;padding:0.4rem;font-size:0.85rem;background:rgba(239,68,68,0.25);border:1px solid rgba(239,68,68,0.5);">
+                        Yes, merge
+                    </button>
+                    <button id="mergeNoBtn" class="btn btn-secondary" style="flex:1;padding:0.4rem;font-size:0.85rem;">
+                        Cancel
+                    </button>
+                </div>`;
+            document.getElementById('resolveResults').appendChild(banner);
+            banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            document.getElementById('mergeYesBtn').onclick = async () => {
+                banner.remove();
+                try {
+                    const mergeResult = await apiCall('resolve_movie', {
+                        movie_id: currentResolvingMovie.movieId,
+                        tmdb_id: String(tmdbId),
+                        media_type: mediaType,
+                        confirm_merge: true
+                    });
+                    const n = mergeResult.copies_moved || 0;
+                    showToast(`✅ Merged ${n} ${n === 1 ? 'copy' : 'copies'}`, 'success');
+                    closeResolveModal();
+                    loadUnresolved();
+                    loadCollection();
+                } catch (mergeError) {
+                    showToast('Failed to merge copies', 'error');
                 }
-            } else {
-                showToast('Failed to resolve movie', 'error');
-            }
+            };
+            document.getElementById('mergeNoBtn').onclick = () => banner.remove();
         } else {
             showToast('Failed to resolve movie', 'error');
         }
