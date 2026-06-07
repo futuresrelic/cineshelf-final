@@ -7509,8 +7509,15 @@ async function searchForResolve() {
             resultsDiv.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;">No results found. Try a different search term.</p>';
             return;
         }
-        
-        resultsDiv.innerHTML = results.slice(0, 10).map(item => {
+
+        const shown = results.slice(0, 20);
+        const hint = results.length > 20
+            ? `Showing top 20 of ${results.length} results`
+            : `${results.length} result${results.length !== 1 ? 's' : ''}`;
+
+        resultsDiv.innerHTML = `<p style="font-size:0.8rem;color:rgba(255,255,255,0.45);margin:0 0 0.75rem;text-align:center;">
+            ${hint} — not seeing it? Edit the search above and try adding a year or the director's name.
+        </p>` + shown.map(item => {
             const isTV = item.media_type === 'tv';
             const title = isTV ? item.name : item.title;
             const releaseDate = isTV ? item.first_air_date : item.release_date;

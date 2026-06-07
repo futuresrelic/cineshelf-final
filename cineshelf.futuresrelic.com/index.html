@@ -1988,7 +1988,8 @@
                 <div class="resolve-search-box">
                     <input type="text"
                            id="resolveSearchInput"
-                           placeholder="Search TMDB — add year or director to narrow results..."
+                           placeholder="e.g. 'nine 2009' or 'nine animated' — press Enter to search"
+                           onkeydown="if(event.key==='Enter') App.searchForResolve()"
                            style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 1rem;">
                     <button onclick="App.searchForResolve()"
                             class="btn"
