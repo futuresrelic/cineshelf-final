@@ -7120,6 +7120,9 @@ function getCertColor(cert) {
     
     let unresolvedMovies = [];
     let currentResolvingMovie = null;
+    let seqMode = false;
+    let seqMovies = [];
+    let seqIndex = 0;
     
     async function loadUnresolved() {
         try {
@@ -7147,6 +7150,9 @@ if (descEl) {
         descEl.textContent = `${count} unmatched movie${count !== 1 ? 's' : ''} need${count !== 1 ? '' : 's'} your attention`;
     }
 }
+// Show/hide Match All button
+const matchAllBtn = document.getElementById('matchAllBtn');
+if (matchAllBtn) matchAllBtn.style.display = count > 0 ? '' : 'none';
             
             renderUnresolved();
             
@@ -7389,32 +7395,98 @@ function removeFilter(filterType) {
     
     function openResolveModal(movieId, title) {
         currentResolvingMovie = { movieId, title };
-        
+
         const modal = document.getElementById('resolveModal');
         const modalTitle = document.getElementById('resolveModalTitle');
         const searchInput = document.getElementById('resolveSearchInput');
         const resultsDiv = document.getElementById('resolveResults');
-        
+
         if (!modal || !modalTitle || !searchInput || !resultsDiv) return;
-        
-        modalTitle.textContent = `Match Movie: ${title}`;
-        searchInput.value = title; // Pre‑fill with current title
-        resultsDiv.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;">Enter a search term and click \"Search TMDB\"</p>';
-        
+
+        modalTitle.textContent = `Match: ${title}`;
+        searchInput.value = title;
+        resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem;">🔍 Searching TMDB...</p>';
+
         modal.classList.add('active');
-        
-        // Auto‑focus search input
-        setTimeout(() => searchInput.focus(), 100);
+
+        // Auto-search on open
+        setTimeout(() => searchForResolve(), 200);
     }
     
     function closeResolveModal() {
         const modal = document.getElementById('resolveModal');
-        if (modal) {
-            modal.classList.remove('active');
-        }
+        if (modal) modal.classList.remove('active');
         currentResolvingMovie = null;
+        seqMode = false;
+        seqMovies = [];
+        seqIndex = 0;
+        const seqNav = document.getElementById('seqNav');
+        if (seqNav) seqNav.style.display = 'none';
     }
-    
+
+    function openSequenceMatcher(startIndex) {
+        if (unresolvedMovies.length === 0) {
+            showToast('No unresolved movies to match', 'info');
+            return;
+        }
+        seqMode = true;
+        seqMovies = [...unresolvedMovies];
+        seqIndex = typeof startIndex === 'number' ? startIndex : 0;
+        _seqLoad(seqIndex);
+    }
+
+    function _seqLoad(index) {
+        if (index >= seqMovies.length) {
+            seqMode = false;
+            seqMovies = [];
+            seqIndex = 0;
+            const seqNav = document.getElementById('seqNav');
+            if (seqNav) seqNav.style.display = 'none';
+            const modal = document.getElementById('resolveModal');
+            if (modal) modal.classList.remove('active');
+            currentResolvingMovie = null;
+            showToast('🎉 Sequence complete!', 'success');
+            return;
+        }
+
+        const movie = seqMovies[index];
+        if (!movie) { seqIndex++; _seqLoad(seqIndex); return; }
+
+        const titleStr = movie.title || 'Unknown';
+        currentResolvingMovie = { movieId: movie.movie_id, title: titleStr };
+
+        const modalTitle = document.getElementById('resolveModalTitle');
+        if (modalTitle) modalTitle.textContent = `Match: ${titleStr}`;
+
+        const searchInput = document.getElementById('resolveSearchInput');
+        if (searchInput) searchInput.value = titleStr;
+
+        const resultsDiv = document.getElementById('resolveResults');
+        if (resultsDiv) resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem;">🔍 Searching TMDB...</p>';
+
+        document.getElementById('resolveMergeBanner')?.remove();
+
+        const seqNav = document.getElementById('seqNav');
+        const seqCounter = document.getElementById('seqCounter');
+        if (seqNav) seqNav.style.display = 'flex';
+        if (seqCounter) seqCounter.textContent = `${index + 1} of ${seqMovies.length}`;
+
+        const modal = document.getElementById('resolveModal');
+        if (modal && !modal.classList.contains('active')) modal.classList.add('active');
+
+        setTimeout(() => searchForResolve(), 200);
+    }
+
+    function seqSkip() {
+        seqIndex++;
+        _seqLoad(seqIndex);
+    }
+
+    function seqPrev() {
+        seqIndex = Math.max(0, seqIndex - 1);
+        _seqLoad(seqIndex);
+    }
+
 async function searchForResolve() {
     const searchInput = document.getElementById('resolveSearchInput');
     const resultsDiv = document.getElementById('resolveResults');
@@ -7505,9 +7577,14 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
         });
 
         showToast(`✅ Matched!`, 'success');
-        closeResolveModal();
         loadUnresolved();
         loadCollection();
+        if (seqMode) {
+            seqIndex++;
+            _seqLoad(seqIndex);
+        } else {
+            closeResolveModal();
+        }
 
     } catch (error) {
         console.error('Resolve failed:', error);
@@ -7544,9 +7621,14 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                     });
                     const n = mergeResult.copies_moved || 0;
                     showToast(`✅ Merged ${n} ${n === 1 ? 'copy' : 'copies'}`, 'success');
-                    closeResolveModal();
                     loadUnresolved();
                     loadCollection();
+                    if (seqMode) {
+                        seqIndex++;
+                        _seqLoad(seqIndex);
+                    } else {
+                        closeResolveModal();
+                    }
                 } catch (mergeError) {
                     showToast('Failed to merge copies', 'error');
                 }
@@ -14671,6 +14753,9 @@ return {
     closeResolveModal,
     searchForResolve,
     confirmResolve,
+    openSequenceMatcher,
+    seqSkip,
+    seqPrev,
     sortMoviesEnhanced,
     updateFilterUI,
     resetFilters,

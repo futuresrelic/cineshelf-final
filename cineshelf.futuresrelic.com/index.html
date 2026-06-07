@@ -701,6 +701,10 @@
                 <p id="resolveDescription" style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">
                     Loading unresolved movies...
                 </p>
+                <button id="matchAllBtn" onclick="App.openSequenceMatcher(0)" class="btn"
+                        style="margin-top: 0.75rem; display: none; background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                    ▶ Match All
+                </button>
             </div>
 
             <div id="unresolvedList" class="unresolved-list" style="display: none;"></div>
@@ -1975,13 +1979,19 @@
                 <button class="modal-close" onclick="App.closeResolveModal()">×</button>
             </div>
             <div class="modal-body">
+                <!-- Sequential match nav (hidden until Match All mode) -->
+                <div id="seqNav" style="display:none; background: rgba(255,255,255,0.07); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.75rem; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                    <button onclick="App.seqPrev()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">← Prev</button>
+                    <span id="seqCounter" style="font-size: 0.9rem; color: rgba(255,255,255,0.8); white-space: nowrap; text-align: center; flex: 1;">1 of 10</span>
+                    <button onclick="App.seqSkip()" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">Skip →</button>
+                </div>
                 <div class="resolve-search-box">
-                    <input type="text" 
-                           id="resolveSearchInput" 
-                           placeholder="Search TMDB for correct match..."
+                    <input type="text"
+                           id="resolveSearchInput"
+                           placeholder="Search TMDB — add year or director to narrow results..."
                            style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 1rem;">
-                    <button onclick="App.searchForResolve()" 
-                            class="btn" 
+                    <button onclick="App.searchForResolve()"
+                            class="btn"
                             style="margin-top: 0.75rem; width: 100%;">
                         🔍 Search TMDB
                     </button>
