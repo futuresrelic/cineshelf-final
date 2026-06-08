@@ -942,16 +942,8 @@ function renderCollection() {
     }
 
     function sortMovies(type, sortBy) {
-        console.log(`sortMovies called: type=${type}, sortBy=${sortBy}`);
 
         if (type === 'collection') {
-            console.log('Collection before sort:', collection.map(g => ({
-                title: g.movie.title,
-                year: g.movie.year,
-                rating: g.movie.rating,
-                created_at: g.copies[0]?.created_at
-            })));
-            
             // Sort collection (grouped movies)
             collection.sort((a, b) => {
                 const movieA = a.movie;
@@ -988,14 +980,8 @@ function renderCollection() {
                 }
             });
             
-            console.log('Collection after sort:', collection.map(g => g.movie.title));
-            console.log(`Collection sorted, first movie:`, collection[0]?.movie?.title);
-            
             // Force re-render
             renderCollection();
-            
-            console.log('renderCollection called');
-            
         } else {
             // Sort wishlist
             wishlist.sort((a, b) => {
@@ -1028,8 +1014,6 @@ function renderCollection() {
 
             renderWishlist();
         }
-        
-        console.log(`Sorted ${type} by ${sortBy}`);
     }
     
     // Backward compatibility wrapper for old HTML — now context-aware
@@ -1753,11 +1737,8 @@ function renderCollection() {
 
     // IMDB Lookup Function
     async function lookupByImdbId() {
-    console.log('CineShelf: IMDB lookup button clicked');
     
     const imdbId = document.getElementById('imdbId').value.trim();
-    console.log('CineShelf: IMDB ID entered:', imdbId);
-    
     if (!imdbId) {
         showToast('Please enter an IMDb ID (e.g., tt0287457)', 'error');
         return;
@@ -1765,7 +1746,6 @@ function renderCollection() {
 
     if (!/^tt\d{7,8}$/.test(imdbId)) {
         showToast('Invalid IMDb ID format. Should be like: tt0287457', 'error');
-        console.log('CineShelf: Invalid IMDB ID format:', imdbId);
         return;
     }
 
@@ -1774,19 +1754,11 @@ function renderCollection() {
     
     btn.disabled = true;
     btn.textContent = '🔍 Looking up...';
-    
-    console.log('CineShelf: Starting IMDB lookup for:', imdbId);
-
     try {
         // Route through backend — searches TMDB then UMDB automatically
         const details = await apiCall('find_by_imdb', { imdb_id: imdbId });
-
-        console.log('CineShelf: find_by_imdb response:', details);
-
         if (details) {
             const mediaType = details.media_type || 'movie';
-            console.log(`CineShelf: Found ${mediaType} via IMDB ID ${imdbId}:`, details);
-
             // Resolve poster URL (backend may return poster_path or poster_url)
             const posterPath = details.poster_path || details.poster_url || null;
             const posterUrl = posterPath
@@ -1845,9 +1817,6 @@ function renderCollection() {
                     }
                 }
             }
-
-            console.log('CineShelf: Processed movie data:', movieData);
-
             // Store as selected movie
             selectedMovie = movieData;
 
@@ -1874,7 +1843,6 @@ function renderCollection() {
             showToast(`Found: ${movieData.title} (${movieData.year || 'Unknown'})`, 'success');
 
         } else {
-            console.log('CineShelf: No movie or TV found for IMDB ID:', imdbId);
             showToast(`No movie or TV series found with IMDb ID: ${imdbId}`, 'error');
         }
 
@@ -5346,7 +5314,6 @@ function getCertColor(cert) {
                 // apiCall returns result.data directly; guard against unexpected wrapping shapes (v2.8.25)
                 const arr = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
                 _layoutSections = arr;
-                console.log(`[CineShelf] loadActiveLayoutSections: ${arr.length} sections for layout ${activeLayout.id} (${activeLayout.name})`);
                 if (arr.length > 0) {
                     showToast(`Loaded ${arr.length} sections for layout ${activeLayout.id}`, 'success');
                 }
@@ -7937,7 +7904,6 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     // Search for movies to add to box set
     async function searchMoviesForBoxSet() {
         const query = document.getElementById('boxSetMovieSearch').value.trim();
-        console.log('[Search Movies] Searching for:', query);
 
         if (!query) return;
 
@@ -7946,21 +7912,13 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
         try {
             const data = await apiCall('search_movies', { query });
-            console.log('[Search Movies] Search results:', data);
 
             if (!data || !data.results || data.results.length === 0) {
                 resultsDiv.innerHTML = '<p style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.5);">No movies found. Try a different search.</p>';
                 return;
             }
 
-            console.log('[Search Movies] Found movies:', data.results.map(m => ({
-                id: m.id,
-                title: m.title,
-                year: m.release_date ? m.release_date.split('-')[0] : 'N/A'
-            })));
-
             resultsDiv.innerHTML = data.results.map(movie => {
-                console.log('[Search Movies] Rendering movie with ID:', movie.id, 'Title:', movie.title);
                 return `
                     <div class="search-result" onclick="App.addMovieToBoxSet(${movie.id})">
                         <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : PLACEHOLDER_IMG}" alt="${movie.title}">
@@ -7980,29 +7938,18 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
     // Add a movie to the box set
     async function addMovieToBoxSet(tmdbId) {
-        console.log('[Add Movie to Box Set] Starting with TMDB ID:', tmdbId);
-
         if (!currentContainerId) {
             showToast('No container selected', 'error');
             return;
         }
-        console.log('[Add Movie to Box Set] Container ID:', currentContainerId);
 
         try {
-            // First, add movie to collection if not exists
-            console.log('[Add Movie to Box Set] Step 1: Calling get_or_create_movie with tmdb_id:', tmdbId);
             const movieData = await apiCall('get_or_create_movie', { tmdb_id: tmdbId, cert_region: settings.certRegion || 'US' });
-            console.log('[Add Movie to Box Set] Step 1 Response:', movieData);
 
             if (!movieData || !movieData.movie_id) {
                 showToast('Failed to fetch movie details', 'error');
                 return;
             }
-            console.log('[Add Movie to Box Set] Movie created/found:', {
-                movie_id: movieData.movie_id,
-                title: movieData.title,
-                tmdb_id: movieData.tmdb_id
-            });
 
             // Create a copy for this movie
             const copyParams = {
@@ -8014,17 +7961,12 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 notes: '',
                 cert_region: settings.certRegion || 'US'
             };
-            console.log('[Add Movie to Box Set] Step 2: Calling add_copy with params:', copyParams);
             const copyData = await apiCall('add_copy', copyParams);
-            console.log('[Add Movie to Box Set] Step 2 Response:', copyData);
 
             if (!copyData || !copyData.copy_id) {
                 showToast('Failed to create copy', 'error');
                 return;
             }
-            console.log('[Add Movie to Box Set] Copy created:', {
-                copy_id: copyData.copy_id
-            });
 
             // Add copy to container
             const discNumber = boxSetMovies.length + 1;
@@ -8036,9 +7978,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 is_present: 1,
                 position_in_container: discNumber - 1
             };
-            console.log('[Add Movie to Box Set] Step 3: Calling add_movie_to_container with params:', containerParams);
-            const containerResponse = await apiCall('add_movie_to_container', containerParams);
-            console.log('[Add Movie to Box Set] Step 3 Response:', containerResponse);
+            await apiCall('add_movie_to_container', containerParams);
 
             // Add to local list
             boxSetMovies.push({
@@ -8052,7 +7992,6 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
             document.getElementById('boxSetMovieSearch').value = '';
             document.getElementById('boxSetSearchResults').innerHTML = '';
 
-            console.log('[Add Movie to Box Set] SUCCESS: Added movie to box set:', movieData.title);
             showToast(`Added ${movieData.title} to box set`, 'success');
 
         } catch (error) {
@@ -8063,34 +8002,24 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
     // Update the list of movies in the box set
     function updateBoxSetMoviesList() {
-        console.log('[updateBoxSetMoviesList] Called with boxSetMovies.length:', boxSetMovies.length);
-        console.log('[updateBoxSetMoviesList] boxSetMovies:', boxSetMovies);
 
         const container = document.getElementById('boxSetMoviesContainer');
         const count = document.getElementById('boxSetMovieCount');
 
-        console.log('[updateBoxSetMoviesList] container element:', container);
-        console.log('[updateBoxSetMoviesList] count element:', count);
-
         // Only update count if element exists (may not exist in quick-create flow)
         if (count) {
             count.textContent = boxSetMovies.length;
-            console.log('[updateBoxSetMoviesList] Updated count to:', boxSetMovies.length);
         }
 
         // Only update container if element exists (may not exist in quick-create flow)
         if (!container) {
-            console.log('[updateBoxSetMoviesList] Container not found, returning');
             return;
         }
 
         if (boxSetMovies.length === 0) {
-            console.log('[updateBoxSetMoviesList] No movies, showing empty message');
             container.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 2rem;">No movies added yet. Search above to add movies.</div>';
             return;
         }
-
-        console.log('[updateBoxSetMoviesList] Rendering', boxSetMovies.length, 'movies');
         container.innerHTML = boxSetMovies.map((movie, index) => `
             <div style="display: flex; align-items: center; gap: 1rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
                 <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.3); width: 30px;">
@@ -9447,8 +9376,6 @@ function switchGroup(groupId) {
     // Convert to number or null
     currentGroupId = groupId ? parseInt(groupId) : null;
     
-    console.log('Switching to group:', currentGroupId || 'My Collection');
-    
     // Update dropdown value
     const selector = document.getElementById('currentGroup');
     if (selector) {
@@ -9971,7 +9898,6 @@ async function returnMovie(borrowId, title) {
 }
 
 async function loadGroupWishlist(groupId) {
-    console.log('loadGroupWishlist called with groupId:', groupId);
 
     const grid = document.getElementById('groupWishlistGrid');
     const emptyState = document.getElementById('emptyGroupWishlist');
@@ -9991,10 +9917,8 @@ async function loadGroupWishlist(groupId) {
 
     try {
         // Get group members
-        console.log('Fetching group data...');
         const groupData = await apiCall('get_group', { group_id: groupId });
         const members = groupData.members || [];
-        console.log('Group members:', members);
 
         if (members.length === 0) {
             grid.innerHTML = '';
@@ -10009,10 +9933,7 @@ async function loadGroupWishlist(groupId) {
 
         for (const member of members) {
             try {
-                console.log(`Loading wishlist for ${member.username} (ID: ${member.user_id})`);
                 const wishlistData = await apiCall('get_user_wishlist', { user_id: member.user_id });
-                console.log(`Wishlist data for ${member.username}:`, wishlistData);
-
                 if (wishlistData && wishlistData.length > 0) {
                     wishlistData.forEach(item => {
                         allWishlists.push({
@@ -10027,8 +9948,6 @@ async function loadGroupWishlist(groupId) {
                 showToast(`Failed to load wishlist for ${member.username}`, 'warning');
             }
         }
-
-        console.log('Total wishlist items loaded:', allWishlists.length);
 
         // Update member filter dropdown
         if (memberFilter) {
@@ -10058,7 +9977,6 @@ async function loadGroupWishlist(groupId) {
 }
 
 function renderGroupWishlist(wishlists) {
-    console.log('renderGroupWishlist called with', wishlists.length, 'items');
 
     const grid = document.getElementById('groupWishlistGrid');
     const emptyState = document.getElementById('emptyGroupWishlist');
@@ -10069,7 +9987,6 @@ function renderGroupWishlist(wishlists) {
     }
 
     if (!wishlists || wishlists.length === 0) {
-        console.log('No wishlist items to render, showing empty state');
         grid.innerHTML = '';
         emptyState.style.display = 'flex';
         grid.style.display = 'none';
@@ -10095,8 +10012,6 @@ function renderGroupWishlist(wishlists) {
             }
         }
     });
-
-    console.log('Grouped into', movieMap.size, 'unique movies');
 
     // Convert to array and sort by most wanted
     const movies = Array.from(movieMap.values()).sort((a, b) => b.members.length - a.members.length);
@@ -10151,12 +10066,9 @@ function renderGroupWishlist(wishlists) {
             `;
         }
     }).join('');
-
-    console.log('Rendered', movies.length, 'movie cards');
 }
 
 function filterWishlistByMember(memberId) {
-    console.log('filterWishlistByMember called with memberId:', memberId);
 
     if (!window.currentGroupWishlist) {
         console.error('No currentGroupWishlist data available');
@@ -10164,7 +10076,6 @@ function filterWishlistByMember(memberId) {
     }
 
     if (memberId === 'all') {
-        console.log('Showing all members wishlist');
         renderGroupWishlist(window.currentGroupWishlist);
         return;
     }
@@ -10172,8 +10083,6 @@ function filterWishlistByMember(memberId) {
     const filtered = window.currentGroupWishlist.filter(item =>
         String(item.member_id) === String(memberId)
     );
-
-    console.log(`Filtered to ${filtered.length} items for member ${memberId}`);
     renderGroupWishlist(filtered);
 }
 
@@ -11503,32 +11412,13 @@ async function getCurrentUserId() {
             const directMovies = shelfMoviesMap[shelfId] || [];
             const children = childShelvesByParent[shelfId] || [];
 
-            // Debug logging
-            const currentShelf = shelves.find(s => s.id === shelfId);
-            console.log(`[Shelf Aggregation] Processing "${currentShelf?.name}" (ID: ${shelfId})`);
-            console.log(`  - Direct movies: ${directMovies.length}`);
-            console.log(`  - Child shelves: ${children.length}`, children.map(c => c.name));
-
             // Combine this shelf's movies with all child shelves' movies
             let allMovies = [...directMovies];
 
             children.forEach(child => {
-                console.log(`  - Recursing into child: ${child.name} (ID: ${child.id})`);
                 const childMovies = getAllMoviesRecursive(child.id);
-                console.log(`  - Got ${childMovies.length} movies from ${child.name}`);
                 allMovies = allMovies.concat(childMovies);
             });
-
-            console.log(`  - Total movies before dedup: ${allMovies.length}`);
-            if (allMovies.length > 0) {
-                console.log(`  - Sample movie object:`, allMovies[0]);
-                console.log(`  - Movie IDs check:`, allMovies.map(m => ({
-                    title: m.title,
-                    id: m.id,
-                    movie_id: m.movie_id
-                })));
-            }
-
             // Remove duplicates based on movie ID or container ID
             const uniqueMovies = [];
             const seenIds = new Set();
@@ -11541,9 +11431,6 @@ async function getCurrentUserId() {
                     uniqueMovies.push(movie);
                 }
             });
-
-            console.log(`  - Unique movies after dedup: ${uniqueMovies.length}`);
-            console.log(`  - Returning movies:`, uniqueMovies.map(m => m.is_container ? m.container_name : m.title));
 
             return uniqueMovies;
         };

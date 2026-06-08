@@ -2346,12 +2346,12 @@ select option {
     border-radius: var(--radius);
     cursor: pointer;
     font-size: 1.1rem;
-    transition: background 0.2s;
-    flex: 1;
+    transition: background 0.2s, transform 0.2s;
 }
 
 .btn-icon:hover {
     background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
 }
 
 /* Empty State */
@@ -5845,21 +5845,6 @@ body.modal-open {
 .shelf-actions {
     display: flex;
     gap: 0.5rem;
-}
-
-.btn-icon {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    border-radius: 8px;
-    padding: 0.5rem;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-icon:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
 }
 
 .shelf-description {
