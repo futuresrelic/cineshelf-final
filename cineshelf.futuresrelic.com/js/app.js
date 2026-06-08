@@ -2849,9 +2849,10 @@ async function deleteCopy(copyId, movieId) {
         }
     } catch (error) {
         console.error('Failed to delete copy:', error);
+        showToast('Failed to delete copy', 'error');
     }
 }
-    
+
     // ========================================
     // PHYSICAL MEDIA EDITIONS & COMPONENT TRACKING
     // ========================================

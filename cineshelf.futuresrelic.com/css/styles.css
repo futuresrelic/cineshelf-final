@@ -8795,3 +8795,70 @@ body.modal-open {
 .amazon-img-thumb.selected span { color: #ff9900; }
 
 .amazon-form-section h5 { color: #ff9900; }
+
+/* ══════════════════════════════════════════════════════════════════
+   BETTERMENT PASS — mobile modal & UX fixes
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Reduce modal outer padding on small phones so content gets more room */
+@media (max-width: 480px) {
+    .modal {
+        padding: 0.5rem;
+        align-items: flex-end;  /* sheet slides up from bottom on phone */
+    }
+
+    .modal-content {
+        border-radius: var(--radius) var(--radius) 0 0;
+        max-height: 92vh;
+        width: 100%;
+    }
+
+    .modal-large {
+        max-width: 100%;
+    }
+
+    .modal-header {
+        padding: 1rem 1.25rem;
+    }
+
+    .modal-header h2,
+    .modal-header h3 {
+        font-size: 1.05rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 3rem);
+    }
+
+    .modal-body {
+        padding: 1rem 1.25rem;
+    }
+
+    .modal-footer {
+        padding: 0.75rem 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    /* Copy manager: allow horizontal scroll on narrow screens */
+    #copyManagerModal .modal-body {
+        overflow-x: auto;
+    }
+
+    /* Resolve modal search: stack button below input on small screens */
+    #resolveModal .search-box {
+        flex-direction: column;
+    }
+}
+
+/* Utility: visually hidden (keeps element in accessibility tree) */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+}
