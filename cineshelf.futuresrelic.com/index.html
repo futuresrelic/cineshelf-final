@@ -2258,6 +2258,22 @@
         </div>
     </div>
 
+    <!-- Generic Confirm Modal (replaces browser confirm()) -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h3 id="confirmTitle">Confirm</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" style="color:rgba(255,255,255,0.8);margin:0;line-height:1.5;"></p>
+            </div>
+            <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:0.5rem;">
+                <button class="btn-secondary" id="confirmCancelBtn">Cancel</button>
+                <button class="btn" id="confirmOkBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Create/Edit Shelf Modal -->
     <div id="shelfModal" class="modal">
         <div class="modal-content">

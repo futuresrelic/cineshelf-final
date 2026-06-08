@@ -109,7 +109,8 @@ const App = (function() {
     let shelves = []; // Store shelves for filtering
     let settings = {};
     let selectedMovie = null;
-    let _textPromptResolve = null; // resolver for showTextPrompt()
+    let _textPromptResolve = null;  // resolver for showTextPrompt()
+    let _confirmResolve = null;     // resolver for showConfirm()
 
     // API Configuration
     const API_URL = '/api/api.php';
@@ -1206,7 +1207,7 @@ function renderCollection() {
     }
     
     async function removeFromWishlist(movieId) {
-        if (!confirm('Remove from wishlist?')) return;
+        if (!await showConfirm('Remove this title from your wishlist?', 'Remove from Wishlist', 'Remove', 'btn btn-danger')) return;
         
         try {
             await apiCall('remove_wishlist', { movie_id: movieId });
@@ -2812,7 +2813,7 @@ async function saveCopyEdit(copyId, movieId) {
 }
 
 async function deleteCopy(copyId, movieId) {
-    if (!confirm('Delete this copy?')) return;
+    if (!await showConfirm('Permanently delete this copy? This cannot be undone.', 'Delete Copy', 'Delete', 'btn btn-danger')) return;
 
     const copyManagerOpen = document.getElementById('copyManagerModal')?.classList.contains('active');
 
@@ -2927,7 +2928,7 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function unlinkCopyEdition(copyId, movieId) {
-        if (!confirm('Unlink this edition? Component tracking data will be removed.')) return;
+        if (!await showConfirm('Unlink this edition? Component tracking data will be removed.', 'Unlink Edition', 'Unlink', 'btn btn-danger')) return;
         try {
             await apiCall('unlink_copy_edition', { copy_id: copyId });
             showToast('Edition unlinked', 'info');
@@ -6321,6 +6322,37 @@ function getCertColor(cert) {
     }
 
     // ========================================
+    // CONFIRM MODAL (replaces browser confirm())
+    // Usage: const ok = await showConfirm('Message', 'Title?', 'Danger label')
+    // Returns true if confirmed, false if cancelled.
+    // ========================================
+
+    function showConfirm(message, title = 'Confirm', okLabel = 'Confirm', okClass = 'btn') {
+        return new Promise(resolve => {
+            _confirmResolve = resolve;
+            const modal  = document.getElementById('confirmModal');
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            const okBtn = document.getElementById('confirmOkBtn');
+            okBtn.textContent = okLabel;
+            okBtn.className = okClass;
+            okBtn.onclick = () => _closeConfirm(true);
+            document.getElementById('confirmCancelBtn').onclick = () => _closeConfirm(false);
+            modal.classList.add('active');
+        });
+    }
+
+    function _closeConfirm(accepted) {
+        const modal = document.getElementById('confirmModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+        if (_confirmResolve) {
+            _confirmResolve(accepted);
+            _confirmResolve = null;
+        }
+    }
+
+    // ========================================
     // SETTINGS
     // ========================================
     
@@ -6614,10 +6646,8 @@ function getCertColor(cert) {
     }
 
     // Legacy function - no longer needed with OAuth
-    // Users should sign out and sign in with a different account
-    function switchUser() {
-        console.warn('switchUser() is deprecated with OAuth authentication');
-        if (confirm('To switch accounts, you need to sign out and sign in again. Sign out now?')) {
+    async function switchUser() {
+        if (await showConfirm('To switch accounts you need to sign out first. Sign out now?', 'Switch Account', 'Sign Out')) {
             Auth.logout();
         }
     }
@@ -7316,7 +7346,7 @@ function renderUnresolved() {
 }
 
 async function deleteUnresolved(movieId, title) {
-    if (!confirm(`Delete "${title}" from your collection? This will remove all copies of this unmatched entry.`)) return;
+    if (!await showConfirm(`Delete "${title}"? All copies of this unmatched entry will be removed.`, 'Delete Entry', 'Delete', 'btn btn-danger')) return;
 
     try {
         await apiCall('delete_unresolved', { movie_id: movieId });
@@ -8085,7 +8115,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
 
     // Remove a movie from the box set
     async function removeMovieFromBoxSet(index) {
-        if (!confirm('Remove this movie from the box set?')) return;
+        if (!await showConfirm('Remove this movie from the box set?', 'Remove Movie', 'Remove', 'btn btn-danger')) return;
 
         const movie = boxSetMovies[index];
 
@@ -9274,7 +9304,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     async function deleteBoxSet() {
         if (!currentContainerId) return;
 
-        if (!confirm('Are you sure you want to delete this box set? The movies inside will not be deleted.')) {
+        if (!await showConfirm('Delete this box set? The movies inside will remain in your collection.', 'Delete Box Set', 'Delete', 'btn btn-danger')) {
             return;
         }
 
@@ -9597,7 +9627,7 @@ async function generateGroupInviteLink(groupId) {
 }
 
 async function generateNewInviteLink(groupId) {
-    if (!confirm('Generate a new invite link? The old link will remain valid until it expires.')) {
+    if (!await showConfirm('Generate a new invite link? The old link will remain valid until it expires.', 'New Invite Link', 'Generate')) {
         return;
     }
     await generateGroupInviteLink(groupId);
@@ -9647,7 +9677,7 @@ async function addMemberToGroup(groupId) {
 }
 
 async function removeMember(groupId, userId, username) {
-    if (!confirm(`Remove ${username} from this group?`)) return;
+    if (!await showConfirm(`Remove ${username} from this group?`, 'Remove Member', 'Remove', 'btn btn-danger')) return;
     
     try {
         await apiCall('remove_group_member', { group_id: groupId, user_id: userId });
@@ -9659,7 +9689,7 @@ async function removeMember(groupId, userId, username) {
 }
 
 async function leaveGroup(groupId) {
-    if (!confirm('Are you sure you want to leave this group?')) return;
+    if (!await showConfirm('Leave this group? You can rejoin with an invite link.', 'Leave Group', 'Leave', 'btn btn-danger')) return;
     
     try {
         const userId = await getCurrentUserId();
@@ -9931,7 +9961,7 @@ async function borrowMovie(copyId, title) {
 }
 
 async function returnMovie(borrowId, title) {
-    if (!confirm(`Mark "${title}" as returned?`)) return;
+    if (!await showConfirm(`Mark "${title}" as returned?`, 'Return Movie', 'Mark Returned')) return;
 
     try {
         await apiCall('return_copy', { borrow_id: borrowId });
@@ -11722,7 +11752,7 @@ async function getCurrentUserId() {
         const shelf = shelves.find(s => s.id === shelfId);
         if (!shelf) return;
 
-        if (!confirm(`Delete shelf "${shelf.name}"? Movies will be unassigned but not deleted.`)) {
+        if (!await showConfirm(`Delete "${shelf.name}"? Movies will be unassigned but not deleted.`, 'Delete Shelf', 'Delete', 'btn btn-danger')) {
             return;
         }
 
@@ -11738,7 +11768,7 @@ async function getCurrentUserId() {
     }
 
     async function deleteAllShelves() {
-        if (!confirm('Reset ALL shelves?\n\nThis will delete every shelf and unassign all movies. Your collection and copies are safe — nothing gets deleted. This cannot be undone.')) {
+        if (!await showConfirm('Delete ALL shelves and unassign all movies? Your collection is safe — nothing gets deleted. This cannot be undone.', 'Reset All Shelves', 'Reset All', 'btn btn-danger')) {
             return;
         }
         try {
@@ -11961,7 +11991,7 @@ async function getCurrentUserId() {
     }
 
     async function removeFromShelf(copyId) {
-        if (!confirm('Remove this movie from the shelf?')) {
+        if (!await showConfirm('Remove this movie from the shelf?', 'Remove from Shelf', 'Remove', 'btn btn-danger')) {
             return;
         }
 
@@ -11977,7 +12007,7 @@ async function getCurrentUserId() {
     }
 
     async function removeContainerFromShelf(containerId) {
-        if (!confirm('Remove this box set from the shelf?')) {
+        if (!await showConfirm('Remove this box set from the shelf?', 'Remove from Shelf', 'Remove', 'btn btn-danger')) {
             return;
         }
 
@@ -12648,7 +12678,7 @@ async function getCurrentUserId() {
             return;
         }
 
-        if (!confirm(`Save ${changeCount} change${changeCount !== 1 ? 's' : ''}?`)) return;
+        if (!await showConfirm(`Save ${changeCount} pending change${changeCount !== 1 ? 's' : ''}?`, 'Save Changes', 'Save')) return;
 
         try {
             if (spreadsheetType === 'copies') {
@@ -15155,7 +15185,11 @@ return {
 
     // Generic text/date prompt modal (replaces browser prompt())
     showTextPrompt,
-    _closeTextPrompt
+    _closeTextPrompt,
+
+    // Generic confirm modal (replaces browser confirm())
+    showConfirm,
+    _closeConfirm
 };
 
 })();
