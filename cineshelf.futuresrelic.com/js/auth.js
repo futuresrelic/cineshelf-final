@@ -86,10 +86,9 @@ const Auth = (function() {
                 // Check if profile picture already exists
                 let img = headerRight.querySelector('img[alt="Profile"]');
                 if (!img) {
-                    // Create new profile picture
                     img = document.createElement('img');
                     img.alt = 'Profile';
-                    img.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; margin-right: 8px;';
+                    img.className = 'header-profile-pic';
                     headerRight.insertBefore(img, headerRight.firstChild);
                 }
                 // Update src (whether new or existing)

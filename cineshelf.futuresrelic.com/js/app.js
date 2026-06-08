@@ -3089,19 +3089,20 @@ function renderFamilyCollection(movies) {
 }
 
 
-function filterFamilyByMember(memberId) {
+async function filterFamilyByMember(memberId) {
     if (!currentGroupId) return;
-    
-    // Reload collection with filter
-    apiCall('list_group_collection', { group_id: currentGroupId }).then(movies => {
+
+    try {
+        const movies = await apiCall('list_group_collection', { group_id: currentGroupId });
         if (memberId === 'all') {
             renderFamilyCollection(movies);
         } else {
-            // Filter to only show movies owned by selected member
-            const filtered = movies.filter(m => m.owner_id == memberId);
-            renderFamilyCollection(filtered);
+            renderFamilyCollection(movies.filter(m => String(m.owner_id) === String(memberId)));
         }
-    });
+    } catch (error) {
+        console.error('Failed to filter family collection:', error);
+        showToast('Failed to filter collection', 'error');
+    }
 }
 
 // NEW FUNCTION: View movie details in group context (shows ALL copies from ALL members)
@@ -3388,6 +3389,7 @@ async function loadBorrowedItems() {
         renderBorrowedList(items || []);
     } catch (error) {
         console.error('Error loading borrowed items:', error);
+        showToast('Failed to load borrowed items', 'error');
     }
 }
 
@@ -3438,6 +3440,7 @@ async function loadLentItems() {
         renderLentList(items || []);
     } catch (error) {
         console.error('Error loading lent items:', error);
+        showToast('Failed to load lent items', 'error');
     }
 }
 
@@ -3935,6 +3938,7 @@ async function getCurrentUserId() {
             document.getElementById('triviaSettings').style.display = 'none';
             document.getElementById('triviaGame').style.display = 'none';
             document.getElementById('triviaGameOver').style.display = 'none';
+            document.getElementById('triviaLeaderboards').style.display = 'none';
             document.getElementById('triviaHistory').style.display = 'block';
 
             const container = document.getElementById('triviaHistoryContainer');
