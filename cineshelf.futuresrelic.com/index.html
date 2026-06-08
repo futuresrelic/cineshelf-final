@@ -292,6 +292,10 @@
                                 <option value="certification">Rating (G-R)</option>
                                 <option value="added-desc">Recently Added</option>
                             </select>
+                            <label style="display:flex;align-items:center;gap:0.35rem;margin-top:0.4rem;font-size:0.8rem;cursor:pointer;color:rgba(255,255,255,0.7);font-weight:400;">
+                                <input type="checkbox" id="ignoreArticlesToggle" onchange="App.toggleIgnoreArticles(this.checked)" style="width:0.9rem;height:0.9rem;accent-color:#8b5cf6;">
+                                Skip "The", "A", "An"
+                            </label>
                         </div>
 
                         <div class="filter-group">
@@ -701,10 +705,16 @@
                 <p id="resolveDescription" style="color: rgba(255,255,255,0.8); margin-top: 0.5rem;">
                     Loading unresolved movies...
                 </p>
-                <button id="matchAllBtn" onclick="App.openSequenceMatcher(0)" class="btn"
-                        style="margin-top: 0.75rem; display: none; background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
-                    ▶ Match All
-                </button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+                    <button id="matchAllBtn" onclick="App.openSequenceMatcher(0)" class="btn"
+                            style="display: none; background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                        ▶ Match All
+                    </button>
+                    <button id="fillMissingMetaBtn" onclick="App.fetchAllMissingMetadata()" class="btn btn-secondary"
+                            style="font-size:0.85rem;">
+                        🔄 Fill Missing Directors &amp; Metadata
+                    </button>
+                </div>
             </div>
 
             <div id="unresolvedList" class="unresolved-list" style="display: none;"></div>

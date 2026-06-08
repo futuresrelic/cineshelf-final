@@ -1935,20 +1935,61 @@ case 'resolve_movie':
         ]);
         
     } else {
-        // Movie doesn't exist - fetch from TMDB and update
-        
+        // Movie doesn't exist - fetch from TMDB with full credits and update
+
+        $appendTo = $mediaType === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
         $endpoint = $mediaType === 'tv' ? '/tv/' : '/movie/';
-        $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY;
+        $url = TMDB_BASE_URL . $endpoint . $tmdbId . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
         $response = file_get_contents($url);
-        
+
         if ($response === false) {
             jsonResponse(false, null, 'Failed to fetch from TMDB');
         }
-        
+
         $data = json_decode($response, true);
         $genres = implode(', ', array_column($data['genres'] ?? [], 'name'));
-        
-        // Update movie record
+
+        // Extract director (or creator for TV shows)
+        $director = '';
+        if ($mediaType === 'tv' && !empty($data['created_by'][0]['name'])) {
+            $director = $data['created_by'][0]['name'];
+        } elseif (!empty($data['credits']['crew'])) {
+            foreach ($data['credits']['crew'] as $person) {
+                if ($person['job'] === 'Director') { $director = $person['name']; break; }
+            }
+        }
+
+        // Extract top 5 actors
+        $actors = '';
+        if (!empty($data['credits']['cast'])) {
+            $actors = implode(', ', array_column(array_slice($data['credits']['cast'], 0, 5), 'name'));
+        }
+
+        // Extract certification
+        $certification = '';
+        if ($mediaType === 'movie' && !empty($data['release_dates']['results'])) {
+            foreach ($data['release_dates']['results'] as $country) {
+                if ($country['iso_3166_1'] === 'US') {
+                    foreach ($country['release_dates'] as $rd) {
+                        if (!empty($rd['certification'])) { $certification = $rd['certification']; break 2; }
+                    }
+                }
+            }
+        } elseif ($mediaType === 'tv' && !empty($data['content_ratings']['results'])) {
+            foreach ($data['content_ratings']['results'] as $cr) {
+                if ($cr['iso_3166_1'] === 'US') { $certification = $cr['rating']; break; }
+            }
+        }
+
+        // Extract studio/network
+        $studio = '';
+        if (!empty($data['production_companies'][0]['name'])) {
+            $studio = $data['production_companies'][0]['name'];
+        } elseif (!empty($data['networks'][0]['name'])) {
+            $studio = $data['networks'][0]['name'];
+        }
+
+        // Update movie record with full data
         $stmt = $db->prepare("
             UPDATE movies SET
                 tmdb_id = ?,
@@ -1959,15 +2000,19 @@ case 'resolve_movie':
                 rating = ?,
                 runtime = ?,
                 genre = ?,
+                director = ?,
+                actors = ?,
+                certification = ?,
+                studio = ?,
                 media_type = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ");
-        
+
         $title = $mediaType === 'tv' ? $data['name'] : $data['title'];
         $releaseDate = $mediaType === 'tv' ? ($data['first_air_date'] ?? null) : ($data['release_date'] ?? null);
         $year = $releaseDate ? intval(substr($releaseDate, 0, 4)) : null;
-        
+
         $stmt->execute([
             $tmdbId,
             $title,
@@ -1977,14 +2022,92 @@ case 'resolve_movie':
             $data['vote_average'] ?? null,
             $data['runtime'] ?? ($data['episode_run_time'][0] ?? null),
             $genres,
+            $director ?: null,
+            $actors ?: null,
+            $certification ?: null,
+            $studio ?: null,
             $mediaType,
             $movieId
         ]);
-        
+
         jsonResponse(true, ['movie_id' => $movieId, 'title' => $title]);
     }
     break;
             
+        case 'fill_missing_metadata':
+            // Bulk-fetch TMDB credits (director/actors/cert) for movies missing that data
+            $stmt = $db->prepare("
+                SELECT DISTINCT m.id, m.tmdb_id, m.media_type
+                FROM movies m
+                INNER JOIN copies c ON c.movie_id = m.id AND c.user_id = ?
+                WHERE m.tmdb_id IS NOT NULL
+                AND m.tmdb_id NOT LIKE 'unresolved_%'
+                AND (m.director IS NULL OR m.director = '')
+                LIMIT 100
+            ");
+            $stmt->execute([$userId]);
+            $missing = $stmt->fetchAll();
+
+            $updated = 0; $failed = 0;
+            foreach ($missing as $mv) {
+                $mt = $mv['media_type'] ?: 'movie';
+                $appendTo = $mt === 'tv' ? 'credits,content_ratings' : 'credits,release_dates';
+                $ep = $mt === 'tv' ? '/tv/' : '/movie/';
+                $url = TMDB_BASE_URL . $ep . $mv['tmdb_id'] . '?api_key=' . TMDB_API_KEY . '&append_to_response=' . $appendTo;
+                $resp = @file_get_contents($url);
+                if (!$resp) { $failed++; continue; }
+                $d = json_decode($resp, true);
+
+                $dir = '';
+                if ($mt === 'tv' && !empty($d['created_by'][0]['name'])) {
+                    $dir = $d['created_by'][0]['name'];
+                } elseif (!empty($d['credits']['crew'])) {
+                    foreach ($d['credits']['crew'] as $p) {
+                        if ($p['job'] === 'Director') { $dir = $p['name']; break; }
+                    }
+                }
+
+                $actors = !empty($d['credits']['cast'])
+                    ? implode(', ', array_column(array_slice($d['credits']['cast'], 0, 5), 'name'))
+                    : '';
+
+                $cert = '';
+                if ($mt === 'movie' && !empty($d['release_dates']['results'])) {
+                    foreach ($d['release_dates']['results'] as $c2) {
+                        if ($c2['iso_3166_1'] === 'US') {
+                            foreach ($c2['release_dates'] as $rd) {
+                                if (!empty($rd['certification'])) { $cert = $rd['certification']; break 2; }
+                            }
+                        }
+                    }
+                } elseif ($mt === 'tv' && !empty($d['content_ratings']['results'])) {
+                    foreach ($d['content_ratings']['results'] as $cr) {
+                        if ($cr['iso_3166_1'] === 'US') { $cert = $cr['rating']; break; }
+                    }
+                }
+
+                $studio = $d['production_companies'][0]['name'] ?? ($d['networks'][0]['name'] ?? '');
+                $genres = implode(', ', array_column($d['genres'] ?? [], 'name'));
+
+                $upd = $db->prepare("
+                    UPDATE movies SET
+                        director = ?, actors = ?, certification = ?, studio = ?,
+                        genre = CASE WHEN (genre IS NULL OR genre = '') THEN ? ELSE genre END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $upd->execute([$dir ?: null, $actors ?: null, $cert ?: null, $studio ?: null, $genres, $mv['id']]);
+                $updated++;
+                usleep(250000); // 250ms rate-limit buffer
+            }
+
+            jsonResponse(true, [
+                'updated' => $updated,
+                'failed'  => $failed,
+                'remaining' => max(0, count($missing) - $updated - $failed)
+            ]);
+            break;
+
         case 'add_unresolved':
             $title = sanitize($input['title'] ?? '', 200);
             

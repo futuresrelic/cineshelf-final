@@ -598,19 +598,32 @@ function applyFilters() {
     return filtered;
 }
 
+let ignoreArticles = false;
+
+function _sortTitle(title) {
+    if (!ignoreArticles) return title || '';
+    return (title || '').replace(/^(the|a|an)\s+/i, '');
+}
+
+function toggleIgnoreArticles(on) {
+    ignoreArticles = on;
+    const sel = document.getElementById('sortBySelect');
+    if (sel) sortMoviesEnhanced(sel.value);
+}
+
 // Enhanced sort function with new options
 function sortMoviesEnhanced(sortBy) {
     let filtered = applyFilters();
-    
+
     filtered.sort((a, b) => {
         const movieA = a.movie;
         const movieB = b.movie;
-        
+
         switch (sortBy) {
             case 'title':
-                return (movieA.title || '').localeCompare(movieB.title || '');
+                return _sortTitle(movieA.title).localeCompare(_sortTitle(movieB.title));
             case 'title-desc':
-                return (movieB.title || '').localeCompare(movieA.title || '');
+                return _sortTitle(movieB.title).localeCompare(_sortTitle(movieA.title));
             case 'year':
                 return (movieA.year || 0) - (movieB.year || 0);
             case 'year-desc':
@@ -7422,6 +7435,24 @@ function removeFilter(filterType) {
         seqIndex = 0;
         const seqNav = document.getElementById('seqNav');
         if (seqNav) seqNav.style.display = 'none';
+    }
+
+    async function fetchAllMissingMetadata() {
+        const btn = document.getElementById('fillMissingMetaBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Fetching…'; }
+        try {
+            showToast('Fetching missing metadata from TMDB…', 'info');
+            const result = await apiCall('fill_missing_metadata');
+            const msg = `✅ Updated ${result.updated} film${result.updated !== 1 ? 's' : ''}` +
+                (result.failed ? ` (${result.failed} failed)` : '') +
+                (result.remaining > 0 ? ` — run again for ${result.remaining} more` : '');
+            showToast(msg, 'success');
+            await loadCollection();
+        } catch (e) {
+            showToast('Failed to fetch metadata', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '🔄 Fill Missing Directors & Metadata'; }
+        }
     }
 
     function openSequenceMatcher(startIndex) {
@@ -14763,6 +14794,8 @@ return {
     openSequenceMatcher,
     seqSkip,
     seqPrev,
+    fetchAllMissingMetadata,
+    toggleIgnoreArticles,
     sortMoviesEnhanced,
     updateFilterUI,
     resetFilters,
