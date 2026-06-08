@@ -3581,13 +3581,11 @@ async function deleteCopy(copyId, movieId) {
                 <h4>🛒 Import from Amazon</h4>
                 <div class="amazon-tabs" style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid #2a2a4a;">
                     <button id="az-tab-url" class="az-tab-btn ${activeTab==='url'?'az-tab-active':''}"
-                            onclick="App.switchAmazonTab('url',${copyId},${movieId})"
-                            style="padding:0.5rem 1rem;background:${activeTab==='url'?'#667eea':'transparent'};color:${activeTab==='url'?'#fff':'#aaa'};border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                            onclick="App.switchAmazonTab('url',${copyId},${movieId})">
                         🔗 URL Fetch
                     </button>
                     <button id="az-tab-paste" class="az-tab-btn ${activeTab==='paste'?'az-tab-active':''}"
-                            onclick="App.switchAmazonTab('paste',${copyId},${movieId})"
-                            style="padding:0.5rem 1rem;background:${activeTab==='paste'?'#667eea':'transparent'};color:${activeTab==='paste'?'#fff':'#aaa'};border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                            onclick="App.switchAmazonTab('paste',${copyId},${movieId})">
                         📋 Paste Text
                     </button>
                 </div>
@@ -3655,9 +3653,7 @@ async function deleteCopy(copyId, movieId) {
         document.getElementById('az-panel-url').style.display   = tab === 'url'   ? 'block' : 'none';
         document.getElementById('az-panel-paste').style.display = tab === 'paste' ? 'block' : 'none';
         document.querySelectorAll('.az-tab-btn').forEach(btn => {
-            const isActive = btn.id === `az-tab-${tab}`;
-            btn.style.background = isActive ? '#667eea' : 'transparent';
-            btn.style.color      = isActive ? '#fff' : '#aaa';
+            btn.classList.toggle('az-tab-active', btn.id === `az-tab-${tab}`);
         });
     }
 
@@ -5272,7 +5268,7 @@ function getCertColor(cert) {
     function spineColorForItem(item, shelfColor) {
         if (item.is_container) return null; // handled separately
         const mode = (settings.spineColorMode) || 'shelf';
-        if (mode === 'shelf') return shelfColor || '#667eea';
+        if (mode === 'shelf') return shelfColor || 'var(--primary)';
         // 'auto' mode: per-copy color (from edition cover) takes precedence, then movie-level color
         if (mode === 'auto' && item.copy_spine_color) return item.copy_spine_color;
         if (mode === 'auto' && item.movie_spine_color) return item.movie_spine_color;
@@ -5281,7 +5277,7 @@ function getCertColor(cert) {
         for (const [key, val] of Object.entries(SPINE_FORMAT_COLORS)) {
             if (fmt.includes(key)) return val;
         }
-        return shelfColor || '#667eea';
+        return shelfColor || 'var(--primary)';
     }
 
     // Recursively collect all items from shelfId and all descendants (deduped)
@@ -5406,7 +5402,7 @@ function getCertColor(cert) {
                 const count = item.container_movie_count || 0;
                 const label = item.container_spine_label || item.container_name || 'Box Set';
                 const spineType = item.container_spine_type || item.spine_type || 'color';
-                const spineColor = item.container_spine_color || '#667eea';
+                const spineColor = item.container_spine_color || 'var(--primary)';
                 const spineImageUrl = item.container_spine_image_url;
 
                 // Determine spine style based on type
@@ -5486,8 +5482,8 @@ function getCertColor(cert) {
                 html += `<div class="shelf-view-movie-card container-card" onclick="App.showBoxSetDetails(${item.container_id})">
                     ${coverUrl
                         ? `<img src="${coverUrl}" alt="${(item.container_name||'').replace(/"/g,'')}" class="shelf-view-poster" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                           <div class="shelf-view-poster-placeholder" style="display:none; background:${item.container_spine_color || '#764ba2'}; font-size:2rem;">📦</div>`
-                        : `<div class="shelf-view-poster-placeholder" style="background:${item.container_spine_color || '#764ba2'}; font-size:2rem;">📦</div>`}
+                           <div class="shelf-view-poster-placeholder" style="display:none; background:${item.container_spine_color || 'var(--secondary)'}; font-size:2rem;">📦</div>`
+                        : `<div class="shelf-view-poster-placeholder" style="background:${item.container_spine_color || 'var(--secondary)'}; font-size:2rem;">📦</div>`}
                     <div class="shelf-view-movie-title">${item.container_name}</div>
                     <div class="shelf-view-movie-meta">Box Set · ${item.container_movie_count || 0} films</div>
                 </div>`;
@@ -5614,7 +5610,7 @@ function getCertColor(cert) {
 
                 const spineIsOpen = _spineExpanded[shelf.id] !== false;
                 const spineGlyph = spineIsOpen ? '▼' : '▶';
-                const shelfColorVal = shelf.color || '#667eea';
+                const shelfColorVal = shelf.color || 'var(--primary)';
                 html += `
                 <div class="shelf-row ${spineIsOpen ? 'spine-open' : 'spine-closed'}"
                      style="--shelf-color:${shelfColorVal}">
@@ -5645,7 +5641,7 @@ function getCertColor(cert) {
 
             // Direct movies on this (non-root) shelf shown as its own spine row
             if (directItems.length > 0) {
-                const shelfColor = shelves.find(s => s.id === parentId)?.color || '#667eea';
+                const shelfColor = shelves.find(s => s.id === parentId)?.color || 'var(--primary)';
                 html += `
                 <div class="shelf-row">
                     <div class="shelf-row-header" style="cursor:default;border-left-color:${shelfColor}">
@@ -5915,7 +5911,7 @@ function getCertColor(cert) {
             try {
                 const items = await apiCall('get_shelf_contents', { shelf_id: shelf.id });
                 (items || []).forEach(item => {
-                    allItems.push({ ...item, _shelfId: shelf.id, _shelfName: shelf.name, _shelfColor: shelf.color || '#667eea', _shelfIcon: shelf.icon || '📂' });
+                    allItems.push({ ...item, _shelfId: shelf.id, _shelfName: shelf.name, _shelfColor: shelf.color || 'var(--primary)', _shelfIcon: shelf.icon || '📂' });
                 });
             } catch(e) {}
         }));
@@ -6014,7 +6010,7 @@ function getCertColor(cert) {
             const groups = {};
             unique.forEach(item => {
                 const key = item._shelfId || 'unassigned';
-                if (!groups[key]) groups[key] = { name: item._shelfName || 'Unassigned', icon: item._shelfIcon || '📂', color: item._shelfColor || '#667eea', items: [] };
+                if (!groups[key]) groups[key] = { name: item._shelfName || 'Unassigned', icon: item._shelfIcon || '📂', color: item._shelfColor || 'var(--primary)', items: [] };
                 groups[key].items.push(item);
             });
             Object.values(groups).forEach(group => {
@@ -7123,7 +7119,6 @@ function getCertColor(cert) {
                             // Check if already in collection
                             const alreadyExists = collection.some(g => g.movie.tmdb_id === movie.tmdb_id);
                             if (alreadyExists) {
-                                console.log(`Skipped "${movie.title}" - already in collection`);
                                 skipped++;
                             } else {
                                 // Add to collection or wishlist based on status
@@ -7145,13 +7140,11 @@ function getCertColor(cert) {
                                     });
                                     addedToCollection++;
                                 }
-                                console.log(`Added "${movie.title}" with TMDB ID ${movie.tmdb_id}`);
                             }
                         } else {
                             // No TMDB ID - send directly to unresolved for manual matching
                             await apiCall('add_unresolved', { title: movie.title });
                             addedToUnresolved++;
-                            console.log(`Added "${movie.title}" to unresolved - no TMDB ID (manual matching required)`);
                         }
 
                         // Show progress every 50 movies
@@ -8654,7 +8647,7 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                                 ${posterMovies.map(movie => `<div style="overflow:hidden;background:rgba(0,0,0,0.5);"><img src="${movie.poster_url || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"></div>`).join('')}
                                 ${posterMovies.length < 4 ? Array(4 - posterMovies.length).fill('<div style="background:rgba(0,0,0,0.3);"></div>').join('') : ''}
                             </div>`
-                        : `<div style="width:80px;height:107px;flex-shrink:0;background:${boxSet.spine_color||'#667eea'};border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:2rem;">📦</div>`;
+                        : `<div style="width:80px;height:107px;flex-shrink:0;background:${boxSet.spine_color||'var(--primary)'};border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:2rem;">📦</div>`;
 
                     return `<div class="movie-card collection-card" onclick="App.showBoxSetDetailsWithNav(${boxSet.id}, ${containerIds})" style="cursor:pointer;">
                         <div class="movie-poster-container">${thumbnail}</div>
@@ -8732,10 +8725,10 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
                 } else if (posters.length === 1) {
                     coverHTML = `<img src="${posters[0].poster_url}" alt="${container.name}" class="boxset-cover-img">`;
                 } else {
-                    coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
+                    coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || 'var(--primary)'}">📦</div>`;
                 }
             } else {
-                coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || '#667eea'}">📦</div>`;
+                coverHTML = `<div class="boxset-cover-placeholder" style="background:${container.spine_color || 'var(--primary)'}">📦</div>`;
             }
 
             // Build film list with navigation support
@@ -9827,7 +9820,7 @@ async function viewGroupMovieDetails(movieId) {
                             const isYou = copy.owner_name === currentUser;
                             const isBorrowed = copy.borrow_id !== null;
                             return `
-                                <div class="copy-summary-item" style="background: ${isYou ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255,255,255,0.05)'}; border-left: 3px solid ${isYou ? '#4caf50' : '#667eea'};">
+                                <div class="copy-summary-item" style="background: ${isYou ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255,255,255,0.05)'}; border-left: 3px solid ${isYou ? '#4caf50' : 'var(--primary)'};">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <div>
                                             <strong>${copy.owner_name}${isYou ? ' (You)' : ''}</strong>
@@ -11331,7 +11324,7 @@ async function getCurrentUserId() {
             const isFull = shelf.capacity && (shelf.assigned_count >= shelf.capacity);
 
             return `
-                <div class="shelf-card" style="border-left: 4px solid ${shelf.color || '#667eea'}">
+                <div class="shelf-card" style="border-left: 4px solid ${shelf.color || 'var(--primary)'}">
                     <div class="shelf-header">
                         <div>
                             <h3 style="margin: 0; font-size: 1.25rem;">${shelf.name}</h3>
@@ -11357,7 +11350,7 @@ async function getCurrentUserId() {
                             <span class="capacity-label">${capacityText}</span>
                             ${shelf.capacity ? `
                                 <div class="capacity-bar">
-                                    <div class="capacity-fill" style="width: ${capacityPercent}%; background: ${isFull ? '#ef4444' : shelf.color || '#667eea'}"></div>
+                                    <div class="capacity-fill" style="width: ${capacityPercent}%; background: ${isFull ? 'var(--error)' : shelf.color || 'var(--primary)'}"></div>
                                 </div>
                             ` : ''}
                         </div>
@@ -11444,7 +11437,7 @@ async function getCurrentUserId() {
 
             let html = `
                 <div class="visual-shelf ${isChild ? 'child-shelf' : ''} ${hasChildren ? 'parent-shelf' : ''}"
-                     style="border-color: ${shelf.color || '#667eea'}; margin-left: ${level * 2}rem;"
+                     style="border-color: ${shelf.color || 'var(--primary)'}; margin-left: ${level * 2}rem;"
                      data-shelf-id="${shelf.id}"
                      data-level="${level}">
                     <div class="visual-shelf-header">
@@ -11474,7 +11467,7 @@ async function getCurrentUserId() {
 
                                 return `
                                     <div class="movie-spine ${movie.is_container ? 'container-spine' : ''}"
-                                         style="background: ${movie.is_container ? (movie.container_spine_color || '#764ba2') : (shelf.color || '#667eea')}"
+                                         style="background: ${movie.is_container ? (movie.container_spine_color || 'var(--secondary)') : (shelf.color || 'var(--primary)')}"
                                          title="${icon}${title}${year}"
                                          onclick="${spineClick}">
                                         <span class="spine-title">${icon}${title}</span>
@@ -11722,8 +11715,8 @@ async function getCurrentUserId() {
                 const shelfContainerPosterHTML = coverUrl
                     ? `<img src="${coverUrl}" alt="${item.container_name || 'Box Set'}" class="shelf-movie-poster" style="object-fit: cover;"
                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
-                      + `<div class="container-poster" style="display:none; background: ${item.container_spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`
-                    : `<div class="container-poster" style="background: ${item.container_spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`;
+                      + `<div class="container-poster" style="display:none; background: ${item.container_spine_color || 'var(--primary)'}; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`
+                    : `<div class="container-poster" style="background: ${item.container_spine_color || 'var(--primary)'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📦</div>`;
                 return `
                     <div class="shelf-movie-card container-card ${_shelfDragMode ? 'drag-enabled' : ''}"
                          data-idx="${idx}" data-type="container" data-id="${item.container_id}"
@@ -12020,9 +12013,9 @@ async function getCurrentUserId() {
                         ? `<img src="${item.spine_image_url}" alt="${item.name}" class="unassigned-movie-poster" style="object-fit: cover;"
                                 onclick="App.toggleMovieSelection('${itemId}')"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">`
-                          + `<div class="container-poster" style="display:none; background: ${item.spine_color || '#667eea'}; align-items: center; justify-content: center; font-size: 3rem;"
+                          + `<div class="container-poster" style="display:none; background: ${item.spine_color || 'var(--primary)'}; align-items: center; justify-content: center; font-size: 3rem;"
                                  onclick="App.toggleMovieSelection('${itemId}')">📦</div>`
-                        : `<div class="container-poster" style="background: ${item.spine_color || '#667eea'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;"
+                        : `<div class="container-poster" style="background: ${item.spine_color || 'var(--primary)'}; display: flex; align-items: center; justify-content: center; font-size: 3rem;"
                                  onclick="App.toggleMovieSelection('${itemId}')">📦</div>`;
                     return `
                         <div class="unassigned-movie-card ${isSelected ? 'selected' : ''} container-card" data-item-id="${itemId}">
@@ -13190,7 +13183,7 @@ async function getCurrentUserId() {
             return;
         }
         container.innerHTML = layoutProfiles.map(l => `
-            <div style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem 1rem; ${l.is_active == 1 ? 'border:1px solid #667eea;' : ''}">
+            <div style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.06); border-radius:8px; padding:0.75rem 1rem; ${l.is_active == 1 ? 'border:1px solid var(--primary);' : ''}">
                 <span style="flex:1; font-weight:${l.is_active == 1 ? '600' : '400'};">
                     ${l.is_active == 1 ? '✓ ' : ''}${escapeHtml(l.name)}
                     <span style="color:rgba(255,255,255,0.4); font-size:0.8rem; margin-left:0.5rem;">${l.entry_count || 0} items</span>
@@ -13879,10 +13872,6 @@ async function getCurrentUserId() {
                         items_per_shelf:   ips,
                         blocks:            _wizardPlan.blocks,
                     });
-                    const matMsg = `Wizard applied: master=${matRes.master_shelf_id}, rows=${matRes.rows_total}, ` +
-                        `sections created=${matRes.sections_created} reused=${matRes.sections_reused}, ` +
-                        `items assigned=${matRes.assigned_count}, unassigned=${matRes.unassigned_count}`;
-                    console.log('[wizard]', matMsg);
                     showToast(
                         `Shelves materialized: ${matRes.sections_created + matRes.sections_reused} sections, ` +
                         `${matRes.assigned_count} items assigned` +
@@ -14350,7 +14339,7 @@ async function getCurrentUserId() {
 
             const viewsHtml = views.map(v => {
                 const viewer = v.member_name
-                    ? `<span class="cine-viewer-badge" style="background:${v.member_color || '#667eea'}">${v.member_avatar || '👤'} ${escapeHtml(v.member_name)}</span>`
+                    ? `<span class="cine-viewer-badge" style="background:${v.member_color || 'var(--primary)'}">${v.member_avatar || '👤'} ${escapeHtml(v.member_name)}</span>`
                     : `<span class="cine-viewer-badge">${escapeHtml(v.user_display_name || v.user_username || 'Me')}</span>`;
                 const stars = v.rating
                     ? `<span class="cine-stars">${'★'.repeat(v.rating)}${'☆'.repeat(5 - v.rating)}</span>`

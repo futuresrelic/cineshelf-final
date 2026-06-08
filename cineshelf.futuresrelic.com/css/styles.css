@@ -1449,7 +1449,7 @@ select option {
 /* Shelf row: colored frame around the whole unit (v2.9.1) */
 .shelf-row {
     margin-bottom: 1.25rem;
-    border: 2px solid var(--shelf-color, #667eea);
+    border: 2px solid var(--shelf-color, var(--primary));
     border-radius: var(--radius);
     overflow: hidden;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
@@ -1723,7 +1723,7 @@ select option {
 
 /* Individual spine (a single DVD/Blu-ray case standing upright) */
 .spine-item {
-    --spine-color: #667eea;
+    --spine-color: var(--primary);
     width: 22px;
     min-width: 22px;
     height: 130px;
@@ -3136,11 +3136,6 @@ body.modal-open {
 }
 
 /* ── Edition cover thumbnail in copy manager ─────────────────────── */
-.edition-panel-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-}
 .edition-cover-thumb-link {
     flex-shrink: 0;
     display: block;
@@ -3351,6 +3346,15 @@ body.modal-open {
     padding: 2rem;
 }
 
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    border-top: 1px solid var(--border);
+}
+
 /* ── Movie detail: prev/next nav arrows ─────────── */
 .movie-nav-btn {
     background: rgba(255,255,255,0.1);
@@ -3426,13 +3430,6 @@ body.modal-open {
     padding: 1.5rem;
     border-radius: var(--radius);
     border: 1px solid var(--border);
-}
-
-.copy-header {
-    display: flex;
-    justify-content: between;
-    align-items: center;
-    margin-bottom: 1rem;
 }
 
 /* Copy details - used in copy manager for format/edition info */
@@ -4296,21 +4293,6 @@ body.modal-open {
     pointer-events: none;  /* ← Title doesn't need clicks */
 }
 
-/* Copy count badge on poster */
-.copy-count-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(76, 175, 80, 0.95);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 5;
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .movie-grid.grid-view {
@@ -4972,11 +4954,6 @@ body.modal-open {
 /* ========================================
    BUTTON VARIANTS
    ======================================== */
-
-.btn-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-}
 
 .btn-danger {
     background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
@@ -7925,7 +7902,7 @@ body.modal-open {
 /* Small buttons */
 .btn-sm {
     padding: 0.3rem 0.7rem;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     border-radius: 6px;
     border: 1px solid var(--primary);
     background: rgba(var(--primary-rgb), 0.15);
@@ -8462,12 +8439,6 @@ body.modal-open {
     line-height: 1.4;
 }
 
-/* Button size helpers */
-.btn-sm {
-    padding: 0.3rem 0.7rem;
-    font-size: 0.82rem;
-}
-
 @media (max-width: 600px) {
     .cal-cell { min-height: 60px; padding: 0.25rem; }
     .cal-day-num { font-size: 0.72rem; }
@@ -8835,6 +8806,23 @@ body.modal-open {
     }
 }
 
+/* Amazon copy-data tab buttons */
+.az-tab-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    color: rgba(255,255,255,0.5);
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.15s, color 0.15s;
+}
+.az-tab-btn.az-tab-active {
+    background: var(--primary);
+    color: white;
+}
+
 /* Utility: visually hidden (keeps element in accessibility tree) */
 .sr-only {
     position: absolute;
@@ -8872,3 +8860,10 @@ body.modal-open {
 .field-input::placeholder { color: rgba(255,255,255,0.45); }
 .field-input:focus,
 .field-select:focus { outline: none; border-color: var(--primary); }
+
+/* Layout utilities — replaces repetitive inline style="" attributes */
+.mt-1  { margin-top: 1rem; }
+.mt-half { margin-top: 0.5rem; }
+.flex-1 { flex: 1; }
+.flex-row { display: flex; flex-direction: row; }
+.flex-col { display: flex; flex-direction: column; }

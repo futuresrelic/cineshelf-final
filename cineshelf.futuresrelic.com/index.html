@@ -606,7 +606,7 @@
                     <button class="btn" onclick="App.showCreateShelfModal()">
                         ➕ Create New Shelf
                     </button>
-                    <button class="btn" onclick="App.showShelfWizard()" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                    <button class="btn" onclick="App.showShelfWizard()">
                         🧙 Setup Wizard
                     </button>
                     <button class="btn" onclick="App.showAIWizardModal()" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
@@ -1122,8 +1122,8 @@
                         <div style="margin-bottom: 1rem;">
                             <input type="text" id="boxSetMovieSearch" placeholder="Search for a movie to add..." onkeypress="if(event.key==='Enter') App.searchMoviesForBoxSet()" style="width: 100%; margin-bottom: 0.5rem;">
                             <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn" onclick="App.searchMoviesForBoxSet()" style="flex: 1;">🔍 Search</button>
-                                <button class="btn btn-secondary" onclick="App.scanBoxSetTitles()" style="flex: 1;" title="Open camera to scan movie covers">📸 Scan Covers</button>
+                                <button class="btn flex-1" onclick="App.searchMoviesForBoxSet()">🔍 Search</button>
+                                <button class="btn btn-secondary flex-1" onclick="App.scanBoxSetTitles()" title="Open camera to scan movie covers">📸 Scan Covers</button>
                             </div>
                         </div>
 
@@ -1192,7 +1192,7 @@
                                     style="background:linear-gradient(135deg,#555,#111)"
                                     onclick="App.applyTheme('noir')" title="Noir"></button>
                         </div>
-                        <div style="margin-top:1rem;display:flex;align-items:center;gap:0.75rem;">
+                        <div class="mt-1" style="display:flex;align-items:center;gap:0.75rem;">
                             <span style="color:var(--text-muted);font-size:0.9rem;">Light / Dark</span>
                             <button id="themeModeToggle" class="theme-mode-toggle" onclick="App.toggleThemeMode()" title="Toggle light/dark mode">🌙</button>
                         </div>
@@ -1292,7 +1292,7 @@
                     <div class="setting-item setting-item-stacked">
                         <label>Display Name</label>
                         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" style="flex: 1; min-width: 160px;">
+                            <input type="text" id="settingDisplayName" placeholder="Your display name" maxlength="100" class="field-input flex-1" style="min-width:160px;">
                             <button class="btn" onclick="App.updateDisplayName()" style="padding: 0.5rem 1rem; flex-shrink: 0;">Save</button>
                         </div>
                         <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 0.2rem; line-height: 1.4;">
@@ -1342,7 +1342,7 @@
                                 <span style="color:rgba(255,255,255,0.5); font-size:0.85rem; flex-shrink:0;">cineshelf.ca/share/</span>
                                 <input type="text" id="publicHandleInput" placeholder="your-handle" maxlength="30"
                                        pattern="[a-z0-9\-]+" title="Lowercase letters, numbers and hyphens only"
-                                       style="flex:1; min-width:120px; max-width:200px;"
+                                       class="field-input flex-1" style="min-width:120px; max-width:200px;"
                                        oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
                                 <button class="btn" onclick="App.savePublicSettings()" style="padding:0.5rem 1rem; flex-shrink:0;">Save</button>
                             </div>
@@ -1537,7 +1537,7 @@
                     <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">
                         Compare your scores with others
                     </p>
-                    <button class="btn-ghost" onclick="App.showTriviaSettings()" style="margin-top: 1rem;">← Back to Trivia</button>
+                    <button class="btn-ghost mt-1" onclick="App.showTriviaSettings()">← Back to Trivia</button>
                 </div>
 
                 <div class="leaderboard-tabs">
@@ -1637,23 +1637,23 @@
                     </div>
                     <input type="hidden" id="calSelectedMovieId">
                 </div>
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Date</label>
                     <input type="date" id="calEventDate" class="field-input">
                 </div>
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Notes (optional)</label>
                     <input type="text" id="calEventNotes" placeholder="Family movie night, popcorn ready 🍿" class="field-input">
                 </div>
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Group (optional)</label>
                     <select id="calEventGroup" class="field-select">
                         <option value="">Personal only</option>
                     </select>
                 </div>
                 <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-                    <button class="btn" onclick="App.saveCalendarEvent()" style="flex:1;">📅 Add to Calendar</button>
-                    <button class="btn btn-secondary" onclick="App.closeAddToCalendarModal()" style="flex:1;">Cancel</button>
+                    <button class="btn flex-1" onclick="App.saveCalendarEvent()">📅 Add to Calendar</button>
+                    <button class="btn btn-secondary flex-1" onclick="App.closeAddToCalendarModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -1704,8 +1704,8 @@
                 <div class="form-group">
                     <label>Article / List URL</label>
                     <div style="display:flex;gap:0.5rem;">
-                        <input type="url" id="scrapeUrl" class="form-control"
-                               placeholder="https://www.imdb.com/list/…" style="flex:1;">
+                        <input type="url" id="scrapeUrl" class="form-control flex-1"
+                               placeholder="https://www.imdb.com/list/…">
                         <button class="btn" onclick="App.runWishlistScrape()">🤖 Extract</button>
                     </div>
                 </div>
@@ -1732,8 +1732,8 @@
                         <button class="btn-secondary" style="font-size:0.8rem;padding:4px 10px;" onclick="App.clearScrapeResults()">Clear</button>
                     </div>
                     <div id="scrapeMovieList" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem;"></div>
-                    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-                        <button class="btn" style="flex:1;" onclick="App.addScrapeResultsToWishlist()">❤️ Add All New to Wishlist</button>
+                    <div class="mt-1" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <button class="btn flex-1" onclick="App.addScrapeResultsToWishlist()">❤️ Add All New to Wishlist</button>
                         <button class="btn-secondary" onclick="App.closeWishlistScraper()">Done</button>
                     </div>
                 </div>
@@ -1770,10 +1770,10 @@
                 </div>
 
                 <!-- Per-person rating rows (built dynamically) -->
-                <div class="party-ratings-section" id="partyRatingsSection" style="margin-top:1rem;"></div>
+                <div class="party-ratings-section mt-1" id="partyRatingsSection"></div>
 
                 <!-- Shared date -->
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Date Watched</label>
                     <input type="date" id="cineWatchedDate" class="field-input">
                 </div>
@@ -1787,8 +1787,8 @@
                 </div>
 
                 <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-                    <button class="btn" onclick="App.saveCineRating()" style="flex:1;">⭐ Save</button>
-                    <button class="btn btn-secondary" onclick="App.closeCineRatingModal()" style="flex:1;">Cancel</button>
+                    <button class="btn flex-1" onclick="App.saveCineRating()">⭐ Save</button>
+                    <button class="btn btn-secondary flex-1" onclick="App.closeCineRatingModal()">Cancel</button>
                 </div>
 
                 <!-- Legacy hidden inputs kept for compatibility -->
@@ -1811,7 +1811,7 @@
                     <label>Name</label>
                     <input type="text" id="familyMemberName" placeholder="e.g. Mom, Dad, Alice…" class="field-input">
                 </div>
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Avatar emoji</label>
                     <div class="avatar-picker" id="avatarPicker">
                         <span class="avatar-opt" onclick="App.pickAvatar('👦')">👦</span>
@@ -1830,7 +1830,7 @@
                     <input type="hidden" id="familyMemberAvatar" value="👤">
                     <div style="margin-top:0.4rem;font-size:0.8rem;color:rgba(255,255,255,0.4);">Selected: <span id="selectedAvatarDisplay">👤</span></div>
                 </div>
-                <div class="form-group" style="margin-top:1rem;">
+                <div class="form-group mt-1">
                     <label>Colour</label>
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
                         <span class="color-swatch" style="background:#667eea;" onclick="App.pickMemberColor('#667eea')"></span>
@@ -1846,8 +1846,8 @@
                 </div>
                 <input type="hidden" id="familyMemberGroupId">
                 <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-                    <button class="btn" onclick="App.saveFamilyMember()" style="flex:1;">Add Member</button>
-                    <button class="btn btn-secondary" onclick="App.closeAddFamilyMemberModal()" style="flex:1;">Cancel</button>
+                    <button class="btn flex-1" onclick="App.saveFamilyMember()">Add Member</button>
+                    <button class="btn btn-secondary flex-1" onclick="App.closeAddFamilyMemberModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -2091,7 +2091,7 @@
                         <!-- Re-search bar -->
                         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
                             <input id="matchSearchInput" type="text" placeholder="Edit title to search again…"
-                                   style="flex: 1; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: white; font-size: 0.9rem;"
+                                   class="field-input flex-1"
                                    onkeydown="if(event.key==='Enter') CoverScanner.reSearch()">
                             <button onclick="CoverScanner.reSearch()" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.85rem;">🔍</button>
                         </div>
@@ -2113,7 +2113,7 @@
                             </p>
                             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
                                 <input id="imdbLookupInput" type="text" placeholder="tt0000000"
-                                       style="flex: 1; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: white; font-size: 0.9rem;"
+                                       class="field-input flex-1"
                                        onkeydown="if(event.key==='Enter') CoverScanner.lookupImdb()">
                                 <button onclick="CoverScanner.lookupImdb()" class="btn" style="padding: 0.5rem 0.9rem; font-size: 0.85rem;">Look up</button>
                             </div>
@@ -2251,7 +2251,7 @@
                 <p id="textPromptHint" style="color:rgba(255,255,255,0.65);margin:0 0 0.75rem;font-size:0.88rem;"></p>
                 <input type="text" id="textPromptInput" class="field-input" autocomplete="off">
             </div>
-            <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:0.5rem;">
+            <div class="modal-footer">
                 <button class="btn-secondary" onclick="App._closeTextPrompt(false)">Cancel</button>
                 <button class="btn" onclick="App._closeTextPrompt(true)">OK</button>
             </div>
@@ -2267,7 +2267,7 @@
             <div class="modal-body">
                 <p id="confirmMessage" style="color:rgba(255,255,255,0.8);margin:0;line-height:1.5;"></p>
             </div>
-            <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:0.5rem;">
+            <div class="modal-footer">
                 <button class="btn-secondary" id="confirmCancelBtn">Cancel</button>
                 <button class="btn" id="confirmOkBtn">Confirm</button>
             </div>
@@ -2322,7 +2322,7 @@
                     <textarea id="shelfDescription" placeholder="Notes about this shelf..." rows="3" maxlength="500"></textarea>
                 </div>
             </div>
-            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <div class="modal-footer">
                 <button class="btn-ghost" onclick="App.closeShelfModal()">Cancel</button>
                 <button class="btn" id="saveShelfBtn" onclick="App.saveShelf()">Create Shelf</button>
             </div>
@@ -2333,7 +2333,7 @@
     <div id="unassignedModal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📦 Unassigned Movies <span id="unassignedSelectionCount" style="font-size: 0.9rem; font-weight: normal; color: #667eea;"></span></h3>
+                <h3>📦 Unassigned Movies <span id="unassignedSelectionCount" style="font-size: 0.9rem; font-weight: normal; color: var(--primary);"></span></h3>
                 <button class="modal-close" onclick="App.closeUnassignedModal()">×</button>
             </div>
             <div class="modal-body">
@@ -2343,7 +2343,7 @@
                            id="unassignedSearch"
                            placeholder="🔍 Search movies..."
                            oninput="App.onUnassignedFilterChange('search', this.value)"
-                           style="flex: 1; min-width: 200px; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                           class="field-input flex-1" style="min-width: 200px;">
 
                     <select id="unassignedTypeFilter" onchange="App.onUnassignedFilterChange('type', this.value)">
                         <option value="all">All Types</option>
@@ -2458,7 +2458,7 @@
                     <textarea id="assignNotes" placeholder="Any notes about this assignment..." rows="3"></textarea>
                 </div>
             </div>
-            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <div class="modal-footer">
                 <button class="btn-ghost" onclick="App.closeAssignToShelf()">Cancel</button>
                 <button class="btn" onclick="App.confirmAssignToShelf()">Assign</button>
             </div>
@@ -2483,7 +2483,7 @@
                             <div class="boxset-cover-overlay">📸 Change</div>
                         </div>
                         <!-- Info + actions -->
-                        <div style="flex:1;">
+                        <div class="flex-1">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div>
                                     <h4 id="boxSetName" style="margin: 0 0 0.5rem 0; font-size: 1.25rem;"></h4>
@@ -2559,7 +2559,7 @@
                     <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">🔍 Zoom</span>
                     <input type="range" id="cropZoomSlider" min="50" max="400" value="100"
                            oninput="App.cropZoom(this.value)"
-                           style="flex:1;">
+                           class="flex-1">
                     <span style="font-size:0.8rem; color:rgba(255,255,255,0.4);">Drag to position</span>
                 </div>
 
@@ -2805,7 +2805,7 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 <p style="color:rgba(255,255,255,0.5);">Loading layouts…</p>
             </div>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end;">
+        <div class="modal-footer">
             <button class="btn-ghost" onclick="App.closeManageLayoutsModal()">Close</button>
         </div>
     </div>
@@ -2836,7 +2836,7 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
 
                 <!-- Section builder -->
                 <div style="margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
-                    <strong style="flex:1;">Sections <span style="color:rgba(255,255,255,0.5); font-weight:400; font-size:0.85rem;">(processed top-to-bottom; unmatched items go into remainder)</span></strong>
+                    <strong class="flex-1">Sections <span style="color:rgba(255,255,255,0.5); font-weight:400; font-size:0.85rem;">(processed top-to-bottom; unmatched items go into remainder)</span></strong>
                     <button class="btn" style="padding:0.3rem 0.75rem; font-size:0.85rem;" onclick="App.wizardAddSection()">+ Add Section</button>
                 </div>
                 <div id="wizardSectionList" style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem; min-height:40px;">
@@ -2935,7 +2935,7 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                     <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; font-size:0.9rem;">
                         <input type="checkbox" id="aiWizardSetActive"> Set as active
                     </label>
-                    <button class="btn" onclick="App.applyWizardPlan()" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+                    <button class="btn" onclick="App.applyWizardPlan()">
                         &#10003; Save Layout
                     </button>
                 </div>
@@ -2994,9 +2994,9 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 <input type="checkbox" id="newEmptyLayoutSetActive"> Set as active layout immediately
             </label>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <div class="modal-footer">
             <button class="btn-ghost" onclick="App.closeNewEmptyLayoutModal()">Cancel</button>
-            <button class="btn" onclick="App.confirmNewEmptyLayout()" style="background:linear-gradient(135deg,#667eea,#764ba2);">Create Layout</button>
+            <button class="btn" onclick="App.confirmNewEmptyLayout()">Create Layout</button>
         </div>
     </div>
 </div>
@@ -3031,9 +3031,9 @@ document.getElementById('forceUpdateBtn').addEventListener('click', async functi
                 Move from end of section (uncheck: from start)
             </label>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <div class="modal-footer">
             <button class="btn-ghost" onclick="App.closeSectionSplitModal()">Cancel</button>
-            <button class="btn" onclick="App.confirmSectionSplitMove()" style="background:linear-gradient(135deg,#667eea,#764ba2);">Move →</button>
+            <button class="btn" onclick="App.confirmSectionSplitMove()">Move →</button>
         </div>
     </div>
 </div>
