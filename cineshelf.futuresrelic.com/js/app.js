@@ -2668,8 +2668,7 @@ async function saveNewCopy(movieId) {
         });
 
         showToast('Copy added!', 'success');
-        loadCollection();
-        // Refresh the copy manager to show the new copy
+        await loadCollection();
         await openCopyManager(movieId);
     } catch (error) {
         console.error('Failed to add copy:', error);
@@ -4508,7 +4507,7 @@ async function applyCustomPosterUrl(movieId) {
         await apiCall('update_movie_poster', { movie_id: movieId, poster_url: url });
         showToast('✅ Cover art updated!', 'success');
         closePosterSelector();
-        loadCollection();
+        await loadCollection();
         if (document.getElementById('movieDetailModal').classList.contains('active')) viewMovieDetails(movieId);
     } catch (e) { showToast('Failed to update cover art', 'error'); }
 }
@@ -4527,7 +4526,7 @@ async function uploadCoverFile(movieId, input) {
         await apiCall('update_movie_poster', { movie_id: movieId, poster_url: result.url });
         showToast('✅ Cover uploaded!', 'success');
         closePosterSelector();
-        loadCollection();
+        await loadCollection();
         if (document.getElementById('movieDetailModal').classList.contains('active')) viewMovieDetails(movieId);
     } catch (e) { showToast('Upload failed: ' + e.message, 'error'); }
 }
@@ -4548,8 +4547,8 @@ async function selectPoster(movieId, posterPath) {
         showToast('✅ Poster updated!', 'success');
         
         closePosterSelector();
-        loadCollection(); // Reload to show new poster
-        
+        await loadCollection();
+
         // If movie detail modal is open, refresh it
         const detailModal = document.getElementById('movieDetailModal');
         if (detailModal.classList.contains('active')) {
