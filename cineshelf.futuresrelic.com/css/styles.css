@@ -106,6 +106,9 @@
     --logo-icon-size: 83px;
     --logo-text-size: 2.8rem;
     --header-h: 0px;
+
+    /* Alias — keeps templates using var(--accent) working */
+    --accent: var(--primary);
 }
 
 /* ══════════════════════════════════════════════════════════════════

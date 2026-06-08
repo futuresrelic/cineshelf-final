@@ -416,6 +416,7 @@ const App = (function() {
         
     } catch (error) {
         console.error('Failed to load collection:', error);
+        showToast('Failed to load your collection. Try refreshing.', 'error');
     }
 }
     
@@ -501,8 +502,9 @@ function getUniqueStudios() {
     return Array.from(studios).sort();
 }
 
-// Current filter state
-let currentFilters = {
+// Current filter state — persisted to sessionStorage so filters survive tab switches
+// but reset on full page reload (intentional: filters shouldn't haunt you between sessions)
+const _defaultFilters = {
     search: '',
     director: 'all',
     actor: 'all',
@@ -512,6 +514,29 @@ let currentFilters = {
     yearMin: null,
     yearMax: null
 };
+
+function _saveFilters() {
+    try { sessionStorage.setItem('cineshelf_filters', JSON.stringify(currentFilters)); } catch (_) {}
+}
+
+function _restoreFilterUI() {
+    const el = id => document.getElementById(id);
+    if (el('filterSearch'))       el('filterSearch').value       = currentFilters.search || '';
+    if (el('filterDirector'))     el('filterDirector').value     = currentFilters.director || 'all';
+    if (el('filterActor'))        el('filterActor').value        = currentFilters.actor || 'all';
+    if (el('filterStudio'))       el('filterStudio').value       = currentFilters.studio || 'all';
+    if (el('filterGenre'))        el('filterGenre').value        = currentFilters.genre || 'all';
+    if (el('filterCertification'))el('filterCertification').value= currentFilters.certification || 'all';
+    if (el('filterYearMin'))      el('filterYearMin').value      = currentFilters.yearMin || '';
+    if (el('filterYearMax'))      el('filterYearMax').value      = currentFilters.yearMax || '';
+}
+
+let currentFilters = (() => {
+    try {
+        const saved = sessionStorage.getItem('cineshelf_filters');
+        return saved ? { ..._defaultFilters, ...JSON.parse(saved) } : { ..._defaultFilters };
+    } catch (_) { return { ..._defaultFilters }; }
+})();
 
 // Apply filters to collection
 function applyFilters() {
@@ -699,28 +724,9 @@ function updateFilterUI() {
 
 // Reset filters
 function resetFilters() {
-    currentFilters = {
-        search: '',
-        director: 'all',
-        actor: 'all',
-        studio: 'all',
-        genre: 'all',
-        certification: 'all',
-        yearMin: null,
-        yearMax: null
-    };
-
-    const searchInput = document.getElementById('filterSearch');
-    if (searchInput) searchInput.value = '';
-
-    document.getElementById('filterDirector').value = 'all';
-    document.getElementById('filterActor').value = 'all';
-    document.getElementById('filterStudio').value = 'all';
-    document.getElementById('filterGenre').value = 'all';
-    document.getElementById('filterCertification').value = 'all';
-    document.getElementById('filterYearMin').value = '';
-    document.getElementById('filterYearMax').value = '';
-
+    currentFilters = { ..._defaultFilters };
+    _saveFilters();
+    _restoreFilterUI();
     sortMoviesEnhanced('title');
 }
 
@@ -1057,6 +1063,7 @@ function renderCollection() {
 
     } catch (error) {
         console.error('Failed to load wishlist:', error);
+        showToast('Failed to load your wishlist. Try refreshing.', 'error');
     }
 }
 
@@ -1206,6 +1213,7 @@ function renderCollection() {
             loadWishlist();
         } catch (error) {
             console.error('Failed to remove from wishlist:', error);
+            showToast('Failed to remove from wishlist', 'error');
         }
     }
 
@@ -1539,7 +1547,7 @@ function renderCollection() {
 
         // Reload presets from server to get latest changes
         container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Loading presets...</div>';
-        modal.style.display = 'flex';
+        modal.classList.add('active');
 
         await loadPresets();
 
@@ -1562,15 +1570,34 @@ function renderCollection() {
     }
 
     function closePresetLists() {
-        document.getElementById('presetListsModal').style.display = 'none';
+        document.getElementById('presetListsModal').classList.remove('active');
     }
 
     async function viewPresetList(listKey) {
         const list = PRESET_LISTS[listKey];
         if (!list) return;
 
-        const movieList = list.movies.map(m => `• ${m.title} (${m.year})`).join('\n');
-        alert(`${list.icon} ${list.name}\n\n${movieList}`);
+        const container = document.getElementById('presetListsContainer');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div style="margin-bottom:1rem;">
+                <button class="btn-ghost" onclick="App.openPresetLists()" style="margin-bottom:1rem;">← Back to Lists</button>
+                <h3>${list.icon} ${list.name}</h3>
+                <p style="color:var(--text-muted);margin:0.5rem 0 1rem;">${list.description}</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;max-height:60vh;overflow-y:auto;">
+                ${list.movies.map(m => `
+                    <div style="padding:0.6rem 1rem;background:var(--bg-hover);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;">
+                        <span>${m.title}</span>
+                        <span style="color:var(--text-muted);font-size:0.85rem;">${m.year}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="margin-top:1.5rem;">
+                <button class="btn" onclick="App.addPresetToWishlist('${listKey}')">Add All to Wishlist</button>
+            </div>
+        `;
     }
 
     async function addPresetToWishlist(listKey) {
@@ -1718,6 +1745,7 @@ function renderCollection() {
 
         } catch (error) {
             console.error('Search failed:', error);
+            showToast('Search failed. Check your connection and try again.', 'error');
         }
     }
 
@@ -1986,6 +2014,7 @@ function renderCollection() {
 
         } catch (error) {
             console.error('Failed to add to collection:', error);
+            showToast(error.message || 'Failed to add to collection', 'error');
         }
     }
 
@@ -2017,6 +2046,7 @@ function renderCollection() {
 
         } catch (error) {
             console.error('Failed to add to wishlist:', error);
+            showToast(error.message || 'Failed to add to wishlist', 'error');
         }
     }
 
@@ -2538,6 +2568,7 @@ function renderCollection() {
 
     } catch (error) {
         console.error('Failed to load copies:', error);
+        showToast('Failed to load copies. Try again.', 'error');
     }
 }
 
@@ -6232,19 +6263,19 @@ function getCertColor(cert) {
 }
     
     function showToast(message, type = 'info') {
-        // Simple alert for now - can be enhanced
-        console.log(`${type.toUpperCase()}: ${message}`);
-        
-        // You can add a proper toast notification system here
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        const toast = document.getElementById('statusToast');
+        if (!toast) return;
+
+        toast.className = `toast toast-${type} active`;
         toast.textContent = message;
-        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:1rem;background:#333;color:white;border-radius:8px;z-index:9999;';
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+
+        if (toast._timer) clearTimeout(toast._timer);
+
+        // Scale timeout with message length: min 3 s, max 8 s
+        const timeout = Math.min(8000, Math.max(3000, message.length * 65));
+        toast._timer = setTimeout(() => {
+            toast.classList.remove('active');
+        }, timeout);
     }
     
     // ========================================
@@ -7283,6 +7314,7 @@ function toggleFilters() {
         if (bar) bar.classList.add('filter-open');
         if (btn) btn.classList.add('active');
         updateFilterUI(); // Populate dropdowns
+        _restoreFilterUI(); // Restore previously-selected values
     } else {
         controls.style.display = 'none';
         if (bar) bar.classList.remove('filter-open');
@@ -7291,18 +7323,15 @@ function toggleFilters() {
 }
 
 function onFilterChange(filterType, value) {
-    // Update filter state
     if (filterType === 'yearMin' || filterType === 'yearMax') {
         currentFilters[filterType] = value ? parseInt(value) : null;
     } else {
         currentFilters[filterType] = value;
     }
-    
-    // Apply filters and re-render
+    _saveFilters();
+
     const sortBy = document.getElementById('sortBySelect').value || 'title';
     sortMoviesEnhanced(sortBy);
-    
-    // Update active filters display
     updateActiveFilters();
 }
 
@@ -7401,11 +7430,12 @@ function removeFilter(filterType) {
         document.getElementById(`filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`).value = 'all';
     }
 
+    _saveFilters();
     const sortBy = document.getElementById('sortBySelect').value || 'title';
     sortMoviesEnhanced(sortBy);
     updateActiveFilters();
 }
-    
+
     function openResolveModal(movieId, title) {
         currentResolvingMovie = { movieId, title };
 
