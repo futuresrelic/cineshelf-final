@@ -3016,3 +3016,54 @@ body {
 .filter-search-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
 }
+
+/* Resolve modal search button (replaces inline style) */
+.resolve-search-btn {
+    margin-top: 0.75rem;
+    width: 100%;
+}
+
+/* Narrow screen fixes — 390px (iPhone SE) and up to 480px */
+@media (max-width: 480px) {
+    .modal {
+        padding: 0.5rem;
+    }
+
+    .modal-header {
+        padding: 1rem;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 3rem);
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        padding: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .modal-footer .btn {
+        flex: 1 1 auto;
+    }
+
+    .copy-edit-form .form-actions {
+        flex-direction: column;
+    }
+
+    .copy-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #resolveModal .modal-content {
+        max-width: 100%;
+    }
+}

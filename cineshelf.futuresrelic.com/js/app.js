@@ -202,6 +202,7 @@ const App = (function() {
         
     } catch (error) {
         console.error('Failed to load collection:', error);
+        showToast('Failed to load collection', 'error');
     }
 }
     
@@ -723,6 +724,7 @@ function renderCollection() {
         
     } catch (error) {
         console.error('Failed to load wishlist:', error);
+        showToast('Failed to load wishlist', 'error');
     }
 }
     
@@ -807,6 +809,7 @@ function renderCollection() {
             loadWishlist();
         } catch (error) {
             console.error('Failed to remove from wishlist:', error);
+            showToast('Failed to remove from wishlist', 'error');
         }
     }
 
@@ -1048,6 +1051,7 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Search failed:', error);
+            showToast('Search failed. Check your connection.', 'error');
         }
     }
 
@@ -1208,9 +1212,10 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Failed to add to collection:', error);
+            showToast('Failed to add to collection', 'error');
         }
     }
-    
+
     async function addToWishlist() {
         if (!selectedMovie) return;
         
@@ -1235,6 +1240,7 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Failed to add to wishlist:', error);
+            showToast('Failed to add to wishlist', 'error');
         }
     }
 
@@ -1357,6 +1363,7 @@ function renderCollection() {
         
     } catch (error) {
         console.error('Failed to load copies:', error);
+        showToast('Failed to load copies', 'error');
     }
 }
 
