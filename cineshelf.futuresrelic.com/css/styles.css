@@ -36,7 +36,7 @@
 .splash-title {
     font-size: 2.5rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -62,7 +62,7 @@
 .splash-loader-bar {
     width: 40%;
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
     border-radius: 3px;
     animation: splashLoad 1.2s ease-in-out infinite;
 }
@@ -2774,7 +2774,7 @@ select option {
 
 .crop-zoom-row input[type="range"] {
     flex: 1;
-    accent-color: #667eea;
+    accent-color: var(--primary);
 }
 
 /* =============================================
@@ -2803,7 +2803,7 @@ select option {
     height: 28px;
     min-width: 28px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
     font-size: 0.85rem;
     font-weight: 700;
     color: #fff;
@@ -2847,7 +2847,7 @@ select option {
 }
 
 .wizard-cat-option input:checked + .wizard-cat-card {
-    border-color: #667eea;
+    border-color: var(--primary);
     background: rgba(102,126,234,0.15);
 }
 
@@ -2900,7 +2900,7 @@ select option {
     height: 16px;
     min-width: 16px;
     cursor: pointer;
-    accent-color: #667eea;
+    accent-color: var(--primary);
 }
 
 .wizard-check-name {
@@ -2917,7 +2917,7 @@ select option {
 .wizard-show-more {
     background: none;
     border: none;
-    color: #667eea;
+    color: var(--primary);
     font-size: 0.85rem;
     cursor: pointer;
     padding: 0.4rem 0.6rem;
@@ -3100,7 +3100,7 @@ body.modal-open {
 }
 .stats-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #a8b8ff);
+    background: linear-gradient(90deg, var(--primary), #a8b8ff);
     border-radius: 7px;
     transition: width 0.4s ease;
     min-width: 4px;
@@ -3390,7 +3390,7 @@ body.modal-open {
     gap: 0.4rem;
 }
 .add-type-boxset {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
 }
 .add-type-scan {
     grid-column: 1 / -1;
@@ -3714,7 +3714,7 @@ body.modal-open {
 }
 .copy-summary-item.copy-other:hover {
     background: rgba(255,255,255,0.09);
-    border-left-color: #667eea;
+    border-left-color: var(--primary);
 }
 
 /* Badges inside copy header row */
@@ -3742,7 +3742,7 @@ body.modal-open {
     transition: background 0.15s;
 }
 .copy-summary-item.copy-other:hover .copy-view-btn {
-    background: #667eea;
+    background: var(--primary);
     color: #fff;
 }
 
@@ -4415,7 +4415,7 @@ body.modal-open {
 }
 
 .filter-tag {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
     color: white;
     padding: 0.4rem 0.8rem;
     border-radius: 20px;
@@ -4492,7 +4492,7 @@ body.modal-open {
 .scanner-frame {
     width: 300px;
     height: 450px;
-    border: 3px solid #667eea;
+    border: 3px solid var(--primary);
     border-radius: 8px;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
     animation: pulse 2s infinite;
@@ -4500,12 +4500,12 @@ body.modal-open {
 
 @keyframes pulse {
     0%, 100% {
-        border-color: #667eea;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px #667eea;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px var(--primary);
     }
     50% {
-        border-color: #764ba2;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6), 0 0 30px #764ba2;
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6), 0 0 30px var(--secondary);
     }
 }
 
@@ -4615,7 +4615,7 @@ body.modal-open {
 
 .scan-match-tab.active {
     color: #fff;
-    border-bottom-color: #667eea;
+    border-bottom-color: var(--primary);
 }
 
 .scan-match-results {
@@ -4777,7 +4777,7 @@ body.modal-open {
 }
 
 .group-badge {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
@@ -4843,7 +4843,7 @@ body.modal-open {
 
 .member-badge {
     background: rgba(var(--primary-rgb), 0.3);
-    color: #667eea;
+    color: var(--primary);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
@@ -6005,7 +6005,7 @@ body.modal-open {
 }
 
 .unassigned-movie-card.selected {
-    border-color: #667eea;
+    border-color: var(--primary);
     background: rgba(var(--primary-rgb), 0.15);
 }
 
@@ -6017,7 +6017,7 @@ body.modal-open {
     height: 24px;
     cursor: pointer;
     z-index: 10;
-    accent-color: #667eea;
+    accent-color: var(--primary);
 }
 
 .unassigned-movie-poster {
@@ -6031,7 +6031,7 @@ body.modal-open {
     width: 100%;
     aspect-ratio: 2/3;
     cursor: pointer;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -6047,7 +6047,7 @@ body.modal-open {
 }
 
 .unassigned-movie-card.container-card.selected {
-    border-color: #764ba2;
+    border-color: var(--secondary);
     background: rgba(118, 75, 162, 0.15);
 }
 
@@ -6101,7 +6101,7 @@ body.modal-open {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     padding: 1.5rem;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--primary);
 }
 
 /* Parent shelf styling */
@@ -6212,7 +6212,7 @@ body.modal-open {
     min-width: 40px;
     width: 40px;
     height: 180px;
-    background: #667eea;
+    background: var(--primary);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -6263,7 +6263,7 @@ body.modal-open {
 @media print {
     .shelf-card {
         page-break-inside: avoid;
-        border: 2px solid #667eea;
+        border: 2px solid var(--primary);
         background: white;
         color: black;
     }
@@ -6358,7 +6358,7 @@ body.modal-open {
 }
 
 .box-set-stat strong {
-    color: #764ba2;
+    color: var(--secondary);
     font-weight: 600;
 }
 
@@ -6752,7 +6752,7 @@ body.modal-open {
 
 /* Container/Box Set Spines on Shelves */
 .movie-spine.container-spine {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%) !important;
     border: 2px solid rgba(118, 75, 162, 0.5);
     font-weight: 600;
 }
@@ -6998,7 +6998,7 @@ body.modal-open {
 }
 
 .season-checkbox input[type="checkbox"] {
-    accent-color: #667eea;
+    accent-color: var(--primary);
     width: 16px;
     height: 16px;
     cursor: pointer;
@@ -7173,7 +7173,7 @@ body.modal-open {
 .global-loader-bar {
     width: 100%;
     height: 3px;
-    background: linear-gradient(90deg, transparent, #764ba2, #667eea, #764ba2, transparent);
+    background: linear-gradient(90deg, transparent, var(--secondary), var(--primary), var(--secondary), transparent);
     background-size: 200% 100%;
     animation: loaderSlide 1.2s ease-in-out infinite;
 }
@@ -7340,7 +7340,7 @@ body.modal-open {
 }
 
 .spreadsheet-table .spreadsheet-title a:hover {
-    color: #667eea;
+    color: var(--primary);
     text-decoration: underline;
 }
 
@@ -7358,7 +7358,7 @@ body.modal-open {
 
 .spreadsheet-table select:focus,
 .spreadsheet-table input[type="text"]:focus {
-    border-color: #667eea;
+    border-color: var(--primary);
     outline: none;
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
 }
@@ -7371,7 +7371,7 @@ body.modal-open {
 .spreadsheet-table .btn-fetch-tmdb {
     background: rgba(var(--primary-rgb), 0.2);
     border: 1px solid rgba(var(--primary-rgb), 0.3);
-    color: #667eea;
+    color: var(--primary);
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
     cursor: pointer;
@@ -7465,7 +7465,7 @@ body.modal-open {
 
 .field-assignment-row input:focus,
 .field-assignment-row select:focus {
-    border-color: #667eea;
+    border-color: var(--primary);
     outline: none;
 }
 
@@ -8561,7 +8561,7 @@ body.modal-open {
     user-select: none;
 }
 .avatar-opt:hover { background: rgba(255,255,255,0.1); transform: scale(1.15); }
-.avatar-opt.active { background: rgba(102,126,234,0.3); outline: 2px solid #667eea; }
+.avatar-opt.active { background: rgba(102,126,234,0.3); outline: 2px solid var(--primary); }
 
 /* Color swatches */
 .color-swatch {
@@ -8654,7 +8654,7 @@ body.modal-open {
     background: rgba(255,255,255,0.12);
 }
 .party-viewer-chip.selected {
-    border-color: #667eea;
+    border-color: var(--primary);
     background: rgba(102,126,234,0.2);
 }
 .party-viewer-chip .chip-check {
