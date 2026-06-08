@@ -109,6 +109,9 @@
 
     /* Alias — keeps templates using var(--accent) working */
     --accent: var(--primary);
+
+    /* Grid card size — controlled by the toolbar slider and pinch gesture */
+    --grid-card-min: 160px;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1940,6 +1943,35 @@ select option {
     border-color: var(--primary);
 }
 
+/* ── Grid size slider ───────────────────────────────────────────── */
+.grid-size-control {
+    display: flex;
+    align-items: center;
+}
+
+.grid-size-control.hidden {
+    display: none;
+}
+
+#gridSizeSlider {
+    width: 72px;
+    height: 4px;
+    cursor: ew-resize;
+    accent-color: var(--primary);
+    opacity: 0.55;
+    transition: opacity 0.2s;
+    border-radius: 2px;
+}
+
+#gridSizeSlider:hover,
+#gridSizeSlider:active {
+    opacity: 1;
+}
+
+@media (max-width: 600px) {
+    #gridSizeSlider { width: 56px; }
+}
+
 .search-fab-btn.active {
     background: var(--primary);
     color: white;
@@ -2038,13 +2070,13 @@ select option {
 /* Movie Grid */
 .movie-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min, 160px), 1fr));
     gap: 1.5rem;
 }
 
-/* Compact grid view - denser layout with smaller posters */
+/* Compact grid view - denser layout, smaller font/metadata */
 .movie-grid.compact-view {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min, 160px), 1fr));
     gap: 0.75rem;
 }
 
@@ -2155,9 +2187,9 @@ select option {
     display: none; /* Hide in list view for cleaner look */
 }
 
-/* ── Gallery view: 4-wide poster-only grid ────────────────────────── */
+/* ── Gallery view: poster-only, density controlled by slider ─────── */
 .movie-grid.gallery-view {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min, 80px), 1fr));
     gap: 0.35rem;
     padding: 0.35rem;
 }
@@ -2204,7 +2236,6 @@ select option {
 
 @media (max-width: 640px) {
     .movie-grid.gallery-view {
-        grid-template-columns: repeat(4, 1fr);
         gap: 0.25rem;
         padding: 0.25rem;
     }

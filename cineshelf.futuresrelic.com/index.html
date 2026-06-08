@@ -214,6 +214,10 @@
                             <button class="view-btn" data-view="compact" onclick="App.setView('compact')" title="Compact Grid">⊡</button>
                             <button class="view-btn" data-view="list" onclick="App.setView('list')" title="List View">☰</button>
                             <button class="view-btn" data-view="gallery" onclick="App.setView('gallery')" title="Gallery (Posters Only)">🖼</button>
+                            <div class="grid-size-control" id="gridSizeControl">
+                                <input type="range" id="gridSizeSlider" min="60" max="220" step="5" value="160"
+                                       oninput="App.setGridCardMin(+this.value)" title="Adjust card size (pinch on grid also works)">
+                            </div>
                             <button class="view-btn search-fab-btn" id="searchFabBtn" onclick="App.toggleFloatingSearch()" title="Search">🔍</button>
                             <button class="view-btn filter-toggle-btn" id="filterToggleBtn" onclick="App.toggleFilters()" title="Advanced Filters">⚙️</button>
                         </div>

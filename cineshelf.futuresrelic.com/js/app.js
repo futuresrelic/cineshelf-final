@@ -98,6 +98,7 @@ const App = (function() {
     let currentUser = localStorage.getItem('cineshelf_user') || 'default';
     let currentTab = 'collection';
     let currentView = 'grid';
+    let currentGridCardMin = 160; // px; controlled by toolbar slider and pinch gesture
     let currentCollectionSubview = 'movies'; // 'movies' | 'wishlist' | 'physical'
     let collection = [];
     let originalCollection = []; // Store full collection for filtering
@@ -283,6 +284,10 @@ const App = (function() {
         if (settings.defaultView) {
             setView(settings.defaultView);
         }
+
+        // Restore saved grid card size and set up pinch-to-zoom
+        setGridCardMin(settings.gridCardMin || 160);
+        setupPinchZoom();
 
         // Modal scroll lock — prevent background from scrolling when a modal is open
         // Only save scroll position on the FIRST modal open (not when stacking modals)
@@ -6199,11 +6204,60 @@ function getCertColor(cert) {
             renderGroupWishlist(window.currentGroupWishlist);
         }
 
+        // Show/hide grid size slider (not applicable in list view)
+        const gridSizeCtrl = document.getElementById('gridSizeControl');
+        if (gridSizeCtrl) gridSizeCtrl.classList.toggle('hidden', viewType === 'list');
+
         // Save preference
         settings.defaultView = viewType;
         saveSettings();
     }
-    
+
+    function setGridCardMin(minPx) {
+        currentGridCardMin = Math.max(60, Math.min(220, Math.round(minPx)));
+        document.documentElement.style.setProperty('--grid-card-min', currentGridCardMin + 'px');
+        const slider = document.getElementById('gridSizeSlider');
+        if (slider) slider.value = currentGridCardMin;
+        settings.gridCardMin = currentGridCardMin;
+        saveSettings();
+    }
+
+    function setupPinchZoom() {
+        const gridIds = ['collectionGrid', 'wishlistGrid', 'familyCollectionGrid', 'boxSetsList'];
+        let pinchStartDist = 0;
+        let pinchStartMin = currentGridCardMin;
+
+        const onTouchStart = (e) => {
+            if (e.touches.length === 2) {
+                pinchStartDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                pinchStartMin = currentGridCardMin;
+            }
+        };
+        const onTouchMove = (e) => {
+            if (e.touches.length !== 2 || pinchStartDist === 0) return;
+            e.preventDefault();
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            setGridCardMin(Math.round(pinchStartMin * (dist / pinchStartDist)));
+        };
+        const onTouchEnd = (e) => {
+            if (e.touches.length < 2) pinchStartDist = 0;
+        };
+
+        gridIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('touchstart', onTouchStart, { passive: true });
+            el.addEventListener('touchmove', onTouchMove, { passive: false });
+            el.addEventListener('touchend', onTouchEnd, { passive: true });
+        });
+    }
+
         function updateBadges() {
     const collectionCount = collection.length;
     const wishlistCount = wishlist.length;
@@ -14644,6 +14698,7 @@ return {
     switchTab,
     switchCollectionView,
     setView,
+    setGridCardMin,
     searchMovies,
     selectMovie,
     addToCollection,

@@ -158,6 +158,35 @@
                 $needsFix = true;
             }
 
+            // Check if containers table exists (box sets feature)
+            try {
+                $db->query("SELECT 1 FROM containers LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'containers';
+                $needsFix = true;
+            }
+
+            // Check if container_contents table exists
+            try {
+                $db->query("SELECT 1 FROM container_contents LIMIT 1");
+            } catch (PDOException $e) {
+                $missingTables[] = 'container_contents';
+                $needsFix = true;
+            }
+
+            // Check if shelf_assignments has container columns
+            $missingShelfContainerCols = [];
+            try {
+                $shelfInfo = $db->query("PRAGMA table_info(shelf_assignments)");
+                $shelfColNames = array_column($shelfInfo->fetchAll(PDO::FETCH_ASSOC), 'name');
+                foreach (['container_id', 'is_container'] as $col) {
+                    if (!in_array($col, $shelfColNames)) {
+                        $missingShelfContainerCols[] = $col;
+                        $needsFix = true;
+                    }
+                }
+            } catch (PDOException $e) {}
+
             if (!$needsFix) {
                 echo '<div class="success">';
                 echo '<strong>✅ Database is OK!</strong><br>';
@@ -386,6 +415,78 @@
                 $db->exec("CREATE INDEX idx_shelf_assignments_copy ON shelf_assignments(copy_id)");
                 $db->exec("CREATE INDEX idx_shelf_assignments_position ON shelf_assignments(shelf_id, position_in_shelf)");
                 echo "✓ Created shelf_assignments table\n";
+            }
+
+            // Create containers table if missing (box sets feature)
+            if (in_array('containers', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE IF NOT EXISTS containers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        spine_label TEXT,
+                        spine_image_type TEXT DEFAULT 'color',
+                        spine_image_url TEXT,
+                        spine_color TEXT DEFAULT '#667eea',
+                        format TEXT,
+                        edition TEXT,
+                        region TEXT,
+                        condition TEXT CHECK(condition IN ('Mint','Like New','Good','Fair','Poor')),
+                        purchase_date TEXT,
+                        purchase_price REAL,
+                        notes TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                ");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_containers_user ON containers(user_id)");
+                echo "✓ Created containers table\n";
+            }
+
+            // Create container_contents table if missing
+            if (in_array('container_contents', $missingTables)) {
+                $db->exec("
+                    CREATE TABLE IF NOT EXISTS container_contents (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        container_id INTEGER NOT NULL,
+                        copy_id INTEGER NOT NULL,
+                        disc_number INTEGER DEFAULT 1,
+                        disc_label TEXT,
+                        is_present BOOLEAN DEFAULT 1,
+                        missing_since TEXT,
+                        missing_notes TEXT,
+                        position_in_container INTEGER DEFAULT 0,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (container_id) REFERENCES containers(id) ON DELETE CASCADE,
+                        FOREIGN KEY (copy_id) REFERENCES copies(id) ON DELETE CASCADE,
+                        UNIQUE(container_id, copy_id)
+                    )
+                ");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_container_contents_container ON container_contents(container_id)");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_container_contents_copy ON container_contents(copy_id)");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_container_contents_missing ON container_contents(is_present)");
+                echo "✓ Created container_contents table\n";
+            }
+
+            // Add missing shelf_assignments container columns
+            foreach ($missingShelfContainerCols as $col) {
+                try {
+                    if ($col === 'container_id') {
+                        $db->exec("ALTER TABLE shelf_assignments ADD COLUMN container_id INTEGER DEFAULT NULL");
+                        echo "✓ Added container_id column to shelf_assignments\n";
+                    } elseif ($col === 'is_container') {
+                        $db->exec("ALTER TABLE shelf_assignments ADD COLUMN is_container BOOLEAN DEFAULT 0");
+                        echo "✓ Added is_container column to shelf_assignments\n";
+                    }
+                } catch (PDOException $e) {
+                    echo "⊙ Column {$col} already exists (skipped)\n";
+                }
+            }
+            if (!empty($missingShelfContainerCols)) {
+                try {
+                    $db->exec("CREATE INDEX IF NOT EXISTS idx_shelf_assignments_container ON shelf_assignments(container_id)");
+                } catch (PDOException $e) {}
             }
 
             $db->commit();
