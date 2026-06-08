@@ -259,9 +259,6 @@ body {
     gap: 1.5rem;
 }
 
-.movie-grid.grid-view {
-    grid-template-columns: var(--grid-columns, repeat(auto-fill, minmax(180px, 1fr)));
-}
 
 /* Compact grid view - denser layout with smaller posters */
 .movie-grid.compact-view {
@@ -876,7 +873,7 @@ body {
 
 .copy-header {
     display: flex;
-    justify-content: between;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
 }
@@ -958,13 +955,7 @@ body {
     flex: 1;
 }
 
-/* Enhanced copy header with buttons */
-.copy-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
+/* copy-header button styles */
 
 .copy-header .btn-icon {
     background: rgba(255, 255, 255, 0.1);
@@ -1610,20 +1601,6 @@ body {
     pointer-events: none;  /* ← Title doesn't need clicks */
 }
 
-/* Copy count badge on poster */
-.copy-count-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(76, 175, 80, 0.95);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 5;
-}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -2967,5 +2944,126 @@ body {
 
     .final-score-value {
         font-size: 3rem;
+    }
+}
+
+/* ========================================
+   MISSING / UNIFIED STYLES — betterment pass
+   ======================================== */
+
+/* Unified close button — same style regardless of class name */
+.close-btn,
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius);
+    line-height: 1;
+    transition: background 0.2s, color 0.2s;
+}
+.close-btn:hover,
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+}
+
+/* Modal footer — button row at the bottom of a modal */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.25rem 2rem;
+    border-top: 1px solid var(--border);
+}
+
+/* Profile picture in header */
+.header-profile-pic {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    object-fit: cover;
+}
+
+/* Group selector in header */
+#groupSelector {
+    display: none;
+    margin-left: auto;
+    margin-right: 1rem;
+}
+#groupSelector select {
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+    font-size: 0.9rem;
+}
+
+/* Filter search input inside the filter bar */
+.filter-search-input {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.9rem;
+}
+.filter-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Resolve modal search button (replaces inline style) */
+.resolve-search-btn {
+    margin-top: 0.75rem;
+    width: 100%;
+}
+
+/* Narrow screen fixes — 390px (iPhone SE) and up to 480px */
+@media (max-width: 480px) {
+    .modal {
+        padding: 0.5rem;
+    }
+
+    .modal-header {
+        padding: 1rem;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 3rem);
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        padding: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .modal-footer .btn {
+        flex: 1 1 auto;
+    }
+
+    .copy-edit-form .form-actions {
+        flex-direction: column;
+    }
+
+    .copy-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #resolveModal .modal-content {
+        max-width: 100%;
     }
 }

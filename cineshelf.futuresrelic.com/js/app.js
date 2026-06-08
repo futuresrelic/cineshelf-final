@@ -34,24 +34,6 @@ function getGenreEmojis(genreString) {
         .join(' ');
 }
 
-// Get certification badge color
-function getCertColor(cert) {
-    const colors = {
-        'G': '#4caf50',
-        'PG': '#2196f3',
-        'PG-13': '#ff9800',
-        'R': '#f44336',
-        'NC-17': '#9c27b0',
-        'TV-Y': '#4caf50',
-        'TV-Y7': '#4caf50',
-        'TV-G': '#4caf50',
-        'TV-PG': '#2196f3',
-        'TV-14': '#ff9800',
-        'TV-MA': '#f44336'
-    };
-    return colors[cert] || '#666';
-}
-
 // Format runtime
 function formatRuntime(minutes) {
     if (!minutes) return '';
@@ -82,14 +64,12 @@ const App = (function() {
     // ========================================
     
     async function init() {
-        console.log('CineShelf v2.0 initializing...');
 
         // Wait for auth to be ready if needed
         let authUser = Auth.getCurrentUser();
         if (!authUser) {
             // Auth might still be initializing, wait for it
-            console.log('Waiting for auth to complete...');
-            authUser = await Auth.init();
+                authUser = await Auth.init();
         }
 
         if (authUser) {
@@ -151,7 +131,6 @@ const App = (function() {
             setView(settings.defaultView);
         }
 
-        console.log('CineShelf ready!');
     }
     
     // ========================================
@@ -223,6 +202,7 @@ const App = (function() {
         
     } catch (error) {
         console.error('Failed to load collection:', error);
+        showToast('Failed to load collection', 'error');
     }
 }
     
@@ -308,8 +288,9 @@ function getUniqueStudios() {
     return Array.from(studios).sort();
 }
 
-// Current filter state
-let currentFilters = {
+// Current filter state — persisted to sessionStorage so filters survive tab switches
+// but reset on full page reload (intentional)
+const _defaultFilters = {
     search: '',
     director: 'all',
     actor: 'all',
@@ -319,6 +300,23 @@ let currentFilters = {
     yearMin: null,
     yearMax: null
 };
+
+function _loadFilters() {
+    try {
+        const saved = sessionStorage.getItem('cineshelf_filters');
+        return saved ? { ..._defaultFilters, ...JSON.parse(saved) } : { ..._defaultFilters };
+    } catch (e) {
+        return { ..._defaultFilters };
+    }
+}
+
+function _saveFilters() {
+    try {
+        sessionStorage.setItem('cineshelf_filters', JSON.stringify(currentFilters));
+    } catch (e) { /* ignore */ }
+}
+
+let currentFilters = _loadFilters();
 
 // Apply filters to collection
 function applyFilters() {
@@ -407,6 +405,12 @@ function applyFilters() {
 
 // Enhanced sort function with new options
 function sortMoviesEnhanced(sortBy) {
+    // Sync header sort dropdown if the value exists there
+    const headerSort = document.getElementById('sortBy');
+    if (headerSort && headerSort.querySelector(`option[value="${sortBy}"]`)) {
+        headerSort.value = sortBy;
+    }
+
     let filtered = applyFilters();
     
     filtered.sort((a, b) => {
@@ -493,28 +497,28 @@ function updateFilterUI() {
 
 // Reset filters
 function resetFilters() {
-    currentFilters = {
-        search: '',
-        director: 'all',
-        actor: 'all',
-        studio: 'all',
-        genre: 'all',
-        certification: 'all',
-        yearMin: null,
-        yearMax: null
-    };
+    currentFilters = { ..._defaultFilters };
+    _saveFilters();
 
     const searchInput = document.getElementById('filterSearch');
     if (searchInput) searchInput.value = '';
 
-    document.getElementById('filterDirector').value = 'all';
-    document.getElementById('filterActor').value = 'all';
-    document.getElementById('filterStudio').value = 'all';
-    document.getElementById('filterGenre').value = 'all';
-    document.getElementById('filterCertification').value = 'all';
-    document.getElementById('filterYearMin').value = '';
-    document.getElementById('filterYearMax').value = '';
+    const safeReset = id => { const el = document.getElementById(id); if (el) el.value = 'all'; };
+    safeReset('filterDirector');
+    safeReset('filterActor');
+    safeReset('filterStudio');
+    safeReset('filterGenre');
+    safeReset('filterCertification');
 
+    const yearMin = document.getElementById('filterYearMin');
+    const yearMax = document.getElementById('filterYearMax');
+    if (yearMin) yearMin.value = '';
+    if (yearMax) yearMax.value = '';
+
+    const sortSelect = document.getElementById('sortBySelect');
+    if (sortSelect) sortSelect.value = 'title';
+
+    updateActiveFilters();
     sortMoviesEnhanced('title');
 }
 
@@ -618,15 +622,7 @@ function renderCollection() {
 }
     
     function sortMovies(type, sortBy) {
-        console.log(`sortMovies called: type=${type}, sortBy=${sortBy}`);
-
         if (type === 'collection') {
-            console.log('Collection before sort:', collection.map(g => ({
-                title: g.movie.title,
-                year: g.movie.year,
-                rating: g.movie.rating,
-                created_at: g.copies[0]?.created_at
-            })));
             
             // Sort collection (grouped movies)
             collection.sort((a, b) => {
@@ -664,14 +660,8 @@ function renderCollection() {
                 }
             });
             
-            console.log('Collection after sort:', collection.map(g => g.movie.title));
-            console.log(`Collection sorted, first movie:`, collection[0]?.movie?.title);
-            
-            // Force re-render
             renderCollection();
-            
-            console.log('renderCollection called');
-            
+
         } else {
             // Sort wishlist
             wishlist.sort((a, b) => {
@@ -704,19 +694,17 @@ function renderCollection() {
 
             renderWishlist();
         }
-        
-        console.log(`Sorted ${type} by ${sortBy}`);
     }
     
     // Backward compatibility wrapper for old HTML
     function sortCollection() {
         const sortBy = document.getElementById('sortBy')?.value || 'title';
-        // Use enhanced sorting to support filters
-        if (typeof sortMoviesEnhanced === 'function') {
-            sortMoviesEnhanced(sortBy);
-        } else {
-            sortMovies('collection', sortBy);
+        // Sync the filter panel sort dropdown
+        const filterSort = document.getElementById('sortBySelect');
+        if (filterSort && filterSort.querySelector(`option[value="${sortBy}"]`)) {
+            filterSort.value = sortBy;
         }
+        sortMoviesEnhanced(sortBy);
     }
     
     // ========================================
@@ -736,6 +724,7 @@ function renderCollection() {
         
     } catch (error) {
         console.error('Failed to load wishlist:', error);
+        showToast('Failed to load wishlist', 'error');
     }
 }
     
@@ -820,6 +809,7 @@ function renderCollection() {
             loadWishlist();
         } catch (error) {
             console.error('Failed to remove from wishlist:', error);
+            showToast('Failed to remove from wishlist', 'error');
         }
     }
 
@@ -878,7 +868,7 @@ function renderCollection() {
 
         // Reload presets from server to get latest changes
         container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Loading presets...</div>';
-        modal.style.display = 'flex';
+        modal.classList.add('active');
 
         await loadPresets();
 
@@ -901,15 +891,34 @@ function renderCollection() {
     }
 
     function closePresetLists() {
-        document.getElementById('presetListsModal').style.display = 'none';
+        document.getElementById('presetListsModal').classList.remove('active');
     }
 
     async function viewPresetList(listKey) {
         const list = PRESET_LISTS[listKey];
         if (!list) return;
 
-        const movieList = list.movies.map(m => `• ${m.title} (${m.year})`).join('\n');
-        alert(`${list.icon} ${list.name}\n\n${movieList}`);
+        const container = document.getElementById('presetListsContainer');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+                <button class="btn-ghost" onclick="App.openPresetLists()" style="margin-bottom: 1rem;">← Back to Lists</button>
+                <h3>${list.icon} ${list.name}</h3>
+                <p style="color: var(--text-muted); margin: 0.5rem 0 1rem;">${list.description}</p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 60vh; overflow-y: auto;">
+                ${list.movies.map(m => `
+                    <div style="padding: 0.6rem 1rem; background: rgba(255,255,255,0.05); border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center;">
+                        <span>${m.title}</span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">${m.year}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <button class="btn" onclick="App.addPresetToWishlist('${listKey}')">Add All to Wishlist</button>
+            </div>
+        `;
     }
 
     async function addPresetToWishlist(listKey) {
@@ -1042,22 +1051,20 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Search failed:', error);
+            showToast('Search failed. Check your connection.', 'error');
         }
     }
 
     // IMDB Lookup Function
     async function lookupByImdbId() {
-    console.log('CineShelf: IMDB lookup button clicked');
-    
     const imdbId = document.getElementById('imdbId').value.trim();
-    console.log('CineShelf: IMDB ID entered:', imdbId);
     
     if (!imdbId) {
         showToast('Please enter an IMDb ID (e.g., tt0287457)', 'error');
         return;
     }
 
-    if (!/^tt\d{7,8}$/.test(imdbId)) {
+    if (!/^tt\d{7,9}$/.test(imdbId)) {
         showToast('Invalid IMDb ID format. Should be like: tt0287457', 'error');
         console.log('CineShelf: Invalid IMDB ID format:', imdbId);
         return;
@@ -1068,18 +1075,11 @@ function renderCollection() {
     
     btn.disabled = true;
     btn.textContent = '🔍 Looking up...';
-    
-    console.log('CineShelf: Starting IMDB lookup for:', imdbId);
 
     try {
-        // Use TMDB's "find" endpoint with IMDb ID
         const findUrl = `https://api.themoviedb.org/3/find/${imdbId}?api_key=8039283176a74ffd71a1658c6f84a051&external_source=imdb_id`;
-        console.log('CineShelf: Fetching from:', findUrl);
-        
         const findResponse = await fetch(findUrl);
         const findData = await findResponse.json();
-        
-        console.log('CineShelf: TMDB find response:', findData);
 
         // Check BOTH movie_results and tv_results
         let result = null;
@@ -1088,25 +1088,16 @@ function renderCollection() {
         if (findData.movie_results && findData.movie_results.length > 0) {
             result = findData.movie_results[0];
             mediaType = 'movie';
-            console.log('CineShelf: Found movie via IMDB ID:', result);
         } else if (findData.tv_results && findData.tv_results.length > 0) {
             result = findData.tv_results[0];
             mediaType = 'tv';
-            console.log('CineShelf: Found TV series via IMDB ID:', result);
         }
 
         if (result) {
-            console.log(`CineShelf: Found ${mediaType} via IMDB ID ${imdbId}:`, result);
-            
-            // Fetch full details
             const endpoint = mediaType === 'tv' ? 'tv' : 'movie';
             const detailsUrl = `https://api.themoviedb.org/3/${endpoint}/${result.id}?api_key=8039283176a74ffd71a1658c6f84a051&append_to_response=credits,release_dates,content_ratings`;
-            console.log('CineShelf: Fetching details from:', detailsUrl);
-            
             const response = await fetch(detailsUrl);
             const details = await response.json();
-            
-            console.log('CineShelf: Details:', details);
 
             // Build movie data object
             let movieData = {
@@ -1153,8 +1144,6 @@ function renderCollection() {
                 }
             }
 
-            console.log('CineShelf: Processed movie data:', movieData);
-
             // Store as selected movie
             selectedMovie = movieData;
 
@@ -1169,12 +1158,11 @@ function renderCollection() {
             showToast(`Found: ${movieData.title} (${movieData.year || 'Unknown'})`, 'success');
 
         } else {
-            console.log('CineShelf: No movie or TV found for IMDB ID:', imdbId);
             showToast(`No movie or TV series found with IMDb ID: ${imdbId}`, 'error');
         }
 
     } catch (error) {
-        console.error('CineShelf: IMDB lookup error:', error);
+        console.error('IMDb lookup error:', error);
         showToast('Failed to lookup by IMDb ID. Check your connection.', 'error');
     } finally {
         btn.disabled = false;
@@ -1224,9 +1212,10 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Failed to add to collection:', error);
+            showToast('Failed to add to collection', 'error');
         }
     }
-    
+
     async function addToWishlist() {
         if (!selectedMovie) return;
         
@@ -1251,22 +1240,22 @@ function renderCollection() {
             
         } catch (error) {
             console.error('Failed to add to wishlist:', error);
+            showToast('Failed to add to wishlist', 'error');
         }
     }
 
     function cancelAdd() {
         selectedMovie = null;
         document.getElementById('movieSearch').value = '';
-        document.getElementById('searchResults').innerHTML = '';
+        const resultsDiv = document.getElementById('searchResults');
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
         document.getElementById('addMovieForm').style.display = 'none';
         document.getElementById('copyFormat').value = 'DVD';
         document.getElementById('copyEdition').value = '';
         document.getElementById('copyRegion').value = '';
         document.getElementById('copyCondition').value = 'Good';
         document.getElementById('copyNotes').value = '';
-
-        // Show search results again
-        document.getElementById('searchResults').style.display = 'grid';
     }
     
     // ========================================
@@ -1374,6 +1363,7 @@ function renderCollection() {
         
     } catch (error) {
         console.error('Failed to load copies:', error);
+        showToast('Failed to load copies', 'error');
     }
 }
 
@@ -1769,19 +1759,19 @@ function getCertColor(cert) {
 }
     
     function showToast(message, type = 'info') {
-        // Simple alert for now - can be enhanced
-        console.log(`${type.toUpperCase()}: ${message}`);
-        
-        // You can add a proper toast notification system here
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        const toast = document.getElementById('statusToast');
+        if (!toast) return;
+
+        toast.className = `toast toast-${type} active`;
         toast.textContent = message;
-        toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:1rem;background:#333;color:white;border-radius:8px;z-index:9999;';
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+
+        if (toast._timer) clearTimeout(toast._timer);
+
+        // Scale timeout with message length: min 3s, max 6s
+        const timeout = Math.min(6000, Math.max(3000, message.length * 60));
+        toast._timer = setTimeout(() => {
+            toast.classList.remove('active');
+        }, timeout);
     }
     
     // ========================================
@@ -1859,22 +1849,41 @@ function getCertColor(cert) {
         try {
             const stats = await apiCall('get_stats');
 
-            let message = `📊 Collection Statistics\n\n`;
-            message += `Total Copies: ${stats.total_copies}\n`;
-            message += `Unique Movies: ${stats.unique_movies}\n`;
-            message += `Wishlist: ${stats.wishlist_count}\n\n`;
+            const formatRows = (stats.by_format && stats.by_format.length > 0)
+                ? stats.by_format.map(item => `
+                    <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+                        <span>${item.format}</span><strong>${item.count}</strong>
+                    </div>`).join('')
+                : '<p style="color:var(--text-muted)">No format data available</p>';
 
-            if (stats.by_format && stats.by_format.length > 0) {
-                message += `By Format:\n`;
-                stats.by_format.forEach(item => {
-                    message += `  ${item.format}: ${item.count}\n`;
-                });
-            }
+            const content = document.getElementById('movieDetailContent');
+            content.innerHTML = `
+                <div style="padding: 1rem 0;">
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+                        <div style="text-align:center;background:rgba(102,126,234,0.15);padding:1.5rem;border-radius:var(--radius);">
+                            <div style="font-size:2rem;font-weight:700;">${stats.unique_movies || 0}</div>
+                            <div style="color:var(--text-muted);font-size:0.85rem;">Unique Titles</div>
+                        </div>
+                        <div style="text-align:center;background:rgba(102,126,234,0.15);padding:1.5rem;border-radius:var(--radius);">
+                            <div style="font-size:2rem;font-weight:700;">${stats.total_copies || 0}</div>
+                            <div style="color:var(--text-muted);font-size:0.85rem;">Total Copies</div>
+                        </div>
+                        <div style="text-align:center;background:rgba(102,126,234,0.15);padding:1.5rem;border-radius:var(--radius);">
+                            <div style="font-size:2rem;font-weight:700;">${stats.wishlist_count || 0}</div>
+                            <div style="color:var(--text-muted);font-size:0.85rem;">On Wishlist</div>
+                        </div>
+                    </div>
+                    <h3 style="margin-bottom:1rem;">By Format</h3>
+                    ${formatRows}
+                </div>
+            `;
 
-            alert(message);
+            document.querySelector('#movieDetailModal .modal-header h3').textContent = '📊 Collection Statistics';
+            document.getElementById('movieDetailModal').classList.add('active');
 
         } catch (error) {
             console.error('Failed to load stats:', error);
+            showToast('Failed to load statistics', 'error');
         }
     }
     
@@ -2244,30 +2253,43 @@ function renderUnresolved() {
 function toggleFilters() {
     const controls = document.getElementById('filterControls');
     const btn = document.getElementById('filterToggleBtn');
-    
-    if (controls.style.display === 'none') {
+
+    if (controls.style.display === 'none' || controls.style.display === '') {
         controls.style.display = 'grid';
         btn.textContent = '🔍 Hide Filters';
-        updateFilterUI(); // Populate dropdowns
+        updateFilterUI();
+        // Restore persisted filter values into the dropdowns
+        _restoreFilterUI();
     } else {
         controls.style.display = 'none';
         btn.textContent = '🔍 Filters & Sort';
     }
 }
 
+function _restoreFilterUI() {
+    const el = id => document.getElementById(id);
+    if (el('filterSearch')) el('filterSearch').value = currentFilters.search || '';
+    if (el('filterDirector')) el('filterDirector').value = currentFilters.director || 'all';
+    if (el('filterActor')) el('filterActor').value = currentFilters.actor || 'all';
+    if (el('filterStudio')) el('filterStudio').value = currentFilters.studio || 'all';
+    if (el('filterGenre')) el('filterGenre').value = currentFilters.genre || 'all';
+    if (el('filterCertification')) el('filterCertification').value = currentFilters.certification || 'all';
+    if (el('filterYearMin')) el('filterYearMin').value = currentFilters.yearMin || '';
+    if (el('filterYearMax')) el('filterYearMax').value = currentFilters.yearMax || '';
+    updateActiveFilters();
+}
+
 function onFilterChange(filterType, value) {
-    // Update filter state
     if (filterType === 'yearMin' || filterType === 'yearMax') {
         currentFilters[filterType] = value ? parseInt(value) : null;
     } else {
         currentFilters[filterType] = value;
     }
-    
-    // Apply filters and re-render
+
+    _saveFilters();
+
     const sortBy = document.getElementById('sortBySelect').value || 'title';
     sortMoviesEnhanced(sortBy);
-    
-    // Update active filters display
     updateActiveFilters();
 }
 
@@ -2366,6 +2388,7 @@ function removeFilter(filterType) {
         document.getElementById(`filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`).value = 'all';
     }
 
+    _saveFilters();
     const sortBy = document.getElementById('sortBySelect').value || 'title';
     sortMoviesEnhanced(sortBy);
     updateActiveFilters();
@@ -2601,7 +2624,6 @@ function switchGroupsTab(tabName) {
     if (subtabElement) {
         subtabElement.classList.add('active');
     } else {
-        console.error(`Subtab element not found: ${subtabId}`);
         return;
     }
 
@@ -2677,8 +2699,6 @@ async function loadGroups() {
 function switchGroup(groupId) {
     // Convert to number or null
     currentGroupId = groupId ? parseInt(groupId) : null;
-    
-    console.log('Switching to group:', currentGroupId || 'My Collection');
     
     // Update dropdown value
     const selector = document.getElementById('currentGroup');
@@ -3076,19 +3096,20 @@ function renderFamilyCollection(movies) {
 }
 
 
-function filterFamilyByMember(memberId) {
+async function filterFamilyByMember(memberId) {
     if (!currentGroupId) return;
-    
-    // Reload collection with filter
-    apiCall('list_group_collection', { group_id: currentGroupId }).then(movies => {
+
+    try {
+        const movies = await apiCall('list_group_collection', { group_id: currentGroupId });
         if (memberId === 'all') {
             renderFamilyCollection(movies);
         } else {
-            // Filter to only show movies owned by selected member
-            const filtered = movies.filter(m => m.owner_id == memberId);
-            renderFamilyCollection(filtered);
+            renderFamilyCollection(movies.filter(m => String(m.owner_id) === String(memberId)));
         }
-    });
+    } catch (error) {
+        console.error('Failed to filter family collection:', error);
+        showToast('Failed to filter collection', 'error');
+    }
 }
 
 // NEW FUNCTION: View movie details in group context (shows ALL copies from ALL members)
@@ -3198,14 +3219,11 @@ async function returnMovie(borrowId, title) {
 }
 
 async function loadGroupWishlist(groupId) {
-    console.log('loadGroupWishlist called with groupId:', groupId);
-
     const grid = document.getElementById('groupWishlistGrid');
     const emptyState = document.getElementById('emptyGroupWishlist');
     const memberFilter = document.getElementById('wishlistMemberFilter');
 
     if (!grid || !emptyState) {
-        console.error('Required DOM elements not found for group wishlist');
         return;
     }
 
@@ -3217,11 +3235,8 @@ async function loadGroupWishlist(groupId) {
     }
 
     try {
-        // Get group members
-        console.log('Fetching group data...');
         const groupData = await apiCall('get_group', { group_id: groupId });
         const members = groupData.members || [];
-        console.log('Group members:', members);
 
         if (members.length === 0) {
             grid.innerHTML = '';
@@ -3230,15 +3245,11 @@ async function loadGroupWishlist(groupId) {
             return;
         }
 
-        // Load wishlist for each member
-        showToast('Loading group wishlists...', 'info');
         const allWishlists = [];
 
         for (const member of members) {
             try {
-                console.log(`Loading wishlist for ${member.username} (ID: ${member.user_id})`);
                 const wishlistData = await apiCall('get_user_wishlist', { user_id: member.user_id });
-                console.log(`Wishlist data for ${member.username}:`, wishlistData);
 
                 if (wishlistData && wishlistData.length > 0) {
                     wishlistData.forEach(item => {
@@ -3251,11 +3262,8 @@ async function loadGroupWishlist(groupId) {
                 }
             } catch (error) {
                 console.error(`Failed to load wishlist for ${member.username}:`, error);
-                showToast(`Failed to load wishlist for ${member.username}`, 'warning');
             }
         }
-
-        console.log('Total wishlist items loaded:', allWishlists.length);
 
         // Update member filter dropdown
         if (memberFilter) {
@@ -3270,33 +3278,21 @@ async function loadGroupWishlist(groupId) {
         window.currentGroupWishlist = allWishlists;
         renderGroupWishlist(allWishlists);
 
-        if (allWishlists.length > 0) {
-            showToast(`Loaded ${allWishlists.length} wishlist items`, 'success');
-        } else {
-            showToast('No wishlist items found for this group', 'info');
-        }
-
     } catch (error) {
         console.error('Error loading group wishlist:', error);
-        showToast(`Failed to load group wishlist: ${error.message}`, 'error');
+        showToast('Failed to load group wishlist', 'error');
         grid.innerHTML = '';
         emptyState.style.display = 'flex';
     }
 }
 
 function renderGroupWishlist(wishlists) {
-    console.log('renderGroupWishlist called with', wishlists.length, 'items');
-
     const grid = document.getElementById('groupWishlistGrid');
     const emptyState = document.getElementById('emptyGroupWishlist');
 
-    if (!grid || !emptyState) {
-        console.error('Required DOM elements not found for rendering group wishlist');
-        return;
-    }
+    if (!grid || !emptyState) return;
 
     if (!wishlists || wishlists.length === 0) {
-        console.log('No wishlist items to render, showing empty state');
         grid.innerHTML = '';
         emptyState.style.display = 'flex';
         grid.style.display = 'none';
@@ -3304,7 +3300,7 @@ function renderGroupWishlist(wishlists) {
     }
 
     emptyState.style.display = 'none';
-    grid.style.display = 'grid';
+    grid.style.display = '';
 
     // Group by TMDB ID
     const movieMap = new Map();
@@ -3323,7 +3319,6 @@ function renderGroupWishlist(wishlists) {
         }
     });
 
-    console.log('Grouped into', movieMap.size, 'unique movies');
 
     // Convert to array and sort by most wanted
     const movies = Array.from(movieMap.values()).sort((a, b) => b.members.length - a.members.length);
@@ -3378,20 +3373,12 @@ function renderGroupWishlist(wishlists) {
             `;
         }
     }).join('');
-
-    console.log('Rendered', movies.length, 'movie cards');
 }
 
 function filterWishlistByMember(memberId) {
-    console.log('filterWishlistByMember called with memberId:', memberId);
-
-    if (!window.currentGroupWishlist) {
-        console.error('No currentGroupWishlist data available');
-        return;
-    }
+    if (!window.currentGroupWishlist) return;
 
     if (memberId === 'all') {
-        console.log('Showing all members wishlist');
         renderGroupWishlist(window.currentGroupWishlist);
         return;
     }
@@ -3400,7 +3387,6 @@ function filterWishlistByMember(memberId) {
         String(item.member_id) === String(memberId)
     );
 
-    console.log(`Filtered to ${filtered.length} items for member ${memberId}`);
     renderGroupWishlist(filtered);
 }
 
@@ -3410,6 +3396,7 @@ async function loadBorrowedItems() {
         renderBorrowedList(items || []);
     } catch (error) {
         console.error('Error loading borrowed items:', error);
+        showToast('Failed to load borrowed items', 'error');
     }
 }
 
@@ -3460,6 +3447,7 @@ async function loadLentItems() {
         renderLentList(items || []);
     } catch (error) {
         console.error('Error loading lent items:', error);
+        showToast('Failed to load lent items', 'error');
     }
 }
 
@@ -3552,6 +3540,7 @@ async function getCurrentUserId() {
         document.getElementById('triviaGame').style.display = 'none';
         document.getElementById('triviaGameOver').style.display = 'none';
         document.getElementById('triviaHistory').style.display = 'none';
+        document.getElementById('triviaLeaderboards').style.display = 'none';
     }
 
     async function startTriviaGame(mode, scope, questionLimit = 10) {
@@ -3956,6 +3945,7 @@ async function getCurrentUserId() {
             document.getElementById('triviaSettings').style.display = 'none';
             document.getElementById('triviaGame').style.display = 'none';
             document.getElementById('triviaGameOver').style.display = 'none';
+            document.getElementById('triviaLeaderboards').style.display = 'none';
             document.getElementById('triviaHistory').style.display = 'block';
 
             const container = document.getElementById('triviaHistoryContainer');

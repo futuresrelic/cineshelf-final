@@ -48,8 +48,8 @@
     </h1>
     
     <!-- GROUP SELECTOR -->
-    <div id="groupSelector" style="display:none; margin-left:auto; margin-right:1rem;">
-        <select id="currentGroup" onchange="App.switchGroup(this.value)" style="padding:0.5rem;border-radius:4px;background:#2a2a2a;color:#fff;border:1px solid #444;">
+    <div id="groupSelector">
+        <select id="currentGroup" onchange="App.switchGroup(this.value)">
             <option value="">My Collection</option>
         </select>
     </div>
@@ -60,9 +60,6 @@
     </div>
 </div>
 
-            </div>
-        </div>
-        
         <!-- Navigation Tabs -->
         <nav class="tabs">
             <button class="tab active" data-tab="collection" onclick="App.switchTab('collection')">
@@ -134,8 +131,8 @@
                     <div class="filter-group" style="grid-column: 1 / -1;">
                         <label>Search by Name</label>
                         <input type="text" id="filterSearch" placeholder="Search movies by title..."
-                               oninput="App.onFilterChange('search', this.value)"
-                               style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white;">
+                               class="filter-search-input"
+                               oninput="App.onFilterChange('search', this.value)">
                     </div>
 
                     <div class="filter-group">
@@ -756,13 +753,11 @@
             </div>
             <div class="modal-body">
                 <div class="resolve-search-box">
-                    <input type="text" 
-                           id="resolveSearchInput" 
-                           placeholder="Search TMDB for correct match..."
-                           style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 1rem;">
-                    <button onclick="App.searchForResolve()" 
-                            class="btn" 
-                            style="margin-top: 0.75rem; width: 100%;">
+                    <input type="text"
+                           id="resolveSearchInput"
+                           placeholder="Search TMDB for correct match...">
+                    <button onclick="App.searchForResolve()"
+                            class="btn resolve-search-btn">
                         🔍 Search TMDB
                     </button>
                 </div>
@@ -885,7 +880,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Create New Group</h2>
-            <button class="close-btn" onclick="App.closeCreateGroupModal()">✕</button>
+            <button class="modal-close" onclick="App.closeCreateGroupModal()">✕</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -909,7 +904,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="groupDetailName">Group Name</h2>
-            <button class="close-btn" onclick="App.closeGroupDetail()">✕</button>
+            <button class="modal-close" onclick="App.closeGroupDetail()">✕</button>
         </div>
         <div class="modal-body">
             <div id="groupDetailContent"></div>
@@ -922,7 +917,7 @@
     <div class="modal-content modal-large">
         <div class="modal-header">
             <h2>📚 Browse Curated Lists</h2>
-            <button class="close-btn" onclick="App.closePresetLists()">✕</button>
+            <button class="modal-close" onclick="App.closePresetLists()">✕</button>
         </div>
         <div class="modal-body">
             <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
