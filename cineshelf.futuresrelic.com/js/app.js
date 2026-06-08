@@ -109,7 +109,8 @@ const App = (function() {
     let shelves = []; // Store shelves for filtering
     let settings = {};
     let selectedMovie = null;
-    
+    let _textPromptResolve = null; // resolver for showTextPrompt()
+
     // API Configuration
     const API_URL = '/api/api.php';
     
@@ -4092,7 +4093,10 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function linkEditionToUmdb(editionId, movieId) {
-        const releaseId = prompt('Enter the UMDB release ID (e.g., rel-abc123):');
+        const releaseId = await showTextPrompt(
+            'Link to UMDB',
+            'Enter the UMDB release ID (e.g. rel-abc123):'
+        );
         if (!releaseId || !releaseId.trim()) return;
         try {
             const result = await apiCall('link_edition_to_umdb', {
@@ -4425,26 +4429,21 @@ async function deleteCopy(copyId, movieId) {
 async function editDisplayTitle(movieId) {
     const group = collection.find(c => c.movie.movie_id === movieId);
     if (!group) return;
-    
     const movie = group.movie;
     const currentDisplay = movie.display_title || movie.title || '';
-    
-    const newTitle = prompt(
-        'Enter custom display name:\n(Leave empty to use original title)',
+    const newTitle = await showTextPrompt(
+        'Custom Display Name',
+        'Leave empty to restore the original title.',
         currentDisplay
     );
-    
     if (newTitle === null) return;
-    
     try {
         await apiCall('update_display_title', {
             movie_id: movieId,
             display_title: newTitle.trim()
         });
-        
         showToast('Display title updated!', 'success');
         loadCollection();
-        
     } catch (error) {
         showToast('Failed to update title', 'error');
     }
@@ -6278,7 +6277,49 @@ function getCertColor(cert) {
             toast.classList.remove('active');
         }, timeout);
     }
-    
+
+    // ========================================
+    // TEXT PROMPT MODAL (replaces browser prompt())
+    // Usage: const val = await showTextPrompt('Title', 'Hint text', 'default', 'text'|'date')
+    // Returns the entered value string, or null if cancelled.
+    // ========================================
+
+    function showTextPrompt(title, hint, defaultValue = '', inputType = 'text') {
+        return new Promise(resolve => {
+            _textPromptResolve = resolve;
+            const modal  = document.getElementById('textPromptModal');
+            const hintEl = document.getElementById('textPromptHint');
+            const input  = document.getElementById('textPromptInput');
+            document.getElementById('textPromptTitle').textContent = title;
+            if (hint) {
+                hintEl.textContent = hint;
+                hintEl.style.display = 'block';
+            } else {
+                hintEl.style.display = 'none';
+            }
+            input.type  = inputType;
+            input.value = defaultValue;
+            modal.classList.add('active');
+            setTimeout(() => { input.focus(); if (inputType === 'text') input.select(); }, 80);
+            input.onkeydown = e => {
+                if (e.key === 'Enter')  { e.preventDefault(); _closeTextPrompt(true); }
+                if (e.key === 'Escape') { e.preventDefault(); _closeTextPrompt(false); }
+            };
+        });
+    }
+
+    function _closeTextPrompt(accepted) {
+        const modal = document.getElementById('textPromptModal');
+        const input = document.getElementById('textPromptInput');
+        if (!modal) return;
+        modal.classList.remove('active');
+        input.onkeydown = null;
+        if (_textPromptResolve) {
+            _textPromptResolve(accepted ? input.value : null);
+            _textPromptResolve = null;
+        }
+    }
+
     // ========================================
     // SETTINGS
     // ========================================
@@ -9191,11 +9232,14 @@ async function confirmResolve(tmdbId, title, year, mediaType = 'movie') {
     }
 
     // Handle "Custom..." dropdown selection — prompt user for value
-    function onCustomDropdown(selectEl) {
+    async function onCustomDropdown(selectEl) {
         if (selectEl.value !== '__custom__') return;
 
         const label = selectEl.previousElementSibling?.textContent || 'value';
-        const custom = prompt(`Enter a custom ${label.replace(' *', '').toLowerCase()}:`);
+        const custom = await showTextPrompt(
+            'Custom Value',
+            `Enter a custom ${label.replace(' *', '').toLowerCase()}:`
+        );
 
         if (custom && custom.trim()) {
             const val = custom.trim();
@@ -9870,9 +9914,13 @@ async function viewGroupMovieDetails(movieId) {
 // ========================================
 
 async function borrowMovie(copyId, title) {
-    const dueDate = prompt(`Borrow "${title}"\n\nDue date (YYYY-MM-DD, optional):`);
+    const dueDate = await showTextPrompt(
+        `Borrow "${title}"`,
+        'Optional due date — leave blank for no due date.',
+        '',
+        'date'
+    );
     if (dueDate === null) return;
-    
     try {
         await apiCall('borrow_copy', { copy_id: copyId, due_date: dueDate || null, notes: '' });
         showToast('Movie borrowed!', 'success');
@@ -12407,12 +12455,11 @@ async function getCurrentUserId() {
         return opts;
     }
 
-    function handleSpreadsheetCustomSelect(selectEl, rowId, field) {
+    async function handleSpreadsheetCustomSelect(selectEl, rowId, field) {
         if (selectEl.value === '__custom__') {
-            const custom = prompt('Enter custom value:');
+            const custom = await showTextPrompt('Custom Value', `Enter a custom ${field}:`);
             if (custom && custom.trim()) {
                 const trimmed = custom.trim();
-                // Add the custom value as an option and select it
                 const opt = document.createElement('option');
                 opt.value = trimmed;
                 opt.textContent = trimmed;
@@ -13244,7 +13291,11 @@ async function getCurrentUserId() {
     }
 
     async function promptSaveCurrentLayout() {
-        const name = prompt('Name for this layout:', 'My Layout ' + new Date().toLocaleDateString());
+        const name = await showTextPrompt(
+            'Save Layout',
+            'Give this shelf arrangement a name.',
+            'My Layout ' + new Date().toLocaleDateString()
+        );
         if (!name) return;
         try {
             const res = await apiCall('create_shelf_layout', { name });
@@ -13284,7 +13335,7 @@ async function getCurrentUserId() {
     }
 
     async function renameLayoutProfile(layoutId, currentName) {
-        const newName = prompt('New name:', currentName);
+        const newName = await showTextPrompt('Rename Layout', '', currentName);
         if (!newName || newName === currentName) return;
         try {
             await apiCall('rename_shelf_layout', { layout_id: layoutId, name: newName });
@@ -13297,8 +13348,8 @@ async function getCurrentUserId() {
     }
 
     async function duplicateLayoutProfile(layoutId) {
-        const name = prompt('Name for the duplicate:', '');
-        if (name === null) return; // cancelled
+        const name = await showTextPrompt('Duplicate Layout', 'Name for the new copy.', '');
+        if (name === null) return;
         try {
             await apiCall('duplicate_shelf_layout', { layout_id: layoutId, name });
             showToast('Layout duplicated', 'success');
@@ -15100,7 +15151,11 @@ return {
     closeOnboarding,
 
     // internal calendar helper used by day cells
-    _calDayClick
+    _calDayClick,
+
+    // Generic text/date prompt modal (replaces browser prompt())
+    showTextPrompt,
+    _closeTextPrompt
 };
 
 })();
