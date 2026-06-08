@@ -12920,11 +12920,11 @@ async function getCurrentUserId() {
             console.error('Camera error:', error);
             closeBoxSetScanner();
             if (error.name === 'NotFoundError') {
-                alert('No camera found on this device');
+                showToast('No camera found on this device', 'error');
             } else if (error.name === 'NotAllowedError') {
-                alert('Camera permission denied. Please allow camera access in your browser settings.');
+                showToast('Camera access denied — check your browser settings', 'error');
             } else {
-                alert('Camera error: ' + error.message);
+                showToast('Camera error: ' + error.message, 'error');
             }
         }
     }
