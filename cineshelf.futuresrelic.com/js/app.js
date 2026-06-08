@@ -1606,7 +1606,7 @@ function renderCollection() {
         const list = PRESET_LISTS[listKey];
         if (!list) return;
 
-        if (!confirm(`Add all ${list.movies.length} movies from "${list.name}" to your wishlist?`)) {
+        if (!await showConfirm(`Add all ${list.movies.length} movies from "${list.name}" to your wishlist?`, 'Add to Wishlist', 'Add All')) {
             return;
         }
 
@@ -3495,7 +3495,7 @@ async function deleteCopy(copyId, movieId) {
 
     async function importUmdbBoxset(movieId, releaseId, boxSetName) {
         if (!releaseId) { showToast('No release ID', 'error'); return; }
-        if (!confirm(`Add the full box set "${boxSetName}" to your collection?\n\nAll included films will be added and grouped together.`)) return;
+        if (!await showConfirm(`Add "${boxSetName}" to your collection? All included films will be added and grouped together.`, 'Import Box Set', 'Add to Collection')) return;
         try {
             const result = await apiCall('import_umdb_boxset', { release_id: releaseId, movie_id: movieId });
             if (result && result.container_id) {
@@ -4011,17 +4011,17 @@ async function deleteCopy(copyId, movieId) {
     // ── End Amazon Import ──────────────────────────────────────────────────
 
     async function pushEditionToUmdb(editionId, movieId) {
-        if (!confirm('Push this edition to UMDB? It will be shared with the universal database.')) return;
+        if (!await showConfirm('Push this edition to UMDB? It will be shared with the universal database.', 'Push to UMDB', 'Push')) return;
         try {
             const result = await apiCall('push_edition_to_umdb', { edition_id: editionId });
             if (result && result.umdb_release_id) {
                 if (result.duplicate) {
                     // Offer the user a chance to correct wrong data on the existing UMDB release
-                    const doUpdate = confirm(
-                        `⚠️ UMDB already has a release with this barcode:\n${result.umdb_release_id}\n\n` +
-                        `Your edition has been linked to it, but the existing UMDB release may have different data ` +
-                        `(e.g. wrong format like Blu-ray instead of DVD).\n\n` +
-                        `Would you like to UPDATE the UMDB release with this edition's current data (format, name, distributor, etc.)?`
+                    const doUpdate = await showConfirm(
+                        `UMDB already has a release with barcode ${result.umdb_release_id}. Your edition has been linked to it.\n\nWould you like to update the UMDB release with this edition's current data?`,
+                        'Update UMDB Release?',
+                        'Update',
+                        'btn'
                     );
                     if (doUpdate) {
                         await _doUpdateUmdbRelease(editionId, movieId);
@@ -4043,7 +4043,7 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function pushCopyToUmdb(copyId, movieId) {
-        if (!confirm('Push this copy to UMDB as a release record?\n\nThis will sync your physical copy details (format, barcode, edition, publisher, etc.) to the Universal Media Database.')) return;
+        if (!await showConfirm('Push this copy to UMDB as a release record? Your physical copy details (format, barcode, edition, publisher) will be synced.', 'Push Copy to UMDB', 'Push')) return;
         try {
             const result = await apiCall('push_copy_to_umdb', { copy_id: copyId });
             if (result && result.umdb_physical_copy_id) {
@@ -4060,7 +4060,7 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function updateUmdbRelease(editionId, movieId) {
-        if (!confirm('Update the UMDB release with this edition\'s current data?\n\nThis will overwrite the format, name, distributor, barcode and other fields on UMDB.')) return;
+        if (!await showConfirm("Update the UMDB release with this edition's current data? This will overwrite the format, name, distributor, and barcode on UMDB.", 'Update UMDB Release', 'Update')) return;
         await _doUpdateUmdbRelease(editionId, movieId);
     }
 
@@ -4118,7 +4118,7 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function unlinkEditionFromUmdb(editionId, movieId) {
-        if (!confirm('Unlink this edition from UMDB? Local data will be kept.')) return;
+        if (!await showConfirm('Unlink this edition from UMDB? Your local data will be kept.', 'Unlink from UMDB', 'Unlink')) return;
         try {
             await apiCall('unlink_edition_from_umdb', { edition_id: editionId });
             showToast('Unlinked from UMDB', 'info');
@@ -4134,7 +4134,7 @@ async function deleteCopy(copyId, movieId) {
     // ========================================
 
     async function pushBoxSetToUmdb(containerId) {
-        if (!confirm('Push this box set to UMDB? It will be shared with the universal database.')) return;
+        if (!await showConfirm('Push this box set to UMDB? It will be shared with the universal database.', 'Push Box Set to UMDB', 'Push')) return;
         try {
             const result = await apiCall('push_boxset_to_umdb', { container_id: containerId });
             showToast(`Pushed to UMDB: ${result.umdb_boxset_id}`, 'success');
@@ -4185,7 +4185,7 @@ async function deleteCopy(copyId, movieId) {
     }
 
     async function unlinkBoxSetFromUmdb(containerId) {
-        if (!confirm('Remove UMDB link? Local data and cover will be cleared.')) return;
+        if (!await showConfirm('Remove UMDB link? Local data and cover art will be cleared.', 'Unlink from UMDB', 'Unlink', 'btn btn-danger')) return;
         try {
             await apiCall('unlink_boxset_from_umdb', { container_id: containerId });
             showToast('Unlinked from UMDB', 'info');
@@ -4204,7 +4204,7 @@ async function deleteCopy(copyId, movieId) {
         const progress = document.getElementById('umdbSyncProgress');
         if (!btn || !progress) return;
 
-        if (!confirm('Sync your CineShelf collection to UMDB?\n\nPhase 1: Physical editions\nPhase 2: Box sets\nPhase 3: Individual films (not in box sets)\n\nAlready-synced items are skipped. Safe to run multiple times.')) return;
+        if (!await showConfirm('Sync your collection to UMDB? Runs in three phases: physical editions, box sets, then individual films. Already-synced items are skipped — safe to run multiple times.', 'Sync to UMDB', 'Sync Now')) return;
 
         btn.disabled = true;
         btn.textContent = 'Syncing…';
@@ -4323,7 +4323,7 @@ async function deleteCopy(copyId, movieId) {
         const progress = document.getElementById('umdbSyncProgress');
         if (!btn || !progress) return;
 
-        if (!confirm('Force Resync will clear all stored UMDB IDs and re-push EVERYTHING — all box sets AND all individual films — to UMDB.\n\nUse this after clearing the UMDB database.\n\nContinue?')) return;
+        if (!await showConfirm('Force Resync clears all stored UMDB IDs and re-pushes everything. Use this only after clearing the UMDB database.', 'Force Resync to UMDB', 'Force Resync', 'btn btn-danger')) return;
 
         btn.disabled = true;
         const syncBtn = document.getElementById('syncCollectionBtn');
@@ -7136,12 +7136,9 @@ function getCertColor(cert) {
                 }
 
                 // Confirm import
-                const confirmMsg = `Import ${movies.length} movies from CSV?\n\n` +
-                    `✅ Movies with TMDB IDs → Added directly to Collection/Wishlist\n` +
-                    `❓ Movies without TMDB IDs → Sent to Resolve for manual matching\n\n` +
-                    `This will be quick - no automatic searching!`;
+                const confirmMsg = `Import ${movies.length} movies?\n\nMovies with TMDB IDs go straight to your collection. Movies without go to the Resolve tab for matching.`;
 
-                if (!confirm(confirmMsg)) {
+                if (!await showConfirm(confirmMsg, `Import ${movies.length} Movies`, 'Import')) {
                     return;
                 }
 
@@ -10716,8 +10713,8 @@ async function getCurrentUserId() {
         `;
     }
 
-    function quitTrivia() {
-        if (confirm('Are you sure you want to quit? Your progress will be saved.')) {
+    async function quitTrivia() {
+        if (await showConfirm('Quit the current game? Your progress will be saved.', 'Quit Trivia', 'Quit')) {
             if (triviaState.timerInterval) {
                 clearInterval(triviaState.timerInterval);
             }
@@ -12737,7 +12734,7 @@ async function getCurrentUserId() {
             return;
         }
 
-        if (!confirm(`Fetch TMDB data for ${missing.length} entries with missing info?`)) return;
+        if (!await showConfirm(`Fetch TMDB data for ${missing.length} entries with missing info?`, 'Fetch Missing Data', 'Fetch')) return;
 
         showToast(`Fetching data for ${missing.length} entries...`, 'info');
         let updated = 0;
@@ -13122,8 +13119,8 @@ async function getCurrentUserId() {
         updateBoxSetScanCount();
     }
 
-    function clearBoxSetScanList() {
-        if (boxSetScanList.length > 0 && !confirm('Clear all scanned titles?')) return;
+    async function clearBoxSetScanList() {
+        if (boxSetScanList.length > 0 && !await showConfirm('Clear all scanned titles?', 'Clear List', 'Clear')) return;
         boxSetScanList = [];
         renderBoxSetScanList();
         updateBoxSetScanCount();
@@ -13234,7 +13231,7 @@ async function getCurrentUserId() {
             showToast('Switched to default layout', 'success');
         } else {
             const layoutId = parseInt(val);
-            if (!confirm('Apply this layout? Your current shelf arrangement will be replaced by this profile.')) {
+            if (!await showConfirm('Apply this layout? Your current shelf arrangement will be replaced.', 'Apply Layout', 'Apply')) {
                 _renderLayoutSelector(); // re-render to restore previous selection
                 return;
             }
@@ -13339,7 +13336,7 @@ async function getCurrentUserId() {
     }
 
     async function applyLayoutProfile(layoutId) {
-        if (!confirm('Apply this layout? Your current shelf arrangement will be replaced.')) return;
+        if (!await showConfirm('Apply this layout? Your current shelf arrangement will be replaced.', 'Apply Layout', 'Apply')) return;
         try {
             await apiCall('apply_shelf_layout', { layout_id: layoutId });
             await apiCall('set_active_shelf_layout', { layout_id: layoutId });
@@ -13352,7 +13349,7 @@ async function getCurrentUserId() {
     }
 
     async function deleteLayoutProfile(layoutId) {
-        if (!confirm('Delete this layout profile? This cannot be undone.')) return;
+        if (!await showConfirm('Delete this layout profile? This cannot be undone.', 'Delete Layout', 'Delete', 'btn btn-danger')) return;
         try {
             await apiCall('delete_shelf_layout', { layout_id: layoutId });
             showToast('Layout deleted', 'success');
@@ -14435,7 +14432,7 @@ async function getCurrentUserId() {
     }
 
     async function deleteView(viewId, movieId) {
-        if (!confirm('Remove this viewing record?')) return;
+        if (!await showConfirm('Remove this viewing record?', 'Remove Record', 'Remove', 'btn btn-danger')) return;
         try {
             await apiCall('delete_view', { view_id: viewId });
             showToast('Removed', 'info');
@@ -14677,7 +14674,7 @@ async function getCurrentUserId() {
     }
 
     async function deleteFamilyMemberFromManager(memberId) {
-        if (!confirm('Remove this family member? Their viewing records will also be removed.')) return;
+        if (!await showConfirm('Remove this family member? Their viewing records will also be removed.', 'Remove Member', 'Remove', 'btn btn-danger')) return;
         try {
             await apiCall('family_member_delete', { member_id: memberId });
             showToast('Member removed', 'info');
@@ -14755,7 +14752,7 @@ async function getCurrentUserId() {
     }
 
     async function deleteFamilyMember(memberId) {
-        if (!confirm('Remove this family member? Their ratings will also be removed.')) return;
+        if (!await showConfirm('Remove this family member? Their ratings will also be removed.', 'Remove Member', 'Remove', 'btn btn-danger')) return;
         try {
             await apiCall('family_member_delete', { member_id: memberId });
             showToast('Member removed', 'info');

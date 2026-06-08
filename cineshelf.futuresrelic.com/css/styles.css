@@ -7230,7 +7230,7 @@ body.modal-open {
 
 .spreadsheet-change-count {
     font-size: 0.85rem;
-    color: #f59e0b;
+    color: var(--warning);
     font-weight: 600;
     padding: 0.3rem 0.6rem;
     background: rgba(245, 158, 11, 0.1);
@@ -7364,7 +7364,7 @@ body.modal-open {
 }
 
 .spreadsheet-table .spreadsheet-cell-changed {
-    border-color: #f59e0b !important;
+    border-color: var(--warning) !important;
     background: rgba(245, 158, 11, 0.1) !important;
 }
 
@@ -8086,7 +8086,7 @@ body.modal-open {
 .component-row .btn-icon {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    color: var(--error);
     width: 28px;
     height: 28px;
     border-radius: 6px;
